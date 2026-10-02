@@ -2,6 +2,7 @@ package xyz.buckspay.hardwarekeys
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertArrayEquals
@@ -113,6 +114,36 @@ class EnvelopeTest {
     assertThrows(IllegalArgumentException::class.java) { configuration.configure("devnet", ByteArray(31)) }
     assertNull(configuration.domains)
     assertEquals("ERR_UNKNOWN_CLUSTER", UnknownClusterException().code)
+  }
+
+  @Test
+  fun deviceBindingsMatchTheProtocolVectors() {
+    val deviceDomain = domains.bytes("device")
+    for (vector in vectors.getValue("device_bindings").jsonArray.map { it.jsonObject }) {
+      val name = vector.getValue("name").jsonPrimitive.content
+      val error = vector.getValue("error").jsonPrimitive.content
+      val build = { Envelope.deviceBinding(deviceDomain, vector.bytes("wallet"), vector.bytes("device")) }
+      if (error.isEmpty()) {
+        assertArrayEquals(name, vector.bytes("envelope"), build())
+      } else {
+        assertThrows(name, IllegalArgumentException::class.java) { build() }
+      }
+    }
+    val wallet = ByteArray(32)
+    val key = ByteArray(33) { 2 }
+    assertThrows(IllegalArgumentException::class.java) { Envelope.deviceBinding(deviceDomain, ByteArray(31), key) }
+    assertThrows(IllegalArgumentException::class.java) { Envelope.deviceBinding(deviceDomain, wallet, ByteArray(32) { 2 }) }
+    assertThrows(IllegalArgumentException::class.java) { Envelope.deviceBinding(ByteArray(31), wallet, key) }
+  }
+
+  @Test
+  fun compressesKeystorePublicKeys() {
+    val fixture = Json.parseToJsonElement(File("../../../src/keys/fixtures/p256-der.json").readText()).jsonObject
+    val cases = fixture.getValue("cases").jsonArray.map { it.jsonObject }
+    for (case in cases) assertArrayEquals(case.bytes("sec1"), Envelope.compressed(case.bytes("spki")))
+    val spki = cases.first().bytes("spki")
+    assertThrows(IllegalArgumentException::class.java) { Envelope.compressed(spki.copyOf(90)) }
+    assertThrows(IllegalArgumentException::class.java) { Envelope.compressed(spki.copyOf().also { it[0] = 0 }) }
   }
 
   private fun JsonObject.bytes(key: String) = HexFormat.of().parseHex(getValue(key).jsonPrimitive.content)

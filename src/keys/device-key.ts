@@ -1,6 +1,6 @@
 import { equalBytes } from '@noble/curves/utils.js'
 import { BUCKSPAY_PROGRAM_ADDRESS } from '@project/anchor'
-import { getAddressEncoder } from '@solana/kit'
+import { type Address, getAddressEncoder } from '@solana/kit'
 import HardwareKeys, {
   type Cluster,
   type KeyRecord,
@@ -11,6 +11,7 @@ import {
   checkIssue,
   checkSpendStep,
   content,
+  deviceBindingEnvelope,
   DEVNET_GENESIS_HASH,
   domain,
   encodeIssueBody,
@@ -28,6 +29,17 @@ import {
 } from '../protocol'
 import { compactLowS, sec1FromSpki } from './convert'
 
+export type { Cluster }
+
+export type DeviceBinding = {
+  /** SEC1 compressed, 33 bytes. */
+  key: Uint8Array
+  /** Compact low-S. */
+  signature: Uint8Array
+  /** The 96-byte message `register_device` rebuilds and the secp256r1 program verifies. */
+  envelope: Uint8Array
+}
+
 export type DeviceKey = {
   /** SEC1 compressed, 33 bytes. */
   publicKey: Uint8Array
@@ -39,6 +51,7 @@ export type DeviceKey = {
 const GENESIS_HASH = { devnet: DEVNET_GENESIS_HASH, mainnet: MAINNET_GENESIS_HASH }
 const PROGRAM_ID = Uint8Array.from(getAddressEncoder().encode(BUCKSPAY_PROGRAM_ADDRESS))
 
+let configured: Cluster | undefined
 let genesisHash: Uint8Array | undefined
 let publicKey: Uint8Array | undefined
 
@@ -50,8 +63,12 @@ function deviceKey(record: KeyRecord): DeviceKey {
 /** Binds every signature to `cluster` and the program built into the app, once per process. */
 export function configureDeviceKey(cluster: Cluster) {
   HardwareKeys.configure(cluster, PROGRAM_ID)
+  configured = cluster
   genesisHash = GENESIS_HASH[cluster]
 }
+
+/** The cluster `configureDeviceKey` bound signatures to, if it was called. */
+export const deviceKeyCluster = (): Cluster | undefined => configured
 
 /** Creates the device key if it does not exist; never replaces an existing one. */
 export async function createDeviceKey(): Promise<DeviceKey> {
@@ -81,6 +98,11 @@ async function ownKey(): Promise<Uint8Array> {
   return key
 }
 
+function domainOf(purpose: typeof Purpose.Note | typeof Purpose.Device | SignedPurpose): Uint8Array {
+  if (!genesisHash) throw new Error('configureDeviceKey must be called before signing')
+  return domain(purpose, genesisHash, PROGRAM_ID)
+}
+
 /** Returns the native signature over `DOMAIN(purpose) ‖ slot ‖ body` as compact low-S, once it verifies. */
 async function verified(
   purpose: typeof Purpose.Note | SignedPurpose,
@@ -88,9 +110,8 @@ async function verified(
   body: Uint8Array,
   sign: () => Promise<Uint8Array>,
 ): Promise<Uint8Array> {
-  if (!genesisHash) throw new Error('configureDeviceKey must be called before signing')
+  const message = envelope(domainOf(purpose), slot, body)
   const key = await ownKey()
-  const message = envelope(domain(purpose, genesisHash, PROGRAM_ID), slot, body)
   const signature = compactLowS(await sign())
   verifySignature(key, message, signature)
   return signature
@@ -122,3 +143,17 @@ const signed = (purpose: SignedPurpose) => (slot: Uint8Array, digest: Uint8Array
 
 // Its message is not defined yet: internal to `src/keys` until it is.
 export const signWitness = signed(Purpose.Witness)
+
+/**
+ * Signs this device key's consent to being bound to `wallet`, for `register_device`. The native
+ * module builds the message from the key it holds; this checks it is the binding the program rebuilds.
+ */
+export async function signDeviceBinding(wallet: Address): Promise<DeviceBinding> {
+  const deviceDomain = domainOf(Purpose.Device)
+  const key = await ownKey()
+  const slot = Uint8Array.from(getAddressEncoder().encode(wallet))
+  const message = deviceBindingEnvelope(deviceDomain, slot, key)
+  const signature = compactLowS(await HardwareKeys.signDeviceBinding(slot))
+  verifySignature(key, message, signature)
+  return { key, signature, envelope: message }
+}

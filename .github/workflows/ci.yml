@@ -93,9 +93,9 @@ jobs:
         with:
           workspaces: anchor
       - run: cargo fmt --check
-      - run: anchor build
-      - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test
+      - run: anchor build -- --features devnet
+      - run: cargo clippy --all-targets --features buckspay/devnet -- -D warnings
+      - run: cargo test --features buckspay/devnet
       - run: cargo test -p buckspay-protocol --features verify
       - run: cargo clippy -p buckspay-protocol --all-targets --features verify -- -D warnings
       - run: cargo build-sbf --manifest-path crates/protocol/Cargo.toml --arch v3 --tools-version v1.57
@@ -113,3 +113,69 @@ jobs:
           cache: true
           require-lockfile: true
       - run: pnpm exec expo install --check
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: solana-foundation/github-actions/setup-all@v0.2.15
+        with:
+          solana_version: 4.3.0
+          anchor_version: 1.2.0
+      - run: rustup toolchain install
+        working-directory: anchor
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: anchor
+      - run: anchor build -- --features devnet
+        working-directory: anchor
+      - name: Start a local validator with the program
+        run: |
+          solana-test-validator --reset --quiet --ledger "$RUNNER_TEMP/ledger" \
+            --bpf-program "$(jq -r .address anchor/target/idl/buckspay.json)" anchor/target/deploy/buckspay.so &
+          until solana cluster-version -u localhost; do sleep 1; done
+      # A localnet test build: the bundle talks to the validator forwarded to the emulator's localhost.
+      - run: pnpm exec expo prebuild -p android --clean
+        env:
+          EXPO_PUBLIC_NETWORK: localnet
+      - run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=x86_64
+        working-directory: android
+        env:
+          EXPO_PUBLIC_NETWORK: localnet
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | MAESTRO_VERSION=2.11.0 bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Enable KVM
+        run: |
+          echo KERNEL==kvm, GROUP=kvm, MODE=0666, OPTIONS+=static_node=kvm | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          script: |
+            adb install android/app/build/outputs/apk/release/app-release.apk
+            pnpm dlx solana-mobile@0.5.0 device install fakewallet
+            adb reverse tcp:8899 tcp:8899
+            maestro test .maestro/onboarding-localnet.yaml
+            maestro test .maestro/restart.yaml
+            adb shell cmd connectivity airplane-mode enable
+            adb reverse --remove tcp:8899
+            maestro test .maestro/offline.yaml
+            adb shell cmd connectivity airplane-mode disable
+            adb reverse tcp:8899 tcp:8899
+            maestro test .maestro/revoked.yaml
+            maestro test .maestro/confirming.yaml

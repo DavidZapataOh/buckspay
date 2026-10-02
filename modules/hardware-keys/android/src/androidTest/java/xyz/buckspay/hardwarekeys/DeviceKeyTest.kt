@@ -40,6 +40,7 @@ import java.security.UnrecoverableKeyException
 import java.security.cert.Certificate
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
+import java.security.interfaces.ECPublicKey
 import java.security.spec.X509EncodedKeySpec
 import java.util.Date
 import java.util.Enumeration
@@ -177,6 +178,18 @@ class DeviceKeyTest {
   }
 
   @Test
+  fun signsTheBindingOfItsOwnKeyAndNoOtherDeviceMessage() {
+    val publicKey = key.create(domains, challenge).publicKey
+    val wallet = ByteArray(32) { 9 }
+    val binding = Envelope.deviceBinding(domains.of("device"), wallet, compressed(publicKey))
+    assertTrue(verifies(publicKey, binding, key.signDeviceBinding(domains, wallet)))
+    val other = Envelope.deviceBinding(domains.of("device"), ByteArray(32) { 8 }, compressed(publicKey))
+    assertFalse(verifies(publicKey, other, key.signDeviceBinding(domains, wallet)))
+    assertThrows(InvalidEnvelopeException::class.java) { key.signDeviceBinding(domains, ByteArray(31)) }
+    assertThrows(InvalidEnvelopeException::class.java) { key.sign(domains, "device", wallet, binding.copyOfRange(64, 96)) }
+  }
+
+  @Test
   fun rejectsInvalidEnvelopesAndMissingKeys() {
     assertThrows(KeyNotFoundException::class.java) { key.signNote(domains, slot, content) }
     assertThrows(KeyNotFoundException::class.java) { key.sign(domains, "witness", slot, content) }
@@ -245,6 +258,7 @@ class DeviceKeyTest {
       lock()
       assertThrows(DeviceLockedException::class.java) { key.signNote(domains, slot, content) }
       assertThrows(DeviceLockedException::class.java) { key.sign(domains, "witness", slot, content) }
+      assertThrows(DeviceLockedException::class.java) { key.signDeviceBinding(domains, slot) }
       if (DeviceKey.UNLOCKED_DEVICE_REQUIRED) {
         val refused = assertThrows(GeneralSecurityException::class.java) { rawSign(privateKey) }
         Log.i(TAG, "Keystore while locked: ${refused.javaClass.name}: ${refused.message}")
@@ -264,6 +278,7 @@ class DeviceKeyTest {
         lock()
         assertThrows(DeviceLockedException::class.java) { unenforced.signNote(domains, slot, content) }
         assertThrows(DeviceLockedException::class.java) { unenforced.sign(domains, "witness", slot, content) }
+        assertThrows(DeviceLockedException::class.java) { unenforced.signDeviceBinding(domains, slot) }
         rawSign(privateKey)
         unlock(pin)
         unenforced.signNote(domains, slot, content)
@@ -541,6 +556,14 @@ class DeviceKeyTest {
     }
   }
 
+  /** SEC1 compressed point of an X.509 key, computed through the platform's key factory. */
+  private fun compressed(spki: ByteArray): ByteArray {
+    val point = (KeyFactory.getInstance("EC").generatePublic(X509EncodedKeySpec(spki)) as ECPublicKey).w
+    val x = point.affineX.toByteArray()
+    val unsigned = x.copyOfRange(maxOf(0, x.size - 32), x.size)
+    return byteArrayOf(if (point.affineY.testBit(0)) 0x03 else 0x02) + ByteArray(32 - unsigned.size) + unsigned
+  }
+
   private fun certificate(encoded: ByteArray) =
     CertificateFactory.getInstance("X.509").generateCertificate(encoded.inputStream()) as X509Certificate
 
@@ -567,6 +590,7 @@ class DeviceKeyTest {
     listOf(
       { key.signNote(domains, slot, content) },
       { key.sign(domains, "witness", slot, content) },
+      { key.signDeviceBinding(domains, slot) },
     )
 
   /** Runs `block` with the system clock moved `millis` ahead, then moves it back by as much. */

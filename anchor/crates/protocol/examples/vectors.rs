@@ -1,4 +1,5 @@
 use buckspay_protocol::cluster::{DEVNET_GENESIS_HASH, MAINNET_GENESIS_HASH};
+use buckspay_protocol::device::{device_binding_body, device_binding_envelope};
 use buckspay_protocol::hash::{content, domain, envelope, message_id, output_id, purpose};
 use buckspay_protocol::verify::{
     recover_issue_signer, recover_spend_signer, recovery_id, verify_issue_conflict, verify_payment,
@@ -142,6 +143,38 @@ fn ticket(device: &Key, bond: u64, backing: u64) -> BondTicket {
         attester: 1,
         signature: [0; 64],
     }
+}
+
+fn device_binding(
+    name: &str,
+    domain: &[u8; 32],
+    wallet: &[u8; 32],
+    device: &Key,
+    key: [u8; 33],
+) -> Value {
+    let (body, envelope, signature, error) = match device_binding_envelope(domain, wallet, &key) {
+        Ok(envelope) => (
+            hex(&device_binding_body(wallet, &key).unwrap()),
+            hex(&envelope),
+            hex(&device.sign(&envelope)),
+            String::new(),
+        ),
+        Err(error) => (
+            String::new(),
+            String::new(),
+            String::new(),
+            format!("{error:?}"),
+        ),
+    };
+    json!({
+        "name": name,
+        "wallet": hex(wallet),
+        "device": hex(&key),
+        "body": body,
+        "envelope": envelope,
+        "signature": signature,
+        "error": error,
+    })
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -1278,6 +1311,14 @@ fn vectors() -> Value {
         let derived = buckspay_protocol::hash::domain(purpose, &DEVNET_GENESIS_HASH, &PROGRAM_ID);
         domains_json.insert(name.into(), json!(hex(&derived)));
     }
+    let device_domain =
+        buckspay_protocol::hash::domain(purpose::DEVICE, &DEVNET_GENESIS_HASH, &PROGRAM_ID);
+    let uncompressed = {
+        let mut key = alice.public;
+        key[0] = 0x04;
+        key
+    };
+    let account_owner = Owner::Account([0xa1; 32]).encode();
     let at = |me: Owner| domains.receiver(me, NOW);
     let keys = [&issuer, &alice, &bob, &carol, &mallory].map(|key| {
         json!({ "name": key.name, "secret": hex(&[key.seed; 32]), "public": hex(&key.public) })
@@ -1326,6 +1367,12 @@ fn vectors() -> Value {
         ],
         "invalid": invalid_cases.into_iter().map(|case| invalid(&domains, case)).collect::<Vec<_>>(),
         "conflicts": spend_conflicts.into_iter().chain(issue_conflicts).collect::<Vec<_>>(),
+        "device_bindings": [
+            device_binding("alice_to_wallet", &device_domain, &[0xa1; 32], &alice, alice.public),
+            device_binding("bob_to_merchant", &device_domain, &MERCHANT_ADDRESS, &bob, bob.public),
+            device_binding("uncompressed_key", &device_domain, &[0xa1; 32], &alice, uncompressed),
+            device_binding("account_as_key", &device_domain, &[0xa1; 32], &alice, account_owner),
+        ],
     })
 }
 

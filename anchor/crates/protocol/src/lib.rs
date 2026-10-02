@@ -3,6 +3,7 @@
 pub mod caveats;
 pub mod cluster;
 pub mod conflict;
+pub mod device;
 pub mod error;
 pub use conflict::{IssueClaim, IssueConflict, SpendConflict};
 pub mod message;

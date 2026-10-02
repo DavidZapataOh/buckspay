@@ -6,7 +6,143 @@
  * @see https://github.com/codama-idl/codama
  */
 
-import type { Address } from '@solana/kit'
+import {
+  assertIsInstructionWithAccounts,
+  containsBytes,
+  extendClient,
+  fixEncoderSize,
+  getBytesEncoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_ACCOUNT,
+  SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION,
+  SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE,
+  SolanaError,
+  type Address,
+  type ClientWithRpc,
+  type ClientWithTransactionPlanning,
+  type ClientWithTransactionSending,
+  type ExtendedClient,
+  type GetAccountInfoApi,
+  type GetMultipleAccountsApi,
+  type Instruction,
+  type InstructionWithData,
+  type ReadonlyUint8Array,
+} from '@solana/kit'
+import {
+  addSelfFetchFunctions,
+  addSelfPlanAndSendFunctions,
+  type SelfFetchFunctions,
+  type SelfPlanAndSendFunctions,
+} from '@solana/kit/program-client-core'
+import { getDeviceCodec, type Device, type DeviceArgs } from '../accounts'
+import {
+  getRegisterDeviceInstruction,
+  parseRegisterDeviceInstruction,
+  type ParsedRegisterDeviceInstruction,
+  type RegisterDeviceInput,
+} from '../instructions'
 
 export const BUCKSPAY_PROGRAM_ADDRESS =
   'zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM' as Address<'zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM'>
+
+export enum BuckspayAccount {
+  Device,
+}
+
+export function identifyBuckspayAccount(account: { data: ReadonlyUint8Array } | ReadonlyUint8Array): BuckspayAccount {
+  const data = 'data' in account ? account.data : account
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([153, 248, 23, 39, 83, 45, 68, 128])),
+      0,
+    )
+  ) {
+    return BuckspayAccount.Device
+  }
+  throw new SolanaError(SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_ACCOUNT, {
+    accountData: data,
+    programName: 'buckspay',
+  })
+}
+
+export enum BuckspayInstruction {
+  RegisterDevice,
+}
+
+export function identifyBuckspayInstruction(
+  instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
+): BuckspayInstruction {
+  const data = 'data' in instruction ? instruction.data : instruction
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([210, 151, 56, 68, 22, 158, 90, 193])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.RegisterDevice
+  }
+  throw new SolanaError(SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION, {
+    instructionData: data,
+    programName: 'buckspay',
+  })
+}
+
+export type ParsedBuckspayInstruction<TProgram extends string = 'zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM'> = {
+  instructionType: BuckspayInstruction.RegisterDevice
+} & ParsedRegisterDeviceInstruction<TProgram>
+
+export function parseBuckspayInstruction<TProgram extends string>(
+  instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
+): ParsedBuckspayInstruction<TProgram> {
+  const instructionType = identifyBuckspayInstruction(instruction)
+  switch (instructionType) {
+    case BuckspayInstruction.RegisterDevice: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.RegisterDevice, ...parseRegisterDeviceInstruction(instruction) }
+    }
+    default:
+      throw new SolanaError(SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE, {
+        instructionType: instructionType as string,
+        programName: 'buckspay',
+      })
+  }
+}
+
+export type BuckspayPlugin = {
+  accounts: BuckspayPluginAccounts
+  instructions: BuckspayPluginInstructions
+  identifyAccount: typeof identifyBuckspayAccount
+  identifyInstruction: typeof identifyBuckspayInstruction
+  parseInstruction: typeof parseBuckspayInstruction
+}
+
+export type BuckspayPluginAccounts = {
+  device: ReturnType<typeof getDeviceCodec> & SelfFetchFunctions<DeviceArgs, Device>
+}
+
+export type BuckspayPluginInstructions = {
+  registerDevice: (
+    input: RegisterDeviceInput,
+  ) => ReturnType<typeof getRegisterDeviceInstruction> & SelfPlanAndSendFunctions
+}
+
+export type BuckspayPluginRequirements = ClientWithRpc<GetAccountInfoApi & GetMultipleAccountsApi> &
+  ClientWithTransactionPlanning &
+  ClientWithTransactionSending
+
+export function buckspayProgram() {
+  return <T extends BuckspayPluginRequirements>(client: T): ExtendedClient<T, { buckspay: BuckspayPlugin }> => {
+    return extendClient(client, {
+      buckspay: <BuckspayPlugin>{
+        accounts: { device: addSelfFetchFunctions(client, getDeviceCodec()) },
+        instructions: {
+          registerDevice: (input) => addSelfPlanAndSendFunctions(client, getRegisterDeviceInstruction(input)),
+        },
+        identifyAccount: identifyBuckspayAccount,
+        identifyInstruction: identifyBuckspayInstruction,
+        parseInstruction: parseBuckspayInstruction,
+      },
+    })
+  }
+}

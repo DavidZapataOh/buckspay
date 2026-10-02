@@ -1,0 +1,19 @@
+# A registered device opens ready without a connection. Run it with airplane mode on and the
+# validator no longer forwarded to the device: the registration comes from what the app stored,
+# and the background check against Solana, which fails, changes nothing.
+appId: xyz.buckspay.app
+---
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: device-ready
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 5000
+- assertVisible:
+    id: device-ready
+- assertNotVisible:
+    id: home-unreachable
+- assertNotVisible:
+    id: setup-payments

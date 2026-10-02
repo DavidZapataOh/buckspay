@@ -26,6 +26,11 @@ declare class HardwareKeysModule extends NativeModule {
   signNote(slot: Uint8Array, content: Uint8Array): Promise<Uint8Array>
   /** DER signature over `DOMAIN(purpose) ‖ slot ‖ content`. */
   sign(purpose: SignedPurpose, slot: Uint8Array, content: Uint8Array): Promise<Uint8Array>
+  /**
+   * DER signature over this device key's consent to being bound to `wallet` (32 bytes), a message
+   * the module builds from the key: `DOMAIN(device) ‖ wallet ‖ SHA-256(ver ‖ 0x50 ‖ wallet ‖ key)`.
+   */
+  signDeviceBinding(wallet: Uint8Array): Promise<Uint8Array>
   /** Deletes the key, its creation marker and its note guards; the next `createKey` is a new identity. */
   resetKey(): Promise<void>
 }

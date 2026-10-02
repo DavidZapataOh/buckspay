@@ -7,6 +7,7 @@ pub mod kind {
     pub const BOND_TICKET: u8 = 0x10;
     pub const SPEND_CONFLICT: u8 = 0x20;
     pub const ISSUE_CONFLICT: u8 = 0x21;
+    pub const DEVICE_BINDING: u8 = 0x50;
 }
 
 pub const NO_LOCK: u32 = u32::MAX;

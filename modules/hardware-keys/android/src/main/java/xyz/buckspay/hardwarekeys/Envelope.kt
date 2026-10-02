@@ -14,6 +14,9 @@ internal object Envelope {
   /** The purposes this device signs; the others are signed once their messages are defined. */
   val SIGNED = setOf("note", "witness")
   private val TAG = "BUCKSPAY:v1:".toByteArray(Charsets.US_ASCII)
+  private const val VERSION: Byte = 1
+  private const val DEVICE_BINDING: Byte = 0x50
+  private val SPKI_P256_PREFIX = hex("3059301306072a8648ce3d020106082a8648ce3d030107034200")
 
   /** Genesis hashes of the clusters the app signs for, pinned here and never read from a node. */
   val GENESIS_HASHES =
@@ -45,6 +48,28 @@ internal object Envelope {
   ): ByteArray {
     require(domain.size == 32 && slot.size == 32 && content.size == 32) { "envelope parts are 32 bytes" }
     return domain + slot + content
+  }
+
+  /**
+   * `DOMAIN(device) ‖ wallet ‖ SHA-256(ver ‖ 0x50 ‖ wallet ‖ key)`: the device key `key`, SEC1
+   * compressed, consents to being bound to `wallet`.
+   */
+  fun deviceBinding(
+    deviceDomain: ByteArray,
+    wallet: ByteArray,
+    key: ByteArray,
+  ): ByteArray {
+    require(wallet.size == 32) { "a wallet is 32 bytes" }
+    require(key.size == 33 && (key[0] == 0x02.toByte() || key[0] == 0x03.toByte())) { "a device key is a compressed point" }
+    val body = byteArrayOf(VERSION, DEVICE_BINDING) + wallet + key
+    return build(deviceDomain, wallet, MessageDigest.getInstance("SHA-256").digest(body))
+  }
+
+  /** The SEC1 compressed point of a P-256 X.509 public key in the encoding Keystore returns. */
+  fun compressed(spki: ByteArray): ByteArray {
+    require(spki.size == 91 && spki.copyOf(SPKI_P256_PREFIX.size).contentEquals(SPKI_P256_PREFIX)) { "not a P-256 X.509 key" }
+    val parity: Byte = if (spki[90].toInt() and 1 == 0) 0x02 else 0x03
+    return byteArrayOf(parity) + spki.copyOfRange(27, 59)
   }
 
   private fun hex(value: String) = value.chunked(2).map { it.toInt(16).toByte() }.toByteArray()

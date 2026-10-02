@@ -13,9 +13,9 @@ buckspay = "zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM"
 
 [provider]
 cluster = "localnet"
-wallet = "~/.config/solana/id.json"
+wallet = "~/.config/buckspay/deployer.json"
 
 [scripts]
-test = "cargo test"
+test = "cargo test --features buckspay/devnet"
 
 [hooks]

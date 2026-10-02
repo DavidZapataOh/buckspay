@@ -1,0 +1,13 @@
+# A registered device restarts straight into the app, without any wallet prompt.
+appId: xyz.buckspay.app
+---
+- stopApp
+- stopApp: com.solana.mobilewalletadapter.fakewallet
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: device-ready
+    timeout: 30000
+- assertNotVisible: AUTHORIZE
+- assertNotVisible:
+    id: setup-payments

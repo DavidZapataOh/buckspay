@@ -12,6 +12,8 @@ import {
   decodeOwner,
   decodeSpend,
   decodeSpendConflict,
+  deviceBindingBody,
+  deviceBindingEnvelope,
   DEVNET_GENESIS_HASH,
   domain,
   encodeBondTicket,
@@ -44,6 +46,7 @@ import {
   verifyIssueConflict,
   verifyPayment,
   verifySettlement,
+  verifySignature,
   verifySpendConflict,
 } from '.'
 
@@ -292,6 +295,35 @@ describe('conflicts', () => {
       }
     })
   }
+})
+
+describe('device bindings', () => {
+  const DEVICE_DOMAIN = hexToBytes(vectors.domain.device)
+  for (const vector of vectors.device_bindings) {
+    it(`${vector.name} ${vector.error ? `fails with ${vector.error}` : 'matches Rust'}`, () => {
+      const wallet = hexToBytes(vector.wallet)
+      const key = hexToBytes(vector.device)
+      if (vector.error) {
+        expect(() => deviceBindingEnvelope(DEVICE_DOMAIN, wallet, key)).toThrow(
+          expect.objectContaining({ name: 'ProtocolError', code: vector.error }),
+        )
+        return
+      }
+      expect(bytesToHex(deviceBindingBody(wallet, key))).toBe(vector.body)
+      const message = deviceBindingEnvelope(DEVICE_DOMAIN, wallet, key)
+      expect(bytesToHex(message)).toBe(vector.envelope)
+      verifySignature(key, message, hexToBytes(vector.signature))
+    })
+  }
+
+  it('rejects a wallet or key of the wrong width', () => {
+    const [vector] = vectors.device_bindings
+    const wallet = hexToBytes(vector.wallet)
+    const key = hexToBytes(vector.device)
+    const length = expect.objectContaining({ name: 'ProtocolError', code: 'Length' })
+    expect(() => deviceBindingBody(wallet.subarray(1), key)).toThrow(length)
+    expect(() => deviceBindingBody(wallet, key.subarray(1))).toThrow(length)
+  })
 })
 
 describe('spend steps', () => {

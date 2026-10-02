@@ -179,12 +179,18 @@ importers:
       '@noble/hashes':
         specifier: 2.4.0
         version: 2.4.0
+      '@react-native-async-storage/async-storage':
+        specifier: 2.2.0
+        version: 2.2.0(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.87.1(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))
+      '@solana-mobile/mobile-wallet-adapter-protocol':
+        specifier: 2.3.0
+        version: 2.3.0(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.87.1(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(typescript@6.0.3)
+      '@solana-program/compute-budget':
+        specifier: 0.17.0
+        version: 0.17.0(@solana/kit@7.1.1(typescript@6.0.3))
       '@solana/kit':
         specifier: ^7.0.0
         version: 7.1.1(typescript@6.0.3)
-      '@tanstack/react-query':
-        specifier: ^5.90.7
-        version: 5.104.0(react@19.2.3)
       '@wallet-ui/react-native-kit':
         specifier: ^4.3.0
         version: 4.3.0(@tanstack/react-query@5.104.0(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.87.1(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)(typescript@6.0.3)
@@ -250,11 +256,14 @@ importers:
         specifier: ^1.5.3
         version: 1.5.6(typescript@6.0.3)
       '@codama/renderers-js':
-        specifier: ^2.3.1
-        version: 2.5.0(typescript@6.0.3)
+        specifier: 2.4.0
+        version: 2.4.0(typescript@6.0.3)
       '@types/react':
         specifier: ~19.2.14
         version: 19.2.18
+      '@types/react-test-renderer':
+        specifier: ^19.3.0
+        version: 19.3.0
       eslint:
         specifier: ^9.25.0
         version: 9.39.5(jiti@2.7.0)(supports-color@8.1.1)
@@ -267,6 +276,9 @@ importers:
       prettier:
         specifier: ^3.9.6
         version: 3.9.9
+      react-test-renderer:
+        specifier: 19.2.3
+        version: 19.2.3(react@19.2.3)
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
@@ -684,8 +696,8 @@ packages:
   '@codama/renderers-core@1.4.1':
     resolution: {integrity: sha512-L/mNuzP29emEz9O2+tghToNvtTnfjpenJ984LrnRi4p8uonf3vOROUzDE+9w5httoowQt0YHCxFvQ8DP5lK0DQ==}
 
-  '@codama/renderers-js@2.5.0':
-    resolution: {integrity: sha512-Jh7qkU4jim2YX7JZujSzlMsmi8PIfGW4ZVLF69uq6EmGZJ48oxRR9zVGc1BxYWH3PHxRQsJCLlEzRKqb93XGcA==}
+  '@codama/renderers-js@2.4.0':
+    resolution: {integrity: sha512-nLmLy8eSaBtnff5OE85SXvdL4rN4QSkCSZfZ4856zwnPndP/UzV/RBNoZOp1+muMj1VIKMZ1gXLzKQjDeYM3EA==}
     engines: {node: '>=20.18.0'}
 
   '@codama/visitors-core@1.11.0':
@@ -1460,6 +1472,12 @@ packages:
     resolution: {integrity: sha512-NqAinVV9t+S65nvdUo41Z1npg4W1JjSp/K02w6xWFv2ywCdahPHpbbHYS177nDenQR2kf/8vshLOXiyV/J6HRw==}
     peerDependencies:
       react-native: '>0.74'
+
+  '@solana-program/compute-budget@0.17.0':
+    resolution: {integrity: sha512-A87tabCdAhJJbZrAuTmVdt/SdkxFQQEzj4lFAvEeGZ96KcZ8ySomt0MHf4jquiqFAdc68xLfpPUHGUM/tswUtA==}
+    engines: {node: '>=24.0.0'}
+    peerDependencies:
+      '@solana/kit': ^7.0.0
 
   '@solana-program/memo@0.12.0':
     resolution: {integrity: sha512-sOY182HLdngvlfjg1n1e8mXIz5nP4kNZRWBT33mk6SJsMXwUahL5w/XwaeQ8cj8PYPf2FiH0IpZ2tbZW6f0SBQ==}
@@ -4565,6 +4583,11 @@ packages:
       '@types/react':
         optional: true
 
+  react-test-renderer@19.2.3:
+    resolution: {integrity: sha512-TMR1LnSFiWZMJkCgNf5ATSvAheTT2NvKIwiVwdBPHxjBI7n/JbWd4gaZ16DVd9foAXdvDz+sB5yxZTwMjPRxpw==}
+    peerDependencies:
+      react: ^19.2.3
+
   react@19.2.3:
     resolution: {integrity: sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA==}
     engines: {node: '>=0.10.0'}
@@ -5811,13 +5834,13 @@ snapshots:
       '@codama/nodes': 1.11.0
       '@codama/visitors-core': 1.11.0
 
-  '@codama/renderers-js@2.5.0(typescript@6.0.3)':
+  '@codama/renderers-js@2.4.0(typescript@6.0.3)':
     dependencies:
       '@codama/errors': 1.11.0
       '@codama/nodes': 1.11.0
       '@codama/renderers-core': 1.4.1
       '@codama/visitors-core': 1.11.0
-      '@solana/codecs-strings': 8.4.0(typescript@6.0.3)
+      '@solana/codecs-strings': 7.1.1(typescript@6.0.3)
       prettier: 3.9.9
       semver: 7.8.5
     transitivePeerDependencies:
@@ -6800,7 +6823,7 @@ snapshots:
       '@noble/curves': 2.4.0
       '@noble/hashes': 2.4.0
       '@solana/kit': 7.1.1(typescript@6.0.3)
-      '@solana/wallet-standard-features': 1.3.0
+      '@solana/wallet-standard-features': 1.5.0
       '@solana/wallet-standard-util': 1.1.4
       '@wallet-standard/core': 1.1.1
       react-native: 0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.87.1(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1)
@@ -6809,6 +6832,10 @@ snapshots:
       - fastestsmallesttextencoderdecoder
       - typescript
       - utf-8-validate
+
+  '@solana-program/compute-budget@0.17.0(@solana/kit@7.1.1(typescript@6.0.3))':
+    dependencies:
+      '@solana/kit': 7.1.1(typescript@6.0.3)
 
   '@solana-program/memo@0.12.0(@solana/kit@7.1.1(typescript@6.0.3))':
     dependencies:
@@ -7476,12 +7503,14 @@ snapshots:
       '@tailwindcss/oxide-win32-arm64-msvc': 4.1.17
       '@tailwindcss/oxide-win32-x64-msvc': 4.1.17
 
-  '@tanstack/query-core@5.104.0': {}
+  '@tanstack/query-core@5.104.0':
+    optional: true
 
   '@tanstack/react-query@5.104.0(react@19.2.3)':
     dependencies:
       '@tanstack/query-core': 5.104.0
       react: 19.2.3
+    optional: true
 
   '@tybys/wasm-util@0.10.4':
     dependencies:
@@ -10532,6 +10561,12 @@ snapshots:
       tslib: 2.8.1
     optionalDependencies:
       '@types/react': 19.2.18
+
+  react-test-renderer@19.2.3(react@19.2.3):
+    dependencies:
+      react: 19.2.3
+      react-is: 19.3.0
+      scheduler: 0.27.0
 
   react@19.2.3: {}
 

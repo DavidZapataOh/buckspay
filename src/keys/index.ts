@@ -1,1 +1,12 @@
-export { configureDeviceKey, createDeviceKey, type DeviceKey, getDeviceKey, signIssue, signSpend } from './device-key'
+export {
+  type Cluster,
+  configureDeviceKey,
+  createDeviceKey,
+  type DeviceBinding,
+  type DeviceKey,
+  deviceKeyCluster,
+  getDeviceKey,
+  signDeviceBinding,
+  signIssue,
+  signSpend,
+} from './device-key'

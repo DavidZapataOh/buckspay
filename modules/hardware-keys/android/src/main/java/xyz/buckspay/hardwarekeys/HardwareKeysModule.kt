@@ -40,6 +40,11 @@ class HardwareKeysModule : Module() {
         withContext(keystore) { deviceKey().sign(domains, purpose, slot, content) }
       }
 
+      AsyncFunction("signDeviceBinding") Coroutine { wallet: ByteArray ->
+        val domains = configuration.domains ?: throw NotConfiguredException()
+        withContext(keystore) { deviceKey().signDeviceBinding(domains, wallet) }
+      }
+
       AsyncFunction("resetKey").Coroutine<Unit> { withContext(keystore) { deviceKey().reset() } }
     }
 

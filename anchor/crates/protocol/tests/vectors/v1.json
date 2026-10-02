@@ -53,6 +53,44 @@
       "wire": "0121000000000000000000000000204e0000000000001eee8f5ffd7e81e7500aadf8934f408cd283bacd698a28f1e31ea0742a687c27a1d36337dfdcb8c5d86d5903777e489e6bc2745880bbeecf1448b165ca25dfd17098b843794c2cfaf6e5a7bac861b95d00cb066fd66c604024371efd9f7bd9d400000000204e000000000000409c00000000000047ad2aac141675ec865996ac442a8a0e53ec526901523e4e38de8601af2b9d9899506087fe6f898210be7e304663614c2a66c3e7e7cfca50f88d170bb3d93c664869608ecc400631db9b6d0ee9c2819dc75645358d598f25d686b05fcb012f1400"
     }
   ],
+  "device_bindings": [
+    {
+      "body": "0150a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a102550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
+      "device": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
+      "envelope": "663656275b797b8eecef1b4adca52ee444bd2218d10a61bb42d1edf8b7ec73aba1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a11a9d240d0cafd3317e53c1582296e16dedc2f77b38526216a13c1748f88e7fdf",
+      "error": "",
+      "name": "alice_to_wallet",
+      "signature": "d3760eddb7ec218d1a58a2c4f57ce3fe04d12314705611474bcf51037748773e7825e97b9f3d275d25d872e68cdce91cbb2361e39e75bda27e4c2cdc4664c8ff",
+      "wallet": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+    },
+    {
+      "body": "0150b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b502591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
+      "device": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
+      "envelope": "663656275b797b8eecef1b4adca52ee444bd2218d10a61bb42d1edf8b7ec73abb5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b59b0f47cfab0398e24b1f78e240e902a1f7c5c3823f9786983781d635e4a5bf68",
+      "error": "",
+      "name": "bob_to_merchant",
+      "signature": "37ff658b592dff07fe67d58a598b73cf9cf7063d635bfd60053b2ab4964f50cf35bf52b8845d093920bced91e34222e8984740d19eeeffcd4b7c1af17b98b100",
+      "wallet": "b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5"
+    },
+    {
+      "body": "",
+      "device": "04550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
+      "envelope": "",
+      "error": "Owner",
+      "name": "uncompressed_key",
+      "signature": "",
+      "wallet": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+    },
+    {
+      "body": "",
+      "device": "00a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "envelope": "",
+      "error": "Owner",
+      "name": "account_as_key",
+      "signature": "",
+      "wallet": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+    }
+  ],
   "domain": {
     "claim": "0155128466015355b2a2ca2559035a5437ab3451c23eea62a686fb4b5983e7f9",
     "device": "663656275b797b8eecef1b4adca52ee444bd2218d10a61bb42d1edf8b7ec73ab",

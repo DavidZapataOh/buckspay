@@ -11,6 +11,8 @@ name = "buckspay"
 
 [features]
 default = []
+devnet = []
+mainnet = []
 cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-log-ix-name = []
@@ -21,11 +23,15 @@ custom-panic = []
 
 [dependencies]
 anchor-lang = "=1.2.0"
+buckspay-protocol = { path = "../../crates/protocol" }
+solana-instructions-sysvar = "3.0.1"
+solana-sdk-ids = "3.1.0"
 
 [dev-dependencies]
 litesvm = { version = "0.17.0", features = ["precompiles"] }
 p256 = { version = "0.14.0", default-features = false, features = ["ecdsa", "pkcs8"] }
 serde_json = "1"
+solana-compute-budget-interface = "3.1.0"
 solana-keypair = "3.1.2"
 solana-message = "4.2.4"
 solana-precompile-error = "3.0.0"

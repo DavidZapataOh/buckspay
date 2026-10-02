@@ -1,4 +1,5 @@
 export * from './cluster'
 export * from './codec'
+export * from './device'
 export * from './hash'
 export * from './verify'

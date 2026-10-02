@@ -1,11 +1,12 @@
 import { p256 } from '@noble/curves/nist.js'
 import { BUCKSPAY_PROGRAM_ADDRESS } from '@project/anchor'
-import { getAddressEncoder } from '@solana/kit'
+import { address, getAddressEncoder } from '@solana/kit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import HardwareKeys from '../../modules/hardware-keys/src/HardwareKeysModule'
 import {
   type Caveats,
   content,
+  deviceBindingEnvelope,
   DEVNET_GENESIS_HASH,
   domain,
   encodeIssueBody,
@@ -31,6 +32,8 @@ vi.mock('../../modules/hardware-keys/src/HardwareKeysModule', () => import('./te
 
 const programId = Uint8Array.from(getAddressEncoder().encode(BUCKSPAY_PROGRAM_ADDRESS))
 const noteDomain = domain(Purpose.Note, DEVNET_GENESIS_HASH, programId)
+const wallet = address('Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS')
+const walletBytes = Uint8Array.from(getAddressEncoder().encode(wallet))
 const merchant: Owner = { type: 'account', address: new Uint8Array(32).fill(9) }
 const caveats = (hopsLeft: number): Caveats => ({
   expiry: 2_000_000_000,
@@ -203,10 +206,46 @@ describe('device key', () => {
     await expect(internal.signWitness(new Uint8Array(31), digest)).rejects.toThrow(code('Length'))
   })
 
-  it('exports signing for issues and spends only, no reset, and signs nothing else', () => {
-    expect(Object.keys(keys).filter((name) => name.startsWith('sign'))).toEqual(['signIssue', 'signSpend'])
+  it('signs a device binding the program rebuilds, over its own key and under the device domain only', async () => {
+    const { publicKey } = await keys.createDeviceKey()
+    const binding = await keys.signDeviceBinding(wallet)
+    expect(binding.key).toEqual(publicKey)
+    const deviceDomain = domain(Purpose.Device, DEVNET_GENESIS_HASH, programId)
+    expect(binding.envelope).toEqual(deviceBindingEnvelope(deviceDomain, walletBytes, publicKey))
+    expect(() => verifySignature(publicKey, binding.envelope, binding.signature)).not.toThrow()
+    const others = Object.values(Purpose).filter((purpose) => purpose !== Purpose.Device && purpose !== 'ticket')
+    for (const purpose of others) {
+      const message = new Uint8Array(binding.envelope)
+      message.set(domain(purpose, DEVNET_GENESIS_HASH, programId))
+      expect(() => verifySignature(publicKey, message, binding.signature)).toThrow()
+    }
+  })
+
+  it('refuses a device binding before the key exists, and a native signature over another binding', async () => {
+    await internal.resetDeviceIdentity()
+    const sign = vi.spyOn(HardwareKeys, 'signDeviceBinding').mockClear()
+    await expect(keys.signDeviceBinding(wallet)).rejects.toThrow(code('Signer'))
+    expect(sign).not.toHaveBeenCalled()
+    await keys.createDeviceKey()
+    sign.mockImplementationOnce(() => HardwareKeys.signDeviceBinding(new Uint8Array(32).fill(1)))
+    await expect(keys.signDeviceBinding(wallet)).rejects.toThrow(code('Signature'))
+  })
+
+  it('exports structured signing only, no reset, and signs no device message over a caller digest', async () => {
+    expect(Object.keys(keys).filter((name) => name.startsWith('sign'))).toEqual([
+      'signDeviceBinding',
+      'signIssue',
+      'signSpend',
+    ])
     expect(keys).not.toHaveProperty('resetDeviceIdentity')
     const signers = Object.keys(internal).filter((name) => name.startsWith('sign'))
-    expect(signers.sort()).toEqual(['signIssue', 'signSpend', 'signWitness'])
+    expect(signers.sort()).toEqual(['signDeviceBinding', 'signIssue', 'signSpend', 'signWitness'])
+    await keys.createDeviceKey()
+    const digest = new Uint8Array(32).fill(2)
+    await expect(HardwareKeys.sign('device' as never, walletBytes, digest)).rejects.toThrow('ERR_INVALID_ENVELOPE')
+  })
+
+  it('records the cluster it signs for', () => {
+    expect(keys.deviceKeyCluster()).toBe('devnet')
   })
 })

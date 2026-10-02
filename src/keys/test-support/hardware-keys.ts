@@ -4,7 +4,7 @@ import { p256 } from '@noble/curves/nist.js'
 import { equalBytes } from '@noble/curves/utils.js'
 import { concatBytes, hexToBytes } from '@noble/hashes/utils.js'
 import type { Cluster, KeyRecord, SignedPurpose } from '../../../modules/hardware-keys/src/HardwareKeysModule'
-import { DEVNET_GENESIS_HASH, domain, envelope, MAINNET_GENESIS_HASH } from '../../protocol'
+import { deviceBindingEnvelope, DEVNET_GENESIS_HASH, domain, envelope, MAINNET_GENESIS_HASH } from '../../protocol'
 
 const SECRET_KEY = hexToBytes('07'.repeat(32))
 const SPKI_P256_PREFIX = hexToBytes('3059301306072a8648ce3d020106082a8648ce3d030107034200')
@@ -25,13 +25,16 @@ export function resetHardwareKeys() {
 export const nativeSignatures = () => signatures
 export const configuredProgramId = () => config?.programId
 
-async function sign(purpose: 'note' | SignedPurpose, slot: Uint8Array, content: Uint8Array) {
-  if (!config) throw coded('ERR_NOT_CONFIGURED')
-  if (!created) throw coded('ERR_KEY_NOT_FOUND')
-  const message = envelope(domain(purpose, GENESIS_HASH[config.cluster], config.programId), slot, content)
+function signMessage(message: Uint8Array) {
   const der = p256.sign(message, SECRET_KEY, { prehash: true, lowS: false, format: 'der' })
   signatures.push(der)
   return der
+}
+
+async function sign(purpose: 'note' | SignedPurpose, slot: Uint8Array, content: Uint8Array) {
+  if (!config) throw coded('ERR_NOT_CONFIGURED')
+  if (!created) throw coded('ERR_KEY_NOT_FOUND')
+  return signMessage(envelope(domain(purpose, GENESIS_HASH[config.cluster], config.programId), slot, content))
 }
 
 const record = (): KeyRecord => ({
@@ -64,5 +67,12 @@ export default {
   async sign(purpose: SignedPurpose, slot: Uint8Array, content: Uint8Array): Promise<Uint8Array> {
     if (purpose !== 'witness') throw coded('ERR_INVALID_ENVELOPE')
     return sign(purpose, slot, content)
+  },
+  async signDeviceBinding(wallet: Uint8Array): Promise<Uint8Array> {
+    if (!config) throw coded('ERR_NOT_CONFIGURED')
+    if (wallet.length !== 32) throw coded('ERR_INVALID_ENVELOPE')
+    if (!created) throw coded('ERR_KEY_NOT_FOUND')
+    const deviceDomain = domain('device', GENESIS_HASH[config.cluster], config.programId)
+    return signMessage(deviceBindingEnvelope(deviceDomain, wallet, p256.getPublicKey(SECRET_KEY, true)))
   },
 }

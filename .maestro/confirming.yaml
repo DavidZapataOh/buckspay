@@ -1,0 +1,81 @@
+# The app is killed while the wallet holds the registration: on relaunch it shows the registration
+# as confirming, waits until its blockhash expires (it was never sent), says nothing was charged, and
+# registers again.
+appId: xyz.buckspay.app
+env:
+  RPC_URL: http://localhost:8899
+---
+- clearState
+- stopApp: com.solana.mobilewalletadapter.fakewallet
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: setup-payments
+    timeout: 60000
+- tapOn:
+    id: setup-payments
+- extendedWaitUntil:
+    visible:
+      id: onboarding-connect
+    timeout: 20000
+- tapOn:
+    id: onboarding-next
+- extendedWaitUntil:
+    visible: AUTHORIZE
+    timeout: 20000
+- tapOn: AUTHORIZE
+- extendedWaitUntil:
+    visible:
+      id: onboarding-register
+    timeout: 30000
+- copyTextFrom:
+    id: wallet-address
+- runScript: scripts/airdrop.js
+- scrollUntilVisible:
+    element:
+      id: onboarding-next
+- tapOn:
+    id: onboarding-next
+- extendedWaitUntil:
+    visible: AUTHORIZE
+    timeout: 20000
+- tapOn: AUTHORIZE
+- extendedWaitUntil:
+    visible: SEND TRANSACTION TO CLUSTER
+    timeout: 20000
+- stopApp
+- stopApp: com.solana.mobilewalletadapter.fakewallet
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: home-confirming
+    timeout: 30000
+- tapOn:
+    id: setup-payments
+- extendedWaitUntil:
+    visible:
+      id: onboarding-confirming
+    timeout: 20000
+- assertVisible: .*Your wallet may have sent the registration.*
+- extendedWaitUntil:
+    visible:
+      id: onboarding-register
+    timeout: 180000
+- assertVisible: .*expired before it landed. Nothing was charged.*
+- scrollUntilVisible:
+    element:
+      id: onboarding-next
+- tapOn:
+    id: onboarding-next
+- extendedWaitUntil:
+    visible: AUTHORIZE
+    timeout: 20000
+- tapOn: AUTHORIZE
+- extendedWaitUntil:
+    visible: SEND TRANSACTION TO CLUSTER
+    timeout: 20000
+- tapOn: SEND TRANSACTION TO CLUSTER
+- extendedWaitUntil:
+    visible:
+      id: device-ready
+    timeout: 60000

@@ -798,12 +798,16 @@ name = "buckspay"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "buckspay-protocol",
  "litesvm",
  "p256",
  "serde_json",
+ "solana-compute-budget-interface",
+ "solana-instructions-sysvar 3.0.1",
  "solana-keypair",
  "solana-message",
  "solana-precompile-error",
+ "solana-sdk-ids",
  "solana-secp256r1-program",
  "solana-signer",
  "solana-transaction",

@@ -52,6 +52,7 @@ export const Kind = {
   BondTicket: 0x10,
   SpendConflict: 0x20,
   IssueConflict: 0x21,
+  DeviceBinding: 0x50,
 } as const
 export const Flags = { Delegated: 1, AuthorityOnly: 2, Sticky: 2, Known: 3 } as const
 export const ScopeKind = { Any: 0, Merchant: 1, Category: 2, Authority: 3 } as const

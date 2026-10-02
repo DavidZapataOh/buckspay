@@ -161,6 +161,21 @@ internal class DeviceKey(
   }
 
   /**
+   * DER `SHA256withECDSA` signature over this key's consent to being bound to `wallet`, a message
+   * built here from the key itself: `DOMAIN(device) ‖ wallet ‖ SHA-256(ver ‖ 0x50 ‖ wallet ‖ key)`.
+   */
+  fun signDeviceBinding(
+    domains: Domains,
+    wallet: ByteArray,
+  ): ByteArray {
+    if (wallet.size != 32) throw InvalidEnvelopeException(IllegalArgumentException("a wallet is 32 bytes"))
+    val entry = signingEntry()
+    if (keyguard.isDeviceLocked) throw DeviceLockedException()
+    val binding = Envelope.deviceBinding(domains.of(DEVICE), wallet, Envelope.compressed(entry.publicKey))
+    return signature(entry.privateKey, binding)
+  }
+
+  /**
    * Deletes the key and then its marker, so that the next `create` makes a new identity; notes the
    * key received and did not settle are lost with it. Keystore must report the key gone before the
    * marker is deleted, so stopping in between is safe and resetting again finishes. The note guards
@@ -360,6 +375,7 @@ internal class DeviceKey(
   companion object {
     const val ALIAS = "buckspay-device"
     private const val NOTE = "note"
+    private const val DEVICE = "device"
     private const val PROVIDER = "AndroidKeyStore"
     private const val MAX_CHALLENGE = 128
     private const val ATTESTATION_OID = "1.3.6.1.4.1.11129.2.1.17"

@@ -1,0 +1,49 @@
+# Fresh install of a devnet build with the Mock MWA Wallet (a funded dev key in its local.properties):
+# set up payments, connect, create the device key and register it against the deployed program.
+appId: xyz.buckspay.app
+---
+- clearState
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: setup-payments
+    timeout: 60000
+- tapOn:
+    id: setup-payments
+- extendedWaitUntil:
+    visible:
+      id: onboarding-connect
+    timeout: 20000
+- tapOn:
+    id: onboarding-next
+- extendedWaitUntil:
+    visible:
+      id: com.solana.mwallet:id/btn_connect
+    timeout: 20000
+- tapOn:
+    id: com.solana.mwallet:id/btn_connect
+- extendedWaitUntil:
+    visible:
+      id: onboarding-create-key
+    timeout: 20000
+- tapOn:
+    id: onboarding-next
+- extendedWaitUntil:
+    visible:
+      id: onboarding-register
+    timeout: 20000
+- tapOn:
+    id: onboarding-next
+- tapOn:
+    id: com.solana.mwallet:id/btn_connect
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: com.solana.mwallet:id/btn_approve
+    timeout: 20000
+- tapOn:
+    id: com.solana.mwallet:id/btn_approve
+- extendedWaitUntil:
+    visible:
+      id: device-ready
+    timeout: 90000

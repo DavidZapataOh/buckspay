@@ -1,0 +1,79 @@
+# The wallet rejects our cached authorization during registration (fakewallet's simulated invalid
+# auth token): the app clears it, asks to connect again and completes onboarding with the same device key.
+appId: xyz.buckspay.app
+env:
+  RPC_URL: http://localhost:8899
+---
+- clearState
+- stopApp: com.solana.mobilewalletadapter.fakewallet
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: setup-payments
+    timeout: 60000
+- tapOn:
+    id: setup-payments
+- extendedWaitUntil:
+    visible:
+      id: onboarding-connect
+    timeout: 20000
+- tapOn:
+    id: onboarding-next
+- extendedWaitUntil:
+    visible: AUTHORIZE
+    timeout: 20000
+- tapOn: AUTHORIZE
+- extendedWaitUntil:
+    visible:
+      id: onboarding-register
+    timeout: 30000
+- copyTextFrom:
+    id: wallet-address
+- runScript: scripts/airdrop.js
+- scrollUntilVisible:
+    element:
+      id: onboarding-next
+- tapOn:
+    id: onboarding-next
+- extendedWaitUntil:
+    visible: SIMULATE AUTH TOKEN INVALID
+    timeout: 20000
+- tapOn: SIMULATE AUTH TOKEN INVALID
+# The kit's fresh authorization never ran: the app shows the error, not a second wallet prompt.
+- extendedWaitUntil:
+    visible:
+      id: onboarding-connect
+    timeout: 20000
+- assertVisible: .*Nothing was sent and nothing was charged. Connect it again.*
+- assertNotVisible: AUTHORIZE
+- tapOn:
+    id: onboarding-next
+- extendedWaitUntil:
+    visible: AUTHORIZE
+    timeout: 20000
+- tapOn: AUTHORIZE
+- extendedWaitUntil:
+    visible:
+      id: onboarding-register
+    timeout: 30000
+# fakewallet authorizes a new account after a failed authorization: fund it too.
+- copyTextFrom:
+    id: wallet-address
+- runScript: scripts/airdrop.js
+- scrollUntilVisible:
+    element:
+      id: onboarding-next
+- tapOn:
+    id: onboarding-next
+- extendedWaitUntil:
+    visible: AUTHORIZE
+    timeout: 20000
+- tapOn: AUTHORIZE
+- extendedWaitUntil:
+    visible: SEND TRANSACTION TO CLUSTER
+    timeout: 20000
+- tapOn: SEND TRANSACTION TO CLUSTER
+- extendedWaitUntil:
+    visible:
+      id: device-ready
+    timeout: 60000
