@@ -8,6 +8,7 @@
 /anchor/.anchor
 /anchor/src/client/js/generated
 /anchor/target
+/anchor/crates/protocol/tests/vectors
 pnpm-lock.yaml
 .agents
 agent

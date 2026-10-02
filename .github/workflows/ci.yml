@@ -59,6 +59,9 @@ jobs:
       - run: anchor build
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+      - run: cargo test -p buckspay-protocol --features verify
+      - run: cargo clippy -p buckspay-protocol --all-targets --features verify -- -D warnings
+      - run: cargo build-sbf --manifest-path crates/protocol/Cargo.toml --arch v3 --tools-version v1.57
       - run: pnpm codama:check
         working-directory: .
 
