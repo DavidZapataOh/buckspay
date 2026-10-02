@@ -19,7 +19,8 @@
           "skipOnboarding": true
         }
       ],
-      "expo-router"
+      "expo-router",
+      "./plugins/with-gradle-heap"
     ]
   }
 }

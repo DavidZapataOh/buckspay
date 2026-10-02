@@ -33,7 +33,44 @@ jobs:
           runtime: node@24
           cache: true
           require-lockfile: true
+      - name: Install ktlint
+        run: |
+          curl -sSfLO https://github.com/pinterest/ktlint/releases/download/1.8.0/ktlint
+          echo "a3fd620207d5c40da6ca789b95e7f823c54e854b7fade7f613e91096a3706d75  ktlint" | sha256sum -c -
+          chmod +x ktlint
+          mkdir -p "$HOME/.local/bin" && mv ktlint "$HOME/.local/bin/"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: pnpm run ci
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v6
+      - run: pnpm exec expo prebuild -p android --clean
+      - run: ./gradlew :hardware-keys:testDebugUnitTest :hardware-keys:assembleDebugAndroidTest
+        working-directory: android
+      - name: Enable KVM
+        run: |
+          echo KERNEL==kvm, GROUP=kvm, MODE=0666, OPTIONS+=static_node=kvm | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          working-directory: android
+          script: ./gradlew :hardware-keys:connectedDebugAndroidTest
 
   program:
     runs-on: ubuntu-latest

@@ -65,3 +65,6 @@ test-ledger
 !.env.example
 *keypair*.json
 id.json
+
+# Local native modules
+/modules/*/android/build
