@@ -1,0 +1,10 @@
+{
+  "address": "zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM",
+  "metadata": {
+    "name": "buckspay",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Buckspay on-chain program"
+  },
+  "instructions": []
+}

@@ -1,0 +1,21 @@
+skip_local_validator = true
+
+[toolchain]
+solana_version = "4.3.0"
+package_manager = "pnpm"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+buckspay = "zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "cargo test"
+
+[hooks]

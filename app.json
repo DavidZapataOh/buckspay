@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Buckspay",
+    "slug": "buckspay",
+    "scheme": "buckspay",
+    "userInterfaceStyle": "automatic",
+    "orientation": "default",
+    "web": {
+      "output": "static"
+    },
+    "android": {
+      "package": "xyz.buckspay.app"
+    },
+    "plugins": [
+      [
+        "expo-dev-client",
+        {
+          "showMenuAtLaunch": false,
+          "skipOnboarding": true
+        }
+      ],
+      "expo-router"
+    ]
+  }
+}
