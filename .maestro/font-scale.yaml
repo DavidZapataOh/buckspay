@@ -1,0 +1,39 @@
+# Captures Home, Settings and onboarding of a fresh install for review at the device's current
+# font scale and theme; run with `-e THEME=light` or `-e THEME=dark`, which names the screenshots.
+appId: xyz.buckspay.app
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: home
+    timeout: 60000
+- takeScreenshot: home-${THEME}
+- scrollUntilVisible:
+    element:
+      id: setup-payments
+- takeScreenshot: home-${THEME}-end
+- tapOn: Settings
+- extendedWaitUntil:
+    visible:
+      id: settings
+    timeout: 10000
+- takeScreenshot: settings-${THEME}
+- scrollUntilVisible:
+    element: Version
+- takeScreenshot: settings-${THEME}-end
+- tapOn: Home
+- scrollUntilVisible:
+    element:
+      id: setup-payments
+- tapOn:
+    id: setup-payments
+- extendedWaitUntil:
+    visible:
+      id: onboarding-connect
+    timeout: 20000
+- takeScreenshot: onboarding-${THEME}
+- scrollUntilVisible:
+    element:
+      id: onboarding-next
+- takeScreenshot: onboarding-${THEME}-end

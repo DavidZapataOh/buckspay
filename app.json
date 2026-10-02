@@ -5,11 +5,17 @@
     "scheme": "buckspay",
     "userInterfaceStyle": "automatic",
     "orientation": "default",
+    "icon": "./assets/icon.png",
     "web": {
       "output": "static"
     },
     "android": {
-      "package": "xyz.buckspay.app"
+      "package": "xyz.buckspay.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon-foreground.png",
+        "monochromeImage": "./assets/adaptive-icon-monochrome.png",
+        "backgroundColor": "#0B0F14"
+      }
     },
     "plugins": [
       [
@@ -20,6 +26,18 @@
         }
       ],
       "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon-light.png",
+          "imageWidth": 200,
+          "backgroundColor": "#FFFFFF",
+          "dark": {
+            "image": "./assets/splash-icon-dark.png",
+            "backgroundColor": "#0B0F14"
+          }
+        }
+      ],
       "./plugins/with-gradle-heap"
     ]
   }

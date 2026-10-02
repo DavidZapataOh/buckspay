@@ -1,0 +1,17 @@
+# Switches between the tabs by their labels 20 times.
+appId: xyz.buckspay.app
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: home
+    timeout: 60000
+- repeat:
+    times: 20
+    commands:
+      - tapOn: Settings
+      - assertVisible:
+          id: settings
+      - tapOn: Home
+      - assertVisible:
+          id: home

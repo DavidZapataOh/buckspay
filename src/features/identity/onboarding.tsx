@@ -1,18 +1,24 @@
 import { openURL } from 'expo-linking'
 import { router } from 'expo-router'
 import { useState } from 'react'
-import { ActivityIndicator, Pressable, Text, View } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ActivityIndicator, View } from 'react-native'
+import { AddressRow } from '../../components/address-row'
+import { AppText } from '../../components/app-text'
+import { Button } from '../../components/button'
+import { IconButton } from '../../components/icon-button'
+import { Screen } from '../../components/screen'
+import { StatusNote } from '../../components/status-note'
+import { useThemeColors } from '../../theme/use-theme-colors'
 import { useNetwork } from '../network/use-network'
 import { confirmingNotice, costNotice, keyProtection, shortfallNotice, stepCopy } from './identity-copy'
 import { useDeviceIdentity } from './use-device-identity'
 
 /** Sets up paying and receiving: a wallet, this phone's key and its registration. */
 export function Onboarding() {
-  const insets = useSafeAreaInsets()
   const { getExplorerUrl } = useNetwork()
   const { step, busy, error, details, signature, quote, wallet, device, deviceKey, next } = useDeviceIdentity()
   const [showDetails, setShowDetails] = useState(false)
+  const [primary] = useThemeColors('primary')
   // While loading, the screen shows a spinner, or a retry once the derivation failed.
   const content = step === 'ready' || (step === 'loading' && !error) ? undefined : stepCopy[step]
   const notice =
@@ -23,114 +29,82 @@ export function Onboarding() {
         : undefined
 
   return (
-    <View
-      className="flex-1 bg-white dark:bg-black px-8"
-      style={{ paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }}
-    >
-      <Pressable
-        testID="onboarding-close"
-        accessibilityRole="button"
-        onPress={() => router.back()}
-        className="self-start py-3 mb-8"
-      >
-        <Text className="text-base text-gray-900 dark:text-white">Close</Text>
-      </Pressable>
+    <Screen>
+      <View className="flex-row items-center justify-between -ml-3">
+        <IconButton testID="onboarding-close" icon="close" label="Close" onPress={() => router.back()} />
+        {content?.progress ? (
+          <AppText testID="onboarding-progress" variant="label" tone="muted">
+            {content.progress}
+          </AppText>
+        ) : null}
+      </View>
       {content ? (
-        <View testID={`onboarding-${step}`} className="flex-1">
-          {content.progress ? (
-            <Text testID="onboarding-progress" className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-              {content.progress}
-            </Text>
-          ) : null}
-          <Text accessibilityRole="header" className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            {content.title}
-          </Text>
-          <Text className="text-base text-gray-600 dark:text-gray-300 mb-6">{content.body}</Text>
+        <View testID={`onboarding-${step}`} className="grow gap-4">
+          <AppText variant="headline">{content.title}</AppText>
+          <AppText variant="body" tone="muted">
+            {content.body}
+          </AppText>
           {step === 'register' && quote ? (
-            <Text testID="registration-cost" className="text-base text-gray-900 dark:text-white mb-2">
+            <AppText testID="registration-cost" variant="body">
               {costNotice(quote)}
-            </Text>
+            </AppText>
           ) : null}
           {step === 'other-wallet' && device ? (
-            <Text testID="registered-wallet" selectable className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-              Registered to {device.wallet}
-            </Text>
+            <AddressRow testID="registered-wallet" address={device.wallet} label="Registered to" />
           ) : null}
           {wallet ? (
-            <Text testID="wallet-address" selectable className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-              {wallet}
-            </Text>
+            <View className="gap-1">
+              <AppText variant="label" tone="muted">
+                Connected wallet
+              </AppText>
+              <AppText testID="wallet-address" variant="label" selectable>
+                {wallet}
+              </AppText>
+            </View>
           ) : null}
           {deviceKey ? (
-            <Text testID="security-level" className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+            <AppText testID="security-level" variant="label" tone="muted">
               Key protection: {keyProtection[deviceKey.securityLevel]}
-            </Text>
+            </AppText>
           ) : null}
-          <Text
-            testID="onboarding-notice"
-            accessibilityLiveRegion="polite"
-            className="text-base text-gray-900 dark:text-white mt-4"
-          >
-            {notice ?? ''}
-          </Text>
-          <Text
-            testID="onboarding-error"
-            accessibilityLiveRegion="polite"
-            className="text-sm text-red-600 dark:text-red-400 mt-4"
-          >
-            {error ?? ''}
-          </Text>
+          <StatusNote testID="onboarding-notice" tone="default" message={notice} />
+          <StatusNote testID="onboarding-error" tone="danger" message={error} />
           {details ? (
-            <Pressable
+            <Button
               testID="onboarding-details"
-              accessibilityRole="button"
-              accessibilityState={{ expanded: showDetails }}
+              variant="text"
+              label={showDetails ? 'Hide details' : 'Details'}
               onPress={() => setShowDetails(!showDetails)}
-              className="py-3"
-            >
-              <Text className="text-sm text-gray-900 dark:text-white underline">Details</Text>
-            </Pressable>
+            />
           ) : null}
           {showDetails && details ? (
-            <Text selectable className="text-sm text-gray-500 dark:text-gray-400">
+            <AppText variant="label" tone="muted" selectable>
               {details}
-            </Text>
+            </AppText>
           ) : null}
           {signature && (step === 'confirming' || showDetails) ? (
-            <Pressable
-              accessibilityRole="link"
+            <Button
+              variant="text"
+              label="View the transaction in the explorer"
               onPress={() => void openURL(getExplorerUrl(`tx/${signature}`))}
-              className="py-3"
-            >
-              <Text className="text-sm text-gray-900 dark:text-white underline">
-                View the transaction in the explorer
-              </Text>
-            </Pressable>
+            />
           ) : null}
-          <View className="flex-1" />
+          <View className="grow" />
           {step === 'confirming' && !error ? (
-            <ActivityIndicator testID="onboarding-waiting" accessibilityLabel="Waiting for Solana" />
+            <ActivityIndicator testID="onboarding-waiting" accessibilityLabel="Waiting for Solana" color={primary} />
           ) : (
-            <Pressable
+            <Button
               testID="onboarding-next"
-              accessibilityRole="button"
-              accessibilityLabel={content.action}
-              accessibilityState={{ busy, disabled: busy }}
-              disabled={busy}
+              variant="filled"
+              label={content.action}
+              busy={busy}
               onPress={() => void next()}
-              className={`py-4 rounded-full items-center ${busy ? 'bg-gray-400' : 'bg-gray-900 dark:bg-white'}`}
-            >
-              {busy ? (
-                <ActivityIndicator accessibilityLabel="Working" color="white" />
-              ) : (
-                <Text className="text-white dark:text-black text-base font-semibold">{content.action}</Text>
-              )}
-            </Pressable>
+            />
           )}
         </View>
       ) : (
-        <ActivityIndicator testID="onboarding-loading" accessibilityLabel="Checking this phone" />
+        <ActivityIndicator testID="onboarding-loading" accessibilityLabel="Checking this phone" color={primary} />
       )}
-    </View>
+    </Screen>
   )
 }
