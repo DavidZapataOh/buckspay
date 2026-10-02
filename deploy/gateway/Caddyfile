@@ -1,0 +1,25 @@
+{
+	# No admin API: a configuration change takes a restart, and nothing local can rewrite it.
+	admin off
+	# No access log. Error entries and Go's server messages carry client addresses, so they are
+	# not logged either.
+	log default {
+		exclude http.log.error http.stdlib
+	}
+	# A client that trickles its headers or body is cut off.
+	servers {
+		timeouts {
+			read_header 10s
+			read_body 10s
+			idle 2m
+		}
+	}
+}
+
+{$GATEWAY_HOST} {
+	reverse_proxy unix/{$GATEWAY_SOCKET} {
+		# The gateway limits by this address. Caddy sets it from its own peer, replacing whatever
+		# the client sent; X-Forwarded-For is not read.
+		header_up X-Real-IP {remote_host}
+	}
+}

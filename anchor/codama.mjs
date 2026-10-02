@@ -8,5 +8,9 @@ export default {
         { generatedFolder: 'generated', kitImportStrategy: 'rootOnly', syncPackageJson: false },
       ],
     },
+    rust: {
+      from: '@codama/renderers-rust',
+      args: ['gateway/client', { anchorTraits: false }],
+    },
   },
 }

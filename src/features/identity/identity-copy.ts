@@ -1,7 +1,7 @@
 import type { Signature } from '@solana/kit'
 import type { DeviceKey } from '../../keys'
 import { formatSol } from '../../utils/format-sol'
-import type { IdentityState, IdentityStep } from './device-identity'
+import type { IdentityState, IdentityStep, Sponsorship } from './device-identity'
 import type { RegistrationQuote } from './register-device'
 
 /** What each onboarding step says, its action, and where it is in the two steps the user sees. */
@@ -50,12 +50,21 @@ export const stepCopy: Record<
   },
 }
 
-export const costNotice = ({ cost }: RegistrationQuote) =>
-  `Costs about ${formatSol(cost, 'up')} SOL from your wallet. Not refundable.`
+/** What registering costs the wallet: nothing while Buckspay pays for it. */
+export const costNotice = ({ cost }: RegistrationQuote, sponsorship?: Sponsorship) =>
+  sponsorship === 'free'
+    ? 'Free: Buckspay pays the registration.'
+    : `Costs about ${formatSol(cost, 'up')} SOL from your wallet. Not refundable.`
 
-/** What the wallet lacks to register, if anything. */
-export const shortfallNotice = ({ balance, cost }: RegistrationQuote) =>
-  balance < cost ? `Your wallet has ${formatSol(balance)} SOL. Add SOL to it before you register.` : undefined
+/** What the wallet lacks to register, if anything; nothing while Buckspay pays for it. */
+export const shortfallNotice = ({ balance, cost }: RegistrationQuote, sponsorship?: Sponsorship) =>
+  sponsorship !== 'free' && balance < cost
+    ? `Your wallet has ${formatSol(balance)} SOL. Add SOL to it before you register.`
+    : undefined
+
+/** Why the wallet pays in a build where Buckspay pays for registrations. */
+export const sponsorshipNotice = (sponsorship?: Sponsorship) =>
+  sponsorship === 'unavailable' ? 'Buckspay can’t pay for registrations right now, so your wallet pays.' : undefined
 
 export const confirmingNotice = (signature?: Signature) =>
   signature

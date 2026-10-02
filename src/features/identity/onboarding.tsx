@@ -10,13 +10,21 @@ import { Screen } from '../../components/screen'
 import { StatusNote } from '../../components/status-note'
 import { useThemeColors } from '../../theme/use-theme-colors'
 import { useNetwork } from '../network/use-network'
-import { confirmingNotice, costNotice, keyProtection, shortfallNotice, stepCopy } from './identity-copy'
+import {
+  confirmingNotice,
+  costNotice,
+  keyProtection,
+  shortfallNotice,
+  sponsorshipNotice,
+  stepCopy,
+} from './identity-copy'
 import { useDeviceIdentity } from './use-device-identity'
 
 /** Sets up paying and receiving: a wallet, this phone's key and its registration. */
 export function Onboarding() {
   const { getExplorerUrl } = useNetwork()
-  const { step, busy, error, details, signature, quote, wallet, device, deviceKey, next } = useDeviceIdentity()
+  const { step, busy, error, details, signature, quote, sponsorship, wallet, device, deviceKey, next } =
+    useDeviceIdentity()
   const [showDetails, setShowDetails] = useState(false)
   const [primary] = useThemeColors('primary')
   // While loading, the screen shows a spinner, or a retry once the derivation failed.
@@ -25,7 +33,7 @@ export function Onboarding() {
     step === 'confirming'
       ? confirmingNotice(signature)
       : step === 'register' && quote
-        ? shortfallNotice(quote)
+        ? (shortfallNotice(quote, sponsorship) ?? (error ? undefined : sponsorshipNotice(sponsorship)))
         : undefined
 
   return (
@@ -46,7 +54,7 @@ export function Onboarding() {
           </AppText>
           {step === 'register' && quote ? (
             <AppText testID="registration-cost" variant="body">
-              {costNotice(quote)}
+              {costNotice(quote, sponsorship)}
             </AppText>
           ) : null}
           {step === 'other-wallet' && device ? (

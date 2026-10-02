@@ -17,6 +17,7 @@ import {
   SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE,
   SolanaError,
   type Address,
+  type ClientWithPayer,
   type ClientWithRpc,
   type ClientWithTransactionPlanning,
   type ClientWithTransactionSending,
@@ -123,11 +124,12 @@ export type BuckspayPluginAccounts = {
 
 export type BuckspayPluginInstructions = {
   registerDevice: (
-    input: RegisterDeviceInput,
+    input: MakeOptional<RegisterDeviceInput, 'payer'>,
   ) => ReturnType<typeof getRegisterDeviceInstruction> & SelfPlanAndSendFunctions
 }
 
 export type BuckspayPluginRequirements = ClientWithRpc<GetAccountInfoApi & GetMultipleAccountsApi> &
+  ClientWithPayer &
   ClientWithTransactionPlanning &
   ClientWithTransactionSending
 
@@ -137,7 +139,11 @@ export function buckspayProgram() {
       buckspay: <BuckspayPlugin>{
         accounts: { device: addSelfFetchFunctions(client, getDeviceCodec()) },
         instructions: {
-          registerDevice: (input) => addSelfPlanAndSendFunctions(client, getRegisterDeviceInstruction(input)),
+          registerDevice: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getRegisterDeviceInstruction({ ...input, payer: input.payer ?? client.payer }),
+            ),
         },
         identifyAccount: identifyBuckspayAccount,
         identifyInstruction: identifyBuckspayInstruction,
@@ -146,3 +152,5 @@ export function buckspayProgram() {
     })
   }
 }
+
+type MakeOptional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>

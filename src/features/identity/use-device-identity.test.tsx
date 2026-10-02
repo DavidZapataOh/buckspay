@@ -98,7 +98,6 @@ describe('device identity provider', () => {
         address: device,
         wallet: account.address,
         key: bytesToHex(publicKey),
-        registeredSlot: '7',
       }),
     )
     const renderer = await act(async () => create(<App build={offline} cache={cache} render={0} />))
@@ -106,7 +105,7 @@ describe('device identity provider', () => {
     expect(seen.at(-1)).toMatchObject({
       step: 'ready',
       wallet: account.address,
-      device: { address: device, registeredSlot: 7n },
+      device: { address: device, wallet: account.address },
       busy: false,
     })
     expect(seen.at(-1)?.error).toBeUndefined()

@@ -57,7 +57,7 @@ describe('Settings', () => {
 
   it('names the network, the wallet this phone is registered to and how its key is protected', async () => {
     const disconnect = vi.fn(async () => {})
-    const device = { address: wallet, wallet, key: deviceKey.publicKey, registeredSlot: 7n }
+    const device = { address: wallet, wallet, key: deviceKey.publicKey }
     const root = await render({ step: 'ready', wallet, deviceKey, device, busy: false, disconnect })
     expect(row(root, 'network')).toEqual(['Network', 'Devnet · test network'])
     expect(root.findAllByProps({ accessibilityLabel: `Registered to: ${wallet}` })).toHaveLength(1)
@@ -71,7 +71,7 @@ describe('Settings', () => {
   })
 
   it('still shows the registration once the wallet is forgotten, with nothing to forget', async () => {
-    const device = { address: wallet, wallet, key: deviceKey.publicKey, registeredSlot: 7n }
+    const device = { address: wallet, wallet, key: deviceKey.publicKey }
     const root = await render({ step: 'connect', deviceKey, device, busy: false })
     expect(row(root, 'wallet')).toEqual(['Connected wallet', 'Not connected'])
     expect(root.findAllByProps({ accessibilityLabel: `Registered to: ${wallet}` })).toHaveLength(1)

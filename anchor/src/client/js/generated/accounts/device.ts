@@ -19,12 +19,8 @@ import {
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getI64Decoder,
-  getI64Encoder,
   getStructDecoder,
   getStructEncoder,
-  getU64Decoder,
-  getU64Encoder,
   getU8Decoder,
   getU8Encoder,
   transformEncoder,
@@ -47,22 +43,9 @@ export function getDeviceDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(DEVICE_DISCRIMINATOR)
 }
 
-export type Device = {
-  discriminator: ReadonlyUint8Array
-  wallet: Address
-  key: ReadonlyUint8Array
-  registeredSlot: bigint
-  registeredAt: bigint
-  bump: number
-}
+export type Device = { discriminator: ReadonlyUint8Array; wallet: Address; bump: number }
 
-export type DeviceArgs = {
-  wallet: Address
-  key: ReadonlyUint8Array
-  registeredSlot: number | bigint
-  registeredAt: number | bigint
-  bump: number
-}
+export type DeviceArgs = { wallet: Address; bump: number }
 
 /** Gets the encoder for {@link DeviceArgs} account data. */
 export function getDeviceEncoder(): FixedSizeEncoder<DeviceArgs> {
@@ -70,9 +53,6 @@ export function getDeviceEncoder(): FixedSizeEncoder<DeviceArgs> {
     getStructEncoder([
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
       ['wallet', getAddressEncoder()],
-      ['key', fixEncoderSize(getBytesEncoder(), 33)],
-      ['registeredSlot', getU64Encoder()],
-      ['registeredAt', getI64Encoder()],
       ['bump', getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: DEVICE_DISCRIMINATOR }),
@@ -84,9 +64,6 @@ export function getDeviceDecoder(): FixedSizeDecoder<Device> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
     ['wallet', getAddressDecoder()],
-    ['key', fixDecoderSize(getBytesDecoder(), 33)],
-    ['registeredSlot', getU64Decoder()],
-    ['registeredAt', getI64Decoder()],
     ['bump', getU8Decoder()],
   ])
 }
@@ -147,5 +124,5 @@ export async function fetchAllMaybeDevice(
 }
 
 export function getDeviceSize(): number {
-  return 90
+  return 41
 }

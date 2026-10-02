@@ -1,0 +1,61 @@
+[Unit]
+Description=Buckspay gateway
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=exec
+User=buckspay-gateway
+Group=buckspay-gateway
+ExecStart=/usr/local/bin/buckspay-gateway
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=/etc/buckspay-gateway/gateway.env
+Environment=BIND=unix:/run/buckspay-gateway/gateway.sock
+# Keys reach the service as credentials: copies only it can read, outside its file system view.
+LoadCredential=fee-payer:/etc/buckspay-gateway/fee-payer.json
+LoadCredential=hpke:/etc/buckspay-gateway/hpke.key
+Environment=FEE_PAYER_KEYPAIR=%d/fee-payer
+Environment=HPKE_KEY=%d/hpke
+# The sponsorship ledger; systemd sets STATE_DIRECTORY.
+StateDirectory=buckspay-gateway
+StateDirectoryMode=0700
+# The socket Caddy connects to: the group is the gateway's, and Caddy is in it.
+RuntimeDirectory=buckspay-gateway
+RuntimeDirectoryMode=0750
+UMask=0007
+# Room for the connections Caddy opens and the RPC's.
+LimitNOFILE=65536
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateUsers=yes
+ProtectProc=invisible
+ProcSubset=pid
+ProtectHostname=yes
+ProtectClock=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+DevicePolicy=closed
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

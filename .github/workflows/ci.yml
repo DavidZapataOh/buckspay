@@ -114,6 +114,32 @@ jobs:
           require-lockfile: true
       - run: pnpm exec expo install --check
 
+  gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: solana-foundation/github-actions/setup-all@v0.2.15
+        with:
+          solana_version: 4.3.0
+          anchor_version: 1.2.0
+      - run: rustup toolchain install
+        working-directory: anchor
+      - run: rustup toolchain install stable --profile minimal -c rustfmt,clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            anchor
+            gateway
+      # The gateway's tests run against solana-test-validator with this build of the program.
+      - run: anchor build -- --features devnet
+        working-directory: anchor
+      - run: cargo fmt --all --check
+        working-directory: gateway
+      - run: cargo clippy --all-targets -- -D warnings
+        working-directory: gateway
+      - run: cargo test
+        working-directory: gateway
+
   e2e:
     runs-on: ubuntu-latest
     steps:

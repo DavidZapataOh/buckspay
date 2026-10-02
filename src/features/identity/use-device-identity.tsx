@@ -19,6 +19,7 @@ import {
   type IdentityState,
   resolveIdentity,
 } from './device-identity'
+import { BUILD_GATEWAY } from './gateway'
 
 export type DeviceIdentity = IdentityState & {
   /** True while a step runs or the state is being derived. */
@@ -52,7 +53,7 @@ export function DeviceIdentityProvider({
   cache: WalletAuthorizationCache
   children: ReactNode
 }) {
-  const { client, connect, disconnect, getTransactionSigner } = useMobileWallet()
+  const { client, connect, disconnect, getTransactionSigner, signTransactions } = useMobileWallet()
   const [state, setState] = useState<IdentityState>({ step: 'loading' })
   const context = useMemo<IdentityContext>(
     () => ({
@@ -63,9 +64,11 @@ export function DeviceIdentityProvider({
       connect,
       disconnect,
       getTransactionSigner,
+      signTransactions,
+      gateway: BUILD_GATEWAY,
       onProgress: setState,
     }),
-    [cluster, network.id, cache, client.rpc, connect, disconnect, getTransactionSigner],
+    [cluster, network.id, cache, client.rpc, connect, disconnect, getTransactionSigner, signTransactions],
   )
   const [busy, setBusy] = useState(true)
   const running = useRef(false)

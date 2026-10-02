@@ -27,6 +27,7 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
+  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
@@ -44,6 +45,7 @@ export function getRegisterDeviceDiscriminatorBytes(): ReadonlyUint8Array {
 export type RegisterDeviceInstruction<
   TProgram extends string = typeof BUCKSPAY_PROGRAM_ADDRESS,
   TAccountWallet extends string | AccountMeta<string> = string,
+  TAccountPayer extends string | AccountMeta<string> = string,
   TAccountDevice extends string | AccountMeta<string> = string,
   TAccountInstructions extends string | AccountMeta<string> = 'Sysvar1nstructions1111111111111111111111111',
   TAccountSystemProgram extends string | AccountMeta<string> = '11111111111111111111111111111111',
@@ -53,8 +55,11 @@ export type RegisterDeviceInstruction<
   InstructionWithAccounts<
     [
       TAccountWallet extends string
-        ? WritableSignerAccount<TAccountWallet> & AccountSignerMeta<TAccountWallet>
+        ? ReadonlySignerAccount<TAccountWallet> & AccountSignerMeta<TAccountWallet>
         : TAccountWallet,
+      TAccountPayer extends string
+        ? WritableSignerAccount<TAccountPayer> & AccountSignerMeta<TAccountPayer>
+        : TAccountPayer,
       TAccountDevice extends string ? WritableAccount<TAccountDevice> : TAccountDevice,
       TAccountInstructions extends string ? ReadonlyAccount<TAccountInstructions> : TAccountInstructions,
       TAccountSystemProgram extends string ? ReadonlyAccount<TAccountSystemProgram> : TAccountSystemProgram,
@@ -92,11 +97,15 @@ export function getRegisterDeviceInstructionDataCodec(): FixedSizeCodec<
 
 export type RegisterDeviceInput<
   TAccountWallet extends string = string,
+  TAccountPayer extends string = string,
   TAccountDevice extends string = string,
   TAccountInstructions extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
+  /** The wallet the key is bound to: its signature is the consent, checked against the binding. */
   wallet: TransactionSigner<TAccountWallet>
+  /** Pays the device account's rent: the wallet itself, or a sponsor. */
+  payer: TransactionSigner<TAccountPayer>
   device: Address<TAccountDevice>
   instructions?: Address<TAccountInstructions>
   systemProgram?: Address<TAccountSystemProgram>
@@ -105,16 +114,24 @@ export type RegisterDeviceInput<
 
 export function getRegisterDeviceInstruction<
   TAccountWallet extends string,
+  TAccountPayer extends string,
   TAccountDevice extends string,
   TAccountInstructions extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof BUCKSPAY_PROGRAM_ADDRESS,
 >(
-  input: RegisterDeviceInput<TAccountWallet, TAccountDevice, TAccountInstructions, TAccountSystemProgram>,
+  input: RegisterDeviceInput<
+    TAccountWallet,
+    TAccountPayer,
+    TAccountDevice,
+    TAccountInstructions,
+    TAccountSystemProgram
+  >,
   config?: { programAddress?: TProgramAddress },
 ): RegisterDeviceInstruction<
   TProgramAddress,
   TAccountWallet,
+  TAccountPayer,
   TAccountDevice,
   TAccountInstructions,
   TAccountSystemProgram
@@ -124,7 +141,8 @@ export function getRegisterDeviceInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    wallet: { value: input.wallet ?? null, isWritable: true },
+    wallet: { value: input.wallet ?? null, isWritable: false },
+    payer: { value: input.payer ?? null, isWritable: true },
     device: { value: input.device ?? null, isWritable: true },
     instructions: { value: input.instructions ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
@@ -147,6 +165,7 @@ export function getRegisterDeviceInstruction<
   return Object.freeze({
     accounts: [
       getAccountMeta('wallet', accounts.wallet),
+      getAccountMeta('payer', accounts.payer),
       getAccountMeta('device', accounts.device),
       getAccountMeta('instructions', accounts.instructions),
       getAccountMeta('systemProgram', accounts.systemProgram),
@@ -156,6 +175,7 @@ export function getRegisterDeviceInstruction<
   } as RegisterDeviceInstruction<
     TProgramAddress,
     TAccountWallet,
+    TAccountPayer,
     TAccountDevice,
     TAccountInstructions,
     TAccountSystemProgram
@@ -168,10 +188,13 @@ export type ParsedRegisterDeviceInstruction<
 > = {
   programAddress: Address<TProgram>
   accounts: {
+    /** The wallet the key is bound to: its signature is the consent, checked against the binding. */
     wallet: TAccountMetas[0]
-    device: TAccountMetas[1]
-    instructions: TAccountMetas[2]
-    systemProgram: TAccountMetas[3]
+    /** Pays the device account's rent: the wallet itself, or a sponsor. */
+    payer: TAccountMetas[1]
+    device: TAccountMetas[2]
+    instructions: TAccountMetas[3]
+    systemProgram: TAccountMetas[4]
   }
   data: RegisterDeviceInstructionData
 }
@@ -179,10 +202,10 @@ export type ParsedRegisterDeviceInstruction<
 export function parseRegisterDeviceInstruction<TProgram extends string, TAccountMetas extends readonly AccountMeta[]>(
   instruction: Instruction<TProgram> & InstructionWithAccounts<TAccountMetas> & InstructionWithData<ReadonlyUint8Array>,
 ): ParsedRegisterDeviceInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 4) {
+  if (instruction.accounts.length < 5) {
     throw new SolanaError(SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS, {
       actualAccountMetas: instruction.accounts.length,
-      expectedAccountMetas: 4,
+      expectedAccountMetas: 5,
     })
   }
   let accountIndex = 0
@@ -195,6 +218,7 @@ export function parseRegisterDeviceInstruction<TProgram extends string, TAccount
     programAddress: instruction.programAddress,
     accounts: {
       wallet: getNextAccount(),
+      payer: getNextAccount(),
       device: getNextAccount(),
       instructions: getNextAccount(),
       systemProgram: getNextAccount(),

@@ -57,6 +57,7 @@ app-example
 /anchor/target/sbpfv3-solana-solana
 /anchor/target/test-ledger
 /anchor/target/tmp
+/gateway/target
 **/*.rs.bk
 test-ledger
 

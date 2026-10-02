@@ -1,10 +1,18 @@
 import { address, getBase58Decoder, type Signature } from '@solana/kit'
 import { describe, expect, it } from 'vitest'
 import type { IdentityState } from './device-identity'
-import { confirmingNotice, costNotice, homeStatus, keyProtection, shortfallNotice, stepCopy } from './identity-copy'
+import {
+  confirmingNotice,
+  costNotice,
+  homeStatus,
+  keyProtection,
+  shortfallNotice,
+  sponsorshipNotice,
+  stepCopy,
+} from './identity-copy'
 
 const ALICE = address('Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS')
-const device = { address: ALICE, wallet: ALICE, key: new Uint8Array(33), registeredSlot: 7n }
+const device = { address: ALICE, wallet: ALICE, key: new Uint8Array(33) }
 
 describe('identity copy', () => {
   it('says what registering costs, rounded up, and what the wallet lacks, rounded down', () => {
@@ -15,6 +23,19 @@ describe('identity copy', () => {
       'Your wallet has 0.001 SOL. Add SOL to it before you register.',
     )
     expect(shortfallNotice({ balance: 1_527_280n, cost: 1_527_280n })).toBeUndefined()
+  })
+
+  it('says a sponsored registration is free, and why the wallet pays when it is not', () => {
+    const quote = { balance: 0n, cost: 1_186_240n }
+    expect(costNotice(quote, 'free')).toBe('Free: Buckspay pays the registration.')
+    expect(shortfallNotice(quote, 'free')).toBeUndefined()
+    expect(costNotice(quote, 'unavailable')).toBe('Costs about 0.0012 SOL from your wallet. Not refundable.')
+    expect(shortfallNotice(quote, 'unavailable')).toBe('Your wallet has 0 SOL. Add SOL to it before you register.')
+    expect(sponsorshipNotice('unavailable')).toBe(
+      'Buckspay can’t pay for registrations right now, so your wallet pays.',
+    )
+    expect(sponsorshipNotice('free')).toBeUndefined()
+    expect(sponsorshipNotice()).toBeUndefined()
   })
 
   it('tells the public, permanent link before registering, and that a sent registration cannot be cancelled', () => {

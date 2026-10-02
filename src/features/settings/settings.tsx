@@ -57,7 +57,7 @@ export function Settings() {
         Technical details
       </AppText>
       {device ? <AddressRow address={device.address} label="Device account" /> : null}
-      {device ? <ListRow title="Registered at slot" value={device.registeredSlot.toString()} /> : null}
+
       {deviceKey ? (
         <ListRow title="Key attestation" value={`Chain of ${deviceKey.attestationChain.length} certificates`} />
       ) : null}

@@ -28,6 +28,16 @@ export type Buckspay = {
       "accounts": [
         {
           "name": "wallet",
+          "docs": [
+            "The wallet the key is bound to: its signature is the consent, checked against the binding."
+          ],
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "docs": [
+            "Pays the device account's rent: the wallet itself, or a sponsor."
+          ],
           "writable": true,
           "signer": true
         },
@@ -87,29 +97,15 @@ export type Buckspay = {
   "types": [
     {
       "name": "device",
+      "docs": [
+        "A device key bound to a wallet. The key is in the account's seeds, so it is not stored."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "wallet",
             "type": "pubkey"
-          },
-          {
-            "name": "key",
-            "type": {
-              "array": [
-                "u8",
-                33
-              ]
-            }
-          },
-          {
-            "name": "registeredSlot",
-            "type": "u64"
-          },
-          {
-            "name": "registeredAt",
-            "type": "i64"
           },
           {
             "name": "bump",

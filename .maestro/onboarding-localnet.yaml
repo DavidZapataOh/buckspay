@@ -33,8 +33,10 @@ env:
     timeout: 30000
 - assertVisible: Step 2 of 2
 - assertVisible: .*publicly and permanently.*
-- assertVisible: Costs about 0.0016 SOL from your wallet. Not refundable.
-- assertVisible: Your wallet has 0 SOL. Add SOL to it before you register.
+- assertVisible: Costs about 0.0012 SOL from your wallet. Not refundable.
+# Below the fold when the wallet address wraps to three lines on a small screen.
+- scrollUntilVisible:
+    element: Your wallet has 0 SOL. Add SOL to it before you register.
 - stopApp
 - launchApp
 - extendedWaitUntil:

@@ -80,12 +80,8 @@ pub mod buckspay {
         }
         require!(matching == 1, BuckspayError::DeviceBinding);
 
-        let clock = Clock::get()?;
         ctx.accounts.device.set_inner(Device {
             wallet,
-            key,
-            registered_slot: clock.slot,
-            registered_at: clock.unix_timestamp,
             bump: ctx.bumps.device,
         });
         Ok(())
@@ -112,11 +108,14 @@ fn is_binding(data: &[u8], key: &[u8; 33], message: &[u8; 96]) -> bool {
 #[derive(Accounts)]
 #[instruction(key: [u8; 33])]
 pub struct RegisterDevice<'info> {
-    #[account(mut)]
+    /// The wallet the key is bound to: its signature is the consent, checked against the binding.
     pub wallet: Signer<'info>,
+    /// Pays the device account's rent: the wallet itself, or a sponsor.
+    #[account(mut)]
+    pub payer: Signer<'info>,
     #[account(
         init,
-        payer = wallet,
+        payer = payer,
         space = Device::DISCRIMINATOR.len() + Device::INIT_SPACE,
         seeds = [DEVICE_SEED, &key[..1], &key[1..]],
         bump,
@@ -128,13 +127,11 @@ pub struct RegisterDevice<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// A device key bound to a wallet. The key is in the account's seeds, so it is not stored.
 #[account]
 #[derive(InitSpace)]
 pub struct Device {
     pub wallet: Pubkey,
-    pub key: [u8; 33],
-    pub registered_slot: u64,
-    pub registered_at: i64,
     pub bump: u8,
 }
 

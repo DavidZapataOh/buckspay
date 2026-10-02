@@ -1,5 +1,5 @@
 import { p256 } from '@noble/curves/nist.js'
-import { bytesToHex } from '@noble/hashes/utils.js'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import {
   BUCKSPAY_PROGRAM_ADDRESS,
   findDevicePda,
@@ -19,11 +19,16 @@ import {
   SolanaMobileWalletAdapterProtocolErrorCode,
 } from '@solana-mobile/mobile-wallet-adapter-protocol'
 import {
+  AccountRole,
   type Address,
   address,
+  appendTransactionMessageInstruction,
+  compileTransaction,
+  decompileTransactionMessage,
   getAddressEncoder,
   getBase58Decoder,
   getBase64Decoder,
+  getBase64EncodedWireTransaction,
   getBase64Encoder,
   getCompiledTransactionMessageDecoder,
   getTransactionDecoder,
@@ -46,6 +51,8 @@ import {
   type IdentityState,
   resolveIdentity,
 } from './device-identity'
+import { GatewayError } from './gateway'
+import { buildSponsoredTransaction, MAX_SPONSORED_PRIORITY_FEE } from './register-device'
 
 vi.mock('../../../modules/hardware-keys/src/HardwareKeysModule', () => import('../../keys/test-support/hardware-keys'))
 vi.mock('@react-native-async-storage/async-storage', () => import('../../test-support/async-storage'))
@@ -59,8 +66,8 @@ const DEVICE_DOMAIN = domain(
   DEVNET_GENESIS_HASH,
   Uint8Array.from(getAddressEncoder().encode(BUCKSPAY_PROGRAM_ADDRESS)),
 )
-/** The rent of a 90-byte device account and the fee of one transaction signature and one secp256r1 signature. */
-const COST = 1_517_280n + 10_000n
+/** The rent of a 41-byte device account and the fee of one transaction signature and one secp256r1 signature. */
+const COST = 1_176_240n + 10_000n
 const EXPIRED = 'The registration expired before it landed. Nothing was charged and this phone is not registered.'
 const UNREACHABLE = 'Can’t reach Solana. Check your connection and try again. Nothing was sent.'
 const UNCONFIRMED = 'Can’t reach Solana to check the registration. It may still land; check again once you’re online.'
@@ -90,6 +97,8 @@ class Cluster {
    * fails on-chain.
    */
   landing: 'now' | 'later' | 'never' | 'fails' = 'now'
+  /** How many more device account reads a `later` landing waits for. */
+  laterReads = 2
   /** Every request fails, as without a connection. */
   offline = false
   accountsUnavailable = false
@@ -124,7 +133,7 @@ class Cluster {
           ? {
               data: [getBase64Decoder().decode(data), 'base64'],
               executable: false,
-              lamports: 1_517_280n,
+              lamports: 1_176_240n,
               owner: BUCKSPAY_PROGRAM_ADDRESS,
               space: BigInt(data.length),
             }
@@ -185,11 +194,15 @@ class Cluster {
   private async check(transaction: Transaction) {
     const message = getCompiledTransactionMessageDecoder().decode(transaction.messageBytes)
     if (message.version !== 0) throw new Error(`unexpected transaction version ${message.version}`)
-    const [budget, verify, register] = message.instructions
+    // A sponsored registration also sets a compute unit price, and its wallet is the second signer.
+    const sponsored = message.instructions.length === 4
+    const [budget, verify, register] = sponsored
+      ? [message.instructions[0], ...message.instructions.slice(2)]
+      : message.instructions
     expect(message.staticAccounts[budget.programAddressIndex]).toBe(COMPUTE_BUDGET_PROGRAM_ADDRESS)
     expect(message.staticAccounts[verify.programAddressIndex]).toBe(SECP256R1_PROGRAM_ADDRESS)
     expect(message.staticAccounts[register.programAddressIndex]).toBe(BUCKSPAY_PROGRAM_ADDRESS)
-    const wallet = message.staticAccounts[0]
+    const wallet = message.staticAccounts[sponsored ? 1 : 0]
     const { key } = getRegisterDeviceInstructionDataDecoder().decode(register.data!)
     const [device, bump] = await findDevicePda(key)
     const { units } = getSetComputeUnitLimitInstructionDataDecoder().decode(budget.data!)
@@ -206,19 +219,14 @@ class Cluster {
   }
 
   private async process(transaction: Transaction): Promise<SignatureBytes> {
-    const { device, wallet, key } = await this.check(transaction)
+    const { device, wallet } = await this.check(transaction)
     const create = () => {
       if (this.accounts.has(device)) throw new Error('already in use')
-      this.accounts.set(
-        device,
-        Uint8Array.from(
-          getDeviceEncoder().encode({ wallet, key, registeredSlot: 7n, registeredAt: 1_800_000_000n, bump: 255 }),
-        ),
-      )
+      this.accounts.set(device, Uint8Array.from(getDeviceEncoder().encode({ wallet, bump: 255 })))
     }
     const signature = crypto.getRandomValues(new Uint8Array(64)) as SignatureBytes
     if (this.landing === 'now') create()
-    if (this.landing === 'later') this.landings.push({ reads: 2, create })
+    if (this.landing === 'later') this.landings.push({ reads: this.laterReads, create })
     if (this.landing === 'fails') {
       this.statuses.set(getBase58Decoder().decode(signature), {
         err: { InstructionError: [2, { Custom: 6001 }] },
@@ -230,18 +238,15 @@ class Cluster {
 
   async bind(key: Uint8Array, wallet: Address) {
     const [device] = await findDevicePda(key)
-    this.accounts.set(
-      device,
-      Uint8Array.from(
-        getDeviceEncoder().encode({ wallet, key, registeredSlot: 7n, registeredAt: 1_800_000_000n, bump: 255 }),
-      ),
-    )
+    this.accounts.set(device, Uint8Array.from(getDeviceEncoder().encode({ wallet, bump: 255 })))
   }
 }
 
 let cluster: Cluster
 let wallet: Address
-let walletFailure: 'none' | 'revoked' | 'declined' | 'before-sending' | 'after-sending' | 'killed'
+let walletFailure:
+  'none' | 'revoked' | 'declined' | 'before-sending' | 'after-sending' | 'killed' | 'unsupported' | 'altered'
+let gateway: Gateway | undefined
 let walletCalls: number
 const connect = vi.fn(async () => cache.set(authorization(wallet)))
 const disconnect = vi.fn(async () => cache.clear())
@@ -269,6 +274,127 @@ const signer = (from: Address): TransactionSendingSigner => ({
   },
 })
 
+/** The wallet signing without sending, as for a sponsored registration. */
+async function signTransactions(transaction: Transaction): Promise<Transaction> {
+  walletCalls++
+  const failure = walletFailure
+  if (failure === 'revoked') throw new SolanaMobileWalletAdapterProtocolError(0, -1, 'auth_token not valid for signing')
+  if (failure === 'declined')
+    throw new SolanaMobileWalletAdapterProtocolError(
+      0,
+      SolanaMobileWalletAdapterProtocolErrorCode.ERROR_NOT_SIGNED,
+      'User declined',
+    )
+  // A wallet without `sign_transactions` answers JSON-RPC's method not found.
+  if (failure === 'unsupported') throw new SolanaMobileWalletAdapterProtocolError(0, -32601, 'Method not found')
+  if (failure === 'killed') return new Promise(() => {})
+  const signatures = { ...transaction.signatures, [wallet]: new Uint8Array(64).fill(7) as SignatureBytes }
+  if (failure === 'altered') {
+    // A wallet that adds its own priority fee signs another message.
+    const messageBytes = Uint8Array.from(transaction.messageBytes)
+    messageBytes[messageBytes.length - 1] ^= 1
+    return { ...transaction, messageBytes: messageBytes as unknown as Transaction['messageBytes'], signatures }
+  }
+  return { ...transaction, signatures }
+}
+
+const SPONSOR = address('2t2uAzmxvzM5caJZUeUd4Qg4Qcu39x978yoUzyher8fQ')
+const THIEF = address('9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin')
+
+/**
+ * A gateway that pays for registrations as the Rust one does, or, as a compromised or broken one
+ * could, offers another: one binding its own device key to the wallet, one with a transfer out of
+ * the wallet appended, one above the price cap, or one it describes with an unparsable fee payer
+ * and an endless lifetime. It refuses to send (`refuses`, `rejects`), sends and then a proxy in front
+ * of it fails (`lost`), or never answers the submission (`silent`). A real gateway cannot be made to
+ * misbehave, so these cases run against this double; everything Solana does runs on the validator
+ * in the gateway's own tests.
+ */
+class Gateway {
+  mode:
+    | 'honest'
+    | 'unavailable'
+    | 'refuses'
+    | 'rejects'
+    | 'lost'
+    | 'silent'
+    | 'own-key'
+    | 'transfer'
+    | 'price'
+    | 'unparsable' = 'honest'
+  prepared?: Transaction
+  submitted = 0
+
+  async sponsorship() {
+    if (this.mode === 'unavailable') throw new GatewayError(503, 'sponsorship is unavailable')
+  }
+
+  async prepare({ wallet: owner, key, signature }: { wallet: string; key: string; signature: string }) {
+    if (this.mode === 'unavailable') throw new GatewayError(503, 'sponsorship is unavailable')
+    const wallet = address(owner)
+    const walletBytes = getAddressEncoder().encode(wallet) as Uint8Array
+    let binding = {
+      key: hexToBytes(key),
+      signature: hexToBytes(signature),
+      envelope: deviceBindingEnvelope(DEVICE_DOMAIN, walletBytes, hexToBytes(key)),
+    }
+    if (this.mode === 'own-key') {
+      const secret = p256.utils.randomSecretKey()
+      const own = p256.getPublicKey(secret, true)
+      const envelope = deviceBindingEnvelope(DEVICE_DOMAIN, walletBytes, own)
+      binding = { key: own, signature: p256.sign(envelope, secret, { prehash: true, lowS: true }), envelope }
+    }
+    const [device, bump] = await findDevicePda(binding.key)
+    const {
+      value: { blockhash, lastValidBlockHeight },
+    } = await cluster.rpc.getLatestBlockhash().send()
+    const computeUnitPrice = this.mode === 'price' ? MAX_SPONSORED_PRIORITY_FEE + 1n : 5_000n
+    const sponsored = buildSponsoredTransaction(
+      { binding, bump, device, wallet },
+      { feePayer: SPONSOR, blockhash, lastValidBlockHeight, computeUnitPrice },
+    )
+    this.prepared = this.mode === 'transfer' ? withTransfer(sponsored, wallet) : sponsored
+    return {
+      transaction: getBase64EncodedWireTransaction(this.prepared),
+      feePayer: this.mode === 'unparsable' ? 'not-an-address' : SPONSOR,
+      blockhash,
+      computeUnitPrice: Number(computeUnitPrice),
+      // Not part of what the gateway answers; the app must ignore it.
+      ...(this.mode === 'silent' && { lastValidBlockHeight: Number.MAX_SAFE_INTEGER }),
+    }
+  }
+
+  async submit({ transaction }: { key: string; transaction: string }) {
+    if (this.mode === 'refuses') throw new GatewayError(410, 'no prepared registration for this key')
+    if (this.mode === 'rejects') throw new GatewayError(422, 'Solana refused the registration in its preflight')
+    if (this.mode === 'silent') throw new TypeError('Network request failed')
+    const signed = getTransactionDecoder().decode(getBase64Encoder().encode(transaction))
+    expect(signed.messageBytes).toEqual(this.prepared!.messageBytes)
+    this.submitted++
+    const signature = getBase58Decoder().decode(await cluster.land(signed))
+    if (this.mode === 'lost') throw new GatewayError(502, 'Bad Gateway')
+    return { signature }
+  }
+}
+
+/** The same transaction with a transfer of 2 SOL from the wallet to a thief appended. */
+function withTransfer(transaction: Transaction, from: Address): Transaction {
+  const message = decompileTransactionMessage(getCompiledTransactionMessageDecoder().decode(transaction.messageBytes))
+  return compileTransaction(
+    appendTransactionMessageInstruction(
+      {
+        programAddress: address('11111111111111111111111111111111'),
+        accounts: [
+          { address: from, role: AccountRole.WRITABLE_SIGNER },
+          { address: THIEF, role: AccountRole.WRITABLE },
+        ],
+        data: new Uint8Array([2, 0, 0, 0, 0, 148, 53, 119, 0, 0, 0, 0]),
+      },
+      message,
+    ),
+  )
+}
+
 const context = (): IdentityContext => ({
   cluster: 'devnet',
   chain: CHAIN,
@@ -277,6 +403,8 @@ const context = (): IdentityContext => ({
   connect,
   disconnect,
   getTransactionSigner: signer,
+  signTransactions,
+  gateway,
   onProgress: progress,
 })
 
@@ -331,6 +459,7 @@ describe('device identity', () => {
     wallet = ALICE
     walletFailure = 'none'
     walletCalls = 0
+    gateway = undefined
     vi.clearAllMocks()
   })
 
@@ -360,7 +489,6 @@ describe('device identity', () => {
       address: ready.device?.address,
       wallet: ALICE,
       key: bytesToHex(ready.deviceKey!.publicKey),
-      registeredSlot: '7',
     })
   })
 
@@ -373,7 +501,7 @@ describe('device identity', () => {
       ...atRegister,
       quote: { balance: 1_000_000n, cost: COST },
       error:
-        'Your wallet has 0.001 SOL and registering costs about 0.0016 SOL. Add SOL to your wallet, then try again. Nothing was sent.',
+        'Your wallet has 0.001 SOL and registering costs about 0.0012 SOL. Add SOL to your wallet, then try again. Nothing was sent.',
     })
     expect(walletCalls).toBe(0)
     expect(storedItems()).not.toHaveProperty('registration')
@@ -427,7 +555,7 @@ describe('device identity', () => {
       'null',
       JSON.stringify({ ...stored, chain: 'solana:devnet' }),
       JSON.stringify({ ...stored, key: `02${'00'.repeat(32)}` }),
-      JSON.stringify({ ...stored, registeredSlot: 7 }),
+      JSON.stringify({ ...stored, wallet: 'not an address' }),
     ]) {
       await AsyncStorage.setItem('device', record)
       cluster.offline = true
@@ -655,7 +783,7 @@ describe('device identity', () => {
 
   it('limits a registration to the most expensive one at the bump of its key, and to at least 40,000 CU', () => {
     expect([255, 239, 238, 235, 0].map((bump) => registerDeviceComputeUnitLimit(bump))).toEqual([
-      40_000, 40_000, 41_132, 45_632, 398_132,
+      40_000, 40_000, 40_833, 45_333, 397_833,
     ])
   })
 
@@ -712,5 +840,163 @@ describe('device identity', () => {
       'This phone couldn’t create its key. Nothing was charged. Try again.',
     ])
     expect(describeIdentityError(missing, 'connect').details).toBe(missing.message)
+  })
+
+  it('registers for free: the wallet only signs, and the gateway pays and sends', async () => {
+    const sponsor = (gateway = new Gateway())
+    cluster.balances.set(ALICE, 0n)
+    const atRegister = await walk('connect', 'create-key', 'register')
+    expect(atRegister.sponsorship).toBe('free')
+    const ready = await advanceIdentity(context(), atRegister)
+    expect(ready).toMatchObject({ step: 'ready', wallet: ALICE, device: { wallet: ALICE } })
+    expect(walletCalls).toBe(1)
+    expect(sponsor.submitted).toBe(1)
+    const { staticAccounts } = getCompiledTransactionMessageDecoder().decode(cluster.sent[0].messageBytes)
+    expect(staticAccounts.slice(0, 2)).toEqual([SPONSOR, ALICE])
+    expect(progress).toHaveBeenCalledExactlyOnceWith({
+      step: 'confirming',
+      wallet: ALICE,
+      deviceKey: ready.deviceKey,
+      signature: expect.any(String),
+    })
+    expect(storedItems()).not.toHaveProperty('registration')
+  })
+
+  it.each([
+    ['own-key', 'Buckspay’s server offered a registration this app didn’t ask for'],
+    ['transfer', 'Buckspay’s server offered a registration this app didn’t ask for'],
+    ['price', 'Buckspay’s server offered a registration this app didn’t ask for'],
+    ['unparsable', 'Buckspay’s server offered a registration this app didn’t ask for'],
+    ['refuses', 'Buckspay couldn’t pay for this registration.'],
+    ['rejects', 'Buckspay couldn’t pay for this registration.'],
+  ] as const)(
+    'never shows the wallet a registration the gateway changed, and offers to pay instead (%s)',
+    async (mode, error) => {
+      const sponsor = (gateway = new Gateway())
+      const atRegister = await walk('connect', 'create-key', 'register')
+      sponsor.mode = mode
+      const refused = await advanceIdentity(context(), atRegister)
+      expect(refused).toMatchObject({ step: 'register', sponsorship: 'unavailable', quote: atRegister.quote })
+      expect(refused.error).toContain(error)
+      expect(refused.error).toContain(
+        'Nothing was sent and nothing was charged. You can register now and pay from your wallet.',
+      )
+      // The wallet signs only what the app built: the gateway refused it after the wallet signed.
+      expect(walletCalls).toBe(mode === 'refuses' || mode === 'rejects' ? 1 : 0)
+      expect(sponsor.submitted).toBe(0)
+      expect(cluster.sent).toHaveLength(0)
+      expect(storedItems()).not.toHaveProperty('registration')
+      // The next tap registers with the wallet paying, as the screen now says.
+      expect(await advanceIdentity(context(), refused)).toMatchObject({ step: 'ready', wallet: ALICE })
+      const { staticAccounts } = getCompiledTransactionMessageDecoder().decode(cluster.sent[0].messageBytes)
+      expect(staticAccounts[0]).toBe(ALICE)
+    },
+  )
+
+  it.each([
+    ['can pay', 2_000_000_000n, 'You can register now and pay from your wallet.'],
+    ['cannot pay', 0n, 'To register now, add SOL to your wallet and pay from it.'],
+  ] as const)(
+    'falls back when Buckspay’s registration would fail, and says whether the wallet %s instead',
+    async (_, balance, instead) => {
+      const sponsor = (gateway = new Gateway())
+      cluster.balances.set(ALICE, balance)
+      const atRegister = await walk('connect', 'create-key', 'register')
+      // What simulating the gateway's transaction gives once its fee payer ran dry.
+      cluster.simulationError = 'InsufficientFundsForFee'
+      const refused = await advanceIdentity(context(), atRegister)
+      expect(refused).toMatchObject({ step: 'register', sponsorship: 'unavailable', quote: atRegister.quote })
+      expect(refused.error).toBe(
+        `Buckspay couldn’t pay for this registration. Nothing was sent and nothing was charged. ${instead}`,
+      )
+      expect(walletCalls).toBe(0)
+      expect(sponsor.submitted).toBe(0)
+    },
+  )
+
+  it('waits for a registration the gateway may have sent when a proxy answers for it', async () => {
+    const sponsor = (gateway = new Gateway())
+    const atRegister = await walk('connect', 'create-key', 'register')
+    sponsor.mode = 'lost'
+    expect(await advanceIdentity(context(), atRegister)).toMatchObject({ step: 'ready', wallet: ALICE })
+    expect(sponsor.submitted).toBe(1)
+    expect(cluster.sent).toHaveLength(1)
+  })
+
+  it('waits past its own RPC’s lifetime for a gateway whose RPC is ahead', async () => {
+    const sponsor = (gateway = new Gateway())
+    const atRegister = await walk('connect', 'create-key', 'register')
+    // The registration lands only after the app's own blockhash (50 blocks, 20 a read) expired.
+    sponsor.mode = 'lost'
+    cluster.landing = 'later'
+    cluster.laterReads = 5
+    expect(await polled(advanceIdentity(context(), atRegister))).toMatchObject({ step: 'ready', wallet: ALICE })
+    expect(cluster.sent).toHaveLength(1)
+  })
+
+  it('waits for an unanswered submission only as long as its own RPC says it can land', async () => {
+    const sponsor = (gateway = new Gateway())
+    const atRegister = await walk('connect', 'create-key', 'register')
+    sponsor.mode = 'silent'
+    const expired = await polled(advanceIdentity(context(), atRegister))
+    expect(expired).toMatchObject({ step: 'register', error: EXPIRED })
+    expect(storedItems()).not.toHaveProperty('registration')
+  })
+
+  it('has the wallet pay when the gateway does not offer to', async () => {
+    const sponsor = (gateway = new Gateway())
+    sponsor.mode = 'unavailable'
+    const atRegister = await walk('connect', 'create-key', 'register')
+    expect(atRegister.sponsorship).toBe('unavailable')
+    expect(await advanceIdentity(context(), atRegister)).toMatchObject({ step: 'ready', wallet: ALICE })
+    expect(sponsor.submitted).toBe(0)
+    const { staticAccounts } = getCompiledTransactionMessageDecoder().decode(cluster.sent[0].messageBytes)
+    expect(staticAccounts[0]).toBe(ALICE)
+  })
+
+  it.each([
+    ['unsupported', 'Your wallet can’t sign a registration that Buckspay pays for.'],
+    ['altered', 'Your wallet changed the registration before signing it, so it wasn’t sent.'],
+  ] as const)('offers to pay from the wallet when it cannot sign for a sponsor (%s)', async (failure, error) => {
+    const sponsor = (gateway = new Gateway())
+    const atRegister = await walk('connect', 'create-key', 'register')
+    walletFailure = failure
+    const refused = await advanceIdentity(context(), atRegister)
+    expect(refused).toMatchObject({ step: 'register', sponsorship: 'unavailable' })
+    expect(refused.error).toContain(error)
+    expect(sponsor.submitted).toBe(0)
+    expect(storedItems()).not.toHaveProperty('registration')
+    walletFailure = 'none'
+    expect(await advanceIdentity(context(), refused)).toMatchObject({ step: 'ready', wallet: ALICE })
+    expect(sponsor.submitted).toBe(0)
+  })
+
+  it('sends nothing when the wallet declines a sponsored registration, or is killed while it holds it', async () => {
+    const sponsor = (gateway = new Gateway())
+    const atRegister = await walk('connect', 'create-key', 'register')
+    walletFailure = 'declined'
+    expect(await advanceIdentity(context(), atRegister)).toEqual({
+      ...atRegister,
+      error: 'You declined in your wallet. Nothing was sent and nothing was charged.',
+      details: 'User declined',
+    })
+    walletFailure = 'killed'
+    void advanceIdentity(context(), atRegister)
+    while (walletCalls < 2) await new Promise((resolve) => setImmediate(resolve))
+    // The app was killed: a relaunch offers the free registration again, with nothing to wait for.
+    expect(await resolveIdentity(context())).toEqual(atRegister)
+    expect(sponsor.submitted).toBe(0)
+    expect(storedItems()).not.toHaveProperty('registration')
+  })
+
+  it('clears an authorization the wallet forgot while it signs for a sponsor', async () => {
+    gateway = new Gateway()
+    const atRegister = await walk('connect', 'create-key', 'register')
+    walletFailure = 'revoked'
+    const revoked = await advanceIdentity(context(), atRegister)
+    expect(revoked).toMatchObject({ step: 'connect', error: expect.stringContaining('Connect it again') })
+    expect(await cache.get()).toBeUndefined()
+    walletFailure = 'none'
+    await walk('connect', 'register', 'ready')
   })
 })

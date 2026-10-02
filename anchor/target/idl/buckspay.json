@@ -22,6 +22,16 @@
       "accounts": [
         {
           "name": "wallet",
+          "docs": [
+            "The wallet the key is bound to: its signature is the consent, checked against the binding."
+          ],
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "docs": [
+            "Pays the device account's rent: the wallet itself, or a sponsor."
+          ],
           "writable": true,
           "signer": true
         },
@@ -81,29 +91,15 @@
   "types": [
     {
       "name": "Device",
+      "docs": [
+        "A device key bound to a wallet. The key is in the account's seeds, so it is not stored."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "wallet",
             "type": "pubkey"
-          },
-          {
-            "name": "key",
-            "type": {
-              "array": [
-                "u8",
-                33
-              ]
-            }
-          },
-          {
-            "name": "registered_slot",
-            "type": "u64"
-          },
-          {
-            "name": "registered_at",
-            "type": "i64"
           },
           {
             "name": "bump",

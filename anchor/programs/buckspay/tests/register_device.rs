@@ -1,5 +1,6 @@
 use anchor_lang::{
-    prelude::{Clock, Pubkey},
+    error::ErrorCode,
+    prelude::Pubkey,
     solana_program::{instruction::Instruction, system_instruction},
     AccountDeserialize, InstructionData, ToAccountMetas,
 };
@@ -62,11 +63,21 @@ fn device_address(key: &[u8; 33]) -> Pubkey {
     Pubkey::find_program_address(&[DEVICE_SEED, &key[..1], &key[1..]], &buckspay::ID).0
 }
 
+/// The device account `register_device` creates: discriminator, wallet and bump.
+const DEVICE_SIZE: usize = 8 + 32 + 1;
+
+/// `register_device` paid by the wallet itself, as the app sends it without a sponsor.
 fn register(wallet: &Pubkey, key: [u8; 33]) -> Instruction {
+    register_paid_by(wallet, wallet, key)
+}
+
+/// `register_device` with the device account's rent paid by `payer`.
+fn register_paid_by(wallet: &Pubkey, payer: &Pubkey, key: [u8; 33]) -> Instruction {
     Instruction {
         program_id: buckspay::ID,
         accounts: buckspay::accounts::RegisterDevice {
             wallet: *wallet,
+            payer: *payer,
             device: device_address(&key),
             instructions: solana_instructions_sysvar::ID,
             system_program: solana_sdk_ids::system_program::ID,
@@ -115,10 +126,30 @@ impl Env {
         })
     }
 
+    /// Sends `ixs` with `fee_payer` paying the fee, signed by `signers`.
+    fn send_signed(
+        &mut self,
+        fee_payer: &Pubkey,
+        ixs: &[Instruction],
+        signers: &[&Keypair],
+    ) -> Result<Landed, TransactionError> {
+        self.svm.expire_blockhash();
+        let message =
+            Message::new_with_blockhash(ixs, Some(fee_payer), &self.svm.latest_blockhash());
+        let message = VersionedMessage::Legacy(message);
+        let size = 1 + 64 * signers.len() + message.serialize().len();
+        let tx = VersionedTransaction::try_new(message, signers).unwrap();
+        let meta = self.svm.send_transaction(tx).map_err(|failed| failed.err)?;
+        Ok(Landed {
+            units: meta.compute_units_consumed,
+            size,
+        })
+    }
+
     fn device(&self, key: &[u8; 33]) -> Option<Device> {
         let account = self.svm.get_account(&device_address(key))?;
         assert_eq!(account.owner, buckspay::ID);
-        assert_eq!(account.data.len(), 90);
+        assert_eq!(account.data.len(), DEVICE_SIZE);
         Some(Device::try_deserialize(&mut account.data.as_slice()).unwrap())
     }
 }
@@ -164,12 +195,8 @@ fn registers_a_device_key_under_its_wallet() {
         landed.units, landed.size
     );
 
-    let clock = env.svm.get_sysvar::<Clock>();
     let stored = env.device(&device.sec1()).unwrap();
     assert_eq!(stored.wallet, wallet.pubkey());
-    assert_eq!(stored.key, device.sec1());
-    assert_eq!(stored.registered_slot, clock.slot);
-    assert_eq!(stored.registered_at, clock.unix_timestamp);
     assert_eq!(
         stored.bump,
         Pubkey::find_program_address(
@@ -317,7 +344,7 @@ fn accepts_the_verification_anywhere_before_the_registration() {
 /// The cost of the app's transaction `[compute unit limit, verification, register_device]`:
 /// Anchor's canonical bump search costs 1,500 CU for each bump below 255.
 #[test]
-fn costs_8215_cu_plus_1500_for_each_bump_below_255() {
+fn costs_7916_cu_plus_1500_for_each_bump_below_255() {
     let mut env = Env::new();
     let wallet = env.wallet();
     let mut bumps = BTreeSet::new();
@@ -339,7 +366,7 @@ fn costs_8215_cu_plus_1500_for_each_bump_below_255() {
             .unwrap();
         assert_eq!(
             landed.units,
-            8_215 + 1_500 * u64::from(255 - bump),
+            7_916 + 1_500 * u64::from(255 - bump),
             "bump {bump}"
         );
         bumps.insert(bump);
@@ -349,7 +376,7 @@ fn costs_8215_cu_plus_1500_for_each_bump_below_255() {
 
 /// The cost of a registration onto a device account prefunded with less than its rent (a transfer,
 /// an allocation and an assignment instead of a creation), the most expensive case, at bump 255.
-const PREFUNDED_COMPUTE_UNITS: u32 = 8_215 + 2_917;
+const PREFUNDED_COMPUTE_UNITS: u32 = 7_916 + 2_917;
 /// The compute units the app leaves for instructions a wallet adds to its transaction.
 const WALLET_COMPUTE_UNITS: u32 = 4_500;
 
@@ -378,7 +405,7 @@ fn registers_onto_a_prefunded_device_account_within_the_app_limit() {
     let mut env = Env::new();
     let wallet = env.wallet();
     let empty = env.svm.minimum_balance_for_rent_exemption(0);
-    let rent = env.svm.minimum_balance_for_rent_exemption(90);
+    let rent = env.svm.minimum_balance_for_rent_exemption(DEVICE_SIZE);
     for (seed, lamports, extra) in [(2, empty, 2_917), (3, rent, 1_338)] {
         let device = DeviceKey::new(seed);
         prefund(&mut env, &device.sec1(), lamports);
@@ -396,7 +423,7 @@ fn registers_onto_a_prefunded_device_account_within_the_app_limit() {
             .unwrap();
         assert_eq!(
             landed.units,
-            8_215 + extra + 1_500 * u64::from(255 - bump(&device)),
+            7_916 + extra + 1_500 * u64::from(255 - bump(&device)),
             "prefund {lamports}"
         );
         assert_eq!(env.device(&device.sec1()).unwrap().wallet, wallet.pubkey());
@@ -730,4 +757,90 @@ fn secp256r1_fixture_is_current_and_lands() {
         ],
     )
     .unwrap();
+}
+/// A wallet with no lamports registers with a sponsor as fee payer and `payer`: the wallet signs,
+/// pays nothing and is not written to; the sponsor pays the fee and the rent.
+#[test]
+fn a_sponsor_pays_for_an_unfunded_wallet() {
+    let mut env = Env::new();
+    let sponsor = env.wallet();
+    let wallet = Keypair::new();
+    let device = DeviceKey::new(1);
+    let before = env.svm.get_balance(&sponsor.pubkey()).unwrap();
+    let landed = env
+        .send_signed(
+            &sponsor.pubkey(),
+            &[
+                ComputeBudgetInstruction::set_compute_unit_limit(app_compute_unit_limit(bump(
+                    &device,
+                ))),
+                device.binding(&wallet.pubkey()),
+                register_paid_by(&wallet.pubkey(), &sponsor.pubkey(), device.sec1()),
+            ],
+            &[&sponsor, &wallet],
+        )
+        .unwrap();
+    let rent = env.svm.minimum_balance_for_rent_exemption(DEVICE_SIZE);
+    let spent = before - env.svm.get_balance(&sponsor.pubkey()).unwrap();
+    println!(
+        "sponsored register_device: {} CU, {} B transaction, sponsor spent {spent} lamports, rent {rent}",
+        landed.units, landed.size
+    );
+    assert_eq!(spent, rent + 3 * 5_000);
+    assert_eq!(env.svm.get_balance(&wallet.pubkey()).unwrap_or(0), 0);
+    assert_eq!(env.device(&device.sec1()).unwrap().wallet, wallet.pubkey());
+}
+
+/// The wallet's signature is its consent: without it, a payer cannot bind a device to the wallet.
+#[test]
+fn the_wallet_must_sign() {
+    let mut env = Env::new();
+    let sponsor = env.wallet();
+    let wallet = Keypair::new();
+    let device = DeviceKey::new(1);
+    let mut register = register_paid_by(&wallet.pubkey(), &sponsor.pubkey(), device.sec1());
+    register.accounts[0].is_signer = false;
+    let result = env.send_signed(
+        &sponsor.pubkey(),
+        &[device.binding(&wallet.pubkey()), register],
+        &[&sponsor],
+    );
+    assert_err(result, program_error(1, ErrorCode::AccountNotSigner as u32));
+    assert!(env.device(&device.sec1()).is_none());
+}
+
+/// The payer signs for the lamports it gives, even when the wallet pays the fee.
+#[test]
+fn the_payer_must_sign() {
+    let mut env = Env::new();
+    let (wallet, payer) = (env.wallet(), env.wallet());
+    let device = DeviceKey::new(1);
+    let mut register = register_paid_by(&wallet.pubkey(), &payer.pubkey(), device.sec1());
+    register.accounts[1].is_signer = false;
+    let result = env.send(&wallet, &[device.binding(&wallet.pubkey()), register]);
+    assert_err(result, program_error(1, ErrorCode::AccountNotSigner as u32));
+}
+
+/// A payer cannot bind a key to a wallet the binding does not name, itself included: the binding is
+/// checked against the `wallet` signer, never against the payer.
+#[test]
+fn a_payer_cannot_bind_a_device_to_another_wallet() {
+    let mut env = Env::new();
+    let (payer, victim) = (env.wallet(), env.wallet());
+    let device = DeviceKey::new(1);
+    // The device consented to the victim's wallet; the payer names itself as the wallet.
+    let result = env.send(
+        &payer,
+        &[
+            device.binding(&victim.pubkey()),
+            register_paid_by(&payer.pubkey(), &payer.pubkey(), device.sec1()),
+        ],
+    );
+    assert_err(result, binding_error(1));
+    // The device consented to the payer; the payer names the victim, who does not sign.
+    let mut register = register_paid_by(&victim.pubkey(), &payer.pubkey(), device.sec1());
+    register.accounts[0].is_signer = false;
+    let result = env.send(&payer, &[device.binding(&payer.pubkey()), register]);
+    assert_err(result, program_error(1, ErrorCode::AccountNotSigner as u32));
+    assert!(env.device(&device.sec1()).is_none());
 }

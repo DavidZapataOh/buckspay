@@ -1,0 +1,51 @@
+# Fresh install of a localnet build with a gateway: a wallet that never held a lamport registers this
+# phone for free. The register step says so, fakewallet signs without sending, and the gateway pays.
+appId: xyz.buckspay.app
+env:
+  RPC_URL: http://localhost:8899
+---
+- clearState
+- stopApp: com.solana.mobilewalletadapter.fakewallet
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: setup-payments
+    timeout: 60000
+- tapOn:
+    id: setup-payments
+- extendedWaitUntil:
+    visible:
+      id: onboarding-connect
+    timeout: 20000
+- tapOn:
+    id: onboarding-next
+- extendedWaitUntil:
+    visible: AUTHORIZE
+    timeout: 20000
+- tapOn: AUTHORIZE
+- extendedWaitUntil:
+    visible:
+      id: onboarding-register
+    timeout: 30000
+- assertVisible: 'Free: Buckspay pays the registration.'
+- assertNotVisible: .*Add SOL.*
+- copyTextFrom:
+    id: wallet-address
+- runScript: scripts/balance.js
+- assertTrue: ${output.balance == 0}
+- scrollUntilVisible:
+    element:
+      id: onboarding-next
+- tapOn:
+    id: onboarding-next
+- extendedWaitUntil:
+    visible: SIGN TRANSACTION.*
+    timeout: 20000
+- tapOn: AUTHORIZE
+- extendedWaitUntil:
+    visible:
+      id: device-ready
+    timeout: 60000
+- assertVisible: This phone is registered to your wallet
+- runScript: scripts/balance.js
+- assertTrue: ${output.balance == 0}
