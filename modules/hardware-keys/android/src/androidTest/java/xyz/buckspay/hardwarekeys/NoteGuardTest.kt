@@ -33,6 +33,7 @@ class NoteGuardTest {
 
   private val file by lazy { File(folder.root, "notes") }
   private val lockFile by lazy { File(folder.root, "notes.lock") }
+  private val journal by lazy { File(folder.root, "notes-journal") }
   private val binding = ByteArray(32) { 5 }
   private val synced = mutableListOf<File>()
   private val a = ByteArray(32) { 1 }
@@ -159,7 +160,7 @@ class NoteGuardTest {
   }
 
   @Test
-  fun keepsARecordItCannotRemoveAndSignsNothingItCannotRecord() {
+  fun keepsARecordItCannotRemove() {
     val guard = open()
     val failed =
       assertThrows(IllegalStateException::class.java) {
@@ -172,17 +173,61 @@ class NoteGuardTest {
     open().use { restarted ->
       assertThrows(EquivocationException::class.java) { restarted.admit(slot, b) }
       restarted.admit(slot, a)
-      assertTrue(File(folder.root, "notes-journal").delete())
-      assertTrue(folder.root.setWritable(false))
-      try {
-        var signed = false
-        assertThrows(NoteGuardUnavailableException::class.java) { restarted.admit(ByteArray(32) { 8 }, a) { signed = true } }
-        assertFalse(signed)
-      } finally {
-        folder.root.setWritable(true)
-      }
-      restarted.admit(ByteArray(32) { 8 }, b)
     }
+  }
+
+  @Test
+  fun signsNothingOnceItsJournalIsGone() {
+    val other = ByteArray(32) { 8 }
+    open().use { guard ->
+      guard.admit(slot, a)
+      assertTrue(journal.delete())
+      var signed = false
+      assertThrows(NoteGuardUnavailableException::class.java) { guard.admit(other, a) { signed = true } }
+      assertFalse(signed)
+      assertThrows(NoteGuardUnavailableException::class.java) { guard.admit(slot, a) { signed = true } }
+      assertFalse(signed)
+    }
+    open().use { restarted ->
+      assertThrows(EquivocationException::class.java) { restarted.admit(slot, b) }
+      restarted.admit(other, b)
+    }
+  }
+
+  @Test
+  fun signsOnlyWhatItRecordedWhereItCannotCreateAJournal() {
+    val other = ByteArray(32) { 8 }
+    open().use { guard ->
+      guard.admit(slot, a)
+    }
+    assertTrue(journal.delete())
+    var signed = false
+    val unavailable =
+      open().use { guard ->
+        assertTrue(folder.root.setWritable(false))
+        try {
+          runCatching { guard.admit(other, a) { signed = true } }.exceptionOrNull()
+        } finally {
+          folder.root.setWritable(true)
+        }
+      }
+    // Where SQLite needs a journal (ext4) the spend is refused; F2FS commits it atomically with none.
+    if (signed) assertNull(unavailable) else assertTrue(unavailable is NoteGuardUnavailableException)
+    open().use { restarted ->
+      if (signed) assertThrows(EquivocationException::class.java) { restarted.admit(other, b) } else restarted.admit(other, b)
+    }
+  }
+
+  @Test
+  fun refusesAGuardItCannotWrite() {
+    NoteGuard.create(file, binding, synced::add)
+    assertTrue(file.setReadOnly())
+    try {
+      assertThrows(NoteGuardUnavailableException::class.java) { NoteGuard.open(file, binding, lock()) }
+    } finally {
+      assertTrue(file.setWritable(true))
+    }
+    open().use { it.admit(slot, a) }
   }
 
   @Test

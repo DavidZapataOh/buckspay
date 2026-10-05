@@ -86,6 +86,8 @@ internal class NoteGuard private constructor(
   private val spend = database.compileStatement("SELECT coalesce((SELECT content = ? FROM spends WHERE slot = ?), -1)")
   private val insertSpend = database.compileStatement("INSERT INTO spends (slot, content) VALUES (?, ?)")
   private val deleteSpend = database.compileStatement("DELETE FROM spends WHERE slot = ?")
+  private val journal = File("${database.path}-journal")
+  private var journalSeen = journal.exists()
 
   val size: Long get() = DatabaseUtils.queryNumEntries(database, "spends") + DatabaseUtils.queryNumEntries(database, "issues")
 
@@ -93,6 +95,8 @@ internal class NoteGuard private constructor(
    * Runs `sign` if the guard admits `content` in `slot`: the same content again, a new spend slot,
    * or a new issue that starts at or after the end of the last one on its lock. A new slot is
    * committed before `sign` runs and removed again if `sign` throws, since no signature exists then.
+   * It refuses, without signing, once a journal it has seen is gone: the connection keeps its handle
+   * to the unlinked file and would go on committing with no journal to recover from.
    */
   fun <T> admit(
     slot: ByteArray,
@@ -103,12 +107,14 @@ internal class NoteGuard private constructor(
     val interval = issueInterval(slot)
     if (interval != null) require(java.lang.Long.compareUnsigned(interval.second, interval.third) < 0) { "empty issue interval" }
     synchronized(ADMISSIONS) {
+      requireJournal()
       val undo =
         try {
           transaction { if (interval == null) recordSpend(slot, content) else recordIssue(interval, slot, content) }
         } catch (e: SQLiteException) {
           throw NoteGuardUnavailableException("The note guard cannot record this slot", e)
         }
+      requireJournal()
       if (undo == null) return sign()
       try {
         return sign()
@@ -120,6 +126,15 @@ internal class NoteGuard private constructor(
         }
         throw e
       }
+    }
+  }
+
+  /** SQLite opens the journal at the first write where the filesystem needs one; F2FS's atomic writes may never open it. */
+  private fun requireJournal() {
+    if (journal.exists()) {
+      journalSeen = true
+    } else if (journalSeen) {
+      throw NoteGuardUnavailableException("The note guard lost its journal")
     }
   }
 
