@@ -16,7 +16,12 @@ import { useThemeColors } from '../theme/use-theme-colors'
 
 // Created once, outside render: a new cache would make the wallet provider start over.
 const cache = createAuthorizationCache(BUILD_NETWORK.network.id)
-const identity: AppIdentity = { name: 'Buckspay', uri: 'https://buckspay.xyz', icon: 'favicon.png' }
+// Wallets verify this origin against the app's signing certificate through its Digital Asset Links file.
+const identity: AppIdentity = {
+  name: 'Buckspay',
+  uri: process.env.EXPO_PUBLIC_APP_IDENTITY_URI ?? 'https://buckspay.xyz',
+  icon: 'favicon.png',
+}
 
 configureDeviceKey(BUILD_NETWORK.cluster)
 // Expo Router hides the splash on the first frame of the app; hand over to it without a fade.
