@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 575ce88f76aa12d133e9cc1bd78411687f14bf8bf0c469d9a20d9567946d1042 # shrinks to ops = [Reserve { key: 0, lock: 3, records: 1 }, Begin(0), Reserve { key: 0, lock: 2, records: 1 }, Reserve { key: 0, lock: 1, records: 1 }, Begin(0), Begin(0), Reserve { key: 0, lock: 0, records: 1 }, Begin(0)]

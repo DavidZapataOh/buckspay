@@ -52,9 +52,9 @@ export function findLockPda(
 /**
  * The compute unit limit of the app's `[set compute unit limit, secp256r1 verification,
  * register_device]` for a key whose device account has the canonical bump `bump`: the most expensive
- * registration (onto a device account address someone prefunded: 11,276 CU at bump 255 and 1,500 CU
+ * registration (onto a device account address someone prefunded: 11,281 CU at bump 255 and 1,500 CU
  * more for each lower bump) plus 4,500 CU of instructions the wallet adds, and at least 40,000 CU.
  */
 export function registerDeviceComputeUnitLimit(bump: number): number {
-  return Math.max(40_000, 11_276 + 1_500 * (255 - bump) + 4_500)
+  return Math.max(40_000, 11_281 + 1_500 * (255 - bump) + 4_500)
 }

@@ -6,12 +6,15 @@ use buckspay_client::{
     Program,
     instructions::{
         ApplyWalletRotationBuilder, CancelWalletRotationBuilder, CloseLockBuilder,
-        CreateLockBuilder, RegisterDeviceBuilder, ReleaseLockBuilder, RequestWalletRotationBuilder,
-        WithdrawLockBuilder,
+        CloseSpentBuilder, CreateLockBuilder, ReclaimOutputBuilder, RegisterDeviceBuilder,
+        ReleaseLockBuilder, RequestWalletRotationBuilder, SettleNoteBuilder, WithdrawLockBuilder,
     },
+    types::Link,
 };
+use buckspay_protocol::secp256r1;
 use solana_compute_budget_interface::ComputeBudgetInstruction;
 use solana_hash::Hash;
+use solana_instruction::AccountMeta;
 use solana_instruction::Instruction;
 use solana_message::VersionedMessage;
 use solana_pubkey::Pubkey;
@@ -224,5 +227,107 @@ pub fn apply_rotation(program: &Program, key: &[u8; 33], rent_receiver: &Pubkey)
         .rotation(program.find_rotation_pda(key).0)
         .rent_receiver(*rent_receiver)
         .key(*key);
+    program.target(builder.instruction())
+}
+
+/// What a settlement or a reclaim names besides the chain: the lock it draws on and where it pays.
+#[derive(Clone, Copy, Debug)]
+pub struct Payout {
+    pub payer: Pubkey,
+    pub lock: Pubkey,
+    pub mint: Pubkey,
+    pub token_program: Pubkey,
+    pub destination: Pubkey,
+}
+
+fn records(records: &[Pubkey]) -> Vec<AccountMeta> {
+    records
+        .iter()
+        .map(|record| AccountMeta::new(*record, false))
+        .collect()
+}
+
+/// The verification of `entries` by the secp256r1 precompile in the canonical layout the program
+/// reads: every key, envelope and signature inline.
+pub fn chain_verification(
+    entries: &[secp256r1::Expected],
+    signatures: &[[u8; secp256r1::SIGNATURE_LEN]],
+) -> Option<Instruction> {
+    let mut data = vec![0; secp256r1::data_len(entries.len())];
+    secp256r1::write(&mut data, entries, signatures)?;
+    Some(Instruction {
+        program_id: solana_secp256r1_program::ID,
+        accounts: vec![],
+        data,
+    })
+}
+
+/// `settle_note`: pays the account the last spend names, and records every consumed output.
+pub fn settle_note(
+    program: &Program,
+    payout: &Payout,
+    issue: [u8; 163],
+    spends: Vec<Link>,
+    consumed: &[Pubkey],
+) -> Instruction {
+    let mut builder = SettleNoteBuilder::new();
+    builder
+        .payer(payout.payer)
+        .lock(payout.lock)
+        .ledger(program.find_ledger_pda(&payout.lock).0)
+        .escrow(program.find_escrow_pda(&payout.lock).0)
+        .mint(payout.mint)
+        .destination(payout.destination)
+        .token_program(payout.token_program)
+        .issue(issue)
+        .spends(spends)
+        .add_remaining_accounts(&records(consumed));
+    program.target(builder.instruction())
+}
+
+/// `reclaim_output`: pays the wallet `owner` is bound to what nobody settled.
+#[allow(clippy::too_many_arguments)]
+pub fn reclaim_output(
+    program: &Program,
+    payout: &Payout,
+    owner: [u8; 33],
+    issue: [u8; 163],
+    spends: Vec<Link>,
+    which: u8,
+    deadline: u32,
+    consumed: &[Pubkey],
+) -> Instruction {
+    let mut builder = ReclaimOutputBuilder::new();
+    builder
+        .payer(payout.payer)
+        .device(program.find_device_pda(&owner).0)
+        .lock(payout.lock)
+        .ledger(program.find_ledger_pda(&payout.lock).0)
+        .escrow(program.find_escrow_pda(&payout.lock).0)
+        .mint(payout.mint)
+        .destination(payout.destination)
+        .token_program(payout.token_program)
+        .owner(owner)
+        .issue(issue)
+        .spends(spends)
+        .which(which)
+        .deadline(deadline)
+        .add_remaining_accounts(&records(consumed));
+    program.target(builder.instruction())
+}
+
+/// `close_spent` for the records of `pairs`, each with the account its rent goes back to.
+pub fn close_spent(program: &Program, pairs: &[(Pubkey, Pubkey)]) -> Instruction {
+    let metas: Vec<AccountMeta> = pairs
+        .iter()
+        .flat_map(|(record, receiver)| {
+            [
+                AccountMeta::new(*record, false),
+                AccountMeta::new(*receiver, false),
+            ]
+        })
+        .collect();
+    let mut builder = CloseSpentBuilder::new();
+    builder.add_remaining_accounts(&metas);
     program.target(builder.instruction())
 }

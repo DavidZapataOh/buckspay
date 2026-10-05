@@ -79,6 +79,51 @@ pub enum BuckspayError {
     /// 6022 - The account is not a device account to migrate
     #[error("The account is not a device account to migrate")]
     NotMigratable = 0x1786,
+    /// 6023 - The transaction does not carry the secp256r1 verification of exactly this chain
+    #[error("The transaction does not carry the secp256r1 verification of exactly this chain")]
+    ChainVerification = 0x1787,
+    /// 6024 - The messages are not a valid chain
+    #[error("The messages are not a valid chain")]
+    ChainInvalid = 0x1788,
+    /// 6025 - The issue does not match the lock it names
+    #[error("The issue does not match the lock it names")]
+    WrongLock = 0x1789,
+    /// 6026 - Too many spends for one instruction
+    #[error("Too many spends for one instruction")]
+    TooManySpends = 0x178A,
+    /// 6027 - The settlement window of the output has closed
+    #[error("The settlement window of the output has closed")]
+    SettlementClosed = 0x178B,
+    /// 6028 - The lock has ended
+    #[error("The lock has ended")]
+    LockEnded = 0x178C,
+    /// 6029 - The destination does not belong to the account the note pays
+    #[error("The destination does not belong to the account the note pays")]
+    WrongPayee = 0x178D,
+    /// 6030 - The output was already consumed by another message
+    #[error("The output was already consumed by another message")]
+    ConflictingSpend = 0x178E,
+    /// 6031 - This message was already paid
+    #[error("This message was already paid")]
+    AlreadySettled = 0x178F,
+    /// 6032 - The output cannot be reclaimed yet
+    #[error("The output cannot be reclaimed yet")]
+    ReclaimTooEarly = 0x1790,
+    /// 6033 - Wrong number or address of record accounts
+    #[error("Wrong number or address of record accounts")]
+    RecordAccounts = 0x1791,
+    /// 6034 - The record cannot be closed yet
+    #[error("The record cannot be closed yet")]
+    RecordNotClosable = 0x1792,
+    /// 6035 - The reclaim window of the output has closed
+    #[error("The reclaim window of the output has closed")]
+    ReclaimClosed = 0x1793,
+    /// 6036 - The reclaim signature is past its deadline
+    #[error("The reclaim signature is past its deadline")]
+    ReclaimExpired = 0x1794,
+    /// 6037 - An output of the chain has no record address
+    #[error("An output of the chain has no record address")]
+    UnrecordableOutput = 0x1795,
 }
 
 impl From<BuckspayError> for solana_program_error::ProgramError {

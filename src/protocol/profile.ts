@@ -10,6 +10,8 @@ export type Windows = {
   minNoteLife: number
   releaseDelay: number
   rotationDelay: number
+  /** A payment to a device expires at least this long before the output it spends. */
+  expiryStep: number
 }
 
 export type Profile = { name: ProfileName; programId: string; windows: Windows }

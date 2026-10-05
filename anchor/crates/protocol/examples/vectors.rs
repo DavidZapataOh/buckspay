@@ -4,6 +4,7 @@ use buckspay_protocol::device::{
 };
 use buckspay_protocol::hash::{content, domain, envelope, message_id, output_id, purpose};
 use buckspay_protocol::profile::{PRODUCTION_DEVNET_PROGRAM_ID, SHORT_PROGRAM_ID};
+use buckspay_protocol::reclaim::{reclaim_body, reclaim_envelope, record_content};
 use buckspay_protocol::verify::{
     recover_issue_signer, recover_spend_signer, recovery_id, verify_issue_conflict, verify_payment,
     verify_settlement, verify_spend_conflict, Attester, Received, Receiver, Settled,
@@ -12,6 +13,7 @@ use buckspay_protocol::{
     flags, kind, BondTicket, Caveats, Issue, IssueClaim, IssueConflict, Outputs, Owner,
     ProtocolError, ScopeKind, Signed, Spend, SpendConflict, CHALLENGE, GRACE, NO_LOCK, VERSION,
 };
+use buckspay_protocol::{lock::EXPIRY_STEP, record, secp256r1};
 use curve25519_dalek::constants::EIGHT_TORSION;
 use curve25519_dalek::{EdwardsPoint, Scalar};
 use ed25519_dalek::Signer as _;
@@ -83,6 +85,7 @@ impl Domains {
     fn receiver(&self, me: Owner, now: u32) -> Receiver<'_> {
         Receiver {
             note_domain: self.note,
+            program: PROGRAM_ID,
             ticket_domain: self.ticket,
             attesters: &self.attesters,
             me,
@@ -201,6 +204,7 @@ fn profiles() -> Value {
                 "minNoteLife": 86_400,
                 "releaseDelay": 1_209_600,
                 "rotationDelay": 604_800,
+                "expiryStep": 3_600,
             },
         },
         "short": {
@@ -212,6 +216,7 @@ fn profiles() -> Value {
                 "minNoteLife": 60,
                 "releaseDelay": 60,
                 "rotationDelay": 60,
+                "expiryStep": 5,
             },
         },
     })
@@ -258,9 +263,11 @@ fn high_s(signature: &[u8; 64]) -> [u8; 64] {
     Signature::from_scalars(r, -*s).unwrap().to_bytes().into()
 }
 
+/// A note is issued with four hops; the payment after each hop expires `EXPIRY_STEP` before the
+/// output it spends, as the chain rules require for payments to devices.
 fn caveats(hops_left: u8) -> Caveats {
     Caveats {
-        expiry: EXPIRY,
+        expiry: EXPIRY - 4u32.saturating_sub(u32::from(hops_left)) * EXPIRY_STEP,
         hops_left,
         flags: 0,
         scope_kind: ScopeKind::Any,
@@ -287,17 +294,30 @@ fn issue_with(
     cum_end: u64,
     caveats: Caveats,
 ) -> Signed<Issue> {
-    let message = Issue {
-        issuer: issuer.public,
-        mint: MINT,
-        lock_seq: 0,
-        cum_end,
-        salt: [4; 16],
-        owner,
-        amount: 20_000,
-        caveats,
-    };
-    sign_issue(domain, issuer, message)
+    // The salt is changed until the issue's output has a record address.
+    (4u8..)
+        .map(|salt| {
+            sign_issue(
+                domain,
+                issuer,
+                Issue {
+                    issuer: issuer.public,
+                    mint: MINT,
+                    lock_seq: 0,
+                    cum_end,
+                    salt: [salt; 16],
+                    owner,
+                    amount: 20_000,
+                    caveats,
+                },
+            )
+        })
+        .find(|issue| recordable(&issued_id(domain, issue)))
+        .unwrap()
+}
+
+fn recordable(id: &[u8; 32]) -> bool {
+    record::address(&PROGRAM_ID, id).is_some()
 }
 
 fn spend(
@@ -307,17 +327,27 @@ fn spend(
     lock_seq: u32,
     outputs: Outputs,
 ) -> Signed<Spend> {
-    let message = Spend {
-        input: *input,
-        lock_seq,
-        salt: [6; 16],
-        outputs,
-    };
-    let env = envelope(domain, input, &message.content());
-    Signed {
-        message,
-        signature: holder.sign(&env),
-    }
+    // The salt is changed until every output of the spend has a record address.
+    (6u8..)
+        .map(|salt| {
+            let message = Spend {
+                input: *input,
+                lock_seq,
+                salt: [salt; 16],
+                outputs,
+            };
+            let env = envelope(domain, input, &message.content());
+            Signed {
+                message,
+                signature: holder.sign(&env),
+            }
+        })
+        .find(|spend| {
+            let two = matches!(spend.message.outputs, Outputs::Two { .. });
+            recordable(&spent_id(domain, spend, 0))
+                && (!two || recordable(&spent_id(domain, spend, 1)))
+        })
+        .unwrap()
 }
 
 fn issued_id(domain: &[u8; 32], issue: &Signed<Issue>) -> [u8; 32] {
@@ -481,7 +511,7 @@ fn settlement(
     issue: &Signed<Issue>,
     spends: &[Signed<Spend>],
 ) -> Value {
-    let (result, error) = match verify_settlement(domain, issue, spends) {
+    let (result, error) = match verify_settlement(domain, &PROGRAM_ID, issue, spends) {
         Ok(settled) => (settled_json(&settled), String::new()),
         Err(error) => (Value::Null, format!("{error:?}")),
     };
@@ -662,6 +692,7 @@ fn vectors() -> Value {
             amount0: 5_000,
             caveats0: Caveats {
                 hops_left: 3,
+                expiry: EXPIRY - EXPIRY_STEP,
                 ..redeemable
             },
             owner1: alice.owner(),
@@ -679,6 +710,7 @@ fn vectors() -> Value {
             owner: payee.owner(),
             caveats: Caveats {
                 hops_left: 3,
+                expiry: EXPIRY - EXPIRY_STEP,
                 ..merchant_only
             },
         };
@@ -879,6 +911,7 @@ fn vectors() -> Value {
             owner: bob.owner(),
             caveats: Caveats {
                 hops_left: 3,
+                expiry: EXPIRY - EXPIRY_STEP,
                 ..bob_as_authority
             },
         },
@@ -1224,6 +1257,7 @@ fn vectors() -> Value {
                 12_000,
                 Caveats {
                     hops_left: 3,
+                    expiry: EXPIRY - EXPIRY_STEP,
                     ..redeemable
                 },
                 &alice,
@@ -1376,6 +1410,159 @@ fn vectors() -> Value {
         )
     });
 
+    // A payment to a device steps its expiry down, and an output without a
+    // record address cannot be settled, so no receiver accepts it.
+    let equal_expiry = spend(
+        domain,
+        &alice,
+        &first,
+        0,
+        Outputs::One {
+            owner: bob.owner(),
+            caveats: Caveats {
+                hops_left: 3,
+                ..caveats(4)
+            },
+        },
+    );
+    let short_by_a_second = spend(
+        domain,
+        &alice,
+        &first,
+        0,
+        Outputs::One {
+            owner: bob.owner(),
+            caveats: Caveats {
+                hops_left: 3,
+                expiry: EXPIRY - EXPIRY_STEP + 1,
+                ..caveats(4)
+            },
+        },
+    );
+    let unrecordable_issue = (0u8..)
+        .map(|salt| {
+            sign_issue(
+                domain,
+                &issuer,
+                Issue {
+                    salt: [salt; 16],
+                    ..issued.message
+                },
+            )
+        })
+        .find(|issue| !recordable(&issued_id(domain, issue)))
+        .unwrap();
+    let unrecordable_payment = (6u8..)
+        .map(|salt| {
+            let message = Spend {
+                input: first,
+                lock_seq: 0,
+                salt: [salt; 16],
+                outputs: Outputs::One {
+                    owner: bob.owner(),
+                    caveats: caveats(3),
+                },
+            };
+            let env = envelope(domain, &first, &message.content());
+            Signed {
+                message,
+                signature: alice.sign(&env),
+            }
+        })
+        .find(|spend| !recordable(&spent_id(domain, spend, 0)))
+        .unwrap();
+    let past_unrecordable = spend(
+        domain,
+        &bob,
+        &spent_id(domain, &unrecordable_payment, 0),
+        0,
+        Outputs::One {
+            owner: carol.owner(),
+            caveats: caveats(2),
+        },
+    );
+    let settles_past_unrecordable = spend(
+        domain,
+        &bob,
+        &spent_id(domain, &unrecordable_payment, 0),
+        NO_LOCK,
+        Outputs::One {
+            owner: MERCHANT_ACCOUNT,
+            caveats: caveats(2),
+        },
+    );
+    let same_expiry_to_an_account = spend(
+        domain,
+        &alice,
+        &first,
+        NO_LOCK,
+        Outputs::One {
+            owner: MERCHANT_ACCOUNT,
+            caveats: Caveats {
+                hops_left: 3,
+                ..caveats(4)
+            },
+        },
+    );
+    let step_and_record_cases = [
+        issue_case(
+            "payment_to_a_device_with_the_inputs_expiry",
+            &issued_wire,
+            &[equal_expiry],
+            &one_hop,
+            &bob,
+            ProtocolError::ExpiryStep,
+        ),
+        issue_case(
+            "payment_to_a_device_a_second_short_of_the_step",
+            &issued_wire,
+            &[short_by_a_second],
+            &one_hop,
+            &bob,
+            ProtocolError::ExpiryStep,
+        ),
+        issue_case(
+            "issue_output_without_a_record_address",
+            &unrecordable_issue.encode(),
+            &[],
+            &issuer_only,
+            &alice,
+            ProtocolError::Unrecordable,
+        ),
+        issue_case(
+            "last_output_without_a_record_address",
+            &issued_wire,
+            &[unrecordable_payment],
+            &one_hop,
+            &bob,
+            ProtocolError::Unrecordable,
+        ),
+        issue_case(
+            "consumed_output_without_a_record_address",
+            &issued_wire,
+            &[unrecordable_payment, past_unrecordable],
+            &tickets,
+            &carol,
+            ProtocolError::Unrecordable,
+        ),
+    ];
+    let record_addresses: Vec<Value> = [
+        first,
+        spent_id(domain, &to_bob, 0),
+        spent_id(domain, &to_bob, 1),
+        spent_id(domain, &unrecordable_payment, 0),
+        issued_id(domain, &unrecordable_issue),
+    ]
+    .into_iter()
+    .chain((0u8..11).map(|n| [n; 32]))
+    .map(|output| {
+        json!({
+            "output": hex(&output),
+            "address": record::address(&PROGRAM_ID, &output).map(|a| hex(&a)).unwrap_or_default(),
+        })
+    })
+    .collect();
+
     let mut domains_json = serde_json::Map::new();
     domains_json.insert("genesis_hash".into(), json!(hex(&DEVNET_GENESIS_HASH)));
     domains_json.insert("program_id".into(), json!(hex(&PROGRAM_ID)));
@@ -1385,6 +1572,8 @@ fn vectors() -> Value {
     }
     let device_domain =
         buckspay_protocol::hash::domain(purpose::DEVICE, &DEVNET_GENESIS_HASH, &PROGRAM_ID);
+    let derived_reclaim_domain =
+        buckspay_protocol::hash::domain(purpose::RECLAIM, &DEVNET_GENESIS_HASH, &PROGRAM_ID);
     let uncompressed = {
         let mut key = alice.public;
         key[0] = 0x04;
@@ -1430,14 +1619,23 @@ fn vectors() -> Value {
             payment("category_accepted", &Receiver { accept_category: true, ..at(bob.owner()) }, &issued, &[category_payment], &one_hop),
             payment("skips_a_ticket_for_another_lock", &at(bob.owner()), &delegated, &[delegated_to_bob(0)], &[unsigned_alice_ticket, issuer_ticket]),
         ],
+        "record_addresses": {
+            "seed": hex(record::SPENT_SEED),
+            "bump": record::RECORD_BUMP,
+            "program_id": hex(&PROGRAM_ID),
+            "outputs": record_addresses,
+        },
+        "expiry_step": EXPIRY_STEP,
         "settlements": [
             settlement("merchant_settles", domain, &for_bob, &[to_merchant, merchant_settles]),
             settlement("authority_redemption", domain, &for_authority, &[redemption]),
             settlement("unbonded_receiver_settles", domain, &issued, &[to_bob, bob_settles]),
             settlement("issued_to_account", domain, &to_account, &[]),
+            settlement("same_expiry_to_an_account", domain, &issued, &[same_expiry_to_an_account]),
+            settlement("consumed_output_without_a_record_address", domain, &issued, &[unrecordable_payment, settles_past_unrecordable]),
             settlement("device_output", domain, &issued, &[to_bob]),
         ],
-        "invalid": invalid_cases.into_iter().map(|case| invalid(&domains, case)).collect::<Vec<_>>(),
+        "invalid": invalid_cases.into_iter().chain(step_and_record_cases).map(|case| invalid(&domains, case)).collect::<Vec<_>>(),
         "conflicts": spend_conflicts.into_iter().chain(issue_conflicts).collect::<Vec<_>>(),
         "device_bindings": [
             device_binding("alice_to_wallet", &device_domain, &[0xa1; 32], &alice, alice.public),
@@ -1451,7 +1649,48 @@ fn vectors() -> Value {
             device_rotation("uncompressed_key", &device_domain, (&[0xa1; 32], &[0xb5; 32]), 0, &alice, uncompressed),
         ],
         "profiles": profiles(),
+        "reclaims": reclaims(&derived_reclaim_domain),
+        "secp256r1_layouts": secp256r1_layouts(),
     })
+}
+
+/// The message an owner signs to take an output back, for a few deadlines, and what a reclaim
+/// leaves in the record.
+fn reclaims(domain: &[u8; 32]) -> Value {
+    let output = [5u8; 32];
+    let cases: Vec<Value> = [0, 1_900_000_000, u32::MAX]
+        .into_iter()
+        .map(|deadline| {
+            json!({
+                "output": hex(&output),
+                "deadline": deadline,
+                "body": hex(&reclaim_body(deadline)),
+                "envelope": hex(&reclaim_envelope(domain, &output, deadline)),
+            })
+        })
+        .collect();
+    json!({ "cases": cases, "record_content": hex(&record_content()) })
+}
+
+/// The canonical layout of one secp256r1 instruction for 1, 2 and 8 signatures.
+fn secp256r1_layouts() -> Vec<Value> {
+    [1usize, 2, 8]
+        .into_iter()
+        .map(|count| {
+            let entries: Vec<secp256r1::Expected> = (0..count)
+                .map(|i| ([i as u8 + 1; 33], [i as u8 + 0x40; 96]))
+                .collect();
+            let signatures: Vec<[u8; 64]> = (0..count).map(|i| [i as u8 + 0x80; 64]).collect();
+            let mut data = vec![0; secp256r1::data_len(count)];
+            secp256r1::write(&mut data, &entries, &signatures).unwrap();
+            json!({
+                "keys": entries.iter().map(|(key, _)| hex(key)).collect::<Vec<_>>(),
+                "messages": entries.iter().map(|(_, message)| hex(message)).collect::<Vec<_>>(),
+                "signatures": signatures.iter().map(|s| hex(s)).collect::<Vec<_>>(),
+                "data": hex(&data),
+            })
+        })
+        .collect()
 }
 
 fn issue_case<'a>(

@@ -1,0 +1,14 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 48e956fb4b444e416e0f9d488a3a8c001a92359a2a9fa0e30776a692eeadd868 # shrinks to steps = [F(0), F(0)], shorter = 3600
+cc 0e455902cef9fa8c714d3ae9eed3ce70d3c2fa0edd04b244d5bc154f37db7df7 # shrinks to steps = [Warp(2), A(0)], shorter = 3600
+cc 2d16f0322f18fe6a3fd59267cdef631bcb7e550ba04273d96bbed2579bf7f6d8 # shrinks to steps = [Warp(1), ReclaimChild(0)], shorter = 3600
+cc edd02602db760ac32d5deaa30394b82be0ebd3f00cf2ab642ce37ef22985bd0d # shrinks to steps = [Warp(3), ReclaimIssue(0)], shorter = 3600
+cc b40edf89a4fe3a60b23d95d483355ea67ec1cb23485663d8d382ab4962e6421a # shrinks to steps = [P(1), F(1)], shorter = 3600
+cc f4a71c3060156c0f9f345442dec8d94eef53b998ecdc8f452f2712a12fac76ce # shrinks to steps = [Warp(2), P(0)], shorter = 3600
+cc a9a6309f45832f57fe8e321e9da8912fe501c8adc6e5a7c04151c1c5c473e1da # shrinks to steps = [D(0), C(0), C(0)], shorter = 3600
+cc ade137f912562e547481fc792c8103d7c737b5092bce3012e60d8550a1b6bc29 # shrinks to steps = [Warp(1), F(0)], shorter = 3600

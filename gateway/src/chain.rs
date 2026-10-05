@@ -71,6 +71,8 @@ pub struct Rents {
     pub lock: u64,
     pub ledger: u64,
     pub escrow: u64,
+    /// A settlement record.
+    pub record: u64,
 }
 
 impl Rents {

@@ -2,7 +2,7 @@
 //! test binary with the short-windows build of the program at its own id and the token programs
 //! cloned from devnet (read only), a mint, wallets with tokens and no SOL, device keys, and a
 //! gateway to talk to.
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 use axum::{
     Router,
     body::Body,
@@ -13,9 +13,10 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use buckspay_client::Program;
 use buckspay_gateway::{
     chain::{self, Rents},
+    float::{Caps as FloatCaps, SettlementLimits},
     hpke::HpkeKeys,
     limits::RequestLimits,
-    server::{ClientAddress, Gateway, Settings, router},
+    server::{ClientAddress, Gateway, Limits, Settings, router},
     sponsor::{Caps, Escalation, FeeMode, SponsorLimits},
     sponsored::{CONFIRM_TIMEOUT, PENDING_TTL},
 };
@@ -49,6 +50,9 @@ use std::{
     time::Duration,
 };
 use tower::ServiceExt;
+
+mod notes;
+pub use notes::*;
 
 const SHORT_PROGRAM: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -359,7 +363,7 @@ impl Device {
         device_binding_envelope(&Self::domain(), &wallet.to_bytes(), &self.key()).unwrap()
     }
 
-    fn sign(&self, envelope: &[u8; 96]) -> [u8; 64] {
+    pub fn sign(&self, envelope: &[u8; 96]) -> [u8; 64] {
         let signature: P256Signature = self.0.sign(envelope);
         signature.normalize_s().to_bytes().into()
     }
@@ -456,6 +460,14 @@ pub fn settings() -> Settings {
     }
 }
 
+/// The pilot limits on settlements with the windows of the short profile and a janitor that does
+/// not wait after a record is due.
+pub fn float_caps() -> FloatCaps {
+    let mut caps = FloatCaps::pilot(Windows::SHORT.record_ttl());
+    caps.close_margin = 1;
+    caps
+}
+
 pub fn hpke() -> HpkeKeys {
     HpkeKeys::from_secrets(&[[0x11; 32]]).unwrap()
 }
@@ -474,9 +486,10 @@ pub async fn rents() -> Rents {
     Rents {
         device: rent(49).await,
         rotation: rent(77).await,
-        lock: rent(61).await,
+        lock: rent(62).await,
         ledger: rent(103).await,
         escrow: rent(165).await,
+        record: rent(81).await,
     }
 }
 
@@ -532,14 +545,41 @@ impl Sponsor {
         rents: Rents,
         per_minute: u32,
     ) -> Self {
+        Self::with_float(
+            url,
+            fee_payer,
+            limits,
+            SettlementLimits::new(float_caps()),
+            settings,
+            client,
+            rents,
+            per_minute,
+        )
+    }
+
+    /// A gateway with the given limits on the settlements it sponsors.
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_float(
+        url: &str,
+        fee_payer: Keypair,
+        limits: Arc<SponsorLimits>,
+        float: Arc<SettlementLimits>,
+        settings: Settings,
+        client: ClientAddress,
+        rents: Rents,
+        per_minute: u32,
+    ) -> Self {
         let fee_payer_address = fee_payer.pubkey();
         let gateway = Arc::new(Gateway::new(
             rpc(url),
             fee_payer,
             settings,
             rents,
-            RequestLimits::new(NonZeroU32::new(per_minute).unwrap()),
-            limits,
+            Limits {
+                requests: RequestLimits::new(NonZeroU32::new(per_minute).unwrap()),
+                sponsor: limits,
+                settlements: float,
+            },
             hpke(),
         ));
         Self {
@@ -899,7 +939,7 @@ pub async fn units_of(signature: &str) -> u64 {
             RpcTransactionConfig {
                 encoding: Some(UiTransactionEncoding::Base64),
                 commitment: Some(CommitmentConfig::confirmed()),
-                max_supported_transaction_version: Some(0),
+                max_supported_transaction_version: Some(1),
             },
         )
         .await
@@ -979,4 +1019,101 @@ pub fn within(name: &str, measured: u64, ceiling: u64, size: usize, size_ceiling
     println!("{name}: {measured} CU / {ceiling} CU, {size} B / {size_ceiling} B");
     assert!(measured <= ceiling, "{name}: {measured} CU");
     assert!(size <= size_ceiling, "{name}: {size} B");
+}
+
+/// How a relay to the validator misbehaves.
+#[derive(Clone, Copy)]
+pub enum Fault {
+    /// The validator takes a `sendTransaction`, and the client is told nothing: the transaction
+    /// lands and its outcome is unknown.
+    CutAfterSend,
+    /// A `simulateTransaction` is answered this much later.
+    DelaySimulation(Duration),
+}
+
+/// A JSON-RPC relay to `target` that misbehaves as `fault` says, for one gateway to talk through.
+pub async fn faulty_relay(target: &str, fault: Fault) -> String {
+    use axum::{extract::State, response::IntoResponse, routing::post};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    async fn forward(target: &str, body: &str) -> String {
+        let mut stream = tokio::net::TcpStream::connect(target).await.unwrap();
+        let request = format!(
+            "POST / HTTP/1.1\r\nHost: {target}\r\nContent-Type: application/json\r\n\
+             Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        stream.write_all(request.as_bytes()).await.unwrap();
+        let mut reply = Vec::new();
+        stream.read_to_end(&mut reply).await.unwrap();
+        let reply = String::from_utf8(reply).unwrap();
+        let (head, rest) = reply.split_once("\r\n\r\n").unwrap();
+        if !head
+            .to_ascii_lowercase()
+            .contains("transfer-encoding: chunked")
+        {
+            return rest.to_owned();
+        }
+        let (mut out, mut rest) = (String::new(), rest);
+        while let Some((size, tail)) = rest.split_once("\r\n") {
+            let size = usize::from_str_radix(size.trim(), 16).unwrap();
+            if size == 0 {
+                break;
+            }
+            out.push_str(&tail[..size]);
+            rest = &tail[size + 2..];
+        }
+        out
+    }
+
+    async fn handle(
+        State(state): State<Arc<(String, Fault)>>,
+        body: String,
+    ) -> axum::response::Response {
+        let method = serde_json::from_str::<Value>(&body)
+            .ok()
+            .and_then(|request| request["method"].as_str().map(str::to_owned))
+            .unwrap_or_default();
+        if let Fault::DelaySimulation(delay) = state.1
+            && method == "simulateTransaction"
+        {
+            tokio::time::sleep(delay).await;
+        }
+        let reply = forward(&state.0, &body).await;
+        if matches!(state.1, Fault::CutAfterSend) && method == "sendTransaction" {
+            return StatusCode::BAD_GATEWAY.into_response();
+        }
+        (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, "application/json")],
+            reply,
+        )
+            .into_response()
+    }
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let app = Router::new().route("/", post(handle)).with_state(Arc::new((
+        target.trim_start_matches("http://").to_owned(),
+        fault,
+    )));
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    url
+}
+
+/// Closes an empty token account of `wallet`, as a wallet may: its rent goes to the test payer.
+pub async fn close_token_account(wallet: &Wallet) {
+    send(
+        &[Instruction {
+            program_id: chain::TOKEN_PROGRAM,
+            accounts: vec![
+                AccountMeta::new(wallet.token, false),
+                AccountMeta::new(cluster().payer.pubkey(), false),
+                AccountMeta::new_readonly(wallet.keypair.pubkey(), true),
+            ],
+            data: vec![9],
+        }],
+        &[&wallet.keypair],
+    )
+    .await;
 }

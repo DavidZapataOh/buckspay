@@ -11,15 +11,20 @@ pub mod error;
 mod instructions;
 mod mint;
 pub mod payout;
+pub mod records;
 pub mod refund;
 pub mod rules;
+mod settlement;
+mod spent;
 pub mod state;
 mod verification;
 
 pub use error::BuckspayError;
 pub use instructions::*;
+pub use settlement::Link;
 pub use state::{
-    Device, Ledger, Lock, Rotation, DEVICE_SEED, ESCROW_SEED, LEDGER_SEED, LOCK_SEED, ROTATION_SEED,
+    Device, Ledger, Lock, Rotation, Spent, DEVICE_SEED, ESCROW_SEED, LEDGER_SEED, LOCK_SEED,
+    ROTATION_SEED, SPENT_SEED,
 };
 
 #[cfg(not(any(feature = "devnet", feature = "mainnet")))]
@@ -94,6 +99,61 @@ pub mod buckspay {
         let _ = key;
         ctx.accounts.process()
     }
+
+    /// Settles the chain `issue` plus `spends` in clear: pays the account its last spend names.
+    pub fn settle_note<'info>(
+        ctx: Context<'info, SettleNote<'info>>,
+        issue: [u8; settlement::ISSUE_BODY_LEN],
+        spends: Vec<Link>,
+    ) -> Result<()> {
+        ctx.accounts
+            .process(&issue, &spends, ctx.remaining_accounts)
+    }
+
+    /// Takes back an output nobody settled in time, for the wallet its owner's key is bound to.
+    pub fn reclaim_output<'info>(
+        ctx: Context<'info, ReclaimOutput<'info>>,
+        owner: [u8; 33],
+        issue: [u8; settlement::ISSUE_BODY_LEN],
+        spends: Vec<Link>,
+        which: u8,
+        deadline: u32,
+    ) -> Result<()> {
+        ctx.accounts.process(
+            &owner,
+            &issue,
+            &spends,
+            which,
+            deadline,
+            ctx.remaining_accounts,
+        )
+    }
+
+    /// Records the consumed outputs of a chain without paying, so a later settlement of the chain
+    /// needs the signature of its last message only.
+    pub fn record_prefix<'info>(
+        ctx: Context<'info, RecordPrefix<'info>>,
+        issue: [u8; settlement::ISSUE_BODY_LEN],
+        spends: Vec<Link>,
+    ) -> Result<()> {
+        ctx.accounts
+            .process(&issue, &spends, ctx.remaining_accounts)
+    }
+
+    /// Closes the records whose retention has passed and returns their rent to whoever paid it.
+    pub fn close_spent<'info>(ctx: Context<'info, CloseSpent>) -> Result<()> {
+        CloseSpent::process(ctx.remaining_accounts)
+    }
+}
+
+/// The domain of issues and spends on this cluster and program.
+pub fn note_domain() -> [u8; 32] {
+    domain(purpose::NOTE, &GENESIS_HASH, &ID.to_bytes())
+}
+
+/// The domain of reclaims on this cluster and program.
+pub fn reclaim_domain() -> [u8; 32] {
+    domain(purpose::RECLAIM, &GENESIS_HASH, &ID.to_bytes())
 }
 
 /// The message `key` signs to consent to being bound to `wallet` on this cluster and program.

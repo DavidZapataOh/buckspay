@@ -32,6 +32,8 @@ export type ErrorCode =
   | 'Ticket'
   | 'Window'
   | 'Payee'
+  | 'ExpiryStep'
+  | 'Unrecordable'
 
 export class ProtocolError extends Error {
   constructor(readonly code: ErrorCode) {
@@ -45,6 +47,8 @@ export const MAX_DEPTH = 16
 export const NO_LOCK = 0xffffffff
 export const GRACE = 7 * 24 * 60 * 60
 export const CHALLENGE = 7 * 24 * 60 * 60
+/** A payment to a device expires at least this long before the output it spends. */
+export const EXPIRY_STEP = 60 * 60
 export const Kind = {
   Issue: 0x01,
   Spend1: 0x02,
@@ -54,6 +58,7 @@ export const Kind = {
   IssueConflict: 0x21,
   DeviceBinding: 0x50,
   Rotation: 0x51,
+  Reclaim: 0x60,
 } as const
 export const Flags = { Delegated: 1, AuthorityOnly: 2, Sticky: 2, Known: 3 } as const
 export const ScopeKind = { Any: 0, Merchant: 1, Category: 2, Authority: 3 } as const

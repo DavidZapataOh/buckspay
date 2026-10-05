@@ -77,7 +77,8 @@ async fn janitor_returns_every_rent_of_a_sponsored_lock() {
             released: 1,
             closed: 1,
             applied: 0,
-            stuck: 0
+            stuck: 0,
+            ..Report::default()
         }
     );
 
@@ -159,7 +160,8 @@ async fn janitor_skips_a_wallet_without_a_token_account_and_reports_it() {
             released: 0,
             closed: 0,
             applied: 0,
-            stuck: 1
+            stuck: 1,
+            ..Report::default()
         }
     );
     let ata = buckspay_gateway::chain::associated_token_address(

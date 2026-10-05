@@ -1,9 +1,12 @@
 /** The gateway refused a request, with the HTTP status it answered. */
 export class GatewayError extends Error {
   readonly status: number
-  constructor(status: number, message: string) {
+  /** What else the answer said: a refusal of a settlement carries the time it fits, the minimum, the content on record. */
+  readonly body: Record<string, unknown>
+  constructor(status: number, message: string, body: Record<string, unknown> = {}) {
     super(message)
     this.status = status
+    this.body = body
   }
 }
 
@@ -55,6 +58,25 @@ const ROUTES: Record<OperationKind, { prepare: string; submit: string }> = {
 
 export type RotationPending = { pending: false } | { pending: true; wallet: string; effectiveAt: number }
 
+/** What a sponsored settlement costs the sponsor, quoted before a note is sent; the minimum is in base units. */
+export type SettlementQuote = {
+  /** The smallest amount per record the gateway sponsors now. */
+  minAmount: bigint
+  /** How much of the sponsor's capacity is in use, in percent. */
+  pressure: number
+  openRecords: number
+  locks: number
+}
+
+/** A chain to settle, in the wire formats of the protocol: hex. */
+export type SettlementRequest = { issue: string; spends: string[] }
+
+/** A reclaim of one output of a chain, with the owner's signature over the reclaim and its deadline. */
+export type ReclaimRequest = SettlementRequest & { owner: string; which: 0 | 1; deadline: number; signature: string }
+
+/** The gateway sent the transaction, or the last record of the chain was paid already. */
+export type SettlementAnswer = { signature: string } | { status: 'settled' }
+
 /** Buckspay's gateway, which pays for onboarding, locks, withdrawals and rotations the wallet signs. */
 export type Gateway = {
   quote(): Promise<Quote>
@@ -63,7 +85,16 @@ export type Gateway = {
   rotationPending(key: string): Promise<RotationPending>
 }
 
-export function createGateway(url: string): Gateway {
+/** What the gateway does with notes: it pays for settling and reclaiming them. */
+export type SettlementGateway = {
+  settlementQuote(): Promise<SettlementQuote>
+  /** Settles a chain with no wallet signature: the device signatures in it are the authority. */
+  settle(request: SettlementRequest): Promise<SettlementAnswer>
+  /** Takes back an output nobody settled, paying the wallet the owner's key is bound to. */
+  reclaim(request: ReclaimRequest): Promise<SettlementAnswer>
+}
+
+export function createGateway(url: string): Gateway & SettlementGateway {
   async function call<T>(path: string, body?: unknown): Promise<T> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS)
@@ -76,7 +107,11 @@ export function createGateway(url: string): Gateway {
       })
       const json = await response.json().catch(() => null)
       if (!response.ok) {
-        throw new GatewayError(response.status, typeof json?.error === 'string' ? json.error : response.statusText)
+        throw new GatewayError(
+          response.status,
+          typeof json?.error === 'string' ? json.error : response.statusText,
+          json && typeof json === 'object' ? json : {},
+        )
       }
       return json as T
     } finally {
@@ -96,6 +131,12 @@ export function createGateway(url: string): Gateway {
     },
     submit: (kind, request) => call(ROUTES[kind].submit, request),
     rotationPending: (key) => call(`/v1/rotations/pending?key=${key}`),
+    async settlementQuote() {
+      const quote = await call<Omit<SettlementQuote, 'minAmount'> & { minAmount: string }>('/v1/settlements/quote')
+      return { ...quote, minAmount: BigInt(quote.minAmount) }
+    },
+    settle: (request) => call('/v1/settlements', request),
+    reclaim: (request) => call('/v1/reclaims', request),
   }
 }
 

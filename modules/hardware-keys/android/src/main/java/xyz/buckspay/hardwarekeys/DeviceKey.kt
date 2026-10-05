@@ -58,6 +58,12 @@ internal class InvalidEnvelopeException(
   cause: Throwable,
 ) : CodedException("Invalid signing envelope", cause)
 
+internal class UnknownOutputException : CodedException("The note guard has no record of this output")
+
+internal class ReclaimTooEarlyException : CodedException("The output can still be settled by its payee")
+
+internal class InvalidDeadlineException : CodedException("The deadline is past or more than a day ahead")
+
 internal class InvalidChallengeException : CodedException("The attestation challenge is longer than 128 bytes")
 
 /**
@@ -158,6 +164,54 @@ internal class DeviceKey(
     val entry = signingEntry()
     if (keyguard.isDeviceLocked) throw DeviceLockedException()
     return signature(entry.privateKey, envelope)
+  }
+
+  /** Tells the note guard about an output this device holds, which a reclaim of it needs. */
+  fun recordOutput(
+    domains: Domains,
+    output: ByteArray,
+    expiry: Long,
+  ) {
+    val entry = signingEntry()
+    val guard = guard(NoteGuard.binding(entry.publicKey, domains.of(NOTE)))
+    try {
+      guard.recordOutput(output, expiry)
+    } catch (e: IllegalArgumentException) {
+      throw InvalidEnvelopeException(e)
+    }
+  }
+
+  /**
+   * DER `SHA256withECDSA` signature over the reclaim of `output`, a message built here. Signed only
+   * for an output the guard was told about, only once `expiry + grace` of it has passed, with a
+   * deadline between `now` and a day ahead: the payee's window is over, and the signature is useful
+   * for a short time only. It is signed even if the device signed a spend of the output.
+   */
+  fun signReclaim(
+    domains: Domains,
+    output: ByteArray,
+    deadline: Long,
+    grace: Long,
+    now: Long,
+  ): ByteArray {
+    val entry = signingEntry()
+    if (keyguard.isDeviceLocked) throw DeviceLockedException()
+    val guard = guard(NoteGuard.binding(entry.publicKey, domains.of(NOTE)))
+    val expiry =
+      try {
+        guard.expiryOf(output)
+      } catch (e: IllegalArgumentException) {
+        throw InvalidEnvelopeException(e)
+      } ?: throw UnknownOutputException()
+    if (now <= expiry + grace) throw ReclaimTooEarlyException()
+    if (deadline < now || deadline > now + DAY) throw InvalidDeadlineException()
+    val message =
+      try {
+        Envelope.reclaim(domains.of(RECLAIM), output, deadline)
+      } catch (e: IllegalArgumentException) {
+        throw InvalidEnvelopeException(e)
+      }
+    return signature(entry.privateKey, message)
   }
 
   /**
@@ -376,6 +430,8 @@ internal class DeviceKey(
     const val ALIAS = "buckspay-device"
     private const val NOTE = "note"
     private const val DEVICE = "device"
+    private const val RECLAIM = "reclaim"
+    private const val DAY = 24 * 60 * 60L
     private const val PROVIDER = "AndroidKeyStore"
     private const val MAX_CHALLENGE = 128
     private const val ATTESTATION_OID = "1.3.6.1.4.1.11129.2.1.17"

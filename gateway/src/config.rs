@@ -129,6 +129,10 @@ pub struct Config {
     pub max_priority_fee: u64,
     pub requests_per_minute: NonZeroU32,
     pub caps: Caps,
+    /// Lamports of rent the gateway may have out in settlement records.
+    pub settlement_float_cap: u64,
+    /// Base units of bond a lock needs for each open sponsored settlement record.
+    pub settlement_bond_per_record: u64,
     pub program_id: Pubkey,
     /// The one mint the gateway sponsors locks of.
     pub mint: Pubkey,
@@ -211,6 +215,8 @@ impl Config {
                 preparing_per_prefix: var("PREPARING_PER_PREFIX", "3")?,
                 escalation,
             },
+            settlement_float_cap: var("SETTLEMENT_FLOAT_CAP_LAMPORTS", "1000000000")?,
+            settlement_bond_per_record: var("SETTLEMENT_BOND_PER_RECORD", "1000000")?,
             program_id,
             mint: Pubkey::from_str(&env::var("MINT").map_err(|_| "MINT is not set")?)
                 .map_err(|_| "MINT is not an address")?,

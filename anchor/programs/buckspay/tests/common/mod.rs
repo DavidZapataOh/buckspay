@@ -57,6 +57,11 @@ const PROGRAM: &[u8] = include_bytes!(concat!(
     "/../deploy/buckspay.so"
 ));
 
+mod notes;
+mod settle;
+pub use notes::*;
+pub use settle::*;
+
 /// The clock every environment starts at: far from both ends of the `u32` range.
 const START: i64 = 1_800_000_000;
 const SOL: u64 = 1_000_000_000;
@@ -98,9 +103,23 @@ impl MintSetup {
 #[derive(Clone)]
 pub struct DeviceKey(pub SigningKey);
 
+/// The key of a note's issuer or holder.
+pub type Key = DeviceKey;
+
 impl DeviceKey {
     pub fn new(seed: u8) -> Self {
         Self(SigningKey::from_slice(&[seed; 32]).unwrap())
+    }
+
+    /// The key with scalar `n + 1`: as many distinct keys as a test wants to search through.
+    pub fn from_index(n: u32) -> Self {
+        let mut scalar = [0u8; 32];
+        scalar[28..].copy_from_slice(&(n + 1).to_be_bytes());
+        Self(SigningKey::from_slice(&scalar).unwrap())
+    }
+
+    pub fn owner(&self) -> buckspay_protocol::Owner {
+        buckspay_protocol::Owner::Device(self.sec1())
     }
 
     pub fn sec1(&self) -> [u8; 33] {
@@ -197,6 +216,8 @@ pub struct Env {
     pub mint_authority: Keypair,
     pub freeze_authority: Keypair,
     pub sponsor: Keypair,
+    /// A funded wallet that pays the fee and the rent of the settlements the tests submit.
+    pub payer: Keypair,
     pub sponsor_token: Pubkey,
     pub token_program: Pubkey,
     /// Where the stand-ins for later payouts send tokens: out of every escrow and user.
@@ -420,6 +441,8 @@ impl Env {
 
         let sponsor = Keypair::new();
         svm.airdrop(&sponsor.pubkey(), 1_000 * SOL).unwrap();
+        let payer = Keypair::new();
+        svm.airdrop(&payer.pubkey(), 100 * SOL).unwrap();
         let mut env = Self {
             svm,
             mint,
@@ -427,6 +450,7 @@ impl Env {
             freeze_authority,
             sponsor_token: Pubkey::default(),
             sponsor,
+            payer,
             token_program,
             sink: Pubkey::default(),
             donor: Pubkey::default(),
@@ -440,7 +464,7 @@ impl Env {
     }
 
     /// A token account of the mint, owned by `owner`, holding `amount`. The mint's supply is not touched.
-    fn token_account_of(&mut self, owner: &Pubkey, amount: u64) -> Pubkey {
+    pub fn token_account_of(&mut self, owner: &Pubkey, amount: u64) -> Pubkey {
         let address = Keypair::new().pubkey();
         let data = token_account_data(
             &self.mint,
@@ -546,6 +570,11 @@ impl Env {
     /// A funded wallet with a registered device key and `tokens` in its token account.
     pub fn user(&mut self, tokens: u64) -> User {
         let user = self.unregistered_user(tokens);
+        self.register(user)
+    }
+
+    /// Registers the device key of `user` with its wallet.
+    pub fn register(&mut self, user: User) -> User {
         let wallet = user.wallet.pubkey();
         self.svm.airdrop(&wallet, 10 * SOL).unwrap();
         self.send(
@@ -558,13 +587,18 @@ impl Env {
 
     /// A wallet with no lamports and `tokens` in its token account, whose device key is not registered.
     pub fn unregistered_user(&mut self, tokens: u64) -> User {
+        let key = DeviceKey::new(self.next_key);
+        self.next_key += 1;
+        self.unregistered_user_with(key, tokens)
+    }
+
+    /// The same with a chosen device key.
+    pub fn unregistered_user_with(&mut self, key: DeviceKey, tokens: u64) -> User {
         let wallet = Keypair::new();
         let token = self.token_account_of(&wallet.pubkey(), tokens);
         if tokens > 0 {
             self.mint_more(tokens);
         }
-        let key = DeviceKey::new(self.next_key);
-        self.next_key += 1;
         User { wallet, key, token }
     }
 
@@ -818,6 +852,10 @@ impl Env {
     }
 
     pub fn donate(&mut self, lock: &Lock, amount: u64) {
+        // Nobody can send tokens to an escrow that was closed.
+        if self.svm.get_account(&lock.escrow).is_none() {
+            return;
+        }
         self.move_tokens(&self.donor.clone(), &lock.escrow, amount);
     }
 

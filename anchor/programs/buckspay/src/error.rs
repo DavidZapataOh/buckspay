@@ -49,4 +49,34 @@ pub enum BuckspayError {
     SameWallet,
     #[msg("The account is not a device account to migrate")]
     NotMigratable,
+    #[msg("The transaction does not carry the secp256r1 verification of exactly this chain")]
+    ChainVerification,
+    #[msg("The messages are not a valid chain")]
+    ChainInvalid,
+    #[msg("The issue does not match the lock it names")]
+    WrongLock,
+    #[msg("Too many spends for one instruction")]
+    TooManySpends,
+    #[msg("The settlement window of the output has closed")]
+    SettlementClosed,
+    #[msg("The lock has ended")]
+    LockEnded,
+    #[msg("The destination does not belong to the account the note pays")]
+    WrongPayee,
+    #[msg("The output was already consumed by another message")]
+    ConflictingSpend,
+    #[msg("This message was already paid")]
+    AlreadySettled,
+    #[msg("The output cannot be reclaimed yet")]
+    ReclaimTooEarly,
+    #[msg("Wrong number or address of record accounts")]
+    RecordAccounts,
+    #[msg("The record cannot be closed yet")]
+    RecordNotClosable,
+    #[msg("The reclaim window of the output has closed")]
+    ReclaimClosed,
+    #[msg("The reclaim signature is past its deadline")]
+    ReclaimExpired,
+    #[msg("An output of the chain has no record address")]
+    UnrecordableOutput,
 }

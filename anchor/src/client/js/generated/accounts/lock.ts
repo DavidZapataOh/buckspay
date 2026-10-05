@@ -54,6 +54,11 @@ export type Lock = {
   backing: bigint
   lockUntil: number
   bump: number
+  /**
+   * The canonical bump of the lock's escrow, so settlements derive it without searching: the
+   * issuer's key chooses the lock's address and with it the cost of that search.
+   */
+  escrowBump: number
 }
 
 export type LockArgs = {
@@ -62,6 +67,11 @@ export type LockArgs = {
   backing: number | bigint
   lockUntil: number
   bump: number
+  /**
+   * The canonical bump of the lock's escrow, so settlements derive it without searching: the
+   * issuer's key chooses the lock's address and with it the cost of that search.
+   */
+  escrowBump: number
 }
 
 /** Gets the encoder for {@link LockArgs} account data. */
@@ -74,6 +84,7 @@ export function getLockEncoder(): FixedSizeEncoder<LockArgs> {
       ['backing', getU64Encoder()],
       ['lockUntil', getU32Encoder()],
       ['bump', getU8Encoder()],
+      ['escrowBump', getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: LOCK_DISCRIMINATOR }),
   )
@@ -88,6 +99,7 @@ export function getLockDecoder(): FixedSizeDecoder<Lock> {
     ['backing', getU64Decoder()],
     ['lockUntil', getU32Decoder()],
     ['bump', getU8Decoder()],
+    ['escrowBump', getU8Decoder()],
   ])
 }
 
@@ -147,5 +159,5 @@ export async function fetchAllMaybeLock(
 }
 
 export function getLockSize(): number {
-  return 61
+  return 62
 }

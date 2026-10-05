@@ -2,9 +2,8 @@ use curve25519_dalek::edwards::CompressedEdwardsY;
 use p256::ecdsa::{signature::Verifier, RecoveryId, Signature, VerifyingKey};
 
 use crate::conflict::{IssueConflict, SpendConflict};
-use crate::hash::{content, envelope, message_id, output_id};
 use crate::{
-    flags, BondTicket, Caveats, Issue, Outputs, Owner, ProtocolError, Result, ScopeKind, Signed,
+    flags, record, BondTicket, Caveats, Issue, Owner, ProtocolError, Result, ScopeKind, Signed,
     Spend, CHALLENGE, GRACE, MAX_DEPTH, NO_LOCK,
 };
 
@@ -92,19 +91,8 @@ pub fn verify_issue_conflict(
     verify_signature(issuer, &b, &conflict.b.signature)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Output {
-    pub id: [u8; 32],
-    pub owner: Owner,
-    pub amount: u64,
-    pub caveats: Caveats,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Holding {
-    pub first: Output,
-    pub second: Option<Output>,
-}
+pub use crate::chain::Output;
+use crate::chain::{self, Holding};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Attester {
@@ -116,6 +104,9 @@ pub struct Attester {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Receiver<'a> {
     pub note_domain: [u8; 32],
+    /// The settlement program the receiver will settle through: every output it depends on must
+    /// have a record address under it.
+    pub program: [u8; 32],
     pub ticket_domain: [u8; 32],
     pub attesters: &'a [Attester],
     pub me: Owner,
@@ -222,80 +213,9 @@ pub(crate) fn verify_issue(domain: &[u8; 32], issue: &Signed<Issue>) -> Result<O
     let message = &issue.message;
     message.check()?;
     check_owner(&message.owner)?;
-    let env = envelope(domain, &message.slot()?, &content(&message.body()));
+    let (env, output) = chain::issue_signing(domain, message)?;
     verify_signature(&message.issuer, &env, &issue.signature)?;
-    Ok(Output {
-        id: output_id(&message_id(&env), 0),
-        owner: message.owner,
-        amount: message.amount,
-        caveats: message.caveats,
-    })
-}
-
-/// Whether a spend of an output with these caveats is backed without the spender's lock.
-fn unlocked(input: &Caveats) -> bool {
-    input.flags & (flags::DELEGATED | flags::AUTHORITY_ONLY) != 0
-}
-
-/// A `Spend1` to a terminal account: a settlement, which nothing spends further.
-fn settles(spend: &Spend) -> bool {
-    matches!(
-        spend.outputs,
-        Outputs::One {
-            owner: Owner::Account(_),
-            ..
-        }
-    )
-}
-
-fn check_lock(input: &Caveats, spend: &Spend, payment: &Caveats) -> Result<()> {
-    if spend.lock_seq != NO_LOCK {
-        return Ok(());
-    }
-    if !(unlocked(input) || settles(spend)) || payment.flags & flags::DELEGATED != 0 {
-        return Err(ProtocolError::Lock);
-    }
-    Ok(())
-}
-
-/// The first output (owner, amount, caveats) and the change of a spend of `input`, if the rules of
-/// a hop allow them.
-type Hop = (Owner, u64, Caveats, Option<(u64, Caveats)>);
-
-fn hop(input: &Output, spend: &Spend) -> Result<Hop> {
-    let (owner, amount, caveats, change) = match spend.outputs {
-        Outputs::One { owner, caveats } => (owner, input.amount, caveats, None),
-        Outputs::Two {
-            owner0,
-            amount0,
-            caveats0,
-            owner1,
-        } => {
-            let change = input.caveats.change()?;
-            if amount0 >= input.amount {
-                return Err(ProtocolError::Amount);
-            }
-            if owner1 != input.owner {
-                return Err(ProtocolError::Change);
-            }
-            (
-                owner0,
-                amount0,
-                caveats0,
-                Some((input.amount - amount0, change)),
-            )
-        }
-    };
-    let rules = input.caveats.for_holder(&input.owner);
-    if !rules.permits(&caveats) {
-        return Err(ProtocolError::Attenuation);
-    }
-    if !rules.admits(&owner) {
-        return Err(ProtocolError::Scope);
-    }
-    check_lock(&rules, spend, &caveats)?;
-    check_owner(&owner)?;
-    Ok((owner, amount, caveats, change))
+    Ok(output)
 }
 
 pub(crate) fn verify_spend(
@@ -304,35 +224,27 @@ pub(crate) fn verify_spend(
     spend: &Signed<Spend>,
 ) -> Result<Holding> {
     let message = &spend.message;
-    let Owner::Device(holder) = input.owner else {
-        return Err(ProtocolError::Owner);
-    };
-    message.check()?;
-    let env = envelope(domain, &input.id, &message.content());
+    let (holder, env) = chain::spend_signing(domain, input, message)?;
     verify_signature(&holder, &env, &spend.signature)?;
-    let (owner, amount, caveats, change) = hop(input, message)?;
-    let id = message_id(&env);
-    Ok(Holding {
-        first: Output {
-            id: output_id(&id, 0),
-            owner,
-            amount,
-            caveats,
-        },
-        second: change.map(|(amount, caveats)| Output {
-            id: output_id(&id, 1),
-            owner: input.owner,
-            amount,
-            caveats,
-        }),
-    })
+    let (holding, owner) = chain::spend_outputs(&env, input, message)?;
+    check_owner(&owner)?;
+    Ok(holding)
 }
 
 /// Checks a spend of `input` before its holder signs it: `input` is a device's output that `spend`
 /// names, the hop follows the rules receivers and the program apply (amount, change, attenuation,
 /// scope, lock), and `input` can still move at `now`: until its expiry as a payment, until
 /// `expiry + GRACE` as a settlement.
-pub fn check_spend_step(input: &Output, spend: &Spend, now: u32) -> Result<()> {
+///
+/// The spend must also be recordable: `input` and every output the spend gives to a device have a
+/// record address under `program`; the signer changes the salt until they do.
+pub fn check_spend_step(
+    domain: &[u8; 32],
+    program: &[u8; 32],
+    input: &Output,
+    spend: &Spend,
+    now: u32,
+) -> Result<()> {
     if !matches!(input.owner, Owner::Device(_)) {
         return Err(ProtocolError::Owner);
     }
@@ -340,11 +252,34 @@ pub fn check_spend_step(input: &Output, spend: &Spend, now: u32) -> Result<()> {
     if spend.input != input.id {
         return Err(ProtocolError::Linkage);
     }
-    let grace = if settles(spend) { GRACE } else { 0 };
+    let grace = if chain::settles(spend) { GRACE } else { 0 };
     if u64::from(now) > u64::from(input.caveats.expiry) + u64::from(grace) {
         return Err(ProtocolError::Expired);
     }
-    hop(input, spend).map(|_| ())
+    let (owner, ..) = chain::hop(input, spend)?;
+    check_owner(&owner)?;
+    recordable(program, &input.id)?;
+    let (_, env) = chain::spend_signing(domain, input, spend)?;
+    let (holding, _) = chain::spend_outputs(&env, input, spend)?;
+    for output in [Some(holding.first), holding.second].into_iter().flatten() {
+        if matches!(output.owner, Owner::Device(_)) {
+            recordable(program, &output.id)?;
+        }
+    }
+    Ok(())
+}
+
+/// Checks an issue before its issuer signs it: its output has a record address under `program`
+/// (the issuer changes the salt until it does).
+pub fn check_issue_step(domain: &[u8; 32], program: &[u8; 32], issue: &Issue) -> Result<()> {
+    let (_, output) = chain::issue_signing(domain, issue)?;
+    recordable(program, &output.id)
+}
+
+fn recordable(program: &[u8; 32], output: &[u8; 32]) -> Result<()> {
+    record::address(program, output)
+        .map(drop)
+        .ok_or(ProtocolError::Unrecordable)
 }
 
 /// Follows `spends` from the issue's output, each consuming either output of the previous
@@ -490,12 +425,13 @@ pub fn verify_payment(
         |t| t.bond >= note.amount && t.backing >= note.cum_end,
     )?)?;
     let output = follow(&receiver.note_domain, issued, spends, |input, spend| {
+        recordable(&receiver.program, &input.id)?;
         if receiver.now > input.caveats.expiry {
             return Err(ProtocolError::Expired);
         }
         let lock_seq = spend.message.lock_seq;
         if lock_seq == NO_LOCK {
-            return if unlocked(&input.caveats) {
+            return if chain::unlocked(&input.caveats) {
                 Ok(())
             } else {
                 Err(ProtocolError::Lock)
@@ -511,6 +447,9 @@ pub fn verify_payment(
             |t| t.bond >= input.amount,
         )?)
     })?;
+    if spends.is_empty() || matches!(output.owner, Owner::Device(_)) {
+        recordable(&receiver.program, &output.id)?;
+    }
     if output.owner != receiver.me {
         return Err(ProtocolError::Payee);
     }
@@ -536,10 +475,16 @@ pub fn verify_payment(
 /// expiry and slashes locks on conflict.
 pub fn verify_settlement(
     domain: &[u8; 32],
+    program: &[u8; 32],
     issue: &Signed<Issue>,
     spends: &[Signed<Spend>],
 ) -> Result<Settled> {
-    let output = follow(domain, verify_issue(domain, issue)?, spends, |_, _| Ok(()))?;
+    let output = follow(domain, verify_issue(domain, issue)?, spends, |input, _| {
+        recordable(program, &input.id)
+    })?;
+    if spends.is_empty() {
+        recordable(program, &output.id)?;
+    }
     match output.owner {
         Owner::Account(_) => Ok(Settled::new(&issue.message, output)),
         Owner::Device(_) => Err(ProtocolError::Payee),
@@ -550,8 +495,10 @@ pub fn verify_settlement(
 mod tests {
     use super::*;
     use crate::conflict::IssueClaim;
+    use crate::hash::content;
     use crate::hash::envelope;
     use crate::message::issue_slot;
+    use crate::Outputs;
     use crate::ScopeKind;
     use ed25519_dalek::Signer as _;
     use p256::ecdsa::{signature::Signer, SigningKey};
@@ -685,6 +632,12 @@ mod tests {
     const EXPIRY: u32 = 1_900_000_000;
     const TICKET_DOMAIN: [u8; 32] = [10; 32];
     const MINT: [u8; 32] = [3; 32];
+    const PROGRAM: [u8; 32] = [7; 32];
+    use crate::lock::EXPIRY_STEP;
+
+    fn recordable_id(id: &[u8; 32]) -> bool {
+        record::address(&PROGRAM, id).is_some()
+    }
 
     fn caveats(hops_left: u8) -> Caveats {
         Caveats {
@@ -719,6 +672,7 @@ mod tests {
     fn receiver<'a>(attesters: &'a [Attester], me: [u8; 33]) -> Receiver<'a> {
         Receiver {
             note_domain: DOMAIN,
+            program: PROGRAM,
             ticket_domain: TICKET_DOMAIN,
             attesters,
             me: Owner::Device(me),
@@ -736,35 +690,68 @@ mod tests {
         }]
     }
 
+    /// The salt is changed until the issue's output is recordable, as an honest issuer does.
     fn signed_issue(issuer: &SigningKey, issuer_key: [u8; 33], owner: [u8; 33]) -> Signed<Issue> {
-        let message = Issue {
-            issuer: issuer_key,
-            mint: MINT,
-            lock_seq: 0,
-            cum_end: 20_000,
-            salt: [4; 16],
-            owner: Owner::Device(owner),
-            amount: 20_000,
-            caveats: caveats(4),
-        };
-        let env = envelope(&DOMAIN, &message.slot().unwrap(), &content(&message.body()));
-        Signed {
-            message,
-            signature: sign(issuer, &env),
-        }
+        (0u8..)
+            .map(|salt| {
+                let message = Issue {
+                    issuer: issuer_key,
+                    mint: MINT,
+                    lock_seq: 0,
+                    cum_end: 20_000,
+                    salt: [salt; 16],
+                    owner: Owner::Device(owner),
+                    amount: 20_000,
+                    caveats: caveats(4),
+                };
+                let env = envelope(&DOMAIN, &message.slot().unwrap(), &content(&message.body()));
+                Signed {
+                    message,
+                    signature: sign(issuer, &env),
+                }
+            })
+            .find(|issue| recordable_id(&issued_output(issue)))
+            .unwrap()
     }
 
+    fn issued_output(issue: &Signed<Issue>) -> [u8; 32] {
+        chain::issue_signing(&DOMAIN, &issue.message).unwrap().1.id
+    }
+
+    /// The salt is changed until every output the spend gives to a device is recordable. A spend
+    /// that breaks a rule keeps its first salt: the tests that use it expect the rule's error.
     fn signed_spend(holder: &SigningKey, input: &Output, outputs: Outputs) -> Signed<Spend> {
-        let message = Spend {
-            input: input.id,
-            lock_seq: 0,
-            salt: [6; 16],
-            outputs,
+        let build = |salt: u8| {
+            let message = Spend {
+                input: input.id,
+                lock_seq: 0,
+                salt: [salt; 16],
+                outputs,
+            };
+            let env = envelope(&DOMAIN, &input.id, &message.content());
+            let ready = chain::spend_outputs(&env, input, &message).map_or(true, |(holding, _)| {
+                [Some(holding.first), holding.second]
+                    .into_iter()
+                    .flatten()
+                    .all(|o| !matches!(o.owner, Owner::Device(_)) || recordable_id(&o.id))
+            });
+            (
+                Signed {
+                    message,
+                    signature: sign(holder, &env),
+                },
+                ready,
+            )
         };
-        let env = envelope(&DOMAIN, &input.id, &message.content());
-        Signed {
-            message,
-            signature: sign(holder, &env),
+        (0u8..).map(build).find(|(_, ready)| *ready).unwrap().0
+    }
+
+    /// The caveats of a payment `depth` steps below the issue: one hop less and `EXPIRY_STEP`
+    /// shorter at each step.
+    fn payment_caveats(hops_left: u8, depth: u32) -> Caveats {
+        Caveats {
+            expiry: EXPIRY - depth * EXPIRY_STEP,
+            ..caveats(hops_left)
         }
     }
 
@@ -782,7 +769,7 @@ mod tests {
             Outputs::Two {
                 owner0: Owner::Device(bob_key),
                 amount0: 12_000,
-                caveats0: caveats(3),
+                caveats0: payment_caveats(3, 1),
                 owner1: Owner::Device(alice_key),
             },
         );
@@ -792,7 +779,7 @@ mod tests {
             &bob_output,
             Outputs::One {
                 owner: Owner::Device(carol_key),
-                caveats: caveats(2),
+                caveats: payment_caveats(2, 2),
             },
         );
         let lock_until = EXPIRY + GRACE + CHALLENGE;
@@ -843,7 +830,7 @@ mod tests {
             &first,
             Outputs::One {
                 owner: Owner::Device(bob_key),
-                caveats: caveats(3),
+                caveats: payment_caveats(3, 1),
             },
         );
         let lock_until = EXPIRY + GRACE + CHALLENGE;
@@ -898,7 +885,7 @@ mod tests {
             Outputs::Two {
                 owner0: Owner::Device(bob_key),
                 amount0: 5_000,
-                caveats0: caveats(3),
+                caveats0: payment_caveats(3, 1),
                 owner1: Owner::Device(alice_key),
             },
         );
@@ -978,7 +965,7 @@ mod tests {
             &first,
             Outputs::One {
                 owner: Owner::Device(bob_key),
-                caveats: caveats(3),
+                caveats: payment_caveats(3, 1),
             },
         );
         let lock_until = EXPIRY + GRACE + CHALLENGE;
@@ -1164,25 +1151,32 @@ mod tests {
         let (alice, bob) = (Owner::Device(alice_key), Owner::Device(bob_key));
         let account = Owner::Account([0xb5; 32]);
         let input = Output {
-            id: [7; 32],
+            id: (0u8..).map(|b| [b; 32]).find(recordable_id).unwrap(),
             owner: alice,
             amount: 20_000,
             caveats: caveats(4),
         };
-        let spend = |lock_seq, outputs| Spend {
-            input: input.id,
-            lock_seq,
-            salt: [6; 16],
-            outputs,
+        let check = |spend: &Spend, now| check_spend_step(&DOMAIN, &PROGRAM, &input, spend, now);
+        // The salt is changed until the spend is recordable, as the signer does.
+        let spend = |lock_seq, outputs| {
+            (0u8..)
+                .map(|salt| Spend {
+                    input: input.id,
+                    lock_seq,
+                    salt: [salt; 16],
+                    outputs,
+                })
+                .find(|s| check(s, NOW) != Err(ProtocolError::Unrecordable))
+                .unwrap()
         };
         let pay = |hops_left| Outputs::One {
             owner: bob,
-            caveats: caveats(hops_left),
+            caveats: payment_caveats(hops_left, 1),
         };
         let split = |amount0, owner1| Outputs::Two {
             owner0: bob,
             amount0,
-            caveats0: caveats(3),
+            caveats0: payment_caveats(3, 1),
             owner1,
         };
         let settle = spend(
@@ -1192,7 +1186,6 @@ mod tests {
                 caveats: caveats(3),
             },
         );
-        let check = |spend: &Spend, now| check_spend_step(&input, spend, now);
 
         assert_eq!(check(&spend(0, pay(3)), NOW), Ok(()));
         assert_eq!(check(&spend(0, split(12_000, alice)), NOW), Ok(()));
@@ -1227,21 +1220,100 @@ mod tests {
             check(&settle, EXPIRY + GRACE + 1),
             Err(ProtocolError::Expired)
         );
-        let last_hop = Output {
-            caveats: caveats(1),
-            ..input
-        };
-        assert_eq!(
-            check_spend_step(&last_hop, &spend(0, split(12_000, alice)), NOW),
-            Err(ProtocolError::Depth)
-        );
         let held_by_account = Output {
             owner: account,
             ..input
         };
         assert_eq!(
-            check_spend_step(&held_by_account, &settle, NOW),
+            check_spend_step(&DOMAIN, &PROGRAM, &held_by_account, &settle, NOW),
             Err(ProtocolError::Owner)
         );
+    }
+
+    #[test]
+    fn a_spend_whose_outputs_have_no_record_address_is_refused_to_its_signer() {
+        let (_, alice_key) = key(2);
+        let (_, bob_key) = key(3);
+        let input = Output {
+            id: (0u8..).map(|b| [b; 32]).find(recordable_id).unwrap(),
+            owner: Owner::Device(alice_key),
+            amount: 20_000,
+            caveats: caveats(4),
+        };
+        let pay = |salt: u8, owner| Spend {
+            input: input.id,
+            lock_seq: 0,
+            salt: [salt; 16],
+            outputs: Outputs::One {
+                owner,
+                caveats: payment_caveats(3, 1),
+            },
+        };
+        let check = |spend: &Spend| check_spend_step(&DOMAIN, &PROGRAM, &input, spend, NOW);
+        let output_id = |spend: &Spend| {
+            let (_, env) = chain::spend_signing(&DOMAIN, &input, spend).unwrap();
+            let (holding, _) = chain::spend_outputs(&env, &input, spend).unwrap();
+            holding.first.id
+        };
+        // Some salt gives the device an output without a record address: the signer must try another.
+        let to_device = |salt| pay(salt, Owner::Device(bob_key));
+        let bad = (0u8..)
+            .map(to_device)
+            .find(|s| !recordable_id(&output_id(s)))
+            .unwrap();
+        let good = (0u8..)
+            .map(to_device)
+            .find(|s| recordable_id(&output_id(s)))
+            .unwrap();
+        assert_eq!(check(&bad), Err(ProtocolError::Unrecordable));
+        assert_eq!(check(&good), Ok(()));
+        // A terminal account's output is never recorded, so it needs no address.
+        let to_account = |salt| pay(salt, Owner::Account([5; 32]));
+        let bad_for_a_device = (0u8..)
+            .map(to_account)
+            .find(|s| !recordable_id(&output_id(s)))
+            .unwrap();
+        assert_eq!(check(&bad_for_a_device), Ok(()));
+        // An input without a record address cannot be spent: its signer could never settle it.
+        let unrecordable_input = Output {
+            id: (0u8..)
+                .map(|b| [b; 32])
+                .find(|id| !recordable_id(id))
+                .unwrap(),
+            ..input
+        };
+        let respend = Spend {
+            input: unrecordable_input.id,
+            ..good
+        };
+        assert_eq!(
+            check_spend_step(&DOMAIN, &PROGRAM, &unrecordable_input, &respend, NOW),
+            Err(ProtocolError::Unrecordable)
+        );
+    }
+
+    #[test]
+    fn an_issue_whose_output_has_no_record_address_is_refused_to_its_issuer() {
+        let (_, issuer_key) = key(1);
+        let (_, alice_key) = key(2);
+        let issue = |salt: u8| Issue {
+            issuer: issuer_key,
+            mint: MINT,
+            lock_seq: 0,
+            cum_end: 20_000,
+            salt: [salt; 16],
+            owner: Owner::Device(alice_key),
+            amount: 20_000,
+            caveats: caveats(4),
+        };
+        let recordable =
+            |salt| recordable_id(&chain::issue_signing(&DOMAIN, &issue(salt)).unwrap().1.id);
+        let bad = (0u8..).find(|s| !recordable(*s)).unwrap();
+        let good = (0u8..).find(|s| recordable(*s)).unwrap();
+        assert_eq!(
+            check_issue_step(&DOMAIN, &PROGRAM, &issue(bad)),
+            Err(ProtocolError::Unrecordable)
+        );
+        assert_eq!(check_issue_step(&DOMAIN, &PROGRAM, &issue(good)), Ok(()));
     }
 }

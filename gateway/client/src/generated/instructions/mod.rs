@@ -8,19 +8,27 @@
 pub(crate) mod r#apply_wallet_rotation;
 pub(crate) mod r#cancel_wallet_rotation;
 pub(crate) mod r#close_lock;
+pub(crate) mod r#close_spent;
 pub(crate) mod r#create_lock;
 pub(crate) mod r#migrate_device;
+pub(crate) mod r#reclaim_output;
+pub(crate) mod r#record_prefix;
 pub(crate) mod r#register_device;
 pub(crate) mod r#release_lock;
 pub(crate) mod r#request_wallet_rotation;
+pub(crate) mod r#settle_note;
 pub(crate) mod r#withdraw_lock;
 
 pub use self::r#apply_wallet_rotation::*;
 pub use self::r#cancel_wallet_rotation::*;
 pub use self::r#close_lock::*;
+pub use self::r#close_spent::*;
 pub use self::r#create_lock::*;
 pub use self::r#migrate_device::*;
+pub use self::r#reclaim_output::*;
+pub use self::r#record_prefix::*;
 pub use self::r#register_device::*;
 pub use self::r#release_lock::*;
 pub use self::r#request_wallet_rotation::*;
+pub use self::r#settle_note::*;
 pub use self::r#withdraw_lock::*;

@@ -144,6 +144,41 @@ class NoteGuardTest {
   }
 
   @Test
+  fun keepsTheExpiryOfEveryOutputAcrossRestarts() {
+    open().use { guard ->
+      assertNull(guard.expiryOf(a))
+      guard.recordOutput(a, 1_900_000_000)
+      guard.recordOutput(b, 0xffff_ffffL)
+      guard.recordOutput(a, 1_900_000_000)
+    }
+    open().use { guard ->
+      assertEquals(1_900_000_000L, guard.expiryOf(a))
+      assertEquals(0xffff_ffffL, guard.expiryOf(b))
+      assertNull(guard.expiryOf(slot))
+    }
+  }
+
+  @Test
+  fun refusesAnOutputThatIsNot32BytesOrAnExpiryThatIsNotAU32() {
+    open().use { guard ->
+      assertThrows(IllegalArgumentException::class.java) { guard.recordOutput(ByteArray(31), 1) }
+      assertThrows(IllegalArgumentException::class.java) { guard.recordOutput(a, -1) }
+      assertThrows(IllegalArgumentException::class.java) { guard.recordOutput(a, 0x1_0000_0000L) }
+      assertNull(guard.expiryOf(a))
+    }
+  }
+
+  @Test
+  fun aGuardMadeBeforeOutputsWereKeptGetsTheirTableWhenItIsOpened() {
+    open().close()
+    SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READWRITE).use { it.execSQL("DROP TABLE outputs") }
+    open().use { guard ->
+      guard.recordOutput(a, 5)
+      assertEquals(5L, guard.expiryOf(a))
+    }
+  }
+
+  @Test
   fun forgetsARecordWhoseSignatureFailed() {
     open().use { guard ->
       guard.admit(issue(1, 0, 100), a)

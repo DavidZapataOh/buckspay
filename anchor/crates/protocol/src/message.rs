@@ -9,6 +9,7 @@ pub mod kind {
     pub const ISSUE_CONFLICT: u8 = 0x21;
     pub const DEVICE_BINDING: u8 = 0x50;
     pub const ROTATION: u8 = 0x51;
+    pub const RECLAIM: u8 = 0x60;
 }
 
 pub const NO_LOCK: u32 = u32::MAX;

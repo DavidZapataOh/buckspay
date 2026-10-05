@@ -15,6 +15,7 @@ import {
   checkSpend,
   encodeIssueBody,
   encodeSpendBody,
+  EXPIRY_STEP,
   Flags,
   forHolder,
   GRACE,
@@ -34,12 +35,18 @@ import {
   ticketMessage,
 } from './codec'
 import { content, envelope, issueSlot, messageId, outputId } from './hash'
+import { recordAddress } from './record'
 
 export type Output = { id: Uint8Array; owner: Owner; amount: bigint; caveats: Caveats }
 export type Attester = { id: number; key: Uint8Array }
 /** What the receiving wallet trusts and requires. */
 export type Receiver = {
   noteDomain: Uint8Array
+  /**
+   * The settlement program the receiver will settle through: every output it depends on must have a
+   * record address under it.
+   */
+  program: Uint8Array
   ticketDomain: Uint8Array
   attesters: Attester[]
   me: Owner
@@ -161,6 +168,14 @@ function verifyIssue(domain: Uint8Array, { message, signature }: Signed<Issue>):
 /** Whether a spend of an output with these caveats is backed without the spender's lock. */
 const unlocked = (input: Caveats) => (input.flags & (Flags.Delegated | Flags.AuthorityOnly)) !== 0
 
+/**
+ * An output a device holds can be reclaimed by that device, so the spender's own reclaim of the
+ * input it paid with must open after the payee's: a payment to a device expires at least
+ * `EXPIRY_STEP` before its input. Outputs to terminal accounts are never reclaimed and are free.
+ */
+const stepsDown = (input: Caveats, owner: Owner, payment: Caveats) =>
+  owner.type === 'account' || payment.expiry + EXPIRY_STEP <= input.expiry
+
 /** A `Spend1` to a terminal account: a settlement, which nothing spends further. */
 const settles = ({ outputs }: Spend) => outputs.type === 'one' && outputs.owner.type === 'account'
 
@@ -184,6 +199,7 @@ function hop(input: Output, spend: Spend): [Owner, bigint, Caveats, Caveats | un
   }
   const rules = forHolder(input.caveats, input.owner)
   if (!permits(rules, caveats)) throw new ProtocolError('Attenuation')
+  if (!stepsDown(input.caveats, owner, caveats)) throw new ProtocolError('ExpiryStep')
   if (!admits(rules, owner)) throw new ProtocolError('Scope')
   checkLock(rules, spend, caveats)
   checkOwner(owner)
@@ -202,18 +218,40 @@ function verifySpend(domain: Uint8Array, input: Output, { message, signature }: 
   return [first, { id: outputId(id, 1), owner: input.owner, amount: input.amount - amount, caveats: changeCaveats }]
 }
 
+function requireRecordable(program: Uint8Array, output: Uint8Array) {
+  if (!recordAddress(program, output)) throw new ProtocolError('Unrecordable')
+}
+
 /**
  * Checks a spend of `input` before its holder signs it: `input` is a device's output that `spend`
  * names, the hop follows the rules receivers and the program apply, and `input` can still move at
  * `now`: until its expiry as a payment, until `expiry + GRACE` as a settlement.
+ *
+ * The spend must also be recordable: `input` and every output the spend gives to a device have a
+ * record address under `program`; the signer changes the salt until they do.
  */
-export function checkSpendStep(input: Output, spend: Spend, now: number) {
+export function checkSpendStep(domain: Uint8Array, program: Uint8Array, input: Output, spend: Spend, now: number) {
   checkU32(now)
   if (input.owner.type !== 'device') throw new ProtocolError('Owner')
   checkSpend(spend)
   if (!equalBytes(spend.input, input.id)) throw new ProtocolError('Linkage')
   if (now > input.caveats.expiry + (settles(spend) ? GRACE : 0)) throw new ProtocolError('Expired')
-  hop(input, spend)
+  const [owner] = hop(input, spend)
+  requireRecordable(program, input.id)
+  const id = messageId(envelope(domain, input.id, content(encodeSpendBody(spend))))
+  if (owner.type === 'device') requireRecordable(program, outputId(id, 0))
+  if (spend.outputs.type === 'two') requireRecordable(program, outputId(id, 1))
+}
+
+/**
+ * Checks an issue before its issuer signs it: its output has a record address under `program` (the
+ * issuer changes the salt until it does).
+ */
+export function checkIssueStep(domain: Uint8Array, program: Uint8Array, issue: Issue) {
+  checkIssue(issue)
+  const [start, end] = interval(issue)
+  const env = envelope(domain, issueSlot(issue.lockSeq, start, end), content(encodeIssueBody(issue)))
+  requireRecordable(program, outputId(messageId(env), 0))
 }
 
 /**
@@ -235,6 +273,50 @@ function follow(
     check(input, spend)
   }
   return holding[0]
+}
+
+/** A message of a chain with who must have signed which envelope. */
+export type ChainEntry = { key: Uint8Array; envelope: Uint8Array; signature: Uint8Array }
+/** One spend as the program takes it: which output of the previous message it consumes, and its body. */
+export type ChainLink = { input: 0 | 1; body: Uint8Array }
+/** An output a spend consumed, as its record keeps it. */
+export type ConsumedOutput = { output: Uint8Array; content: Uint8Array; expiry: number }
+
+/**
+ * Verifies a chain and lays it out the way the program reads it: every message with the key and
+ * envelope that signed it, each spend with the output of the previous message it consumes, the
+ * outputs consumed and the outputs of the last message (output 0 first, then the change). The twin
+ * of the program's walk.
+ */
+export function walkChain(domain: Uint8Array, issue: Signed<Issue>, spends: Signed<Spend>[]) {
+  let holding = [verifyIssue(domain, issue)]
+  const [start, end] = interval(issue.message)
+  const entries: ChainEntry[] = [
+    {
+      key: issue.message.issuer,
+      envelope: envelope(domain, issueSlot(issue.message.lockSeq, start, end), content(encodeIssueBody(issue.message))),
+      signature: issue.signature,
+    },
+  ]
+  const links: ChainLink[] = []
+  const consumed: ConsumedOutput[] = []
+  for (const spend of spends) {
+    checkBytes(spend.message.input, 32)
+    const index = holding.findIndex((output) => equalBytes(output.id, spend.message.input))
+    if (index < 0) throw new ProtocolError('Linkage')
+    const input = holding[index]
+    if (input.owner.type !== 'device') throw new ProtocolError('Owner')
+    const body = encodeSpendBody(spend.message)
+    holding = verifySpend(domain, input, spend)
+    entries.push({
+      key: input.owner.key,
+      envelope: envelope(domain, input.id, content(body)),
+      signature: spend.signature,
+    })
+    links.push({ input: index === 0 ? 0 : 1, body })
+    consumed.push({ output: input.id, content: content(body), expiry: input.caveats.expiry })
+  }
+  return { entries, links, consumed, last: holding }
 }
 
 const settled = (issue: Issue, output: Output): Settled => ({
@@ -341,6 +423,7 @@ export function verifyPayment(
 ): Received {
   checkU32(receiver.now)
   checkU32(receiver.minWindow)
+  checkBytes(receiver.program, 32)
   checkOwnerBytes(receiver.me)
   for (const address of receiver.acceptAuthorities) checkBytes(address, 32)
   checkBounds(spends, tickets)
@@ -361,6 +444,7 @@ export function verifyPayment(
     ),
   )
   const output = follow(receiver.noteDomain, issued, spends, (input, spend) => {
+    requireRecordable(receiver.program, input.id)
     if (receiver.now > input.caveats.expiry) throw new ProtocolError('Expired')
     const { lockSeq } = spend.message
     if (lockSeq === NO_LOCK) {
@@ -372,6 +456,7 @@ export function verifyPayment(
       ticket(receiver, tickets, input.owner, lockSeq, note.mint, input.caveats.expiry, (t) => t.bond >= input.amount),
     )
   })
+  if (spends.length === 0 || output.owner.type === 'device') requireRecordable(receiver.program, output.id)
   if (!sameOwner(output.owner, receiver.me)) throw new ProtocolError('Payee')
   if (!redeemable(receiver, output.caveats)) throw new ProtocolError('Scope')
   const stranded = output.owner.type === 'device' && output.caveats.hopsLeft === 0
@@ -384,8 +469,15 @@ export function verifyPayment(
  * chain. It checks neither time nor tickets: the program bounds settlement by the output's expiry
  * and slashes locks on conflict.
  */
-export function verifySettlement(domain: Uint8Array, issue: Signed<Issue>, spends: Signed<Spend>[]): Settled {
-  const output = follow(domain, verifyIssue(domain, issue), spends, () => {})
+export function verifySettlement(
+  domain: Uint8Array,
+  program: Uint8Array,
+  issue: Signed<Issue>,
+  spends: Signed<Spend>[],
+): Settled {
+  checkBytes(program, 32)
+  const output = follow(domain, verifyIssue(domain, issue), spends, (input) => requireRecordable(program, input.id))
+  if (spends.length === 0) requireRecordable(program, output.id)
   if (output.owner.type !== 'account') throw new ProtocolError('Payee')
   return settled(issue.message, output)
 }

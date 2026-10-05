@@ -175,7 +175,7 @@ async fn onboarding_is_atomic_end_to_end() {
     );
     let lock = program().find_lock_pda(&key, 0).0;
     for (address, len) in [
-        (lock, 61),
+        (lock, 62),
         (program().find_ledger_pda(&lock).0, 103),
         (program().find_escrow_pda(&lock).0, 165),
     ] {

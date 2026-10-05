@@ -1,14 +1,17 @@
 use anchor_lang::{prelude::Pubkey, Space};
 use buckspay::state::{Device, Ledger, Lock, Rotation};
-use buckspay::state::{DEVICE_SEED, ESCROW_SEED, LEDGER_SEED, LOCK_SEED, ROTATION_SEED};
+use buckspay::state::{
+    DEVICE_SEED, ESCROW_SEED, LEDGER_SEED, LOCK_SEED, ROTATION_SEED, SPENT_SEED,
+};
 use proptest::prelude::*;
 
-const PREFIXES: [&[u8]; 5] = [
+const PREFIXES: [&[u8]; 6] = [
     DEVICE_SEED,
     ROTATION_SEED,
     LOCK_SEED,
     LEDGER_SEED,
     ESCROW_SEED,
+    SPENT_SEED,
 ];
 
 fn key33() -> impl Strategy<Value = [u8; 33]> {
@@ -22,7 +25,7 @@ fn key_seeds(key: &[u8; 33]) -> (&[u8], &[u8]) {
 #[test]
 fn account_sizes_are_the_documented_ones() {
     assert_eq!(8 + Device::INIT_SPACE, 49);
-    assert_eq!(8 + Lock::INIT_SPACE, 61);
+    assert_eq!(8 + Lock::INIT_SPACE, 62);
     assert_eq!(8 + Ledger::INIT_SPACE, 103);
     assert_eq!(8 + Rotation::INIT_SPACE, 77);
 }

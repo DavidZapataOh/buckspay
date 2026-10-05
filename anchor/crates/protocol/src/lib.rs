@@ -1,12 +1,16 @@
 #![no_std]
 
 pub mod caveats;
+pub mod chain;
 pub mod cluster;
 pub mod conflict;
 pub mod device;
 pub mod error;
 pub use conflict::{IssueClaim, IssueConflict, SpendConflict};
 pub mod message;
+pub mod reclaim;
+pub mod record;
+pub mod secp256r1;
 #[cfg(feature = "verify")]
 pub mod verify;
 pub use caveats::{flags, Caveats, Owner, ScopeKind, MAX_DEPTH};
@@ -14,6 +18,7 @@ pub use message::{kind, BondTicket, Issue, Outputs, Signed, Spend, CHALLENGE, GR
 pub mod hash;
 pub mod lock;
 pub mod profile;
+pub mod window;
 
 pub use error::{ProtocolError, Result};
 

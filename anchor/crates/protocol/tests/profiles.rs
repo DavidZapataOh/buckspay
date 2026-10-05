@@ -1,7 +1,7 @@
 //! The committed profile block of `v1.json` is what the apps read to pick their windows and
 //! program id; hold the active profile's windows to the crate's constants.
 use buckspay_protocol::{
-    lock::{CLAIM_WINDOW, MIN_NOTE_LIFE, RELEASE_DELAY, ROTATION_DELAY},
+    lock::{CLAIM_WINDOW, EXPIRY_STEP, MIN_NOTE_LIFE, RELEASE_DELAY, ROTATION_DELAY},
     CHALLENGE, GRACE,
 };
 use serde_json::Value;
@@ -25,6 +25,7 @@ fn the_committed_windows_of_the_active_profile_are_the_constants() {
         ("minNoteLife", MIN_NOTE_LIFE),
         ("releaseDelay", RELEASE_DELAY),
         ("rotationDelay", ROTATION_DELAY),
+        ("expiryStep", EXPIRY_STEP),
     ];
     for (name, value) in expected {
         assert_eq!(windows[name], value, "{profile} {name}");

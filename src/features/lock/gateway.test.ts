@@ -96,4 +96,34 @@ describe('gateway client', () => {
     expect(await gateway.rotationPending('02ab')).toEqual({ pending: true, wallet: 'w', effectiveAt: 5 })
     expect(fetch).toHaveBeenCalledWith('https://gateway.test/v1/rotations/pending?key=02ab', expect.anything())
   })
+
+  it('asks for the settlement quote and reads its amount as an integer', async () => {
+    const fetch = stub({ minAmount: '50000', pressure: 12, openRecords: 3, locks: 2 })
+    expect(await gateway.settlementQuote()).toEqual({ minAmount: 50_000n, pressure: 12, openRecords: 3, locks: 2 })
+    expect(fetch.mock.calls[0][0]).toBe('https://gateway.test/v1/settlements/quote')
+  })
+
+  it('posts a chain to settle and a reclaim to their own routes', async () => {
+    const fetch = stub({ signature: '5sig' })
+    const chain = { issue: 'aa', spends: ['bb', 'cc'] }
+    expect(await gateway.settle(chain)).toEqual({ signature: '5sig' })
+    const reclaim = { ...chain, owner: 'dd', which: 1 as const, deadline: 1_900_000_000, signature: 'ee' }
+    await gateway.reclaim(reclaim)
+    const [settled, reclaimed] = fetch.mock.calls
+    expect(settled[0]).toBe('https://gateway.test/v1/settlements')
+    expect(JSON.parse(String(settled[1]?.body))).toEqual(chain)
+    expect(reclaimed[0]).toBe('https://gateway.test/v1/reclaims')
+    expect(JSON.parse(String(reclaimed[1]?.body))).toEqual(reclaim)
+  })
+
+  it('keeps what a refusal said besides its message', async () => {
+    stub({ error: 'horizon', retryAt: 1_900_000_000, selfPay: true }, { status: 422 })
+    const refused = await gateway.settle({ issue: 'aa', spends: [] }).catch((error: unknown) => error)
+    expect(refused).toBeInstanceOf(GatewayError)
+    expect(refused).toMatchObject({
+      status: 422,
+      message: 'horizon',
+      body: { retryAt: 1_900_000_000, selfPay: true },
+    })
+  })
 })

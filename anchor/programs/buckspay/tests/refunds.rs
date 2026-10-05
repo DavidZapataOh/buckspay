@@ -121,7 +121,7 @@ fn run(kind: TokenKind, bond: u64, backing: u64, state: Payer, release: bool) {
         .unwrap_or_else(|e| panic!("{state:?}, release {release}: {e:?}\n{}", s.env.logs()));
     let escrow_rent = s.env.rent(165);
     let ledger_rent = s.env.rent(103);
-    let records_rent = s.env.rent(61) + ledger_rent;
+    let records_rent = s.env.rent(62) + ledger_rent;
     assert_eq!(s.env.balance(&s.user.token), tokens + bond + backing);
     assert_eq!(s.env.total_supply(), supply);
     assert_eq!(

@@ -8,6 +8,7 @@ import HardwareKeys, {
 } from '../../modules/hardware-keys/src/HardwareKeysModule'
 import {
   checkIssue,
+  checkIssueStep,
   checkSpendStep,
   content,
   deviceBindingEnvelope,
@@ -16,6 +17,7 @@ import {
   encodeIssueBody,
   encodeSpendBody,
   envelope,
+  EXPIRY_STEP,
   interval,
   type Issue,
   issueSlot,
@@ -23,6 +25,7 @@ import {
   type Output,
   ProtocolError,
   Purpose,
+  reclaimEnvelope,
   type Spend,
   verifySignature,
 } from '../protocol'
@@ -62,7 +65,7 @@ function deviceKey(record: KeyRecord): DeviceKey {
 
 /** Binds every signature to `cluster` and the program built into the app, once per process. */
 export function configureDeviceKey(cluster: Cluster) {
-  HardwareKeys.configure(cluster, PROGRAM_ID)
+  HardwareKeys.configure(cluster, PROGRAM_ID, ACTIVE_PROFILE.windows.grace)
   configured = cluster
   genesisHash = GENESIS_HASH[cluster]
 }
@@ -98,7 +101,9 @@ async function ownKey(): Promise<Uint8Array> {
   return key
 }
 
-function domainOf(purpose: typeof Purpose.Note | typeof Purpose.Device | SignedPurpose): Uint8Array {
+function domainOf(
+  purpose: typeof Purpose.Note | typeof Purpose.Device | typeof Purpose.Reclaim | SignedPurpose,
+): Uint8Array {
   if (!genesisHash) throw new Error('configureDeviceKey must be called before signing')
   return domain(purpose, genesisHash, PROGRAM_ID)
 }
@@ -117,25 +122,117 @@ async function verified(
   return signature
 }
 
-/** Signs an issue by this device, in the slot of the interval it claims on its lock. */
-export async function signIssue(issue: Issue): Promise<Uint8Array> {
+/** A message and the signature of this device over it. */
+export type Signed<T> = { message: T; signature: Uint8Array }
+
+/**
+ * How many salts a signer tries before it gives up: about half of all outputs have a record
+ * address, so a message with two outputs needs four tries on average and 64 fail once in 2^96.
+ */
+const SALT_TRIES = 64
+
+const randomSalt = () => crypto.getRandomValues(new Uint8Array(16))
+
+/**
+ * Tries `salted(salt)` with the given salt first and then with random ones until `check` stops
+ * refusing it for lack of a record address, and returns the first that passes. Any other refusal is
+ * the caller's to hear at once.
+ */
+function withRecordableOutputs<T>(first: T, salted: (salt: Uint8Array) => T, check: (candidate: T) => void): T {
+  let candidate = first
+  for (let tries = 0; tries < SALT_TRIES; tries++) {
+    try {
+      check(candidate)
+      return candidate
+    } catch (error) {
+      if (!(error instanceof ProtocolError) || error.code !== 'Unrecordable') throw error
+      candidate = salted(randomSalt())
+    }
+  }
+  throw new ProtocolError('Unrecordable')
+}
+
+/**
+ * Signs an issue by this device, in the slot of the interval it claims on its lock. The salt is
+ * changed until the issue's output has a record address, and the issue signed is returned.
+ */
+export async function signIssue(issue: Issue): Promise<Signed<Issue>> {
   checkIssue(issue)
-  if (!equalBytes(issue.issuer, await ownKey())) throw new ProtocolError('Signer')
-  const [start, end] = interval(issue)
-  const slot = issueSlot(issue.lockSeq, start, end)
-  const body = content(encodeIssueBody(issue))
-  return verified(Purpose.Note, slot, body, () => HardwareKeys.signNote(slot, body))
+  const key = await ownKey()
+  if (!equalBytes(issue.issuer, key)) throw new ProtocolError('Signer')
+  const message = withRecordableOutputs(
+    issue,
+    (salt) => ({ ...issue, salt }),
+    (candidate) => checkIssueStep(domainOf(Purpose.Note), PROGRAM_ID, candidate),
+  )
+  const [start, end] = interval(message)
+  const slot = issueSlot(message.lockSeq, start, end)
+  const body = content(encodeIssueBody(message))
+  return { message, signature: await verified(Purpose.Note, slot, body, () => HardwareKeys.signNote(slot, body)) }
+}
+
+/**
+ * The spend with the payment to a device at most `EXPIRY_STEP` shorter than its input, as the chain
+ * rules require.
+ */
+function stepped(input: Output, spend: Spend): Spend {
+  const shorten = <T extends { expiry: number }>(caveats: T): T => ({
+    ...caveats,
+    expiry: Math.min(caveats.expiry, input.caveats.expiry - EXPIRY_STEP),
+  })
+  const { outputs } = spend
+  if (outputs.type === 'one') {
+    return outputs.owner.type === 'device'
+      ? { ...spend, outputs: { ...outputs, caveats: shorten(outputs.caveats) } }
+      : spend
+  }
+  return outputs.owner0.type === 'device'
+    ? { ...spend, outputs: { ...outputs, caveats0: shorten(outputs.caveats0) } }
+    : spend
 }
 
 /**
  * Signs a spend of `input`, an output this device owns, in the slot of its output id, once the
- * spend passes the protocol's checks for this hop at the current time.
+ * spend passes the protocol's checks for this hop at the current time. The payment to a device is
+ * given the shorter expiry the chain rules demand and the salt is changed until every output the
+ * spend creates has a record address; the spend signed is returned.
  */
-export async function signSpend(input: Output, spend: Spend): Promise<Uint8Array> {
+export async function signSpend(input: Output, spend: Spend): Promise<Signed<Spend>> {
   if (input.owner.type !== 'device' || !equalBytes(input.owner.key, await ownKey())) throw new ProtocolError('Owner')
-  checkSpendStep(input, spend, Math.floor(Date.now() / 1000))
-  const body = content(encodeSpendBody(spend))
-  return verified(Purpose.Note, input.id, body, () => HardwareKeys.signNote(input.id, body))
+  const now = Math.floor(Date.now() / 1000)
+  const message = withRecordableOutputs(
+    stepped(input, spend),
+    (salt) => stepped(input, { ...spend, salt }),
+    (candidate) => checkSpendStep(domainOf(Purpose.Note), PROGRAM_ID, input, candidate, now),
+  )
+  const body = content(encodeSpendBody(message))
+  return {
+    message,
+    signature: await verified(Purpose.Note, input.id, body, () => HardwareKeys.signNote(input.id, body)),
+  }
+}
+
+/**
+ * Tells the note guard about an output this device holds, which it needs to sign a reclaim of it:
+ * the output a payment gave it, the change of a spend, the output of an issue to itself.
+ */
+export async function recordOutput(output: Output): Promise<void> {
+  if (output.owner.type !== 'device' || !equalBytes(output.owner.key, await ownKey())) throw new ProtocolError('Owner')
+  await HardwareKeys.recordOutput(output.id, output.caveats.expiry)
+}
+
+/**
+ * Signs the reclaim of `output`, an output this device holds and recorded, valid until `deadline`.
+ * The guard signs it only after `expiry + GRACE` of that output and with a deadline at most a day
+ * ahead, even for an output it signed a spend of: a torn transfer is the case it is for.
+ */
+export async function signReclaim(output: Output, deadline: number): Promise<Uint8Array> {
+  const key = await ownKey()
+  if (output.owner.type !== 'device' || !equalBytes(output.owner.key, key)) throw new ProtocolError('Owner')
+  const message = reclaimEnvelope(domainOf(Purpose.Reclaim), output.id, deadline)
+  const signature = compactLowS(await HardwareKeys.signReclaim(output.id, deadline))
+  verifySignature(key, message, signature)
+  return signature
 }
 
 const signed = (purpose: SignedPurpose) => (slot: Uint8Array, digest: Uint8Array) =>

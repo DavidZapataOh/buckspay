@@ -29,7 +29,7 @@ fn create_lock_funds_the_escrow_and_records_exactly_the_ticket_fields() {
         (ledger.payer, ledger.key, ledger.lock_seq, ledger.withdrawn),
         (user.wallet.pubkey(), user.key.sec1(), 0, false)
     );
-    assert_eq!(env.svm.get_account(&lock.address).unwrap().data.len(), 61);
+    assert_eq!(env.svm.get_account(&lock.address).unwrap().data.len(), 62);
     assert_eq!(env.svm.get_account(&lock.ledger).unwrap().data.len(), 103);
 
     assert_eq!(env.balance(&lock.escrow), 120_000_000);
@@ -38,6 +38,20 @@ fn create_lock_funds_the_escrow_and_records_exactly_the_ticket_fields() {
     let escrow = env.token_account(&lock.escrow);
     assert_eq!((escrow.mint, escrow.owner), (env.mint, lock.ledger));
     assert!(escrow.delegate.is_none() && escrow.close_authority.is_none());
+}
+
+#[test]
+fn a_lock_stores_the_canonical_bump_of_its_escrow() {
+    let mut env = Env::new(TokenKind::Classic);
+    let user = env.user(1_000_000_000);
+    let lock = lock_for(&mut env, &user, 20_000_000, 100_000_000, MIN_LOCK + DAY);
+    let (escrow, bump) = Pubkey::find_program_address(
+        &[buckspay::ESCROW_SEED, lock.address.as_ref()],
+        &buckspay::ID,
+    );
+    assert_eq!(escrow, lock.escrow);
+    let record: buckspay::state::Lock = env.account(&lock.address);
+    assert_eq!(record.escrow_bump, bump);
 }
 
 #[test]
@@ -76,9 +90,9 @@ fn onboarding_is_one_atomic_transaction_paid_entirely_by_the_sponsor() {
         0,
         "the wallet never touches SOL"
     );
-    // Device 49 B + Lock 61 + Ledger 103 + escrow 165 rents, plus the two transaction signatures
+    // Device 49 B + Lock 62 + Ledger 103 + escrow 165 rents, plus the two transaction signatures
     // and the secp256r1 verification's, which the fee counts too.
-    let rents = env.rent(49) + env.rent(61) + env.rent(103) + env.rent(165);
+    let rents = env.rent(49) + env.rent(62) + env.rent(103) + env.rent(165);
     assert_eq!(before - env.lamports(&s), rents + SIGNATURES * 5_000);
 }
 
@@ -367,7 +381,7 @@ fn prefunded_addresses_do_not_block_onboarding_and_the_excess_returns_to_the_pay
     let lock = Lock::at(&user, 0, 20_000_000, 100_000_000, until);
     for (addr, len) in [
         (device_address(&key), 49),
-        (lock.address, 61),
+        (lock.address, 62),
         (lock.ledger, 103),
         (lock.escrow, 165),
     ] {
@@ -400,7 +414,7 @@ fn prefunded_addresses_do_not_block_onboarding_and_the_excess_returns_to_the_pay
     );
     for (addr, len) in [
         (device_address(&key), 49),
-        (lock.address, 61),
+        (lock.address, 62),
         (lock.ledger, 103),
         (lock.escrow, 165),
     ] {

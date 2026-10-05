@@ -246,7 +246,7 @@ fn a_griefed_dead_escrow_address_does_not_block_closing() {
         .unwrap();
     assert_eq!(
         env.lamports(&s) - before,
-        env.rent(61) + env.rent(103) + gift,
+        env.rent(62) + env.rent(103) + gift,
         "Lock, Ledger and the gift go to the payer"
     );
     assert!(

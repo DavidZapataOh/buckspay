@@ -19,6 +19,8 @@ pub enum ProtocolError {
     Ticket,
     Window,
     Payee,
+    ExpiryStep,
+    Unrecordable,
 }
 
 pub type Result<T> = core::result::Result<T, ProtocolError>;

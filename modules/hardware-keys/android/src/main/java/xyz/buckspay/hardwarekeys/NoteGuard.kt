@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.database.DatabaseErrorHandler
 import android.database.DatabaseUtils
 import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteDoneException
 import android.database.sqlite.SQLiteException
 import android.os.Build
 import expo.modules.kotlin.exception.CodedException
@@ -86,6 +87,8 @@ internal class NoteGuard private constructor(
   private val spend = database.compileStatement("SELECT coalesce((SELECT content = ? FROM spends WHERE slot = ?), -1)")
   private val insertSpend = database.compileStatement("INSERT INTO spends (slot, content) VALUES (?, ?)")
   private val deleteSpend = database.compileStatement("DELETE FROM spends WHERE slot = ?")
+  private val insertOutput = database.compileStatement("INSERT OR REPLACE INTO outputs (id, expiry) VALUES (?, ?)")
+  private val outputExpiry = database.compileStatement("SELECT expiry FROM outputs WHERE id = ?")
   private val journal = File("${database.path}-journal")
   private var journalSeen = journal.exists()
 
@@ -129,6 +132,41 @@ internal class NoteGuard private constructor(
     }
   }
 
+  /** Keeps an output this device holds, with its expiry, so that a reclaim of it can be signed. */
+  fun recordOutput(
+    id: ByteArray,
+    expiry: Long,
+  ) {
+    require(id.size == 32) { "an output id is 32 bytes" }
+    require(expiry in 0..UINT_MAX) { "an expiry is a u32" }
+    synchronized(ADMISSIONS) {
+      requireJournal()
+      try {
+        transaction {
+          insertOutput.bindBlob(1, id)
+          insertOutput.bindLong(2, expiry)
+          insertOutput.executeInsert()
+        }
+      } catch (e: SQLiteException) {
+        throw NoteGuardUnavailableException("The note guard cannot record this output", e)
+      }
+      requireJournal()
+    }
+  }
+
+  /** The expiry recorded for an output, or null if the guard was never told about it. */
+  fun expiryOf(id: ByteArray): Long? {
+    synchronized(ADMISSIONS) {
+      requireJournal()
+      outputExpiry.bindBlob(1, id)
+      return try {
+        outputExpiry.simpleQueryForLong()
+      } catch (e: SQLiteDoneException) {
+        null
+      }
+    }
+  }
+
   /** SQLite opens the journal at the first write where the filesystem needs one; F2FS's atomic writes may never open it. */
   private fun requireJournal() {
     if (journal.exists()) {
@@ -139,7 +177,7 @@ internal class NoteGuard private constructor(
   }
 
   override fun close() {
-    listOf(spend, insertSpend, deleteSpend).forEach { it.close() }
+    listOf(spend, insertSpend, deleteSpend, insertOutput, outputExpiry).forEach { it.close() }
     database.close()
   }
 
@@ -225,7 +263,12 @@ internal class NoteGuard private constructor(
         "CREATE TABLE IF NOT EXISTS guard (binding BLOB NOT NULL)",
         "CREATE TABLE IF NOT EXISTS spends (slot BLOB PRIMARY KEY, content BLOB NOT NULL) WITHOUT ROWID",
         "CREATE TABLE IF NOT EXISTS issues (lock_seq INTEGER PRIMARY KEY, slot BLOB NOT NULL, content BLOB NOT NULL)",
+        OUTPUTS,
       )
+    private const val UINT_MAX = 0xffff_ffffL
+
+    // The outputs the device holds and their expiries. Guards made before reclaims existed get it when opened.
+    private const val OUTPUTS = "CREATE TABLE IF NOT EXISTS outputs (id BLOB PRIMARY KEY, expiry INTEGER NOT NULL) WITHOUT ROWID"
     private val ISSUE_TAG = "ISSU".toByteArray(Charsets.US_ASCII)
 
     // Admissions are serialised across every guard in the process, so a removal never races another admission.
@@ -288,6 +331,7 @@ internal class NoteGuard private constructor(
         if (bound == null || !bound.contentEquals(binding)) {
           throw NoteGuardUnavailableException("The note guard belongs to another key or domain")
         }
+        database.execSQL(OUTPUTS)
         return NoteGuard(database)
       } catch (e: Throwable) {
         database.close()

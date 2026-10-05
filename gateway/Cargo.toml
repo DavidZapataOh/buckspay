@@ -42,6 +42,7 @@ solana-signer = "3.0.1"
 solana-transaction = "4.3.0"
 solana-transaction-status-client-types = "4.3.0"
 tokio = { version = "1.53.0", features = ["macros", "rt-multi-thread", "net", "signal"] }
+tempfile = "3.20.0"
 tower = { version = "0.5.2", features = ["limit", "load-shed"] }
 tower-http = { version = "0.7.1", features = ["timeout"] }
 tracing = "0.1.41"
@@ -52,3 +53,4 @@ hpke = { version = "0.14.1", default-features = false, features = ["alloc", "cha
 p256 = { version = "0.14.0", default-features = false, features = ["ecdsa"] }
 tower = { version = "0.5.2", features = ["util"] }
 http-body-util = "0.1.3"
+proptest = "1"

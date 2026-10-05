@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 08889e7f91fd254b011b37b8a7ba71dcc9c80dbe0794a1330c10176410473dec # shrinks to steps = [NewLock { user: 0, bond: 0, backing: 1, days: 16 }, Warp { days: 17 }, Withdraw { lock: 0, wrong_wallet: false }, Donate { lock: 0, amount: 0 }]

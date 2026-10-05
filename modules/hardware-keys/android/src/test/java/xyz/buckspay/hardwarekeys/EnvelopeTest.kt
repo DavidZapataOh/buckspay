@@ -16,6 +16,11 @@ import java.io.File
 import java.util.HexFormat
 
 class EnvelopeTest {
+  private companion object {
+    /** The production grace period: seven days. */
+    const val GRACE = 604_800L
+  }
+
   private val vectors = Json.parseToJsonElement(File("../../../anchor/crates/protocol/tests/vectors/v1.json").readText()).jsonObject
   private val domains = vectors.getValue("domain").jsonObject
   private val clusters = vectors.getValue("clusters").jsonObject
@@ -89,29 +94,56 @@ class EnvelopeTest {
   fun configuresOnceWithThePinnedGenesisHash() {
     val configuration = Configuration()
     assertNull(configuration.domains)
-    configuration.configure("devnet", programId)
+    configuration.configure("devnet", programId, GRACE)
     assertArrayEquals(domains.bytes("note"), configuration.domains?.of("note"))
-    configuration.configure("devnet", programId.copyOf())
+    assertEquals(GRACE, configuration.grace)
+    configuration.configure("devnet", programId.copyOf(), GRACE)
     assertArrayEquals(domains.bytes("note"), configuration.domains?.of("note"))
   }
 
   @Test
   fun refusesAnotherClusterOrProgramOnceConfigured() {
     val configuration = Configuration()
-    configuration.configure("devnet", programId)
-    assertThrows(AlreadyConfiguredException::class.java) { configuration.configure("mainnet", programId) }
-    assertThrows(AlreadyConfiguredException::class.java) { configuration.configure("devnet", ByteArray(32)) }
+    configuration.configure("devnet", programId, GRACE)
+    assertThrows(AlreadyConfiguredException::class.java) { configuration.configure("mainnet", programId, GRACE) }
+    assertThrows(AlreadyConfiguredException::class.java) { configuration.configure("devnet", ByteArray(32), GRACE) }
+    assertThrows(AlreadyConfiguredException::class.java) { configuration.configure("devnet", programId, GRACE + 1) }
     assertArrayEquals(domains.bytes("note"), configuration.domains?.of("note"))
     assertEquals("ERR_ALREADY_CONFIGURED", AlreadyConfiguredException().code)
+  }
+
+  @Test
+  fun reclaimsMatchTheProtocolVectors() {
+    val reclaimDomain = domains.bytes("reclaim")
+    val reclaims = vectors.getValue("reclaims").jsonObject
+    val cases = reclaims.getValue("cases").jsonArray.map { it.jsonObject }
+    assertTrue(cases.isNotEmpty())
+    for (vector in cases) {
+      val deadline =
+        vector
+          .getValue("deadline")
+          .jsonPrimitive.content
+          .toLong()
+      assertArrayEquals(vector.bytes("envelope"), Envelope.reclaim(reclaimDomain, vector.bytes("output"), deadline))
+    }
+  }
+
+  @Test
+  fun refusesAReclaimOfAnOutputOrADeadlineThatDoesNotFit() {
+    val reclaimDomain = domains.bytes("reclaim")
+    assertThrows(IllegalArgumentException::class.java) { Envelope.reclaim(reclaimDomain, ByteArray(31), 1) }
+    assertThrows(IllegalArgumentException::class.java) { Envelope.reclaim(reclaimDomain, ByteArray(32), -1) }
+    assertThrows(IllegalArgumentException::class.java) { Envelope.reclaim(reclaimDomain, ByteArray(32), 0x1_0000_0000L) }
+    assertEquals(32 * 3, Envelope.reclaim(reclaimDomain, ByteArray(32), 0xffff_ffffL).size)
   }
 
   @Test
   fun refusesAnUnknownClusterOrAMalformedProgramId() {
     val configuration = Configuration()
     for (cluster in listOf("testnet", "localnet", "", "Devnet")) {
-      assertThrows(UnknownClusterException::class.java) { configuration.configure(cluster, programId) }
+      assertThrows(UnknownClusterException::class.java) { configuration.configure(cluster, programId, GRACE) }
     }
-    assertThrows(IllegalArgumentException::class.java) { configuration.configure("devnet", ByteArray(31)) }
+    assertThrows(IllegalArgumentException::class.java) { configuration.configure("devnet", ByteArray(31), GRACE) }
     assertNull(configuration.domains)
     assertEquals("ERR_UNKNOWN_CLUSTER", UnknownClusterException().code)
   }

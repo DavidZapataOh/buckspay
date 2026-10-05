@@ -2,6 +2,7 @@
 //! cannot be called from a program, so a program checks that the transaction carries a
 //! verification of exactly the message it expects.
 use anchor_lang::prelude::*;
+use buckspay_protocol::secp256r1::{self, Expected};
 use solana_instructions_sysvar::{load_current_index_checked, load_instruction_at_checked};
 
 const KEY_LEN: usize = 33;
@@ -61,6 +62,44 @@ pub fn require_one_verification(
         if instruction.program_id == solana_sdk_ids::secp256r1_program::ID
             && is_verification(&instruction.data, key, message)
         {
+            matching += 1;
+        }
+    }
+    if matching == 1 {
+        Ok(())
+    } else {
+        Err(error)
+    }
+}
+
+/// Requires exactly one secp256r1 instruction before the current one that verifies the last
+/// messages of `expected`, in order and in the canonical inline layout
+/// (`buckspay_protocol::secp256r1`), and at least `expected[first..]`: a transaction built before
+/// a record appeared, which still carries every signature, stays valid. Nothing is required when
+/// nothing is left to verify (`first == expected.len()`). The program reads nothing else from the
+/// instruction: the precompile has already failed the transaction for any signature that does not
+/// verify.
+pub fn require_chain(
+    instructions: &AccountInfo,
+    expected: &[Expected],
+    first: usize,
+    error: Error,
+) -> Result<()> {
+    if first >= expected.len() {
+        return Ok(());
+    }
+    let current = load_current_index_checked(instructions)?;
+    let mut matching = 0;
+    for index in 0..usize::from(current) {
+        let instruction = load_instruction_at_checked(index, instructions)?;
+        if instruction.program_id != solana_sdk_ids::secp256r1_program::ID {
+            continue;
+        }
+        let count = usize::from(instruction.data.first().copied().unwrap_or(0));
+        let Some(from) = expected.len().checked_sub(count) else {
+            continue;
+        };
+        if from <= first && secp256r1::matches(&instruction.data, &expected[from..]) {
             matching += 1;
         }
     }

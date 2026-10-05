@@ -7,8 +7,10 @@
 //! from every key; a lock whose wallet has no token account stays open and is counted as stuck.
 use crate::{
     chain::{self, TokenAccount, associated_token_address},
+    float::{Found, Read},
     onboard::{chain_now, read},
     server::{Error, Gateway},
+    settlements::{RECORD_LEN, RECORD_PAYER_OFFSET, spent_discriminator},
     sponsored::{Outcome, confirm, unreachable},
     transactions::{self, Withdrawal},
 };
@@ -16,6 +18,7 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use buckspay_client::accounts::{Device, Ledger, Lock, Rotation};
 use buckspay_protocol::lock::Windows;
 use solana_account::Account;
+use solana_account_decoder_client_types::UiDataSliceConfig;
 use solana_instruction::Instruction;
 use solana_pubkey::Pubkey;
 use solana_rpc_client_api::{
@@ -25,6 +28,7 @@ use solana_rpc_client_api::{
 use solana_signer::Signer;
 use solana_transaction::versioned::VersionedTransaction;
 use std::{
+    collections::HashSet,
     sync::{Arc, atomic::Ordering},
     time::Duration,
 };
@@ -36,6 +40,10 @@ pub const ROTATION_GRACE: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 /// Transactions one run sends at most.
 const TRANSACTIONS_PER_RUN: usize = 10;
 const COMPUTE_UNIT_LIMIT: u32 = 60_000;
+/// Settlement records one `close_spent` closes, and the compute units it is given: a pair costs
+/// a few thousand.
+const CLOSE_BATCH: usize = 20;
+const CLOSE_COMPUTE_UNIT_LIMIT: u32 = 100_000;
 const OFFSET_OF_LEDGER_PAYER: usize = 32;
 const OFFSET_OF_ROTATION_PAYER: usize = 40;
 
@@ -46,6 +54,11 @@ pub struct Report {
     pub applied: u32,
     /// Locks that are due but whose wallet has no token account to release to.
     pub stuck: u32,
+    /// Settlement records closed, forgotten because the chain never showed them, and adopted
+    /// because the ledger did not know them.
+    pub settlements_closed: u32,
+    pub settlements_forgotten: u32,
+    pub settlements_adopted: u32,
 }
 
 /// The accounts of the program of `size` bytes whose payer, at `offset`, is the gateway.
@@ -96,6 +109,10 @@ fn account_of(ui: solana_account_decoder_client_types::UiAccount) -> Option<Acco
 
 /// Sends `instructions` with the gateway as the only signer and waits for the outcome.
 async fn send(state: &Gateway, instructions: &[Instruction]) -> bool {
+    send_with_limit(state, instructions, COMPUTE_UNIT_LIMIT).await
+}
+
+async fn send_with_limit(state: &Gateway, instructions: &[Instruction], limit: u32) -> bool {
     let fee_payer = state.fee_payer.pubkey();
     let Ok((blockhash, _)) = state
         .rpc
@@ -104,7 +121,7 @@ async fn send(state: &Gateway, instructions: &[Instruction]) -> bool {
     else {
         return false;
     };
-    let message = transactions::compose(&fee_payer, COMPUTE_UNIT_LIMIT, 0, instructions, blockhash);
+    let message = transactions::compose(&fee_payer, limit, 0, instructions, blockhash);
     let transaction = VersionedTransaction {
         signatures: vec![state.fee_payer.sign_message(&message.serialize())],
         message,
@@ -287,6 +304,9 @@ pub async fn run_once(state: &Gateway, rotation_grace: Duration) -> Result<Repor
         lent += account.lamports;
     }
 
+    if let Err(error) = settlement_records(state, now, &mut report).await {
+        warn!(?error, "the settlement records could not be tended");
+    }
     state
         .stuck
         .store(u64::from(report.stuck), Ordering::Relaxed);
@@ -297,6 +317,112 @@ pub async fn run_once(state: &Gateway, rotation_grace: Duration) -> Result<Repor
         warn!(%error, "the sponsorship ledger could not be written");
     }
     Ok(report)
+}
+
+/// The settlement records the gateway paid for: brings its ledger in line with a confirmed read of
+/// the chain, closes the ones that are due and adopts the ones it did not know it had.
+async fn settlement_records(state: &Gateway, now: u64, report: &mut Report) -> Result<(), Error> {
+    let program = state.settings.program;
+    let now = u32::try_from(now).map_err(|_| Error::Upstream)?;
+    let io = |error: std::io::Error| {
+        warn!(%error, "the settlement ledger could not be written");
+        Error::Upstream
+    };
+
+    // Reconcile: the records the ledger holds, read in chunks of what the RPC takes at once. The
+    // read counts as old as its oldest chunk.
+    let open = state.settlements.open_addresses();
+    if !open.is_empty() {
+        let (mut slot, mut existing) = (u64::MAX, HashSet::new());
+        for chunk in open.chunks(100) {
+            let keys: Vec<Pubkey> = chunk.iter().map(|a| Pubkey::new_from_array(*a)).collect();
+            let response = state
+                .rpc
+                .get_multiple_accounts_with_commitment(&keys, state.rpc.commitment())
+                .await
+                .map_err(unreachable)?;
+            slot = slot.min(response.context.slot);
+            for (key, account) in keys.iter().zip(response.value) {
+                if account
+                    .is_some_and(|a| a.owner == program.id() && a.data.len() as u64 == RECORD_LEN)
+                {
+                    existing.insert(key.to_bytes());
+                }
+            }
+        }
+        let outcome = state
+            .settlements
+            .reconcile(&Read { slot, existing }, now)
+            .map_err(io)?;
+        report.settlements_forgotten += u32::try_from(outcome.forgotten).unwrap_or(u32::MAX);
+    }
+
+    // Close what is due, with the rent going back to the fee payer that paid it.
+    let due = state.settlements.closable(now, CLOSE_BATCH);
+    if !due.is_empty() {
+        let fee_payer = state.fee_payer.pubkey();
+        let pairs: Vec<(Pubkey, Pubkey)> = due
+            .iter()
+            .map(|address| (Pubkey::new_from_array(*address), fee_payer))
+            .collect();
+        let close = transactions::close_spent(&program, &pairs);
+        if send_with_limit(state, &[close], CLOSE_COMPUTE_UNIT_LIMIT).await {
+            state.settlements.closed(&due).map_err(io)?;
+            report.settlements_closed += u32::try_from(due.len()).unwrap_or(u32::MAX);
+            info!(
+                records = due.len(),
+                "returned the rent of settlement records"
+            );
+        } else {
+            warn!("a settlement close did not land");
+        }
+    }
+
+    // Adopt: every record the chain shows under the fee payer that the ledger does not know. The
+    // slot is read first, so the answer is at least that new.
+    let slot = state.rpc.get_slot().await.map_err(unreachable)?;
+    let accounts = state
+        .rpc
+        .get_program_ui_accounts_with_config(
+            &program.id(),
+            RpcProgramAccountsConfig {
+                filters: Some(vec![
+                    RpcFilterType::DataSize(RECORD_LEN),
+                    RpcFilterType::Memcmp(Memcmp::new_base58_encoded(0, &spent_discriminator())),
+                    RpcFilterType::Memcmp(Memcmp::new_base58_encoded(
+                        RECORD_PAYER_OFFSET,
+                        state.fee_payer.pubkey().as_ref(),
+                    )),
+                ]),
+                account_config: RpcAccountInfoConfig {
+                    encoding: Some(solana_account_decoder_client_types::UiAccountEncoding::Base64),
+                    // The expiry and the time the record may close.
+                    data_slice: Some(UiDataSliceConfig {
+                        offset: 72,
+                        length: 8,
+                    }),
+                    commitment: Some(state.rpc.commitment()),
+                    ..RpcAccountInfoConfig::default()
+                },
+                ..RpcProgramAccountsConfig::default()
+            },
+        )
+        .await
+        .map_err(unreachable)?;
+    let found: Vec<Found> = accounts
+        .into_iter()
+        .filter_map(|(address, account)| {
+            let account = account_of(account)?;
+            Some(Found {
+                address: address.to_bytes(),
+                closable_at: u32::from_le_bytes(account.data.get(4..8)?.try_into().ok()?),
+                lamports: account.lamports,
+            })
+        })
+        .collect();
+    let adopted = state.settlements.adopt(slot, &found).map_err(io)?;
+    report.settlements_adopted += u32::try_from(adopted).unwrap_or(u32::MAX);
+    Ok(())
 }
 
 /// Runs the janitor at start and then every `interval`.
@@ -338,6 +464,7 @@ mod tests {
             backing: 0,
             lock_until,
             bump: 255,
+            escrow_bump: 255,
         }
     }
 

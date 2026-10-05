@@ -138,6 +138,7 @@ impl<'info> CreateLock<'info> {
             backing: args.backing,
             lock_until: args.lock_until,
             bump: bumps.lock,
+            escrow_bump: bumps.escrow,
         });
         self.ledger.set_inner(Ledger::new(
             args.bond,

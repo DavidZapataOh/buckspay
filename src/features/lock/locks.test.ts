@@ -19,7 +19,14 @@ async function chain(locks: { lockSeq: number; lockUntil: number; withdrawn?: bo
     accounts.set(
       lock,
       Uint8Array.from(
-        getLockEncoder().encode({ mint: MINT, bond: 2_000_000n, backing: 3_000_000n, lockUntil, bump: 255 }),
+        getLockEncoder().encode({
+          mint: MINT,
+          bond: 2_000_000n,
+          backing: 3_000_000n,
+          lockUntil,
+          bump: 255,
+          escrowBump: 254,
+        }),
       ),
     )
     ledgers.push({

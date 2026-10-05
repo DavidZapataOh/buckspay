@@ -2,9 +2,11 @@ use buckspay_client::{Program, accounts};
 use buckspay_gateway::{
     chain::{self, Rents},
     config::{Config, Listen},
+    float::{Caps as FloatCaps, SettlementLimits},
     janitor,
     limits::RequestLimits,
-    server::{ClientAddress, Gateway, RPC_TIMEOUT, Settings, bind_unix, router},
+    server::{ClientAddress, Gateway, Limits, RPC_TIMEOUT, Settings, bind_unix, router},
+    settlements,
     sponsor::SponsorLimits,
     sponsored::{CONFIRM_TIMEOUT, PENDING_TTL},
 };
@@ -69,6 +71,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .get_minimum_balance_for_rent_exemption(165)
             .await
             .map_err(unreachable)?,
+        record: rpc
+            .get_minimum_balance_for_rent_exemption(settlements::RECORD_LEN as usize)
+            .await
+            .map_err(unreachable)?,
     };
 
     // The app accepts a fee only into the fee payer's associated token account of the mint.
@@ -94,6 +100,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         Windows::PRODUCTION
     };
+    let settlements = SettlementLimits::open(
+        FloatCaps {
+            float_cap: config.settlement_float_cap,
+            bond_per_record: config.settlement_bond_per_record,
+            ..FloatCaps::pilot(windows.record_ttl())
+        },
+        &config.state_directory.join("settlements.json"),
+    )?;
     let settings = Settings {
         program: Program::new(config.program_id),
         windows,
@@ -118,8 +132,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.fee_payer,
         settings,
         rents,
-        RequestLimits::new(config.requests_per_minute),
-        sponsor,
+        Limits {
+            requests: RequestLimits::new(config.requests_per_minute),
+            sponsor,
+            settlements,
+        },
         config.hpke,
     ));
     janitor::spawn(Arc::clone(&gateway), JANITOR_INTERVAL);

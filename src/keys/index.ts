@@ -6,7 +6,10 @@ export {
   type DeviceKey,
   deviceKeyCluster,
   getDeviceKey,
+  recordOutput,
+  type Signed,
   signDeviceBinding,
   signIssue,
+  signReclaim,
   signSpend,
 } from './device-key'

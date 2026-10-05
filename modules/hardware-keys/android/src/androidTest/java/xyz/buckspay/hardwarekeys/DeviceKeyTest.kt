@@ -77,6 +77,34 @@ class DeviceKeyTest {
   }
 
   @Test
+  fun signsAReclaimOnlyOfARecordedOutputOnceItsSettlementWindowIsOver() {
+    val record = key.create(domains, challenge)
+    val output = ByteArray(32) { 3 }
+    val expiry = 1_900_000_000L
+    val reclaim = { now: Long, deadline: Long -> key.signReclaim(domains, output, deadline, GRACE, now) }
+    assertThrows(UnknownOutputException::class.java) { reclaim(expiry + GRACE + 1, expiry + GRACE + 100) }
+    key.recordOutput(domains, output, expiry)
+    assertThrows(ReclaimTooEarlyException::class.java) { reclaim(expiry + GRACE, expiry + GRACE + 100) }
+    val now = expiry + GRACE + 1
+    val signature = reclaim(now, now + 3_600)
+    assertTrue(verifies(record.publicKey, Envelope.reclaim(domains.of("reclaim"), output, now + 3_600), signature))
+    assertFalse(verifies(record.publicKey, Envelope.reclaim(domains.of("reclaim"), output, now + 3_601), signature))
+    assertThrows(InvalidDeadlineException::class.java) { reclaim(now, now + 86_401) }
+    assertThrows(InvalidDeadlineException::class.java) { reclaim(now, now - 1) }
+    reclaim(now, now + 86_400)
+  }
+
+  @Test
+  fun signsAReclaimOfAnOutputItSignedASpendOf() {
+    val record = key.create(domains, challenge)
+    val output = slot
+    key.recordOutput(domains, output, 1_000)
+    key.signNote(domains, output, content)
+    val signature = key.signReclaim(domains, output, 1_000 + GRACE + 10, GRACE, 1_000 + GRACE + 1)
+    assertTrue(verifies(record.publicKey, Envelope.reclaim(domains.of("reclaim"), output, 1_000 + GRACE + 10), signature))
+  }
+
+  @Test
   fun neverReplacesAnExistingKey() {
     val first = key.create(domains, challenge)
     val second = key.create(domains, ByteArray(16))
@@ -708,6 +736,8 @@ class DeviceKeyTest {
   }
 
   private companion object {
+    const val GRACE = 604_800L
+
     const val ALIAS = "buckspay-device-test"
     const val TAG = "DeviceKeyTest"
     const val ATTESTATION_OID = "1.3.6.1.4.1.11129.2.1.17"

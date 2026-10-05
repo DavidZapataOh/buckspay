@@ -1,0 +1,1087 @@
+//! Sponsored settlement and reclaim of notes. A device signs a chain offline; the gateway checks it
+//! before it spends anything, reads what the chain says of it, holds a place for it in the float
+//! limits, sends the transaction as its fee payer and signs nothing but that transaction. No
+//! wallet signs: the device signatures inside the chain are the only authority.
+use crate::{
+    chain::{self, SIGNATURE_FEE, TokenAccount, associated_token_address},
+    fees::priority_fee,
+    float::{Kind, NewRecord, Refusal, Request as FloatRequest, Sending},
+    onboard::{chain_now, read},
+    server::{Client, Error, Gateway},
+    sponsored::{Outcome, confirm, hex_array, unreachable},
+    transactions::{self, Payout},
+};
+use axum::{
+    Extension, Json,
+    extract::State,
+    http::{HeaderValue, StatusCode, header::RETRY_AFTER},
+    response::{IntoResponse, Response},
+};
+use buckspay_client::{
+    accounts::{Device, Ledger, Lock},
+    types::Link,
+};
+use buckspay_protocol::{
+    Issue, Owner, Signed, Spend,
+    chain::{self as rules, Holding, Output},
+    hash::{content, domain, purpose},
+    lock::Windows,
+    reclaim::{reclaim_envelope, record_content},
+    record,
+    secp256r1::MAX_SIGNATURES,
+    verify::{verify_settlement, verify_signature},
+    window::{self, Reclaim, Settle},
+};
+use serde::Deserialize;
+use serde_json::json;
+use solana_account::Account;
+use solana_hash::Hash;
+use solana_instruction::Instruction;
+use solana_message::{VersionedMessage, v1};
+use solana_pubkey::Pubkey;
+use solana_rpc_client_api::{config::RpcSimulateTransactionConfig, request::TokenAccountsFilter};
+use solana_signature::Signature;
+use solana_signer::Signer;
+use solana_transaction::versioned::VersionedTransaction;
+use std::{net::IpAddr, sync::Arc};
+use tracing::{error, info, warn};
+
+/// The least compute unit limit a settlement asks for.
+const MIN_COMPUTE_UNIT_LIMIT: u32 = 10_000;
+
+/// The most spends one instruction verifies: eight signatures take the issue and seven spends.
+pub const MAX_SPENDS: usize = MAX_SIGNATURES - 1;
+/// A chain of seven spends is about 3.6 KiB of hex; the endpoints take this much.
+pub const BODY_LIMIT: usize = 16 * 1024;
+/// The most compute units a settlement may be given: seven spends need 67,000.
+pub const COMPUTE_UNIT_CEILING: u32 = 100_000;
+/// The share of the sizes the runtime counts that the loaded accounts limit adds.
+const LOADED_ACCOUNTS_MARGIN_PERCENT: u64 = 10;
+/// Bytes the runtime counts for an account besides its data.
+const ACCOUNT_OVERHEAD: u64 = 64;
+/// A record account: its discriminator, content, payer, expiry, retention and flags.
+pub const RECORD_LEN: u64 = 81;
+/// Where the payer is in a record, for the janitor's search of what the gateway paid for.
+pub const RECORD_PAYER_OFFSET: usize = 40;
+const UPGRADEABLE_LOADER: Pubkey =
+    Pubkey::from_str_const("BPFLoaderUpgradeab1e11111111111111111111111");
+
+/// The first eight bytes of a settlement record: Anchor's discriminator of the account `Spent`.
+pub fn spent_discriminator() -> [u8; 8] {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(b"account:Spent")[..8].try_into().unwrap()
+}
+
+/// How many seconds a settlement window must still be open for the gateway to send: a transaction
+/// that lands late is a fee wasted. Two minutes in production, a quarter of the grace period where
+/// that is shorter.
+pub fn margin(windows: &Windows) -> u32 {
+    (windows.grace / 4).min(120)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SettlementRequest {
+    /// The signed issue, hex.
+    pub issue: String,
+    /// The signed spends in chain order, hex.
+    pub spends: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReclaimRequest {
+    /// The device key that owns the output, hex.
+    pub owner: String,
+    pub issue: String,
+    pub spends: Vec<String>,
+    /// Which output of the last message is taken back: 0 the payment, 1 the change.
+    pub which: u8,
+    /// The last second the signature may be used.
+    pub deadline: u32,
+    /// The owner's low-S signature over the reclaim envelope with this deadline, hex.
+    pub signature: String,
+}
+
+/// Why a settlement or a reclaim is not sponsored, with what the app needs to answer the user:
+/// every refusal tells the wallet it can submit the transaction itself.
+#[derive(Debug, PartialEq)]
+pub enum Problem {
+    /// A chain that does not verify, or a request that is not one.
+    Invalid(&'static str),
+    /// The window of the output is not open: too late to settle, or not the time to reclaim.
+    Window(&'static str),
+    /// Another message already consumed an output of the chain: the recorded content.
+    Conflict([u8; 32]),
+    /// The payee has no token account of the mint, and the gateway never creates one.
+    NoTokenAccount,
+    /// The lock does not exist, does not back the issue or holds too little.
+    Lock(&'static str),
+    Limits(Refusal, Option<u32>),
+}
+
+impl IntoResponse for Problem {
+    fn into_response(self) -> Response {
+        let (status, mut body) = match &self {
+            Problem::Invalid(message) => (StatusCode::BAD_REQUEST, json!({ "error": message })),
+            Problem::Window(which) => (StatusCode::CONFLICT, json!({ "error": which })),
+            Problem::Conflict(recorded) => (
+                StatusCode::CONFLICT,
+                json!({ "error": "conflict", "recorded": hex::encode(recorded) }),
+            ),
+            Problem::NoTokenAccount => {
+                (StatusCode::CONFLICT, json!({ "error": "no_token_account" }))
+            }
+            Problem::Lock(message) => (StatusCode::CONFLICT, json!({ "error": message })),
+            Problem::Limits(refusal, retry_after) => limits_response(refusal, *retry_after),
+        };
+        // A refusal the wallet can get round by paying for the transaction itself.
+        if !matches!(self, Problem::Invalid(_)) {
+            body["selfPay"] = json!(true);
+        }
+        let mut response = (status, Json(body)).into_response();
+        if let Problem::Limits(_, Some(seconds)) = self
+            && let Ok(value) = HeaderValue::from_str(&seconds.to_string())
+        {
+            response.headers_mut().insert(RETRY_AFTER, value);
+        }
+        response
+    }
+}
+
+fn limits_response(refusal: &Refusal, retry_after: Option<u32>) -> (StatusCode, serde_json::Value) {
+    let busy = |error: &str| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            json!({ "error": error, "retryAfter": retry_after }),
+        )
+    };
+    let limited = |error: &str| (StatusCode::TOO_MANY_REQUESTS, json!({ "error": error }));
+    match refusal {
+        Refusal::Horizon { retry_at } => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            json!({ "error": "horizon", "retryAt": retry_at }),
+        ),
+        Refusal::BelowMinimum(minimum) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            json!({ "error": "below_minimum", "minimum": minimum.to_string() }),
+        ),
+        Refusal::PrefixBusy => limited("network_busy"),
+        Refusal::PrefixSpentToday | Refusal::PrefixSpentThisMonth => limited("network_limit"),
+        Refusal::KeySpentToday | Refusal::KeySpentThisMonth => limited("key_limit"),
+        Refusal::LockSpentToday => limited("lock_limit"),
+        Refusal::LockShare { .. } => busy("lock_share"),
+        Refusal::TooManyLocks => busy("too_many_locks"),
+        Refusal::IssuerLocks => busy("issuer_locks"),
+        Refusal::FloatCap => busy("float_cap"),
+        Refusal::DailyCap => busy("daily_cap"),
+        Refusal::Unwritable => busy("unavailable"),
+        Refusal::Expired => busy("expired"),
+    }
+}
+
+impl From<Problem> for Error {
+    fn from(problem: Problem) -> Self {
+        Error::Settlement(problem)
+    }
+}
+
+fn parse_issue(value: &str) -> Result<Signed<Issue>, Problem> {
+    let bytes = hex::decode(value).map_err(|_| Problem::Invalid("issue is not hex"))?;
+    Signed::<Issue>::decode(&bytes).map_err(|_| Problem::Invalid("issue is not a signed issue"))
+}
+
+fn parse_spends(values: &[String]) -> Result<Vec<Signed<Spend>>, Problem> {
+    if values.len() > MAX_SPENDS {
+        return Err(Problem::Invalid("too many spends for one instruction"));
+    }
+    values
+        .iter()
+        .map(|value| {
+            let bytes = hex::decode(value).map_err(|_| Problem::Invalid("spend is not hex"))?;
+            Signed::<Spend>::decode(&bytes)
+                .map_err(|_| Problem::Invalid("spend is not a signed spend"))
+        })
+        .collect()
+}
+
+/// An output a spend of the chain consumed, as its record keeps it.
+#[derive(Clone, Copy, Debug)]
+struct Consumed {
+    output: [u8; 32],
+    content: [u8; 32],
+    expiry: u32,
+}
+
+/// What the program reads of a chain: the keys, envelopes and signatures to verify, the links, the
+/// outputs consumed and the outputs of the last message.
+struct Walk {
+    issue: Issue,
+    issue_body: [u8; 163],
+    entries: Vec<([u8; 33], [u8; 96], [u8; 64])>,
+    links: Vec<Link>,
+    consumed: Vec<Consumed>,
+    last: Holding,
+}
+
+/// Walks the chain with the rules the program applies, refusing an output that cannot be recorded.
+fn walk(
+    program: &Pubkey,
+    note_domain: &[u8; 32],
+    issue: &Signed<Issue>,
+    spends: &[Signed<Spend>],
+) -> Result<Walk, Problem> {
+    let invalid = |_| Problem::Invalid("the messages are not a valid chain");
+    let (envelope, output) = rules::issue_signing(note_domain, &issue.message).map_err(invalid)?;
+    let mut entries = vec![(issue.message.issuer, envelope, issue.signature)];
+    let mut last = Holding {
+        first: output,
+        second: None,
+    };
+    let (mut links, mut consumed) = (Vec::new(), Vec::new());
+    for spend in spends {
+        let input: Output = [Some(last.first), last.second]
+            .into_iter()
+            .flatten()
+            .find(|output| output.id == spend.message.input)
+            .ok_or(Problem::Invalid(
+                "a spend does not consume an output of the previous message",
+            ))?;
+        let index = u8::from(input.id != last.first.id);
+        let (holder, envelope) =
+            rules::spend_signing(note_domain, &input, &spend.message).map_err(invalid)?;
+        let (next, _) = rules::spend_outputs(&envelope, &input, &spend.message).map_err(invalid)?;
+        if record::address(&program.to_bytes(), &input.id).is_none() {
+            return Err(Problem::Invalid(
+                "an output of the chain cannot be recorded",
+            ));
+        }
+        let mut body = [0; 123];
+        let len = spend.message.body(&mut body);
+        links.push(Link {
+            input: index,
+            body: body[..len].to_vec(),
+        });
+        entries.push((holder, envelope, spend.signature));
+        consumed.push(Consumed {
+            output: input.id,
+            content: content(&body[..len]),
+            expiry: input.caveats.expiry,
+        });
+        last = next;
+    }
+    Ok(Walk {
+        issue: issue.message,
+        issue_body: issue.message.body(),
+        entries,
+        links,
+        consumed,
+        last,
+    })
+}
+
+fn record_address(program: &Pubkey, output: &[u8; 32]) -> Result<Pubkey, Problem> {
+    record::address(&program.to_bytes(), output)
+        .map(Pubkey::new_from_array)
+        .ok_or(Problem::Invalid(
+            "an output of the chain cannot be recorded",
+        ))
+}
+
+/// What a request needs the chain to say, read once at the gateway's commitment.
+struct Reads {
+    lock: Lock,
+    ledger: Ledger,
+    now: u32,
+    token_program: Pubkey,
+    /// The record each presented output has, if any.
+    records: Vec<Option<RecordState>>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct RecordState {
+    content: [u8; 32],
+    flags: u8,
+}
+
+const PAID: u8 = 1;
+
+async fn read_chain(state: &Gateway, issue: &Issue, records: &[Pubkey]) -> Result<Reads, Problem> {
+    let program = state.settings.program;
+    let lock_address = program.find_lock_pda(&issue.issuer, issue.lock_seq).0;
+    let ledger_address = program.find_ledger_pda(&lock_address).0;
+    let mut addresses = vec![
+        lock_address,
+        ledger_address,
+        chain::CLOCK_SYSVAR,
+        state.settings.mint,
+    ];
+    addresses.extend_from_slice(records);
+    let mut accounts = read(state, &addresses).await.map_err(upstream)?;
+    let lock = accounts[0]
+        .as_ref()
+        .and_then(|account| Lock::from_bytes(&account.data).ok())
+        .ok_or(Problem::Lock("no_lock"))?;
+    let ledger = accounts[1]
+        .as_ref()
+        .and_then(|account| Ledger::from_bytes(&account.data).ok())
+        .ok_or(Problem::Lock("no_lock"))?;
+    let now = chain_now(&accounts[2]).map_err(upstream)?;
+    let token_program = accounts[3]
+        .as_ref()
+        .map(|mint| mint.owner)
+        .ok_or(Problem::Lock("no_mint"))?;
+    let records = accounts
+        .drain(4..)
+        .map(|account| {
+            account
+                .filter(|account| {
+                    account.owner == program.id() && account.data.len() as u64 == RECORD_LEN
+                })
+                .map(|account| RecordState {
+                    content: account.data[8..40].try_into().unwrap(),
+                    flags: account.data[80],
+                })
+        })
+        .collect();
+    Ok(Reads {
+        lock,
+        ledger,
+        now,
+        token_program,
+        records,
+    })
+}
+
+fn upstream(_: Error) -> Problem {
+    Problem::Invalid("Solana could not be read")
+}
+
+/// A token account of the mint `owner` holds and can be paid to: its associated account when that
+/// is one, else the first the cluster lists. The gateway creates none: the rent of a token account
+/// is a gift a wallet can take back by closing it.
+async fn token_account_of(
+    state: &Gateway,
+    owner: &Pubkey,
+    token_program: &Pubkey,
+) -> Result<Pubkey, Error> {
+    let mint = state.settings.mint;
+    let usable = |account: &Option<Account>| {
+        account.as_ref().is_some_and(|account| {
+            account.owner == *token_program
+                && TokenAccount::parse(&account.data)
+                    .is_some_and(|t| t.owner == *owner && t.mint == mint && !t.frozen)
+        })
+    };
+    let associated = associated_token_address(owner, &mint, token_program);
+    if usable(&read(state, &[associated]).await?[0]) {
+        return Ok(associated);
+    }
+    let listed = state
+        .rpc
+        .get_token_accounts_by_owner(owner, TokenAccountsFilter::Mint(mint))
+        .await
+        .map_err(unreachable)?;
+    let candidates: Vec<Pubkey> = listed
+        .iter()
+        .filter_map(|keyed| keyed.pubkey.parse().ok())
+        .collect();
+    if candidates.is_empty() {
+        return Err(Problem::NoTokenAccount.into());
+    }
+    let accounts = read(state, &candidates).await?;
+    candidates
+        .into_iter()
+        .zip(accounts)
+        .find(|(_, account)| usable(account))
+        .map(|(address, _)| address)
+        .ok_or_else(|| Problem::NoTokenAccount.into())
+}
+
+/// A settlement or a reclaim ready to be sponsored: the instructions and what the limits need to
+/// know of them.
+pub struct Job {
+    pub kind: Kind,
+    pub instructions: Vec<Instruction>,
+    /// Signatures the fee counts besides the transaction's own: the precompile's.
+    pub verified: u64,
+    pub request: FloatRequest,
+    /// The lock's address, to read its bond again before the send.
+    pub lock: Pubkey,
+}
+
+/// What inspecting a request found.
+pub enum Planned {
+    /// The last record is paid with this very message: nothing to send.
+    Settled,
+    Send(Box<Job>),
+}
+
+fn float_records(
+    program: &Pubkey,
+    windows: &Windows,
+    lock_until: u32,
+    presented: &[(Pubkey, u32)],
+    existing: &[Option<RecordState>],
+) -> Vec<NewRecord> {
+    let _ = program;
+    presented
+        .iter()
+        .zip(existing)
+        .filter(|(_, state)| state.is_none())
+        .map(|((address, expiry), _)| NewRecord {
+            address: address.to_bytes(),
+            closable_at: u32::try_from(window::closable_at_in(windows, *expiry, lock_until))
+                .unwrap_or(u32::MAX),
+        })
+        .collect()
+}
+
+/// Checks a settlement as far as the chain can be asked, without spending anything: the chain
+/// verifies, the lock and its ledger back it, no record says otherwise, the window is open and the
+/// payee has a token account to be paid to.
+pub async fn inspect_settlement(
+    state: &Gateway,
+    ip: IpAddr,
+    request: &SettlementRequest,
+) -> Result<Planned, Error> {
+    let program = state.settings.program;
+    let note_domain = domain(
+        purpose::NOTE,
+        &state.settings.genesis_hash,
+        &program.id().to_bytes(),
+    );
+    let issue = parse_issue(&request.issue)?;
+    let spends = parse_spends(&request.spends)?;
+    let settled = verify_settlement(&note_domain, &program.id().to_bytes(), &issue, &spends)
+        .map_err(|_| Problem::Invalid("the chain does not verify as a settlement"))?;
+    if settled.mint != state.settings.mint.to_bytes() {
+        return Err(Problem::Invalid("the note is not of the mint the gateway sponsors").into());
+    }
+    let Owner::Account(payee) = settled.output.owner else {
+        return Err(Problem::Invalid("the chain does not end at a terminal account").into());
+    };
+    let chain = walk(&program.id(), &note_domain, &issue, &spends)?;
+
+    // The records presented: every consumed output, or the issue's own.
+    let presented: Vec<([u8; 32], [u8; 32], u32)> = if chain.consumed.is_empty() {
+        vec![(
+            chain.last.first.id,
+            content(&chain.issue_body),
+            chain.issue.caveats.expiry,
+        )]
+    } else {
+        chain
+            .consumed
+            .iter()
+            .map(|c| (c.output, c.content, c.expiry))
+            .collect()
+    };
+    let addresses = presented
+        .iter()
+        .map(|(output, ..)| record_address(&program.id(), output))
+        .collect::<Result<Vec<_>, _>>()?;
+    let reads = read_chain(state, &chain.issue, &addresses).await?;
+    check_lock(&chain.issue, &reads)?;
+    let amount = settled.output.amount;
+    if reads.ledger.backing_left < amount {
+        return Err(Problem::Lock("insufficient_backing").into());
+    }
+
+    // The records: the same message already paid is a result, another content a conflict.
+    for ((_, wanted, _), record) in presented.iter().zip(&reads.records) {
+        if let Some(record) = record
+            && record.content != *wanted
+        {
+            return Err(Problem::Conflict(record.content).into());
+        }
+    }
+    if let Some(Some(record)) = reads.records.last()
+        && record.flags & PAID != 0
+    {
+        return Ok(Planned::Settled);
+    }
+
+    // The window of the last consumed output, with room for the transaction to land.
+    let windows = state.settings.windows;
+    let expiry = presented[presented.len() - 1].2;
+    let latest = reads
+        .now
+        .checked_add(margin(&windows))
+        .ok_or(Problem::Window("window"))?;
+    match window::settle_in(&windows, expiry, reads.lock.lock_until, latest) {
+        Settle::Open => {}
+        Settle::LockEnded => return Err(Problem::Window("lock_ended").into()),
+        Settle::Closed => return Err(Problem::Window("window").into()),
+    }
+
+    let destination =
+        token_account_of(state, &Pubkey::new_from_array(payee), &reads.token_program).await?;
+    let new = float_records(
+        &program.id(),
+        &windows,
+        reads.lock.lock_until,
+        &presented
+            .iter()
+            .zip(&addresses)
+            .map(|((_, _, expiry), address)| (*address, *expiry))
+            .collect::<Vec<_>>(),
+        &reads.records,
+    );
+    let signatures: Vec<[u8; 64]> = chain.entries.iter().map(|entry| entry.2).collect();
+    let verified: Vec<_> = chain
+        .entries
+        .iter()
+        .map(|entry| (entry.0, entry.1))
+        .collect();
+    let verification = transactions::chain_verification(&verified, &signatures).ok_or(
+        Problem::Invalid("the chain is too long for one verification"),
+    )?;
+    let lock_address = program
+        .find_lock_pda(&chain.issue.issuer, chain.issue.lock_seq)
+        .0;
+    let payout = Payout {
+        payer: state.fee_payer.pubkey(),
+        lock: lock_address,
+        mint: state.settings.mint,
+        token_program: reads.token_program,
+        destination,
+    };
+    let settle =
+        transactions::settle_note(&program, &payout, chain.issue_body, chain.links, &addresses);
+    Ok(Planned::Send(Box::new(Job {
+        kind: Kind::Settlement,
+        instructions: vec![verification, settle],
+        verified: signatures.len() as u64,
+        request: FloatRequest {
+            kind: Kind::Settlement,
+            prefix: ip.into(),
+            key: chain.entries.last().map(|entry| entry.0).unwrap(),
+            issuer: chain.issue.issuer,
+            lock: lock_address.to_bytes(),
+            bond: reads.lock.bond,
+            amount,
+            records: new,
+            rent: state.rents().record,
+            now: reads.now,
+        },
+        lock: lock_address,
+    })))
+}
+
+fn check_lock(issue: &Issue, reads: &Reads) -> Result<(), Problem> {
+    if reads.lock.mint.to_bytes() != issue.mint || issue.cum_end > reads.lock.backing {
+        return Err(Problem::Lock("wrong_lock"));
+    }
+    Ok(())
+}
+
+/// Checks a reclaim the same way: the chain and the owner's signature verify, the window of the
+/// output is open and the deadline holds, and the wallet the owner is bound to has a token account.
+pub async fn inspect_reclaim(
+    state: &Gateway,
+    ip: IpAddr,
+    request: &ReclaimRequest,
+) -> Result<Planned, Error> {
+    let program = state.settings.program;
+    let note_domain = domain(
+        purpose::NOTE,
+        &state.settings.genesis_hash,
+        &program.id().to_bytes(),
+    );
+    let reclaim_domain = domain(
+        purpose::RECLAIM,
+        &state.settings.genesis_hash,
+        &program.id().to_bytes(),
+    );
+    let owner: [u8; 33] =
+        hex_array(&request.owner).ok_or(Problem::Invalid("owner is not 33 bytes of hex"))?;
+    let signature: [u8; 64] = hex_array(&request.signature)
+        .ok_or(Problem::Invalid("signature is not 64 bytes of hex"))?;
+    let issue = parse_issue(&request.issue)?;
+    if request.spends.len() > MAX_SPENDS - 1 {
+        return Err(Problem::Invalid("too many spends for one reclaim").into());
+    }
+    let spends = parse_spends(&request.spends)?;
+    let mut chain = walk(&program.id(), &note_domain, &issue, &spends)?;
+    for (key, envelope, signature) in &chain.entries {
+        verify_signature(key, envelope, signature)
+            .map_err(|_| Problem::Invalid("a signature of the chain does not verify"))?;
+    }
+    let output = match request.which {
+        0 => chain.last.first,
+        1 => chain
+            .last
+            .second
+            .ok_or(Problem::Invalid("the last message has no change"))?,
+        _ => return Err(Problem::Invalid("which is 0 or 1").into()),
+    };
+    if output.owner != Owner::Device(owner) {
+        return Err(Problem::Invalid("the output is not owned by this key").into());
+    }
+    let envelope = reclaim_envelope(&reclaim_domain, &output.id, request.deadline);
+    verify_signature(&owner, &envelope, &signature)
+        .map_err(|_| Problem::Invalid("the owner did not sign this reclaim"))?;
+    chain.entries.push((owner, envelope, signature));
+    if issue.message.mint != state.settings.mint.to_bytes() {
+        return Err(Problem::Invalid("the note is not of the mint the gateway sponsors").into());
+    }
+
+    let mut presented: Vec<([u8; 32], [u8; 32], u32)> = chain
+        .consumed
+        .iter()
+        .map(|c| (c.output, c.content, c.expiry))
+        .collect();
+    presented.push((output.id, record_content(), output.caveats.expiry));
+    let addresses = presented
+        .iter()
+        .map(|(id, ..)| record_address(&program.id(), id))
+        .collect::<Result<Vec<_>, _>>()?;
+    let device_address = program.find_device_pda(&owner).0;
+    let device = read(state, &[device_address])
+        .await?
+        .remove(0)
+        .and_then(|account| Device::from_bytes(&account.data).ok())
+        .ok_or(Problem::Invalid("this key is not a registered device"))?;
+    let reads = read_chain(state, &chain.issue, &addresses).await?;
+    check_lock(&chain.issue, &reads)?;
+    if reads.ledger.backing_left < output.amount {
+        return Err(Problem::Lock("insufficient_backing").into());
+    }
+    for ((_, wanted, _), record) in presented.iter().zip(&reads.records) {
+        if let Some(record) = record
+            && record.content != *wanted
+        {
+            return Err(Problem::Conflict(record.content).into());
+        }
+    }
+    if let Some(Some(record)) = reads.records.last()
+        && record.flags & PAID != 0
+    {
+        return Ok(Planned::Settled);
+    }
+
+    let windows = state.settings.windows;
+    match window::reclaim_in(
+        &windows,
+        output.caveats.expiry,
+        reads.lock.lock_until,
+        reads.now,
+    ) {
+        Reclaim::Open => {}
+        Reclaim::TooEarly => return Err(Problem::Window("window").into()),
+        Reclaim::Closed => return Err(Problem::Window("closed").into()),
+        Reclaim::LockEnded => return Err(Problem::Window("lock_ended").into()),
+    }
+    let latest = reads
+        .now
+        .checked_add(margin(&windows))
+        .ok_or(Problem::Window("deadline"))?;
+    if latest > request.deadline {
+        return Err(Problem::Window("deadline").into());
+    }
+
+    let destination = token_account_of(state, &device.wallet, &reads.token_program).await?;
+    let new = float_records(
+        &program.id(),
+        &windows,
+        reads.lock.lock_until,
+        &presented
+            .iter()
+            .zip(&addresses)
+            .map(|((_, _, expiry), address)| (*address, *expiry))
+            .collect::<Vec<_>>(),
+        &reads.records,
+    );
+    let signatures: Vec<[u8; 64]> = chain.entries.iter().map(|entry| entry.2).collect();
+    let verified: Vec<_> = chain
+        .entries
+        .iter()
+        .map(|entry| (entry.0, entry.1))
+        .collect();
+    let verification = transactions::chain_verification(&verified, &signatures).ok_or(
+        Problem::Invalid("the chain is too long for one verification"),
+    )?;
+    let lock_address = program
+        .find_lock_pda(&chain.issue.issuer, chain.issue.lock_seq)
+        .0;
+    let payout = Payout {
+        payer: state.fee_payer.pubkey(),
+        lock: lock_address,
+        mint: state.settings.mint,
+        token_program: reads.token_program,
+        destination,
+    };
+    let reclaim = transactions::reclaim_output(
+        &program,
+        &payout,
+        owner,
+        chain.issue_body,
+        chain.links,
+        request.which,
+        request.deadline,
+        &addresses,
+    );
+    Ok(Planned::Send(Box::new(Job {
+        kind: Kind::Reclaim,
+        instructions: vec![verification, reclaim],
+        verified: signatures.len() as u64,
+        request: FloatRequest {
+            kind: Kind::Reclaim,
+            prefix: ip.into(),
+            key: owner,
+            issuer: chain.issue.issuer,
+            lock: lock_address.to_bytes(),
+            bond: reads.lock.bond,
+            amount: output.amount,
+            records: new,
+            rent: state.rents().record,
+            now: reads.now,
+        },
+        lock: lock_address,
+    })))
+}
+
+/// The bytes the runtime counts as loaded for a transaction with these instructions: 64 bytes and
+/// the data of every account it names, the fee payer included, and the programdata of every
+/// program of the upgradeable loader.
+pub async fn loaded_accounts_size(
+    state: &Gateway,
+    instructions: &[Instruction],
+) -> Result<u32, Error> {
+    let mut keys = vec![state.fee_payer.pubkey()];
+    for instruction in instructions {
+        keys.push(instruction.program_id);
+        keys.extend(instruction.accounts.iter().map(|meta| meta.pubkey));
+    }
+    keys.sort();
+    keys.dedup();
+    let accounts = read(state, &keys).await?;
+    let mut total: u64 = 0;
+    let mut programdata = Vec::new();
+    for account in &accounts {
+        total += ACCOUNT_OVERHEAD + account.as_ref().map_or(0, |a| a.data.len() as u64);
+        if let Some(account) = account
+            && account.executable
+            && account.owner == UPGRADEABLE_LOADER
+            && account.data.len() >= 36
+        {
+            programdata.push(Pubkey::new_from_array(
+                account.data[4..36].try_into().unwrap(),
+            ));
+        }
+    }
+    programdata.sort();
+    programdata.dedup();
+    for account in read(state, &programdata).await? {
+        total += ACCOUNT_OVERHEAD + account.map_or(0, |a| a.data.len() as u64);
+    }
+    Ok(u32::try_from(total).unwrap_or(u32::MAX))
+}
+
+/// The limit the transaction asks for: what the runtime counts plus a tenth, never a constant: an
+/// upgrade of the program changes it.
+fn loaded_accounts_limit(counted: u32) -> u32 {
+    let margin = u64::from(counted) * LOADED_ACCOUNTS_MARGIN_PERCENT / 100;
+    u32::try_from(u64::from(counted) + margin).unwrap_or(u32::MAX)
+}
+
+fn compose(
+    state: &Gateway,
+    instructions: &[Instruction],
+    blockhash: Hash,
+    compute_unit_limit: u32,
+    loaded_accounts: u32,
+    priority_fee: u64,
+) -> Result<VersionedMessage, Error> {
+    let config = v1::TransactionConfig {
+        priority_fee: Some(priority_fee),
+        compute_unit_limit: Some(compute_unit_limit),
+        loaded_accounts_data_size_limit: Some(loaded_accounts),
+        heap_size: None,
+    };
+    v1::Message::try_compile_with_config(&state.fee_payer.pubkey(), instructions, blockhash, config)
+        .map(VersionedMessage::V1)
+        .map_err(|_| Error::BadRequest("the transaction cannot be built"))
+}
+
+/// The runtime's own count of loaded account bytes for a transaction of `instructions`, from a
+/// simulation: the figure `loaded_accounts_size` has to match.
+pub async fn simulated_loaded_accounts_size(
+    state: &Gateway,
+    instructions: &[Instruction],
+) -> Result<u32, Error> {
+    let (blockhash, _) = state
+        .rpc
+        .get_latest_blockhash_with_commitment(state.rpc.commitment())
+        .await
+        .map_err(unreachable)?;
+    let message = compose(
+        state,
+        instructions,
+        blockhash,
+        COMPUTE_UNIT_CEILING,
+        u32::MAX / 2,
+        0,
+    )?;
+    let simulation = state
+        .rpc
+        .simulate_transaction_with_config(
+            &VersionedTransaction {
+                signatures: vec![Signature::default()],
+                message,
+            },
+            RpcSimulateTransactionConfig {
+                sig_verify: false,
+                commitment: Some(state.rpc.commitment()),
+                ..RpcSimulateTransactionConfig::default()
+            },
+        )
+        .await
+        .map_err(unreachable)?
+        .value;
+    simulation.loaded_accounts_data_size.ok_or(Error::Upstream)
+}
+
+/// Sponsors a job: holds its place in the limits, builds and simulates the transaction, writes the
+/// send down, sends it as the fee payer and waits for the outcome. Every limit is checked twice,
+/// once here and once immediately before the send.
+async fn sponsor(state: &Gateway, job: Job) -> Result<Json<serde_json::Value>, Error> {
+    let reservation = state
+        .settlements
+        .reserve(job.request.clone())
+        .map_err(|refusal| limits(state, refusal, job.request.now))?;
+    let fee_payer = state.fee_payer.pubkey();
+    let (blockhash, _) = state
+        .rpc
+        .get_latest_blockhash_with_commitment(state.rpc.commitment())
+        .await
+        .map_err(unreachable)?;
+    let recent = state
+        .rpc
+        .get_recent_prioritization_fees(&[fee_payer, job.lock])
+        .await
+        .map_err(unreachable)?;
+    let price = priority_fee(
+        recent.iter().map(|fee| fee.prioritization_fee).collect(),
+        state.settings.max_priority_fee,
+    );
+    let loaded = loaded_accounts_limit(loaded_accounts_size(state, &job.instructions).await?);
+    // The price is charged on the limit the transaction asks for, not on what it uses.
+    let priority = |limit: u32| price.saturating_mul(u64::from(limit)).div_ceil(1_000_000);
+
+    let draft = compose(
+        state,
+        &job.instructions,
+        blockhash,
+        COMPUTE_UNIT_CEILING,
+        loaded,
+        priority(COMPUTE_UNIT_CEILING),
+    )?;
+    let simulation = state
+        .rpc
+        .simulate_transaction_with_config(
+            &VersionedTransaction {
+                signatures: vec![Signature::default()],
+                message: draft,
+            },
+            RpcSimulateTransactionConfig {
+                sig_verify: false,
+                commitment: Some(state.rpc.commitment()),
+                ..RpcSimulateTransactionConfig::default()
+            },
+        )
+        .await
+        .map_err(unreachable)?
+        .value;
+    if let Some(failure) = simulation.err {
+        warn!(%failure, "a settlement would fail");
+        return Err(Error::Rejected);
+    }
+    let used = simulation.units_consumed.unwrap_or(0);
+    let limit = u32::try_from(used + used * 3 / 10)
+        .unwrap_or(COMPUTE_UNIT_CEILING)
+        .clamp(MIN_COMPUTE_UNIT_LIMIT, COMPUTE_UNIT_CEILING);
+    let fee = SIGNATURE_FEE * (1 + job.verified) + priority(limit);
+    let message = compose(
+        state,
+        &job.instructions,
+        blockhash,
+        limit,
+        loaded,
+        priority(limit),
+    )?;
+    let transaction = VersionedTransaction {
+        signatures: vec![state.fee_payer.sign_message(&message.serialize())],
+        message,
+    };
+
+    // The send is written down first, with the lock's bond and the chain's clock as they are now.
+    let accounts = read(state, &[job.lock, chain::CLOCK_SYSVAR]).await?;
+    let bond = accounts[0]
+        .as_ref()
+        .and_then(|account| Lock::from_bytes(&account.data).ok())
+        .ok_or(Error::Upstream)?
+        .bond;
+    let now = chain_now(&accounts[1])?;
+    let slot = state.rpc.get_slot().await.map_err(unreachable)?;
+    let sending = reservation
+        .begin(now, slot, bond)
+        .map_err(|refusal| limits(state, refusal, now))?;
+
+    let signature = match state.rpc.send_transaction(&transaction).await {
+        Ok(signature) => signature,
+        Err(error) if error.get_transaction_error().is_some() => {
+            // Refused by the preflight after it was written down: nothing landed and no fee is
+            // owed, but the attempt still counts.
+            warn!("a settlement failed its preflight");
+            finish(sending.failed(0));
+            return Err(Error::Rejected);
+        }
+        Err(_) => {
+            warn!("Solana did not say whether it took a settlement");
+            finish(sending.unknown());
+            return Err(Error::Upstream);
+        }
+    };
+    info!(%signature, "settlement sent");
+    resolve(state, sending, &signature, fee).await?;
+    Ok(Json(json!({ "signature": signature.to_string() })))
+}
+
+fn finish(result: std::io::Result<()>) {
+    if let Err(error) = result {
+        error!(%error, "the settlement ledger could not be written; sponsoring stopped");
+    }
+}
+
+/// Settles a send by what Solana reported of it.
+async fn resolve(
+    state: &Gateway,
+    sending: Sending,
+    signature: &Signature,
+    fee: u64,
+) -> Result<(), Error> {
+    match confirm(state, signature).await {
+        Outcome::Landed => {
+            let slot = state.rpc.get_slot().await.unwrap_or_default();
+            finish(sending.landed(slot));
+            Ok(())
+        }
+        Outcome::FailedOnChain => {
+            finish(sending.failed(fee));
+            Err(Error::Failed)
+        }
+        Outcome::Unknown => {
+            finish(sending.unknown());
+            Err(Error::Upstream)
+        }
+    }
+}
+
+fn limits(state: &Gateway, refusal: Refusal, now: u32) -> Error {
+    let retry_after = match refusal {
+        Refusal::Horizon { .. } | Refusal::BelowMinimum(_) => None,
+        _ => state
+            .settlements
+            .next_closable(now)
+            .map(|at| at.saturating_sub(now).max(1)),
+    };
+    Problem::Limits(refusal, retry_after).into()
+}
+
+pub(crate) async fn settle(
+    State(state): State<Arc<Gateway>>,
+    Extension(Client(ip)): Extension<Client>,
+    Json(request): Json<SettlementRequest>,
+) -> Result<Json<serde_json::Value>, Error> {
+    match inspect_settlement(&state, ip, &request).await? {
+        Planned::Settled => Ok(Json(json!({ "status": "settled" }))),
+        Planned::Send(job) => sponsor(&state, *job).await,
+    }
+}
+
+pub(crate) async fn reclaim(
+    State(state): State<Arc<Gateway>>,
+    Extension(Client(ip)): Extension<Client>,
+    Json(request): Json<ReclaimRequest>,
+) -> Result<Json<serde_json::Value>, Error> {
+    match inspect_reclaim(&state, ip, &request).await? {
+        Planned::Settled => Ok(Json(json!({ "status": "settled" }))),
+        Planned::Send(job) => sponsor(&state, *job).await,
+    }
+}
+
+/// What the gateway quotes and enforces for sponsored settlements right now.
+pub(crate) async fn quote(State(state): State<Arc<Gateway>>) -> Json<serde_json::Value> {
+    let status = state.settlements.status(crate::onboard::local_now());
+    Json(json!({
+        "minAmount": status.min_amount.to_string(),
+        "pressure": status.pressure_percent,
+        "openRecords": status.open_records,
+        "locks": status.locks,
+    }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::float::SettlementLimits;
+
+    #[test]
+    fn the_margin_is_two_minutes_in_production_and_a_quarter_of_the_grace_where_that_is_less() {
+        assert_eq!(margin(&Windows::PRODUCTION), 120);
+        assert_eq!(margin(&Windows::SHORT), 15);
+    }
+
+    #[test]
+    fn the_limit_is_what_the_runtime_counts_plus_a_tenth() {
+        assert_eq!(loaded_accounts_limit(0), 0);
+        assert_eq!(loaded_accounts_limit(468_863), 515_749);
+        assert_eq!(loaded_accounts_limit(u32::MAX), u32::MAX);
+    }
+
+    #[test]
+    fn a_refusal_that_waits_carries_when_and_the_wallet_is_told_it_can_pay_itself() {
+        let waits = Problem::Limits(Refusal::FloatCap, Some(90)).into_response();
+        assert_eq!(waits.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(waits.headers().get(RETRY_AFTER).unwrap(), "90");
+        let invalid = Problem::Invalid("no").into_response();
+        assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
+        assert!(invalid.headers().get(RETRY_AFTER).is_none());
+    }
+
+    #[test]
+    fn a_send_that_landed_and_failed_counts_against_the_key_but_not_the_float() {
+        use crate::{float::Caps, limits::Prefix};
+        let limits = SettlementLimits::new(Caps::pilot(Windows::PRODUCTION.record_ttl()));
+        let request = FloatRequest {
+            kind: Kind::Settlement,
+            prefix: Prefix::V4([10, 0, 0]),
+            key: [1; 33],
+            issuer: [2; 33],
+            lock: [3; 32],
+            bond: 1_000_000_000,
+            amount: 1_000_000,
+            records: vec![NewRecord {
+                address: [4; 32],
+                closable_at: 1_900_000_000 + 31 * 86_400,
+            }],
+            rent: 1_061_720,
+            now: 1_900_000_000,
+        };
+        let sending = limits
+            .reserve(request)
+            .unwrap()
+            .begin(1_900_000_000, 10, 1_000_000_000)
+            .unwrap();
+        assert_eq!(limits.open_records(), 1);
+        sending.failed(15_000).unwrap();
+        assert_eq!((limits.open_records(), limits.failed_fees()), (0, 15_000));
+        assert_eq!(
+            limits.sponsored_by_prefix(Prefix::V4([10, 0, 0]), 1_900_000_000),
+            1,
+            "the attempt still counts against the network"
+        );
+    }
+}

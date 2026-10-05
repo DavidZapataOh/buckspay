@@ -188,7 +188,7 @@ fn no_instruction_reduces_a_locks_lamports_except_close() {
     let lock = lock_for(&mut env, &user, 100, 400, MIN_LOCK + DAY);
     let held = |env: &Env| (env.lamports(&lock.address), env.lamports(&lock.ledger));
     let created = held(&env);
-    assert_eq!(created, (env.rent(61), env.rent(103)));
+    assert_eq!(created, (env.rent(62), env.rent(103)));
 
     env.donate(&lock, 5);
     env.edit_ledger(&lock.address, |l| l.commit_slash(30).map(drop).unwrap());

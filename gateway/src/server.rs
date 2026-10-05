@@ -1,8 +1,10 @@
 use crate::{
     chain::Rents,
+    float::SettlementLimits,
     hpke::{HpkeKeys, PublishedKey},
     limits::{Prefix, RateLimited, RequestLimits},
     onboard, operations,
+    settlements::{self, Problem},
     sponsor::{FeeMode, Refusal, SponsorLimits},
     sponsored::{self, Pending},
 };
@@ -80,6 +82,8 @@ pub struct Gateway {
     pub settings: Settings,
     pub requests: RequestLimits,
     pub sponsor: Arc<SponsorLimits>,
+    /// What the gateway lends as the rent of the settlement records it pays for.
+    pub settlements: Arc<SettlementLimits>,
     pub hpke: HpkeKeys,
     /// What the program's accounts cost, as last read from the cluster.
     pub(crate) rents: Mutex<Rents>,
@@ -92,22 +96,30 @@ pub struct Gateway {
     pub(crate) stuck: AtomicU64,
 }
 
+/// What bounds the gateway: requests per network, what it lends to onboard, and what it lends as
+/// the rent of settlement records.
+pub struct Limits {
+    pub requests: RequestLimits,
+    pub sponsor: Arc<SponsorLimits>,
+    pub settlements: Arc<SettlementLimits>,
+}
+
 impl Gateway {
     pub fn new(
         rpc: RpcClient,
         fee_payer: Keypair,
         settings: Settings,
         rents: Rents,
-        requests: RequestLimits,
-        sponsor: Arc<SponsorLimits>,
+        limits: Limits,
         hpke: HpkeKeys,
     ) -> Self {
         Self {
             rpc,
             fee_payer,
             settings,
-            requests,
-            sponsor,
+            requests: limits.requests,
+            sponsor: limits.sponsor,
+            settlements: limits.settlements,
             hpke,
             rents: Mutex::new(rents),
             pending: Mutex::default(),
@@ -159,6 +171,13 @@ pub fn router(state: Arc<Gateway>, client: ClientAddress) -> Router {
         .route("/v1/registrations/sponsorship", any(retired))
         .route("/v1/registrations/submit", any(retired))
         .layer(DefaultBodyLimit::max(BODY_LIMIT))
+        .merge(
+            Router::new()
+                .route("/v1/settlements", post(settlements::settle))
+                .route("/v1/settlements/quote", get(settlements::quote))
+                .route("/v1/reclaims", post(settlements::reclaim))
+                .layer(DefaultBodyLimit::max(settlements::BODY_LIMIT)),
+        )
         .layer(RequestBodyDeadlineLayer::new(BODY_DEADLINE))
         .layer(
             ServiceBuilder::new()
@@ -265,6 +284,8 @@ pub enum Error {
     Rejected,
     /// The transaction landed and failed: the sponsor paid its fee.
     Failed,
+    /// A settlement or a reclaim the gateway does not sponsor, and why.
+    Settlement(Problem),
     /// The fee payer cannot pay for what is being prepared.
     Unfunded,
     /// The gateway serves `IN_FLIGHT` requests already.
@@ -321,6 +342,7 @@ impl IntoResponse for Error {
                 "sponsorship is unavailable",
             )
             .into_response(),
+            Error::Settlement(problem) => problem.into_response(),
             Error::Busy => {
                 json(StatusCode::SERVICE_UNAVAILABLE, "the gateway is busy").into_response()
             }

@@ -299,6 +299,7 @@ class Cluster {
             backing: lock.backing,
             lockUntil: lock.lockUntil,
             bump: 255,
+            escrowBump: 254,
           }),
         ),
       )
@@ -976,7 +977,7 @@ describe('device identity', () => {
 
   it('limits a registration to the most expensive one at the bump of its key, and to at least 40,000 CU', () => {
     expect([255, 239, 238, 235, 0].map((bump) => registerDeviceComputeUnitLimit(bump))).toEqual([
-      40_000, 40_000, 41_276, 45_776, 398_276,
+      40_000, 40_000, 41_281, 45_781, 398_281,
     ])
   })
 

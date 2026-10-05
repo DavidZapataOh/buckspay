@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+pub use buckspay_protocol::record::SPENT_SEED;
 
 /// Seed prefixes of the program's accounts. Every account type has its own prefix and no prefix
 /// is a prefix of another, so accounts of two types can never share an address.
@@ -33,6 +34,9 @@ pub struct Lock {
     pub backing: u64,
     pub lock_until: u32,
     pub bump: u8,
+    /// The canonical bump of the lock's escrow, so settlements derive it without searching: the
+    /// issuer's key chooses the lock's address and with it the cost of that search.
+    pub escrow_bump: u8,
 }
 
 /// The mutable accounting of a lock and the authority of its escrow token account. The three
@@ -63,4 +67,23 @@ pub struct Rotation {
     pub payer: Pubkey,
     pub effective_at: u32,
     pub bump: u8,
+}
+
+/// The record of one output that a message consumed: which content won, who paid its rent and until
+/// when it must be kept. The key is in the account's seeds and the bump is the fixed
+/// `record::RECORD_BUMP`, so neither is stored.
+#[account]
+#[derive(InitSpace)]
+pub struct Spent {
+    /// The content of the message that consumed the output; for a reclaim, `record_content()`.
+    pub content: [u8; 32],
+    /// Gets the rent back.
+    pub payer: Pubkey,
+    /// Expiry of the consumed output.
+    pub expiry: u32,
+    /// `window::closable_at(expiry, lock_until)`: after every window in which the output can still
+    /// be settled, reclaimed, reported or claimed against.
+    pub closable_at: u32,
+    /// `records::PAID` and `records::RECLAIMED`.
+    pub flags: u8,
 }

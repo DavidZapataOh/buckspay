@@ -10,7 +10,9 @@ import {
   DEVNET_GENESIS_HASH,
   domain,
   encodeIssueBody,
+  encodeSpendBody,
   envelope,
+  EXPIRY_STEP,
   GRACE,
   type Issue,
   issueSlot,
@@ -20,6 +22,8 @@ import {
   outputId,
   type Owner,
   Purpose,
+  reclaimEnvelope,
+  recordAddress,
   type Spend,
   verifySettlement,
   verifySignature,
@@ -100,9 +104,9 @@ describe('device key', () => {
     const { publicKey } = await keys.createDeviceKey()
     for (let i = 0n; i < 16n; i++) {
       const issue = issueOf(publicKey, merchant, i * 100n, 100n)
-      const signature = await keys.signIssue(issue)
-      expect(p256.Signature.fromBytes(signature, 'compact').hasHighS()).toBe(false)
-      expect(verifySettlement(noteDomain, { message: issue, signature }, []).output.amount).toBe(100n)
+      const signed = await keys.signIssue(issue)
+      expect(p256.Signature.fromBytes(signed.signature, 'compact').hasHighS()).toBe(false)
+      expect(verifySettlement(noteDomain, programId, signed, []).output.amount).toBe(100n)
     }
     expect(nativeSignatures().some((der) => p256.Signature.fromBytes(der, 'der').hasHighS())).toBe(true)
   })
@@ -110,11 +114,10 @@ describe('device key', () => {
   it('signs a spend of an output it owns in the slot of its output id', async () => {
     const { publicKey } = await keys.createDeviceKey()
     const issue = issueOf(publicKey, { type: 'device', key: publicKey }, 0n, 250n)
-    const signedIssue = { message: issue, signature: await keys.signIssue(issue) }
-    const input = issuedOutput(issue)
-    const spend = settle(input)
-    const signedSpend = { message: spend, signature: await keys.signSpend(input, spend) }
-    const settled = verifySettlement(noteDomain, signedIssue, [signedSpend])
+    const signedIssue = await keys.signIssue(issue)
+    const input = issuedOutput(signedIssue.message)
+    const signedSpend = await keys.signSpend(input, settle(input))
+    const settled = verifySettlement(noteDomain, programId, signedIssue, [signedSpend])
     expect(settled.output.owner).toEqual(merchant)
     expect(settled.output.amount).toBe(250n)
   })
@@ -235,14 +238,121 @@ describe('device key', () => {
     expect(Object.keys(keys).filter((name) => name.startsWith('sign'))).toEqual([
       'signDeviceBinding',
       'signIssue',
+      'signReclaim',
       'signSpend',
     ])
     expect(keys).not.toHaveProperty('resetDeviceIdentity')
     const signers = Object.keys(internal).filter((name) => name.startsWith('sign'))
-    expect(signers.sort()).toEqual(['signDeviceBinding', 'signIssue', 'signSpend', 'signWitness'])
+    expect(signers.sort()).toEqual(['signDeviceBinding', 'signIssue', 'signReclaim', 'signSpend', 'signWitness'])
     await keys.createDeviceKey()
     const digest = new Uint8Array(32).fill(2)
     await expect(HardwareKeys.sign('device' as never, walletBytes, digest)).rejects.toThrow('ERR_INVALID_ENVELOPE')
+  })
+
+  it('changes the salt of an issue until its output has a record address', async () => {
+    const { publicKey } = await keys.createDeviceKey()
+    let unrecordable: Issue | undefined
+    for (let n = 0; !unrecordable; n++) {
+      const candidate = { ...issueOf(publicKey, merchant, 0n, 100n), salt: new Uint8Array(16).fill(n) }
+      if (!recordAddress(programId, issuedOutput(candidate).id)) unrecordable = candidate
+    }
+    const signed = await keys.signIssue(unrecordable)
+    expect(signed.message.salt).not.toEqual(unrecordable.salt)
+    expect(recordAddress(programId, issuedOutput(signed.message).id)).toBeDefined()
+    expect(verifySettlement(noteDomain, programId, signed, [])).toBeDefined()
+  })
+
+  it('gives a payment to a device the step, and a salt that leaves every output a record address', async () => {
+    const { publicKey } = await keys.createDeviceKey()
+    const holder: Owner = { type: 'device', key: publicKey }
+    const signedIssue = await keys.signIssue(issueOf(publicKey, holder, 0n, 250n))
+    const input = issuedOutput(signedIssue.message)
+    const device: Owner = { type: 'device', key: p256.getPublicKey(new Uint8Array(32).fill(8)) }
+    // The issue's expiry is the payment's, and the change keeps it: the step is the signer's to apply.
+    const split: Spend = {
+      input: input.id,
+      lockSeq: 0,
+      salt: new Uint8Array(16).fill(6),
+      outputs: { type: 'two', owner0: device, amount0: 100n, caveats0: caveats(2), owner1: holder },
+    }
+    const signed = await keys.signSpend(input, split)
+    if (signed.message.outputs.type !== 'two') throw new Error('unexpected outputs')
+    expect(signed.message.outputs.caveats0.expiry).toBe(input.caveats.expiry - EXPIRY_STEP)
+    const id = messageId(envelope(noteDomain, input.id, content(encodeSpendBody(signed.message))))
+    for (const index of [0, 1]) expect(recordAddress(programId, outputId(id, index))).toBeDefined()
+    const toAccount = await keys.signSpend(input, settle(input))
+    expect(toAccount.message.outputs).toEqual(settle(input).outputs)
+  })
+
+  it('signs a reclaim of an output it recorded, once expiry + GRACE has passed', async () => {
+    const { publicKey } = await keys.createDeviceKey()
+    const holder: Owner = { type: 'device', key: publicKey }
+    const signedIssue = await keys.signIssue(issueOf(publicKey, holder, 0n, 250n))
+    const output = issuedOutput(signedIssue.message)
+    const reclaimDomain = domain(Purpose.Reclaim, DEVNET_GENESIS_HASH, programId)
+    const at = (seconds: number) => vi.setSystemTime(seconds * 1000)
+    try {
+      // The guard knows nothing of an output it was not told about.
+      at(output.caveats.expiry + GRACE + 1)
+      await expect(keys.signReclaim(output, output.caveats.expiry + GRACE + 100)).rejects.toThrow(
+        expect.objectContaining({ code: 'ERR_UNKNOWN_OUTPUT' }),
+      )
+      await keys.recordOutput(output)
+      // Not while its payee can still settle it.
+      at(output.caveats.expiry + GRACE)
+      await expect(keys.signReclaim(output, output.caveats.expiry + GRACE + 100)).rejects.toThrow(
+        expect.objectContaining({ code: 'ERR_RECLAIM_TOO_EARLY' }),
+      )
+      at(output.caveats.expiry + GRACE + 1)
+      const deadline = output.caveats.expiry + GRACE + 3_600
+      const signature = await keys.signReclaim(output, deadline)
+      expect(() =>
+        verifySignature(publicKey, reclaimEnvelope(reclaimDomain, output.id, deadline), signature),
+      ).not.toThrow()
+      expect(() =>
+        verifySignature(publicKey, reclaimEnvelope(reclaimDomain, output.id, deadline + 1), signature),
+      ).toThrow()
+      // A deadline more than a day ahead or already past is not signed.
+      for (const bad of [output.caveats.expiry + GRACE + 1 + 86_401, output.caveats.expiry + GRACE]) {
+        await expect(keys.signReclaim(output, bad)).rejects.toThrow(
+          expect.objectContaining({ code: 'ERR_INVALID_DEADLINE' }),
+        )
+      }
+      // Even for an output it signed a spend of: a transfer that tore is the case it is for.
+      at(output.caveats.expiry - 100)
+      await keys.signSpend(output, settle(output))
+      at(output.caveats.expiry + GRACE + 1)
+      await expect(keys.signReclaim(output, deadline)).resolves.toBeInstanceOf(Uint8Array)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('records and reclaims only outputs it owns', async () => {
+    const { publicKey } = await keys.createDeviceKey()
+    const other: Owner = { type: 'device', key: p256.getPublicKey(new Uint8Array(32).fill(8)) }
+    const theirs = issuedOutput(issueOf(publicKey, other, 0n, 10n))
+    const record = vi.spyOn(HardwareKeys, 'recordOutput')
+    const reclaim = vi.spyOn(HardwareKeys, 'signReclaim')
+    await expect(keys.recordOutput(theirs)).rejects.toThrow(code('Owner'))
+    await expect(keys.signReclaim(theirs, 1)).rejects.toThrow(code('Owner'))
+    await expect(keys.signReclaim({ ...theirs, owner: merchant }, 1)).rejects.toThrow(code('Owner'))
+    expect(record).not.toHaveBeenCalled()
+    expect(reclaim).not.toHaveBeenCalled()
+  })
+
+  it('refuses a native reclaim signature over another message', async () => {
+    const { publicKey } = await keys.createDeviceKey()
+    const output = issuedOutput(issueOf(publicKey, { type: 'device', key: publicKey }, 0n, 10n))
+    await keys.recordOutput(output)
+    vi.setSystemTime((output.caveats.expiry + GRACE + 1) * 1000)
+    try {
+      const deadline = output.caveats.expiry + GRACE + 100
+      vi.spyOn(HardwareKeys, 'signReclaim').mockImplementationOnce(() => HardwareKeys.signNote(output.id, output.id))
+      await expect(keys.signReclaim(output, deadline)).rejects.toThrow(code('Signature'))
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('records the cluster it signs for', () => {

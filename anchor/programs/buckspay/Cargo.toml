@@ -32,6 +32,7 @@ solana-sdk-ids = "3.1.0"
 [dev-dependencies]
 anchor-spl = { version = "=1.2.0", default-features = false, features = ["token", "token_2022", "token_2022_extensions"] }
 base64 = "0.22"
+buckspay-protocol = { path = "../../crates/protocol", features = ["verify"] }
 proptest = "1"
 litesvm = { version = "0.17.0", features = ["precompiles"] }
 p256 = { version = "0.14.0", default-features = false, features = ["ecdsa", "pkcs8"] }

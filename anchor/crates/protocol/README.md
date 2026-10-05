@@ -50,15 +50,16 @@ An issue's `hops_left` is at most 16, and an issue always names a lock: `lock_se
 | `0x21` | IssueConflict  |                                                                                                                                        | `ver ‖ kind ‖ (lock_seq:u32 ‖ start:u64 ‖ end:u64 ‖ content[32] ‖ sig) × 2 ‖ recovery` (235) |
 | `0x50` | DeviceBinding  | `ver ‖ kind ‖ wallet[32] ‖ key[33]` (67), signed under `DOMAIN(device)` with `SLOT` = wallet                                           | none: the signature travels in a secp256r1 verification instruction                          |
 | `0x51` | DeviceRotation | `ver ‖ kind ‖ old_wallet[32] ‖ new_wallet[32] ‖ key[33] ‖ rotations:u32` (103), signed under `DOMAIN(device)` with `SLOT` = old wallet | none: the signature travels in a secp256r1 verification instruction                          |
+| `0x60` | Reclaim        | `ver ‖ kind ‖ deadline:u32` (6), signed under `DOMAIN(reclaim)` with `SLOT` = the output being reclaimed                               | none: the signature travels in a secp256r1 verification instruction                          |
 
 `recovery = recid_a | recid_b << 2`: the signer's key is recovered from both signatures, which must agree.
 
-Reserved kinds: `0x01–0x0F` notes, `0x10–0x1F` tickets, `0x20–0x2F` conflicts, `0x30` IOU, `0x40` PayWord, `0x50` device binding, `0x51` device rotation.
+Reserved kinds: `0x01–0x0F` notes, `0x10–0x1F` tickets, `0x20–0x2F` conflicts, `0x30` IOU, `0x40` PayWord, `0x50` device binding, `0x51` device rotation, `0x60` reclaim.
 
 ## Spends
 
 - `Spend1` pays the whole input to `owner`. `Spend2` pays `amount0` (`0 < amount0 < input`) to `owner0` and returns `input − amount0` to the spender: `owner1` must be the input's owner, and the change keeps the input's caveats with one hop less. `Spend2` needs an input with at least two hops left, so change can always move again.
-- Output 0 (the child) is valid only if, against the consumed output (the parent): `child.expiry ≤ parent.expiry`; `parent.hops_left ≥ 1` and `child.hops_left ≤ parent.hops_left − 1`; `child.flags ∩ STICKY = parent.flags ∩ STICKY` (`STICKY = AUTHORITY_ONLY`, so only the issuer sets it); a parent scope of `any` permits any child scope, otherwise the child's scope kind and bytes are equal.
+- Output 0 (the child) is valid only if, against the consumed output (the parent): `child.expiry ≤ parent.expiry`, and, when the child belongs to a device, `child.expiry + EXPIRY_STEP ≤ parent.expiry` (one hour; five seconds in the short profile), so the payee's reclaim of what it was paid opens before the spender's reclaim of the output it paid with; `parent.hops_left ≥ 1` and `child.hops_left ≤ parent.hops_left − 1`; `child.flags ∩ STICKY = parent.flags ∩ STICKY` (`STICKY = AUTHORITY_ONLY`, so only the issuer sets it); a parent scope of `any` permits any child scope, otherwise the child's scope kind and bytes are equal.
 - A merchant or authority scope admits only an `owner0` whose `scope_hash` equals the scope. Once the holder is the merchant, the merchant scope no longer binds its spends: it may pay anyone, including its own account, with any caveats the rules above otherwise permit. An authority scope is never lifted: the authority is a terminal account, whose outputs are never spent. A category scope needs the category registry and is not checked offline.
 - `lock_seq` names the spender's bond lock. `0xFFFFFFFF` (no lock) is allowed only when the consumed output is `DELEGATED` or carries `AUTHORITY_ONLY`, or when the spend is a `Spend1` to a terminal account (a settlement, so a holder without a bond can always settle what it accepted), and output 0 of such a spend is never `DELEGATED`. A spend without a lock of a delegated output is backed by the lock of the nearest earlier spend that names one, or by the issuer's lock when none does; one of an `AUTHORITY_ONLY` note is backed by the issuer's lock. A settlement without a lock of any other output is backed by no lock, so no receiver accepts it offline.
 - `salt` is random per spend, so a `CONTENT` cannot be matched against guessed bodies.
@@ -79,6 +80,16 @@ A chain whose last output 0 is a terminal account is settled on chain with the s
 A holder checks its own spend before signing it with `check_spend_step`: the rules of one hop, and a consumed output that can still move, as a payment until its expiry and as a settlement until `expiry + GRACE`.
 
 `expiry` is the last time an output can be accepted offline. Its payee can settle it until `expiry + GRACE`, and conflicts are accepted until `expiry + GRACE + CHALLENGE`. `GRACE` and `CHALLENGE` are 7 days each. The `short-windows` feature shortens them, and every window of the lock lifecycle (`lock`), to a minute for a separate build of the program with its own program id (`profile`); no real user's lock lives in it.
+
+## Records and reclaiming
+
+A settlement records every output it consumes in a program-derived account at `["spent", output_id, 255]`. The bump is fixed, so deriving the address costs one `create_program_address` whatever the id, and an output whose address lies on the Ed25519 curve (about half of all ids) cannot be recorded: the signer of a message changes its `salt` until every output it creates, and the input it spends, can be, and every receiver, the gateway and the program refuse a chain that has one (`Unrecordable`). `record::address` computes it; `check_spend_step` and `check_issue_step` are what a signer calls before it signs, and receivers pass the program id in `Receiver.program`.
+
+`window` holds the time rules of one output as pure functions of its expiry `E` and the lock's end `L`: a spend of it settles while `now ≤ E + GRACE` and `now < L`; its owner may reclaim it while `now > E + GRACE`, `now < L` and `now < min(E + GRACE, L) + RECORD_TTL`; its record may be closed from the latter instant on.
+
+A reclaim is `ver ‖ kind ‖ deadline:u32`, signed by the key that owns the output under `DOMAIN(reclaim)`: the deadline is the last second the signature may be used, and the payout goes to the wallet bound to the key. The record a reclaim leaves holds `reclaim::record_content()`.
+
+`secp256r1` is the canonical layout of one precompile instruction that carries every signature, key and message inline (`[count][0][offsets × count][key ‖ signature ‖ message] × count`, at most 8 signatures); the program accepts no other layout.
 
 ## Fraud
 

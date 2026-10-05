@@ -22,7 +22,22 @@ export const BuckspayErrorCode = {
   RotationBinding: 6019,
   RotationNotReady: 6020,
   SameWallet: 6021,
-  NotMigratable: 6022
+  NotMigratable: 6022,
+  ChainVerification: 6023,
+  ChainInvalid: 6024,
+  WrongLock: 6025,
+  TooManySpends: 6026,
+  SettlementClosed: 6027,
+  LockEnded: 6028,
+  WrongPayee: 6029,
+  ConflictingSpend: 6030,
+  AlreadySettled: 6031,
+  ReclaimTooEarly: 6032,
+  RecordAccounts: 6033,
+  RecordNotClosable: 6034,
+  ReclaimClosed: 6035,
+  ReclaimExpired: 6036,
+  UnrecordableOutput: 6037
 };
 
 export type BuckspayErrorName = keyof typeof BuckspayErrorCode;

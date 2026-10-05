@@ -1,0 +1,21 @@
+[package]
+name = "cpi-forwarder"
+version = "0.1.0"
+edition = "2021"
+description = "Test program: forwards its instruction data to another program by CPI, with every account it was given"
+publish = false
+
+[features]
+custom-heap = []
+custom-panic = []
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+solana-program = "3"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
+
+[workspace]

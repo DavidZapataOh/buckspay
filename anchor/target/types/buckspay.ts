@@ -188,6 +188,24 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "closeSpent",
+      "docs": [
+        "Closes the records whose retention has passed and returns their rent to whoever paid it."
+      ],
+      "discriminator": [
+        120,
+        136,
+        252,
+        212,
+        124,
+        146,
+        228,
+        199
+      ],
+      "accounts": [],
+      "args": []
+    },
+    {
       "name": "createLock",
       "discriminator": [
         171,
@@ -338,6 +356,200 @@ export type Buckspay = {
               "u8",
               33
             ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "reclaimOutput",
+      "docs": [
+        "Takes back an output nobody settled in time, for the wallet its owner's key is bound to."
+      ],
+      "discriminator": [
+        240,
+        8,
+        244,
+        193,
+        42,
+        67,
+        75,
+        140
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "device"
+        },
+        {
+          "name": "lock"
+        },
+        {
+          "name": "ledger",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lock"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lock"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "destination",
+          "docs": [
+            "Owned by the wallet the owner's key is bound to: a reclaim cannot send funds anywhere the",
+            "wallet did not already control."
+          ],
+          "writable": true
+        },
+        {
+          "name": "instructions",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "owner",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        },
+        {
+          "name": "issue",
+          "type": {
+            "array": [
+              "u8",
+              163
+            ]
+          }
+        },
+        {
+          "name": "spends",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "link"
+              }
+            }
+          }
+        },
+        {
+          "name": "which",
+          "type": "u8"
+        },
+        {
+          "name": "deadline",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "recordPrefix",
+      "docs": [
+        "Records the consumed outputs of a chain without paying, so a later settlement of the chain",
+        "needs the signature of its last message only."
+      ],
+      "discriminator": [
+        35,
+        56,
+        0,
+        37,
+        93,
+        11,
+        86,
+        45
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Pays the rent of the records."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "lock"
+        },
+        {
+          "name": "instructions",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "issue",
+          "type": {
+            "array": [
+              "u8",
+              163
+            ]
+          }
+        },
+        {
+          "name": "spends",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "link"
+              }
+            }
           }
         }
       ]
@@ -542,6 +754,124 @@ export type Buckspay = {
               "u8",
               33
             ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "settleNote",
+      "docs": [
+        "Settles the chain `issue` plus `spends` in clear: pays the account its last spend names."
+      ],
+      "discriminator": [
+        21,
+        43,
+        198,
+        188,
+        252,
+        22,
+        228,
+        86
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Pays the rent of the records; the fee payer in the usual case."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "lock"
+        },
+        {
+          "name": "ledger",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lock"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lock"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "destination",
+          "docs": [
+            "Any token account of the mint; the handler requires its owner to be the account the note",
+            "pays. The escrow is refused by the runtime's duplicate-account check as well."
+          ],
+          "writable": true
+        },
+        {
+          "name": "instructions",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "issue",
+          "type": {
+            "array": [
+              "u8",
+              163
+            ]
+          }
+        },
+        {
+          "name": "spends",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "link"
+              }
+            }
           }
         }
       ]
@@ -822,6 +1152,81 @@ export type Buckspay = {
       "code": 6022,
       "name": "notMigratable",
       "msg": "The account is not a device account to migrate"
+    },
+    {
+      "code": 6023,
+      "name": "chainVerification",
+      "msg": "The transaction does not carry the secp256r1 verification of exactly this chain"
+    },
+    {
+      "code": 6024,
+      "name": "chainInvalid",
+      "msg": "The messages are not a valid chain"
+    },
+    {
+      "code": 6025,
+      "name": "wrongLock",
+      "msg": "The issue does not match the lock it names"
+    },
+    {
+      "code": 6026,
+      "name": "tooManySpends",
+      "msg": "Too many spends for one instruction"
+    },
+    {
+      "code": 6027,
+      "name": "settlementClosed",
+      "msg": "The settlement window of the output has closed"
+    },
+    {
+      "code": 6028,
+      "name": "lockEnded",
+      "msg": "The lock has ended"
+    },
+    {
+      "code": 6029,
+      "name": "wrongPayee",
+      "msg": "The destination does not belong to the account the note pays"
+    },
+    {
+      "code": 6030,
+      "name": "conflictingSpend",
+      "msg": "The output was already consumed by another message"
+    },
+    {
+      "code": 6031,
+      "name": "alreadySettled",
+      "msg": "This message was already paid"
+    },
+    {
+      "code": 6032,
+      "name": "reclaimTooEarly",
+      "msg": "The output cannot be reclaimed yet"
+    },
+    {
+      "code": 6033,
+      "name": "recordAccounts",
+      "msg": "Wrong number or address of record accounts"
+    },
+    {
+      "code": 6034,
+      "name": "recordNotClosable",
+      "msg": "The record cannot be closed yet"
+    },
+    {
+      "code": 6035,
+      "name": "reclaimClosed",
+      "msg": "The reclaim window of the output has closed"
+    },
+    {
+      "code": 6036,
+      "name": "reclaimExpired",
+      "msg": "The reclaim signature is past its deadline"
+    },
+    {
+      "code": 6037,
+      "name": "unrecordableOutput",
+      "msg": "An output of the chain has no record address"
     }
   ],
   "types": [
@@ -966,6 +1371,26 @@ export type Buckspay = {
       }
     },
     {
+      "name": "link",
+      "docs": [
+        "One spend of the chain: which output of the previous message it consumes (0 is the payment,",
+        "1 the change) and its body. Its signature and slot travel in the precompile instruction."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "input",
+            "type": "u8"
+          },
+          {
+            "name": "body",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
       "name": "lock",
       "docs": [
         "The immutable record of a bond lock. It is written once by `create_lock` and read by everything",
@@ -992,6 +1417,14 @@ export type Buckspay = {
           },
           {
             "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "escrowBump",
+            "docs": [
+              "The canonical bump of the lock's escrow, so settlements derive it without searching: the",
+              "issuer's key chooses the lock's address and with it the cost of that search."
+            ],
             "type": "u8"
           }
         ]

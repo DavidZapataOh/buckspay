@@ -9,6 +9,7 @@ use buckspay_protocol::{
     flags, BondTicket, Caveats, Issue, IssueClaim, IssueConflict, Outputs, Owner, ProtocolError,
     ScopeKind, Signed, Spend, SpendConflict, CHALLENGE, GRACE, NO_LOCK,
 };
+use buckspay_protocol::{lock::EXPIRY_STEP, record};
 use ed25519_dalek::Signer as _;
 use p256::ecdsa::{signature::Signer, Signature, SigningKey};
 
@@ -40,9 +41,16 @@ fn sign(signing: &SigningKey, message: &[u8]) -> [u8; 64] {
     signature.normalize_s().to_bytes().into()
 }
 
+/// A note is issued with four hops: the payment after each hop expires `EXPIRY_STEP` before the
+/// output it spends, as the chain rules require for payments to devices.
 fn caveats(hops_left: u8, flags: u8, expiry: u32) -> Caveats {
+    let steps = if expiry == EXPIRY {
+        4u32.saturating_sub(u32::from(hops_left))
+    } else {
+        0
+    };
     Caveats {
-        expiry,
+        expiry: expiry - steps * EXPIRY_STEP,
         hops_left,
         flags,
         scope_kind: ScopeKind::Any,
@@ -82,39 +90,59 @@ fn issue_on(
 ) -> Signed<Issue> {
     let mut issuer_key = [0; 33];
     issuer_key.copy_from_slice(issuer.verifying_key().to_sec1_point(true).as_bytes());
-    let message = Issue {
-        issuer: issuer_key,
-        mint,
-        lock_seq: 0,
-        cum_end: amount,
-        salt: [4; 16],
-        owner,
-        amount,
-        caveats,
-    };
-    let env = envelope(
-        &note_domain(),
-        &message.slot().unwrap(),
-        &content(&message.body()),
-    );
-    Signed {
-        message,
-        signature: sign(issuer, &env),
-    }
+    // The issuer changes the salt until the issue's output is recordable.
+    (0u8..)
+        .map(|salt| {
+            let message = Issue {
+                issuer: issuer_key,
+                mint,
+                lock_seq: 0,
+                cum_end: amount,
+                salt: [salt; 16],
+                owner,
+                amount,
+                caveats,
+            };
+            let env = envelope(
+                &note_domain(),
+                &message.slot().unwrap(),
+                &content(&message.body()),
+            );
+            Signed {
+                message,
+                signature: sign(issuer, &env),
+            }
+        })
+        .find(|issue| recordable(&issued_id(issue)))
+        .unwrap()
 }
 
+fn recordable(id: &[u8; 32]) -> bool {
+    record::address(&PROGRAM, id).is_some()
+}
+
+/// The signer changes the salt until every output of the spend is recordable, whoever owns it:
+/// the attack tests spend those outputs again.
 fn spend(holder: &SigningKey, input: &[u8; 32], lock_seq: u32, outputs: Outputs) -> Signed<Spend> {
-    let message = Spend {
-        input: *input,
-        lock_seq,
-        salt: [0x77; 16],
-        outputs,
-    };
-    let env = envelope(&note_domain(), input, &message.content());
-    Signed {
-        message,
-        signature: sign(holder, &env),
-    }
+    (0u8..)
+        .map(|n| {
+            let message = Spend {
+                input: *input,
+                lock_seq,
+                salt: [0x77u8.wrapping_add(n); 16],
+                outputs,
+            };
+            let env = envelope(&note_domain(), input, &message.content());
+            Signed {
+                message,
+                signature: sign(holder, &env),
+            }
+        })
+        .find(|spend| {
+            let two = matches!(spend.message.outputs, Outputs::Two { .. });
+            recordable(&spent_id(spend, 0)) && (!two || recordable(&spent_id(spend, 1)))
+        })
+        .unwrap()
 }
 
 fn attester() -> ed25519_dalek::SigningKey {
@@ -152,6 +180,7 @@ fn attesters() -> [Attester; 1] {
 fn receiver<'a>(attesters: &'a [Attester], me: &Owner) -> Receiver<'a> {
     Receiver {
         note_domain: note_domain(),
+        program: PROGRAM,
         ticket_domain: ticket_domain(),
         attesters,
         me: *me,
@@ -243,6 +272,7 @@ fn authority_only_note_cannot_reach_anyone_but_the_authority() {
     let first = issued_id(&issued);
     let child = Caveats {
         hops_left: 3,
+        expiry: EXPIRY - EXPIRY_STEP,
         ..redeemable
     };
     let to_carol = spend(
@@ -626,6 +656,7 @@ fn scoped_note_settles_once_it_reaches_its_party() {
             owner: merchant_key,
             caveats: Caveats {
                 hops_left: 3,
+                expiry: EXPIRY - EXPIRY_STEP,
                 ..scope
             },
         },
@@ -646,11 +677,11 @@ fn scoped_note_settles_once_it_reaches_its_party() {
         ticket(&merchant_key, USDC, 100),
     ];
     assert_eq!(pay(&merchant_account, &issued, &chain, &tickets), Ok(100));
-    let settled = verify_settlement(&note_domain(), &issued, &chain).unwrap();
+    let settled = verify_settlement(&note_domain(), &PROGRAM, &issued, &chain).unwrap();
     assert_eq!(settled.output.owner, merchant_account);
     assert_eq!(settled.output.amount, 100);
     assert_eq!(
-        verify_settlement(&note_domain(), &issued, &chain[..1]),
+        verify_settlement(&note_domain(), &PROGRAM, &issued, &chain[..1]),
         Err(ProtocolError::Payee)
     );
 }
@@ -679,7 +710,7 @@ fn authority_is_paid_in_a_terminal_output() {
     );
     let tickets = [ticket(&issuer_key, USDC, 100)];
     assert_eq!(pay(&ORGANISER, &issued, &[redeemed], &tickets), Ok(100));
-    let settled = verify_settlement(&note_domain(), &issued, &[redeemed]).unwrap();
+    let settled = verify_settlement(&note_domain(), &PROGRAM, &issued, &[redeemed]).unwrap();
     assert_eq!(settled.output.owner, ORGANISER);
 }
 
@@ -1016,6 +1047,7 @@ fn a_closed_circuit_attendee_accepts_only_trusted_authorities() {
                 owner,
                 caveats: Caveats {
                     hops_left: 3,
+                    expiry: EXPIRY - EXPIRY_STEP,
                     ..closed
                 },
             },
@@ -1104,7 +1136,7 @@ fn settlement_ignores_time() {
     let (issuer, _) = key(1);
     let expired = issue(&issuer, ORGANISER, 100, caveats(0, 0, 1_000));
     // The program, not the chain rules, bounds settlement by `expiry + GRACE`.
-    let settled = verify_settlement(&note_domain(), &expired, &[]).unwrap();
+    let settled = verify_settlement(&note_domain(), &PROGRAM, &expired, &[]).unwrap();
     assert_eq!(settled.output.amount, 100);
 }
 
@@ -1159,7 +1191,7 @@ fn an_unbonded_receiver_settles_what_it_accepted() {
             caveats: caveats(2, 0, EXPIRY),
         }),
     ];
-    let settled = verify_settlement(&note_domain(), &issued, &chain).unwrap();
+    let settled = verify_settlement(&note_domain(), &PROGRAM, &issued, &chain).unwrap();
     assert_eq!(settled.output.owner, bob_account);
     assert_eq!(settled.output.amount, 100);
     assert_eq!(
@@ -1173,7 +1205,7 @@ fn an_unbonded_receiver_settles_what_it_accepted() {
         owner1: bob_key,
     });
     assert_eq!(
-        verify_settlement(&note_domain(), &issued, &[to_bob, split]),
+        verify_settlement(&note_domain(), &PROGRAM, &issued, &[to_bob, split]),
         Err(ProtocolError::Lock)
     );
 }

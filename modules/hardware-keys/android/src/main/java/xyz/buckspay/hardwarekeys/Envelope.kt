@@ -1,6 +1,8 @@
 package xyz.buckspay.hardwarekeys
 
 import expo.modules.kotlin.exception.CodedException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicReference
 
@@ -16,6 +18,8 @@ internal object Envelope {
   private val TAG = "BUCKSPAY:v1:".toByteArray(Charsets.US_ASCII)
   private const val VERSION: Byte = 1
   private const val DEVICE_BINDING: Byte = 0x50
+  private const val RECLAIM: Byte = 0x60
+  private const val UINT_MAX = 0xffff_ffffL
   private val SPKI_P256_PREFIX = hex("3059301306072a8648ce3d020106082a8648ce3d030107034200")
 
   /** Genesis hashes of the clusters the app signs for, pinned here and never read from a node. */
@@ -65,6 +69,27 @@ internal object Envelope {
     return build(deviceDomain, wallet, MessageDigest.getInstance("SHA-256").digest(body))
   }
 
+  /**
+   * `DOMAIN(reclaim) ‖ output ‖ SHA-256(ver ‖ 0x60 ‖ deadline:u32 LE)`: the owner of `output` takes it
+   * back, with a signature that may be used until `deadline`. The message names no destination.
+   */
+  fun reclaim(
+    reclaimDomain: ByteArray,
+    output: ByteArray,
+    deadline: Long,
+  ): ByteArray {
+    require(output.size == 32) { "an output id is 32 bytes" }
+    require(deadline in 0..UINT_MAX) { "a deadline is a u32" }
+    val body =
+      ByteBuffer
+        .allocate(6)
+        .order(ByteOrder.LITTLE_ENDIAN)
+        .put(VERSION)
+        .put(RECLAIM)
+        .putInt(deadline.toInt())
+    return build(reclaimDomain, output, MessageDigest.getInstance("SHA-256").digest(body.array()))
+  }
+
   /** The SEC1 compressed point of a P-256 X.509 public key in the encoding Keystore returns. */
   fun compressed(spki: ByteArray): ByteArray {
     require(spki.size == 91 && spki.copyOf(SPKI_P256_PREFIX.size).contentEquals(SPKI_P256_PREFIX)) { "not a P-256 X.509 key" }
@@ -89,6 +114,7 @@ internal class Configuration {
   private class Target(
     val cluster: String,
     val programId: ByteArray,
+    val grace: Long,
     val domains: Domains,
   )
 
@@ -96,15 +122,21 @@ internal class Configuration {
 
   val domains: Domains? get() = target.get()?.domains
 
+  /** The seconds after an output's expiry during which its payee can still settle it. */
+  val grace: Long? get() = target.get()?.grace
+
   /** Sets the target; repeating the same one is a no-op, and any other one is refused. */
   fun configure(
     cluster: String,
     programId: ByteArray,
+    grace: Long,
   ) {
     val genesisHash = Envelope.GENESIS_HASHES[cluster] ?: throw UnknownClusterException()
-    val next = Target(cluster, programId.copyOf(), Domains(genesisHash, programId))
+    val next = Target(cluster, programId.copyOf(), grace, Domains(genesisHash, programId))
     if (target.compareAndSet(null, next)) return
     val current = checkNotNull(target.get())
-    if (current.cluster != cluster || !current.programId.contentEquals(programId)) throw AlreadyConfiguredException()
+    if (current.cluster != cluster || !current.programId.contentEquals(programId) || current.grace != grace) {
+      throw AlreadyConfiguredException()
+    }
   }
 }

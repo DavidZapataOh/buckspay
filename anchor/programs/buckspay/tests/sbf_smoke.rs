@@ -74,3 +74,73 @@ fn every_instruction_runs_on_the_built_binary() {
         assert_eq!(env.device(&legacy.key.sec1()).next_lock_seq, 0);
     }
 }
+
+/// Runs `settle_note`, `record_prefix`, `reclaim_output` and `close_spent` on the real SBF binary.
+#[test]
+fn every_settlement_instruction_runs_on_the_built_binary() {
+    use buckspay_protocol::{GRACE, NO_LOCK};
+
+    let mut env = Env::new(TokenKind::Classic);
+    let issuer = env.issuer(1, 100_000_000, 1_000_000_000, 60);
+    let holder = env.issuer(2, 1_000_000, 10_000_000, 60);
+    let second = env.issuer(3, 1_000_000, 10_000_000, 60);
+    let payee = Pubkey::new_unique();
+    let destination = env.token_account_of(&payee, 0);
+    let payer = env.payer.pubkey();
+    let expiry = expiry_of(&env, 10);
+    let mint = env.mint;
+    let issue = |start| {
+        Chain::issue(
+            &issuer.key,
+            &mint,
+            0,
+            start,
+            50_000_000,
+            holder.key.owner(),
+            caveats(expiry, 6),
+        )
+    };
+
+    let handed = issue(0).spend2(&holder.key, 0, second.key.owner(), 10_000_000, 0, 1);
+    let chain = handed.spend1_to_account(&second.key, 0, &payee, NO_LOCK, 2);
+    env.submit(&record_prefix_ixs(&payer, &issuer, &chain.prefix(1), 0))
+        .unwrap(); // record_prefix
+    env.submit(&settle_ixs_resumed(
+        &env,
+        &payer,
+        &issuer,
+        &chain,
+        &destination,
+        2,
+    ))
+    .unwrap(); // settle_note
+    assert_eq!(env.balance(&destination), 10_000_000);
+
+    let unsettled = issue(50_000_000);
+    env.warp(i64::from(expiry) + i64::from(GRACE) + 1);
+    env.submit(&reclaim_ixs(
+        &env,
+        &payer,
+        &issuer,
+        &unsettled,
+        0,
+        &holder.key,
+        &holder.wallet_token,
+    ))
+    .unwrap(); // reclaim_output
+    assert_eq!(env.balance(&holder.wallet_token), 50_000_000);
+
+    let record = spent_address(&consumed_outputs(&chain)[0]);
+    let closable = buckspay_protocol::window::closable_at(expiry, issuer.lock_until);
+    env.warp(closable as i64);
+    let close = Instruction {
+        program_id: buckspay::ID,
+        accounts: vec![
+            anchor_lang::solana_program::instruction::AccountMeta::new(record, false),
+            anchor_lang::solana_program::instruction::AccountMeta::new(payer, false),
+        ],
+        data: anchor_lang::InstructionData::data(&buckspay::instruction::CloseSpent {}),
+    };
+    env.submit(&[close]).unwrap(); // close_spent
+    assert!(env.svm.get_account(&record).is_none());
+}

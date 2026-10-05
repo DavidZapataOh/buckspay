@@ -19,8 +19,8 @@ class HardwareKeysModule : Module() {
 
       Function("isStrongBoxAvailable") { deviceKey().isStrongBoxAvailable() }
 
-      Function("configure") { cluster: String, programId: ByteArray ->
-        configuration.configure(cluster, programId)
+      Function("configure") { cluster: String, programId: ByteArray, grace: Long ->
+        configuration.configure(cluster, programId, grace)
       }
 
       AsyncFunction("createKey") Coroutine { challenge: ByteArray ->
@@ -38,6 +38,17 @@ class HardwareKeysModule : Module() {
       AsyncFunction("sign") Coroutine { purpose: String, slot: ByteArray, content: ByteArray ->
         val domains = configuration.domains ?: throw NotConfiguredException()
         withContext(keystore) { deviceKey().sign(domains, purpose, slot, content) }
+      }
+
+      AsyncFunction("recordOutput") Coroutine { output: ByteArray, expiry: Long ->
+        val domains = configuration.domains ?: throw NotConfiguredException()
+        withContext(keystore) { deviceKey().recordOutput(domains, output, expiry) }
+      }
+
+      AsyncFunction("signReclaim") Coroutine { output: ByteArray, deadline: Long ->
+        val domains = configuration.domains ?: throw NotConfiguredException()
+        val grace = configuration.grace ?: throw NotConfiguredException()
+        withContext(keystore) { deviceKey().signReclaim(domains, output, deadline, grace, System.currentTimeMillis() / 1000) }
       }
 
       AsyncFunction("signDeviceBinding") Coroutine { wallet: ByteArray ->

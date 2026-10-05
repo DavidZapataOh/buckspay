@@ -1,9 +1,11 @@
 import { p256 } from '@noble/curves/nist.js'
+import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { describe, expect, it } from 'vitest'
 import vectors from '../../anchor/crates/protocol/tests/vectors/v1.json'
 import {
   type Caveats,
+  checkIssueStep,
   checkSpendStep,
   content,
   decodeBondTicket,
@@ -23,8 +25,10 @@ import {
   encodeIssueConflict,
   encodeOwner,
   encodeSpend,
+  encodeSpendBody,
   encodeSpendConflict,
   envelope,
+  EXPIRY_STEP,
   GRACE,
   Kind,
   MAINNET_GENESIS_HASH,
@@ -34,7 +38,13 @@ import {
   type Outputs,
   outputId,
   Purpose,
+  reclaimBody,
+  reclaimEnvelope,
+  recordAddress,
+  recordContent,
+  RECORD_BUMP,
   ScopeKind,
+  writeVerification,
   type Issue,
   type Received,
   type Receiver,
@@ -50,9 +60,11 @@ import {
   verifySettlement,
   verifySignature,
   verifySpendConflict,
+  walkChain,
 } from '.'
 
 const NOTE_DOMAIN = hexToBytes(vectors.domain.note)
+const PROGRAM = hexToBytes(vectors.record_addresses.program_id)
 const decodeSpends = (spends: string[]) => spends.map((spend) => decodeSpend(hexToBytes(spend)))
 const decodeTickets = (tickets: string[]) => tickets.map((ticket) => decodeBondTicket(hexToBytes(ticket)))
 const expectSettled = (settled: Settled, result: NonNullable<(typeof vectors.settlements)[number]['result']>) => {
@@ -81,6 +93,7 @@ type ReceiverVector = {
 }
 const receiver = (vector: ReceiverVector): Receiver => ({
   noteDomain: NOTE_DOMAIN,
+  program: PROGRAM,
   ticketDomain: hexToBytes(vectors.domain.ticket),
   attesters: vectors.attesters.map(({ id, public: key }) => ({ id, key: hexToBytes(key) })),
   me: decodeOwner(hexToBytes(vector.me)),
@@ -260,7 +273,7 @@ describe('settlements', () => {
     const { result, error } = vector
     it(`${vector.name} ${result ? 'settles like in Rust' : `fails with ${error}`}`, () => {
       const settle = () =>
-        verifySettlement(NOTE_DOMAIN, decodeIssue(hexToBytes(vector.issue)), decodeSpends(vector.spends))
+        verifySettlement(NOTE_DOMAIN, PROGRAM, decodeIssue(hexToBytes(vector.issue)), decodeSpends(vector.spends))
       if (result) {
         expectSettled(settle(), result)
       } else {
@@ -268,6 +281,43 @@ describe('settlements', () => {
       }
     })
   }
+})
+
+describe('walking a chain', () => {
+  const vector = vectors.settlements.find((settlement) => settlement.name === 'unbonded_receiver_settles')!
+  const issue = decodeIssue(hexToBytes(vector.issue))
+  const spends = decodeSpends(vector.spends)
+
+  it('lays out the messages, the links and the consumed outputs the way the program reads them', () => {
+    const walk = walkChain(NOTE_DOMAIN, issue, spends)
+    const [issued, toBob] = vectors.messages
+    expect(walk.entries.map(({ envelope }) => bytesToHex(envelope)).slice(0, 2)).toEqual([
+      issued.envelope,
+      toBob.envelope,
+    ])
+    expect(bytesToHex(walk.entries[0].key)).toBe(bytesToHex(issue.message.issuer))
+    expect(walk.entries.map(({ signature }) => bytesToHex(signature))).toEqual([
+      bytesToHex(issue.signature),
+      ...spends.map(({ signature }) => bytesToHex(signature)),
+    ])
+    expect(walk.links.map(({ input }) => input)).toEqual([0, 0])
+    expect(walk.consumed.map(({ output }) => bytesToHex(output))).toEqual([issued.output_ids[0], toBob.output_ids[0]])
+    expect(walk.consumed.map(({ content: spent }) => bytesToHex(spent))).toEqual(
+      walk.links.map(({ body }) => bytesToHex(content(body))),
+    )
+    expect(walk.links.map(({ body }) => bytesToHex(body))).toEqual(
+      spends.map((spend) => bytesToHex(encodeSpend(spend).subarray(32, -64))),
+    )
+    expect(bytesToHex(walk.last[0].id)).toBe(vector.result!.output_id)
+  })
+
+  it('takes the change of a message as the next input, and refuses an input nothing created', () => {
+    const [toBob, toCarol] = decodeSpends(vectors.payments[1].spends)
+    const change = walkChain(NOTE_DOMAIN, decodeIssue(hexToBytes(vectors.payments[1].issue)), [toBob, toCarol])
+    expect(change.links.map(({ input }) => input)).toEqual([0, 1])
+    const stray = { ...toBob, message: { ...toBob.message, input: new Uint8Array(32) } }
+    expect(() => walkChain(NOTE_DOMAIN, issue, [stray])).toThrow(expect.objectContaining({ code: 'Linkage' }))
+  })
 })
 
 describe('conflicts', () => {
@@ -360,43 +410,131 @@ describe('device rotations', () => {
   })
 })
 
-describe('spend steps', () => {
-  it('checks a spend against its input before it is signed, like Rust', () => {
-    const NOW = 1_800_000_000
-    const EXPIRY = 1_900_000_000
-    const [alice, bob] = [2, 3].map((secret) => ({
-      type: 'device' as const,
-      key: p256.getPublicKey(new Uint8Array(32).fill(secret)),
-    }))
-    const account = { type: 'account' as const, address: new Uint8Array(32).fill(0xb5) }
-    const caveats = (hopsLeft: number): Caveats => ({
-      expiry: EXPIRY,
-      hopsLeft,
-      flags: 0,
-      scopeKind: ScopeKind.Any,
-      scope: new Uint8Array(20),
-    })
-    const input: Output = { id: new Uint8Array(32).fill(7), owner: alice, amount: 20_000n, caveats: caveats(4) }
-    const spend = (lockSeq: number, outputs: Outputs): Spend => ({
-      input: input.id,
-      lockSeq,
-      salt: new Uint8Array(16).fill(6),
-      outputs,
-    })
-    const pay = (hopsLeft: number): Outputs => ({ type: 'one', owner: bob, caveats: caveats(hopsLeft) })
-    const split = (amount0: bigint, owner1: typeof alice): Outputs => ({
-      type: 'two',
-      owner0: bob,
-      amount0,
-      caveats0: caveats(3),
-      owner1,
-    })
-    const settle = spend(NO_LOCK, { type: 'one', owner: account, caveats: caveats(3) })
-    const check = (step: Spend, now: number, from = input) => {
-      return () => checkSpendStep(from, step, now)
+describe('record addresses and the step', () => {
+  it('derives the record address of every vector output like Rust', () => {
+    for (const { output, address } of vectors.record_addresses.outputs) {
+      const derived = recordAddress(PROGRAM, hexToBytes(output))
+      expect(derived ? bytesToHex(derived) : '').toBe(address)
     }
-    const fails = (code: string) => expect.objectContaining({ name: 'ProtocolError', code })
+    expect(vectors.record_addresses.outputs.some(({ address }) => address === '')).toBe(true)
+    expect(vectors.record_addresses.outputs.some(({ address }) => address !== '')).toBe(true)
+    expect(RECORD_BUMP).toBe(vectors.record_addresses.bump)
+  })
 
+  it('has a record address exactly when the canonical bump is the fixed one', async () => {
+    const { getProgramDerivedAddress, getAddressDecoder } = await import('@solana/kit')
+    const program = getAddressDecoder().decode(PROGRAM)
+    for (let n = 0; n < 64; n++) {
+      const output = sha256(Uint8Array.of(n))
+      const [address, bump] = await getProgramDerivedAddress({
+        programAddress: program,
+        seeds: [new TextEncoder().encode('spent'), output],
+      })
+      const derived = recordAddress(PROGRAM, output)
+      expect(derived !== undefined, `output ${n}`).toBe(bump === RECORD_BUMP)
+      if (derived) expect(getAddressDecoder().decode(derived)).toBe(address)
+    }
+  })
+
+  it('takes the step from the vectors', () => {
+    expect(EXPIRY_STEP).toBe(vectors.expiry_step)
+    expect(vectors.profiles.production.windows.expiryStep).toBe(EXPIRY_STEP)
+  })
+})
+
+describe('reclaims', () => {
+  const RECLAIM_DOMAIN = hexToBytes(vectors.domain.reclaim)
+  for (const vector of vectors.reclaims.cases) {
+    it(`matches Rust for a deadline of ${vector.deadline}`, () => {
+      expect(bytesToHex(reclaimBody(vector.deadline))).toBe(vector.body)
+      expect(bytesToHex(reclaimEnvelope(RECLAIM_DOMAIN, hexToBytes(vector.output), vector.deadline))).toBe(
+        vector.envelope,
+      )
+    })
+  }
+
+  it('leaves the same record whatever the deadline, and refuses a deadline that does not fit', () => {
+    expect(bytesToHex(recordContent())).toBe(vectors.reclaims.record_content)
+    expect(() => reclaimBody(-1)).toThrow(expect.objectContaining({ code: 'Length' }))
+    expect(() => reclaimBody(2 ** 32)).toThrow(expect.objectContaining({ code: 'Length' }))
+  })
+})
+
+describe('the precompile layout', () => {
+  for (const vector of vectors.secp256r1_layouts) {
+    it(`writes ${vector.keys.length} signatures like Rust`, () => {
+      const entries = vector.keys.map((key, i) => ({ key: hexToBytes(key), message: hexToBytes(vector.messages[i]) }))
+      const data = writeVerification(entries, vector.signatures.map(hexToBytes))
+      expect(bytesToHex(data)).toBe(vector.data)
+    })
+  }
+
+  it('refuses no signature, more than the precompile takes and a part of the wrong width', () => {
+    const entry = { key: new Uint8Array(33), message: new Uint8Array(96) }
+    const signature = new Uint8Array(64)
+    const length = expect.objectContaining({ name: 'ProtocolError', code: 'Length' })
+    expect(() => writeVerification([], [])).toThrow(length)
+    expect(() => writeVerification(Array(9).fill(entry), Array(9).fill(signature))).toThrow(length)
+    expect(() => writeVerification([entry], [])).toThrow(length)
+    expect(() => writeVerification([{ ...entry, key: new Uint8Array(32) }], [signature])).toThrow(length)
+    expect(() => writeVerification([entry], [new Uint8Array(63)])).toThrow(length)
+  })
+})
+
+describe('spend steps', () => {
+  const NOW = 1_800_000_000
+  const EXPIRY = 1_900_000_000
+  const [alice, bob] = [2, 3].map((secret) => ({
+    type: 'device' as const,
+    key: p256.getPublicKey(new Uint8Array(32).fill(secret)),
+  }))
+  const account = { type: 'account' as const, address: new Uint8Array(32).fill(0xb5) }
+  const caveats = (hopsLeft: number, expiry = EXPIRY): Caveats => ({
+    expiry,
+    hopsLeft,
+    flags: 0,
+    scopeKind: ScopeKind.Any,
+    scope: new Uint8Array(20),
+  })
+  const recordable = (id: Uint8Array) => recordAddress(PROGRAM, id) !== undefined
+  const idOf = (predicate: (id: Uint8Array) => boolean) => {
+    for (let n = 0; ; n++) {
+      const id = sha256(Uint8Array.of(n, 0xee))
+      if (predicate(id)) return id
+    }
+  }
+  const input: Output = { id: idOf(recordable), owner: alice, amount: 20_000n, caveats: caveats(4) }
+  const fails = (code: string) => expect.objectContaining({ name: 'ProtocolError', code })
+  /** The first salt for which the spend does not fail only for lack of a record address. */
+  const spend = (lockSeq: number, outputs: Outputs, from = input): Spend => {
+    for (let n = 0; ; n++) {
+      const step = { input: from.id, lockSeq, salt: new Uint8Array(16).fill(n), outputs }
+      try {
+        checkSpendStep(NOTE_DOMAIN, PROGRAM, from, step, NOW)
+        return step
+      } catch (error) {
+        if (!(error instanceof Error) || (error as { code?: string }).code !== 'Unrecordable') return step
+      }
+    }
+  }
+  const pay = (hopsLeft: number, expiry = EXPIRY - EXPIRY_STEP): Outputs => ({
+    type: 'one',
+    owner: bob,
+    caveats: caveats(hopsLeft, expiry),
+  })
+  const split = (amount0: bigint, owner1: typeof alice): Outputs => ({
+    type: 'two',
+    owner0: bob,
+    amount0,
+    caveats0: caveats(3, EXPIRY - EXPIRY_STEP),
+    owner1,
+  })
+  const settle = (expiry = EXPIRY) => spend(NO_LOCK, { type: 'one', owner: account, caveats: caveats(3, expiry) })
+  const check = (step: Spend, now: number, from = input) => {
+    return () => checkSpendStep(NOTE_DOMAIN, PROGRAM, from, step, now)
+  }
+
+  it('checks a spend against its input before it is signed, like Rust', () => {
     expect(check(spend(0, pay(3)), NOW)).not.toThrow()
     expect(check(spend(0, split(12_000n, alice)), NOW)).not.toThrow()
     expect(check(spend(0, split(20_000n, alice)), NOW)).toThrow(fails('Amount'))
@@ -406,10 +544,47 @@ describe('spend steps', () => {
     expect(check({ ...spend(0, pay(3)), input: new Uint8Array(32).fill(8) }, NOW)).toThrow(fails('Linkage'))
     expect(check(spend(0, pay(3)), EXPIRY)).not.toThrow()
     expect(check(spend(0, pay(3)), EXPIRY + 1)).toThrow(fails('Expired'))
-    expect(check(settle, EXPIRY + GRACE)).not.toThrow()
-    expect(check(settle, EXPIRY + GRACE + 1)).toThrow(fails('Expired'))
+    expect(check(settle(), EXPIRY + GRACE)).not.toThrow()
+    expect(check(settle(), EXPIRY + GRACE + 1)).toThrow(fails('Expired'))
     expect(check(spend(0, split(12_000n, alice)), NOW, { ...input, caveats: caveats(1) })).toThrow(fails('Depth'))
-    expect(check(settle, NOW, { ...input, owner: account })).toThrow(fails('Owner'))
-    expect(check(settle, -1)).toThrow(fails('Length'))
+    expect(check(settle(), NOW, { ...input, owner: account })).toThrow(fails('Owner'))
+    expect(check(settle(), -1)).toThrow(fails('Length'))
+  })
+
+  it('gives a payment to a device the step and leaves a payment to an account free of it', () => {
+    expect(check(spend(0, pay(3, EXPIRY - EXPIRY_STEP + 1)), NOW)).toThrow(fails('ExpiryStep'))
+    expect(check(spend(0, pay(3, EXPIRY)), NOW)).toThrow(fails('ExpiryStep'))
+    expect(check(spend(0, pay(3, EXPIRY + 1)), NOW)).toThrow(fails('Attenuation'))
+    expect(check(settle(EXPIRY), NOW)).not.toThrow()
+    expect(check(settle(EXPIRY - 1), NOW)).not.toThrow()
+  })
+
+  it('refuses a spend whose outputs have no record address, and an input that has none', () => {
+    const outputsOf = (step: Spend) => messageId(envelope(NOTE_DOMAIN, input.id, content(encodeSpendBody(step))))
+    let unrecordable: Spend | undefined
+    for (let n = 0; !unrecordable; n++) {
+      const step = { input: input.id, lockSeq: 0, salt: new Uint8Array(16).fill(n), outputs: pay(3) }
+      if (!recordable(outputId(outputsOf(step), 0))) unrecordable = step
+    }
+    expect(check(unrecordable, NOW)).toThrow(fails('Unrecordable'))
+    const withoutAddress: Output = { ...input, id: idOf((id) => !recordable(id)) }
+    expect(check({ ...spend(0, pay(3)), input: withoutAddress.id }, NOW, withoutAddress)).toThrow(fails('Unrecordable'))
+  })
+
+  it('refuses an issue whose output has no record address', () => {
+    const [vector] = vectors.messages
+    const issue = decodeIssue(hexToBytes(vector.wire)).message
+    const accepted: number[] = []
+    const refused: number[] = []
+    for (let n = 0; accepted.length < 1 || refused.length < 1; n++) {
+      const candidate = { ...issue, salt: new Uint8Array(16).fill(n) }
+      try {
+        checkIssueStep(NOTE_DOMAIN, PROGRAM, candidate)
+        accepted.push(n)
+      } catch (error) {
+        expect(error).toEqual(fails('Unrecordable'))
+        refused.push(n)
+      }
+    }
   })
 })

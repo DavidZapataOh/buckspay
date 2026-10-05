@@ -12,6 +12,8 @@ pub struct Windows {
     pub min_note_life: u32,
     pub release_delay: u32,
     pub rotation_delay: u32,
+    /// A payment to a device expires at least this long before the output it spends.
+    pub expiry_step: u32,
 }
 
 impl Windows {
@@ -22,6 +24,7 @@ impl Windows {
         min_note_life: 24 * 60 * 60,
         release_delay: 14 * 24 * 60 * 60,
         rotation_delay: 7 * 24 * 60 * 60,
+        expiry_step: 60 * 60,
     };
 
     pub const SHORT: Self = Self {
@@ -31,6 +34,14 @@ impl Windows {
         min_note_life: 60,
         release_delay: 60,
         rotation_delay: 60,
+        expiry_step: 5,
+    };
+
+    /// The windows this crate was compiled with.
+    pub const ACTIVE: Self = if cfg!(feature = "short-windows") {
+        Self::SHORT
+    } else {
+        Self::PRODUCTION
     };
 
     /// `lock_until` must be at least this far from now: one note, from issue to the end of the
@@ -52,6 +63,7 @@ mod windows {
     pub const MIN_NOTE_LIFE: u32 = Windows::PRODUCTION.min_note_life;
     pub const RELEASE_DELAY: u32 = Windows::PRODUCTION.release_delay;
     pub const ROTATION_DELAY: u32 = Windows::PRODUCTION.rotation_delay;
+    pub const EXPIRY_STEP: u32 = Windows::PRODUCTION.expiry_step;
 }
 #[cfg(feature = "short-windows")]
 mod windows {
@@ -60,8 +72,9 @@ mod windows {
     pub const MIN_NOTE_LIFE: u32 = Windows::SHORT.min_note_life;
     pub const RELEASE_DELAY: u32 = Windows::SHORT.release_delay;
     pub const ROTATION_DELAY: u32 = Windows::SHORT.rotation_delay;
+    pub const EXPIRY_STEP: u32 = Windows::SHORT.expiry_step;
 }
-pub use windows::{CLAIM_WINDOW, MIN_NOTE_LIFE, RELEASE_DELAY, ROTATION_DELAY};
+pub use windows::{CLAIM_WINDOW, EXPIRY_STEP, MIN_NOTE_LIFE, RELEASE_DELAY, ROTATION_DELAY};
 
 /// `lock_until` must be at least this far from now: one note, from issue to the end of the challenge.
 pub const MIN_LOCK: u32 = GRACE + CHALLENGE + MIN_NOTE_LIFE;
@@ -82,6 +95,7 @@ const _: () = {
     assert!(MAX_SPONSOR_FEE_DIVISOR >= 2);
     assert!(CLAIM_WINDOW + RELEASE_DELAY > CLAIM_WINDOW);
     assert!(RECORD_TTL >= CLAIM_WINDOW);
+    assert!(EXPIRY_STEP > 0 && EXPIRY_STEP <= MIN_NOTE_LIFE && EXPIRY_STEP < RECORD_TTL);
 };
 
 #[cfg(test)]
@@ -129,6 +143,7 @@ mod tests {
                 min_note_life: MIN_NOTE_LIFE,
                 release_delay: RELEASE_DELAY,
                 rotation_delay: ROTATION_DELAY,
+                expiry_step: EXPIRY_STEP,
             }
         );
         assert_eq!(

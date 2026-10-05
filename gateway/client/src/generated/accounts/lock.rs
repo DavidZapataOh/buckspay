@@ -17,12 +17,15 @@ pub struct Lock {
     pub backing: u64,
     pub lock_until: u32,
     pub bump: u8,
+    /// The canonical bump of the lock's escrow, so settlements derive it without searching: the
+    /// issuer's key chooses the lock's address and with it the cost of that search.
+    pub escrow_bump: u8,
 }
 
 pub const LOCK_DISCRIMINATOR: [u8; 8] = [8, 255, 36, 202, 210, 22, 57, 137];
 
 impl Lock {
-    pub const LEN: usize = 61;
+    pub const LEN: usize = 62;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {
