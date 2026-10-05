@@ -193,6 +193,22 @@ describe('running an operation', () => {
     expect(outcome.status === 'failed' && outcome.error).toMatch(/Nothing was sent.*Try again/)
   })
 
+  it('hands the same signed transaction to the gateway again, without asking the wallet, after it was not delivered', async () => {
+    const submit = gateway.submit.bind(gateway)
+    gateway.submit = async () => {
+      throw new Error('fetch failed: java.net.UnknownHostException: Unable to resolve host "gw"')
+    }
+    const failed = await runOperation(context(), withdrawalOperation(params), true)
+    expect(failed).toMatchObject({ status: 'failed', payInstead: false })
+    expect(failed.status === 'failed' && failed.error).toMatch(/Can’t reach Buckspay.*Nothing was sent.*try again/)
+    expect(walletEvents).toEqual(['wallet'])
+
+    gateway.submit = submit
+    expect(await runOperation(context(), withdrawalOperation(params), true)).toMatchObject({ status: 'done' })
+    expect(walletEvents).toEqual(['wallet'])
+    expect(gateway.submitted).toBe(1)
+  })
+
   it('says nothing was sent when the wallet fails to sign for another reason', async () => {
     walletAnswer = 'fails'
     const outcome = await runOperation(context(), withdrawalOperation(params), true)

@@ -17,6 +17,17 @@ export class GatewayError extends Error {
 export const notSent = (error: unknown) =>
   error instanceof GatewayError && [400, 409, 410, 422, 429, 503].includes(error.status)
 
+/**
+ * Whether a failure proves the request never left the phone: the host did not resolve or the
+ * connection was refused. A timeout or a dropped connection does not, as the gateway may have it.
+ */
+export const notDelivered = (error: unknown) =>
+  error instanceof Error &&
+  /UnknownHostException|Unable to resolve host|ConnectException|Failed to connect to|ECONNREFUSED/i.test(error.message)
+
+/** Waits before each new attempt at a request that never left the phone. */
+export const REDELIVERY_WAITS_MS = [1_000, 2_000, 4_000]
+
 /** How long the app waits for the gateway to answer a request. */
 export const GATEWAY_TIMEOUT_MS = 10_000
 
@@ -101,6 +112,19 @@ export type SettlementGateway = {
 
 export function createGateway(url: string): Gateway & SettlementGateway {
   async function call<T>(path: string, body?: unknown): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await callOnce<T>(path, body)
+      } catch (error) {
+        const wait = REDELIVERY_WAITS_MS[attempt]
+        if (wait === undefined || !notDelivered(error)) throw error
+        console.warn(`Gateway request not delivered (${path}); retrying in ${wait} ms`)
+        await new Promise((resolve) => setTimeout(resolve, wait))
+      }
+    }
+  }
+
+  async function callOnce<T>(path: string, body?: unknown): Promise<T> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS)
     try {

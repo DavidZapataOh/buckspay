@@ -6,7 +6,7 @@ import {
 } from '@solana-mobile/mobile-wallet-adapter-protocol'
 import type { GetSignatureStatusesApi, Rpc } from '@solana/kit'
 import { formatError } from '../../utils/format-error'
-import { GatewayError, notSent } from './gateway'
+import { GatewayError, notDelivered, notSent } from './gateway'
 import { METHOD_NOT_FOUND, SponsorshipError } from './gateway-onboard'
 import type { Operation } from './operations'
 import {
@@ -70,6 +70,14 @@ export function describeOperationError(error: unknown): Extract<OperationOutcome
   }
   if (isStaleAuthorization(error)) {
     return { status: 'failed', error: `${RECONNECT} ${NOTHING_SENT}`, details, payInstead: false, reconnect: true }
+  }
+  if (notDelivered(error)) {
+    return {
+      status: 'failed',
+      error: `Can’t reach Buckspay. ${NOTHING_SENT} Check your connection and try again.`,
+      details,
+      payInstead: false,
+    }
   }
   if (error instanceof TypeError) {
     return {

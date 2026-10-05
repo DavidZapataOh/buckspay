@@ -27,7 +27,7 @@ import {
   type TransactionError,
   type TransactionSigner,
 } from '@solana/kit'
-import type { Gateway } from './gateway'
+import { type Gateway, notDelivered } from './gateway'
 import { type SponsorTerms, sponsoredTransaction } from './messages'
 import type { Operation } from './operations'
 
@@ -94,6 +94,7 @@ export async function prepareSponsored(ctx: OperationContext, operation: Operati
   try {
     prepared = await ctx.gateway.prepare(operation.kind, operation.request)
   } catch (error) {
+    if (notDelivered(error)) throw error
     throw new SponsorshipError('unavailable', error)
   }
   const { value: latest } = await ctx.rpc.getLatestBlockhash({ commitment }).send()

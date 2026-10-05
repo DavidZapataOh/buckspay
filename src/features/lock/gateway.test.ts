@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createGateway, GATEWAY_TIMEOUT_MS, GatewayError, notSent } from './gateway'
+import { createGateway, GATEWAY_TIMEOUT_MS, GatewayError, notSent, REDELIVERY_WAITS_MS } from './gateway'
 
 const gateway = createGateway('https://gateway.test')
 const prepared = {
@@ -33,6 +33,40 @@ describe('gateway client', () => {
     const answer = expect(gateway.quote()).rejects.toThrow('aborted')
     await vi.advanceTimersByTimeAsync(GATEWAY_TIMEOUT_MS)
     await answer
+  })
+
+  const unknownHost = () =>
+    new Error('fetch failed: java.net.UnknownHostException: Unable to resolve host "gateway.test"')
+
+  it('sends a request again, after waiting, while it never left the phone', async () => {
+    vi.useFakeTimers()
+    const fetch = vi
+      .fn()
+      .mockRejectedValueOnce(unknownHost())
+      .mockRejectedValueOnce(unknownHost())
+      .mockResolvedValue(Response.json({ signature: 'sig' }))
+    vi.stubGlobal('fetch', fetch)
+    const answer = gateway.submit('lock', { key: '00', transaction: 'AA==' })
+    await vi.advanceTimersByTimeAsync(REDELIVERY_WAITS_MS[0] + REDELIVERY_WAITS_MS[1])
+    expect(await answer).toEqual({ signature: 'sig' })
+    expect(fetch).toHaveBeenCalledTimes(3)
+  })
+
+  it('gives up after its attempts, and never sends again after a timeout or an answer', async () => {
+    vi.useFakeTimers()
+    const fetch = vi.fn().mockRejectedValue(unknownHost())
+    vi.stubGlobal('fetch', fetch)
+    const answer = expect(gateway.quote()).rejects.toThrow('UnknownHostException')
+    await vi.advanceTimersByTimeAsync(REDELIVERY_WAITS_MS.reduce((a, b) => a + b))
+    await answer
+    expect(fetch).toHaveBeenCalledTimes(REDELIVERY_WAITS_MS.length + 1)
+
+    fetch.mockReset().mockRejectedValue(new Error('java.net.SocketTimeoutException: timeout'))
+    await expect(gateway.quote()).rejects.toThrow('SocketTimeoutException')
+    expect(fetch).toHaveBeenCalledTimes(1)
+    fetch.mockReset().mockResolvedValue(Response.json({ error: 'busy' }, { status: 503 }))
+    await expect(gateway.quote()).rejects.toMatchObject({ status: 503 })
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 
   it('reports a refusal with its status, and an answer that is not JSON with the status text', async () => {

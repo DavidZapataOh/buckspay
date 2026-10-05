@@ -8,7 +8,9 @@ import {
   type TransactionError,
   type TransactionSendingSigner,
   type Address,
+  type Transaction,
 } from '@solana/kit'
+import { notDelivered } from './gateway'
 import {
   type OperationContext,
   prepareSponsored,
@@ -42,11 +44,31 @@ export class TransactionRejected extends Error {
  * `SponsorshipError` while nothing was sent, so the wallet may pay instead.
  */
 export async function performSponsored(ctx: PerformContext, operation: Operation): Promise<string> {
+  const id = `${operation.kind}:${JSON.stringify(operation.request)}`
+  const held = undelivered.get(id)
+  undelivered.delete(id)
+  if (held && Date.now() - held.at < HELD_MS) return submitHeld(ctx, operation, id, held.signed)
   const sponsored = await prepareSponsored(ctx, operation)
   const rejected = await simulateTransaction(ctx, sponsored.transaction)
   if (rejected) throw new SponsorshipError('unavailable', new TransactionRejected(rejected))
   const signed = await signSponsored(ctx, operation.wallet, sponsored)
-  return submitSponsored(ctx, operation, signed)
+  return submitHeld(ctx, operation, id, signed)
+}
+
+/**
+ * Signed transactions the gateway never received, by operation, so trying again hands it the same
+ * signature instead of asking the wallet again. The gateway refuses one past its lifetime.
+ */
+const undelivered = new Map<string, { signed: Transaction; at: number }>()
+const HELD_MS = 60_000
+
+async function submitHeld(ctx: PerformContext, operation: Operation, id: string, signed: Transaction) {
+  try {
+    return await submitSponsored(ctx, operation, signed)
+  } catch (error) {
+    if (notDelivered(error)) undelivered.set(id, { signed, at: Date.now() })
+    throw error
+  }
 }
 
 /** The wallet signs, pays for and sends a built operation, once Solana's simulation accepted it. */
