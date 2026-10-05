@@ -25,6 +25,8 @@ hex = "0.4.3"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 sha2 = "0.10.9"
+solana-account = "4.5.0"
+solana-account-decoder-client-types = "4.3.0"
 solana-commitment-config = "3.1.0"
 solana-compute-budget-interface = { version = "3.1.0", features = ["borsh"] }
 solana-hash = "4.7.0"
@@ -33,10 +35,12 @@ solana-keypair = "3.1.2"
 solana-message = "4.6.0"
 solana-pubkey = "4.4.0"
 solana-rpc-client = { version = "4.3.0", default-features = false }
+solana-rpc-client-api = "4.3.0"
 solana-secp256r1-program = "3.0.0"
 solana-signature = { version = "3.6.0", features = ["verify"] }
 solana-signer = "3.0.1"
 solana-transaction = "4.3.0"
+solana-transaction-status-client-types = "4.3.0"
 tokio = { version = "1.53.0", features = ["macros", "rt-multi-thread", "net", "signal"] }
 tower = { version = "0.5.2", features = ["limit", "load-shed"] }
 tower-http = { version = "0.7.1", features = ["timeout"] }
@@ -44,7 +48,6 @@ tracing = "0.1.41"
 tracing-subscriber = "0.3.20"
 
 [dev-dependencies]
-solana-account = "4.5.0"
 hpke = { version = "0.14.1", default-features = false, features = ["alloc", "chacha", "getrandom", "x25519"] }
 p256 = { version = "0.14.0", default-features = false, features = ["ecdsa"] }
 tower = { version = "0.5.2", features = ["util"] }

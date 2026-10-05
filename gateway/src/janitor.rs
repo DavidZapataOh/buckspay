@@ -1,0 +1,396 @@
+//! Returns the rents the gateway lends. Every lock it paid for is released to its wallet and closed,
+//! and every rotation it paid for is applied, once nobody else has done it: the float of sponsored
+//! onboarding comes back without depending on a wallet or an app showing up.
+//!
+//! It never creates the wallet's associated token account. The rent of that account would be a
+//! gift to the wallet, which can reclaim it by closing the account again, so a sybil would profit
+//! from every key; a lock whose wallet has no token account stays open and is counted as stuck.
+use crate::{
+    chain::{self, TokenAccount, associated_token_address},
+    onboard::{chain_now, read},
+    server::{Error, Gateway},
+    sponsored::{Outcome, confirm, unreachable},
+    transactions::{self, Withdrawal},
+};
+use base64::{Engine, prelude::BASE64_STANDARD};
+use buckspay_client::accounts::{Device, Ledger, Lock, Rotation};
+use buckspay_protocol::lock::Windows;
+use solana_account::Account;
+use solana_instruction::Instruction;
+use solana_pubkey::Pubkey;
+use solana_rpc_client_api::{
+    config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
+    filter::{Memcmp, RpcFilterType},
+};
+use solana_signer::Signer;
+use solana_transaction::versioned::VersionedTransaction;
+use std::{
+    sync::{Arc, atomic::Ordering},
+    time::Duration,
+};
+use tracing::{info, warn};
+
+/// How long a rotation the gateway paid for may wait after it can be applied, so its wallet has had
+/// time to cancel it before anyone applies it for them.
+pub const ROTATION_GRACE: Duration = Duration::from_secs(30 * 24 * 60 * 60);
+/// Transactions one run sends at most.
+const TRANSACTIONS_PER_RUN: usize = 10;
+const COMPUTE_UNIT_LIMIT: u32 = 60_000;
+const OFFSET_OF_LEDGER_PAYER: usize = 32;
+const OFFSET_OF_ROTATION_PAYER: usize = 40;
+
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Report {
+    pub released: u32,
+    pub closed: u32,
+    pub applied: u32,
+    /// Locks that are due but whose wallet has no token account to release to.
+    pub stuck: u32,
+}
+
+/// The accounts of the program of `size` bytes whose payer, at `offset`, is the gateway.
+async fn paid_by_us(
+    state: &Gateway,
+    size: u64,
+    offset: usize,
+) -> Result<Vec<(Pubkey, Account)>, Error> {
+    let fee_payer = state.fee_payer.pubkey();
+    let accounts = state
+        .rpc
+        .get_program_ui_accounts_with_config(
+            &state.settings.program.id(),
+            RpcProgramAccountsConfig {
+                filters: Some(vec![
+                    RpcFilterType::DataSize(size),
+                    RpcFilterType::Memcmp(Memcmp::new_base58_encoded(offset, fee_payer.as_ref())),
+                ]),
+                account_config: RpcAccountInfoConfig {
+                    encoding: Some(solana_account_decoder_client_types::UiAccountEncoding::Base64),
+                    commitment: Some(state.rpc.commitment()),
+                    ..RpcAccountInfoConfig::default()
+                },
+                ..RpcProgramAccountsConfig::default()
+            },
+        )
+        .await
+        .map_err(unreachable)?;
+    Ok(accounts
+        .into_iter()
+        .filter_map(|(address, account)| Some((address, account_of(account)?)))
+        .collect())
+}
+
+fn account_of(ui: solana_account_decoder_client_types::UiAccount) -> Option<Account> {
+    use solana_account_decoder_client_types::{UiAccountData, UiAccountEncoding};
+    let UiAccountData::Binary(data, UiAccountEncoding::Base64) = ui.data else {
+        return None;
+    };
+    Some(Account {
+        lamports: ui.lamports,
+        data: BASE64_STANDARD.decode(data).ok()?,
+        owner: ui.owner.parse().ok()?,
+        executable: ui.executable,
+        rent_epoch: ui.rent_epoch,
+    })
+}
+
+/// Sends `instructions` with the gateway as the only signer and waits for the outcome.
+async fn send(state: &Gateway, instructions: &[Instruction]) -> bool {
+    let fee_payer = state.fee_payer.pubkey();
+    let Ok((blockhash, _)) = state
+        .rpc
+        .get_latest_blockhash_with_commitment(state.rpc.commitment())
+        .await
+    else {
+        return false;
+    };
+    let message = transactions::compose(&fee_payer, COMPUTE_UNIT_LIMIT, 0, instructions, blockhash);
+    let transaction = VersionedTransaction {
+        signatures: vec![state.fee_payer.sign_message(&message.serialize())],
+        message,
+    };
+    let Ok(signature) = state.rpc.send_transaction(&transaction).await else {
+        return false;
+    };
+    confirm(state, &signature).await == Outcome::Landed
+}
+
+/// What a lock needs now.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Due {
+    Nothing,
+    /// Pay the wallet what remains; `close` also closes the records, in the same transaction.
+    Release {
+        close: bool,
+    },
+    /// Close the records of a lock whose escrow is already gone.
+    Close,
+}
+
+/// Whether a lock is due for release or close at `now`. A slash still in the pool keeps the escrow
+/// open and the records with it: the release pays the rest, and the close waits for the pool to be
+/// paid.
+pub fn due(ledger: &Ledger, lock: &Lock, escrow_open: bool, now: u64, windows: &Windows) -> Due {
+    let lock_until = u64::from(lock.lock_until);
+    let release_due = now >= lock_until + u64::from(windows.claim_window + windows.release_delay);
+    let close_due = now >= lock_until + u64::from(windows.record_ttl()) && ledger.bond_slashed == 0;
+    if escrow_open && release_due {
+        Due::Release { close: close_due }
+    } else if !escrow_open && ledger.withdrawn && close_due {
+        Due::Close
+    } else {
+        Due::Nothing
+    }
+}
+
+/// One pass over everything the gateway paid for.
+pub async fn run_once(state: &Gateway, rotation_grace: Duration) -> Result<Report, Error> {
+    let program = state.settings.program;
+    let ledgers = paid_by_us(state, Ledger::LEN as u64, OFFSET_OF_LEDGER_PAYER).await?;
+    let rotations = paid_by_us(state, Rotation::LEN as u64, OFFSET_OF_ROTATION_PAYER).await?;
+    let now = u64::from(chain_now(
+        &read(state, &[chain::CLOCK_SYSVAR]).await?.remove(0),
+    )?);
+    let mut report = Report::default();
+    let mut sent = 0;
+    let mut open = ledgers.len() as u64;
+    let windows = state.settings.windows;
+
+    for (ledger_address, account) in &ledgers {
+        let Ok(ledger) = Ledger::from_bytes(&account.data) else {
+            continue;
+        };
+        let lock_address = program.find_lock_pda(&ledger.key, ledger.lock_seq).0;
+        let escrow = program.find_escrow_pda(&lock_address).0;
+        let mint = state.settings.mint;
+        let accounts = read(
+            state,
+            &[
+                lock_address,
+                program.find_device_pda(&ledger.key).0,
+                escrow,
+                mint,
+            ],
+        )
+        .await?;
+        let (Some(lock), Some(device)) = (
+            accounts[0]
+                .as_ref()
+                .and_then(|a| Lock::from_bytes(&a.data).ok()),
+            accounts[1]
+                .as_ref()
+                .and_then(|a| Device::from_bytes(&a.data).ok()),
+        ) else {
+            continue;
+        };
+        let escrow_open = accounts[2].is_some();
+        let mut instructions = Vec::new();
+        match due(&ledger, &lock, escrow_open, now, &windows) {
+            Due::Nothing => {}
+            Due::Release { close } => {
+                let token_program = accounts[3]
+                    .as_ref()
+                    .map_or(chain::TOKEN_PROGRAM, |m| m.owner);
+                let destination =
+                    associated_token_address(&device.wallet, &lock.mint, &token_program);
+                let usable = read(state, &[destination])
+                    .await?
+                    .remove(0)
+                    .is_some_and(|account| {
+                        account.owner == token_program
+                            && TokenAccount::parse(&account.data).is_some_and(|t| {
+                                t.owner == device.wallet && t.mint == lock.mint && !t.frozen
+                            })
+                    });
+                if !usable {
+                    report.stuck += 1;
+                    continue;
+                }
+                instructions.push(transactions::release(
+                    &program,
+                    &Withdrawal {
+                        wallet: device.wallet,
+                        rent_receiver: ledger.payer,
+                        key: ledger.key,
+                        lock_seq: ledger.lock_seq,
+                        mint: lock.mint,
+                        token_program,
+                        destination,
+                    },
+                ));
+                if close {
+                    instructions.push(transactions::close(
+                        &program,
+                        &ledger.key,
+                        ledger.lock_seq,
+                        &ledger.payer,
+                    ));
+                }
+            }
+            Due::Close => {
+                instructions.push(transactions::close(
+                    &program,
+                    &ledger.key,
+                    ledger.lock_seq,
+                    &ledger.payer,
+                ));
+            }
+        }
+        if instructions.is_empty() || sent == TRANSACTIONS_PER_RUN {
+            continue;
+        }
+        let (released, closed) = (escrow_open, instructions.len() == 2 || !escrow_open);
+        sent += 1;
+        if send(state, &instructions).await {
+            if released {
+                report.released += 1;
+            }
+            if closed {
+                report.closed += 1;
+                open = open.saturating_sub(1);
+            }
+            info!(ledger = %ledger_address, "returned the rent of a sponsored lock");
+        } else {
+            warn!("a janitor transaction did not land");
+        }
+    }
+
+    let mut lent = 0;
+    for (address, account) in &rotations {
+        let Ok(rotation) = Rotation::from_bytes(&account.data) else {
+            continue;
+        };
+        if now >= u64::from(rotation.effective_at) + rotation_grace.as_secs()
+            && sent < TRANSACTIONS_PER_RUN
+        {
+            // A rotation account does not hold its device key, so only the rotations this process
+            // sponsored can be applied; anyone else's wait for their owners, who can apply them too.
+            let key = state.rotation_keys.lock().unwrap().get(address).copied();
+            if let Some(key) = key {
+                sent += 1;
+                if send(
+                    state,
+                    &[transactions::apply_rotation(
+                        &program,
+                        &key,
+                        &rotation.payer,
+                    )],
+                )
+                .await
+                {
+                    state.rotation_keys.lock().unwrap().remove(address);
+                    report.applied += 1;
+                    continue;
+                }
+            }
+        }
+        lent += account.lamports;
+    }
+
+    state
+        .stuck
+        .store(u64::from(report.stuck), Ordering::Relaxed);
+    if let Err(error) = state.sponsor.reconcile_open_locks(open) {
+        warn!(%error, "the sponsorship ledger could not be written");
+    }
+    if let Err(error) = state.sponsor.reconcile_rotation_float(lent) {
+        warn!(%error, "the sponsorship ledger could not be written");
+    }
+    Ok(report)
+}
+
+/// Runs the janitor at start and then every `interval`.
+pub fn spawn(state: Arc<Gateway>, interval: Duration) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            match run_once(&state, ROTATION_GRACE).await {
+                Ok(report) => info!(?report, "the janitor ran"),
+                Err(_) => warn!("the janitor could not read Solana"),
+            }
+            tokio::time::sleep(interval).await;
+        }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ledger(withdrawn: bool, bond_slashed: u64) -> Ledger {
+        Ledger {
+            discriminator: [0; 8],
+            backing_left: 0,
+            bond_free: 0,
+            bond_slashed,
+            payer: Pubkey::new_unique(),
+            key: [2; 33],
+            lock_seq: 0,
+            withdrawn,
+            bump: 255,
+        }
+    }
+
+    fn lock(lock_until: u32) -> Lock {
+        Lock {
+            discriminator: [0; 8],
+            mint: Pubkey::new_unique(),
+            bond: 0,
+            backing: 0,
+            lock_until,
+            bump: 255,
+        }
+    }
+
+    const W: Windows = Windows::PRODUCTION;
+
+    #[test]
+    fn a_lock_is_released_when_the_release_delay_has_passed_and_closed_with_it_when_the_record_may_close()
+     {
+        let until = 1_000_000;
+        let release_at = u64::from(until + W.claim_window + W.release_delay);
+        assert_eq!(
+            due(&ledger(false, 0), &lock(until), true, release_at - 1, &W),
+            Due::Nothing
+        );
+        assert_eq!(
+            due(&ledger(false, 0), &lock(until), true, release_at, &W),
+            Due::Release { close: true },
+            "the production windows open the close with the release"
+        );
+        // A lock the wallet withdrew leaves its records to close.
+        assert_eq!(
+            due(&ledger(true, 0), &lock(until), false, release_at, &W),
+            Due::Close
+        );
+    }
+
+    #[test]
+    fn a_slash_still_in_the_pool_keeps_the_close_waiting() {
+        let until = 1_000_000;
+        let late = u64::from(until + W.record_ttl() + W.release_delay);
+        assert_eq!(
+            due(&ledger(false, 30), &lock(until), true, late, &W),
+            Due::Release { close: false },
+            "the release pays the rest and the close waits for the pool to be paid"
+        );
+        assert_eq!(
+            due(&ledger(true, 30), &lock(until), false, late, &W),
+            Due::Nothing
+        );
+    }
+
+    #[test]
+    fn nothing_is_due_before_the_windows_whatever_the_lock_looks_like() {
+        let until = 1_000_000;
+        for now in [0, u64::from(until), u64::from(until + W.claim_window)] {
+            assert_eq!(
+                due(&ledger(false, 0), &lock(until), true, now, &W),
+                Due::Nothing
+            );
+            assert_eq!(
+                due(&ledger(true, 0), &lock(until), false, now, &W),
+                Due::Nothing
+            );
+        }
+    }
+}

@@ -1,10 +1,13 @@
 # Fresh install of a localnet build with the Solana Mobile fakewallet: the app opens without
-# onboarding; setting up payments connects and creates the device key in one step, shows what
-# registering costs and that it is public and permanent, and registers the key. The app is killed
-# after the first step to check that onboarding resumes where it stopped.
+# onboarding; setting up payments connects and creates the device key in one step, shows the funds,
+# what the network costs and that the link is public and permanent, and activates the phone: its
+# registration and first lock in one transaction paid by the wallet. The app is killed after the
+# first step to check that onboarding resumes where it stopped. Needs the validator and the funding
+# token faucet (`scripts/usdc-faucet.mjs`).
 appId: xyz.buckspay.app
 env:
   RPC_URL: http://localhost:8899
+  FAUCET_URL: http://localhost:8898
 ---
 - clearState
 - stopApp: com.solana.mobilewalletadapter.fakewallet
@@ -29,14 +32,16 @@ env:
 - tapOn: AUTHORIZE
 - extendedWaitUntil:
     visible:
-      id: onboarding-register
+      id: onboarding-activate
     timeout: 30000
 - assertVisible: Step 2 of 2
 - assertVisible: .*publicly and permanently.*
-- assertVisible: Costs about 0.0012 SOL from your wallet. Not refundable.
+- assertVisible: Your wallet has 0 USDC.
+- assertVisible: There is no fee.
+- assertVisible: Your wallet pays the network costs, about 0.006.* SOL. Not refundable.
 # Below the fold when the wallet address wraps to three lines on a small screen.
 - scrollUntilVisible:
-    element: Your wallet has 0 SOL. Add SOL to it before you register.
+    element: Your wallet has 0 SOL. Add SOL to it before you activate.
 - stopApp
 - launchApp
 - extendedWaitUntil:
@@ -47,11 +52,12 @@ env:
     id: setup-payments
 - extendedWaitUntil:
     visible:
-      id: onboarding-register
+      id: onboarding-activate
     timeout: 20000
 - copyTextFrom:
     id: wallet-address
 - runScript: scripts/airdrop.js
+- runScript: scripts/fund-usdc.js
 - scrollUntilVisible:
     element:
       id: onboarding-next

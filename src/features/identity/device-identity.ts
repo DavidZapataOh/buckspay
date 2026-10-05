@@ -3,7 +3,9 @@ import {
   BUCKSPAY_ERROR__DEVICE_BINDING,
   BUCKSPAY_ERROR__DEVICE_KEY,
   fetchMaybeDevice,
+  fetchMaybeLock,
   findDevicePda,
+  findLockPda,
 } from '@project/anchor'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
@@ -15,6 +17,7 @@ import {
 import {
   type Address,
   getBase58Decoder,
+  compileTransaction,
   type GetAccountInfoApi,
   type GetEpochInfoApi,
   type GetSignatureStatusesApi,
@@ -31,35 +34,42 @@ import type { SolanaClusterId, WalletAuthorizationCache } from '@wallet-ui/react
 import { type Cluster, createDeviceKey, type DeviceKey, deviceKeyCluster, getDeviceKey } from '../../keys'
 import { formatError } from '../../utils/format-error'
 import { formatSol } from '../../utils/format-sol'
-import { notSent } from './gateway'
+import { notSent } from '../lock/gateway'
 import {
-  buildRegistration,
-  prepareSponsoredRegistration,
-  quoteRegistration,
-  type RegisterDeviceContext,
-  type Registration,
-  type RegistrationQuote,
-  sendRegistration,
-  signSponsoredRegistration,
-  simulateRegistration,
-  simulateSponsoredRegistration,
-  submitSponsoredRegistration,
+  prepareSponsored,
+  signSponsored,
+  simulateTransaction,
   SponsorshipError,
-} from './register-device'
+  submitSponsored,
+} from '../lock/gateway-onboard'
+import { onboardingCopy } from '../lock/lock-copy'
+import { buildSelfPaid, sendSelfPaid } from '../lock/perform'
+import type { Operation } from '../lock/operations'
+import {
+  type Activation,
+  type ActivationContext,
+  type ActivationInput,
+  activationOperation,
+  checkInput,
+  isSponsored,
+  readActivation,
+  readQuote,
+} from './activation'
 
 /**
  * `loading` until the cached authorization, the key and the device account have been read;
- * `unreachable` when Solana could not be read; `confirming` while a registration handed to the
- * wallet may still land; `other-wallet` when this key is bound to another wallet than the connected one.
+ * `unreachable` when Solana could not be read; `activate` while this phone has no registration and
+ * lock; `confirming` while an activation handed to the wallet may still land; `other-wallet` when
+ * this key is bound to another wallet than the connected one.
  */
 export type IdentityStep =
-  'loading' | 'unreachable' | 'connect' | 'create-key' | 'register' | 'confirming' | 'other-wallet' | 'ready'
+  'loading' | 'unreachable' | 'connect' | 'create-key' | 'activate' | 'confirming' | 'other-wallet' | 'ready'
 
 /** The on-chain binding of this device key, at `confirmed`. */
 export type DeviceRecord = { address: Address; wallet: Address; key: ReadonlyUint8Array }
 
 /**
- * `free` while the build's gateway offers to pay for the registration, `unavailable` when it does
+ * `free` while the build's gateway offers to pay for the activation, `unavailable` when it does
  * not and the wallet pays; absent in builds without a gateway.
  */
 export type Sponsorship = 'free' | 'unavailable'
@@ -70,11 +80,11 @@ export type IdentityState = {
   wallet?: Address
   deviceKey?: DeviceKey
   device?: DeviceRecord
-  /** `register`: what registering costs the wallet if it pays, and what it holds. */
-  quote?: RegistrationQuote
-  /** `register`: whether the gateway pays instead. */
+  /** `activate`: the funds, the sponsor's terms and what the wallet would pay itself. */
+  activation?: Activation
+  /** `activate`: whether the gateway pays the network costs instead. */
   sponsorship?: Sponsorship
-  /** The registration the wallet sent: while `confirming`, or after it failed on Solana. */
+  /** The activation the wallet sent: while `confirming`, or after it failed on Solana. */
   signature?: Signature
   /** What went wrong and whether anything was sent or charged, in plain words. */
   error?: string
@@ -82,45 +92,45 @@ export type IdentityState = {
   details?: string
 }
 
-export type IdentityContext = RegisterDeviceContext & {
+export type IdentityContext = ActivationContext & {
   /** The cluster this build signs for. */
   cluster: Cluster
   chain: SolanaClusterId
   cache: WalletAuthorizationCache
-  rpc: RegisterDeviceContext['rpc'] & Rpc<GetAccountInfoApi & GetEpochInfoApi & GetSignatureStatusesApi>
+  rpc: ActivationContext['rpc'] & Rpc<GetAccountInfoApi & GetEpochInfoApi & GetSignatureStatusesApi>
   connect: () => Promise<unknown>
   disconnect: () => Promise<void>
-  /** Receives `confirming` once the wallet holds a registration, before the wait for it. */
+  /** Receives `confirming` once the wallet holds an activation, before the wait for it. */
   onProgress?: (state: IdentityState) => void
 }
 
 const commitment = 'confirmed'
 const POLL_MS = 1000
-/** How long one derivation waits for a sent registration before it asks to check again. */
+/** How long one derivation waits for a sent activation before it asks to check again. */
 const SETTLE_MS = 180_000
-const PENDING = 'registration'
+const PENDING = 'activation'
 const DEVICE = 'device'
 const KEY_CLUSTER = 'device-key:cluster'
 
 const NOTHING_SENT = 'Nothing was sent and nothing was charged.'
-const NOT_REGISTERED = 'Nothing was charged and this phone is not registered.'
-const EXPIRED = `The registration expired before it landed. ${NOT_REGISTERED}`
-const STALLED = 'Solana hasn’t confirmed the registration yet. It may still land; check again in a minute.'
-const PAY_INSTEAD = 'You can register now and pay from your wallet.'
-const ADD_SOL = 'To register now, add SOL to your wallet and pay from it.'
-/** Why a registration Buckspay was to pay for falls back to the wallet paying. */
+const NOT_ACTIVATED = 'Nothing was charged and this phone is not activated.'
+const EXPIRED = `The activation expired before it landed. ${NOT_ACTIVATED}`
+const STALLED = 'Solana hasn’t confirmed the activation yet. It may still land; check again in a minute.'
+const PAY_INSTEAD = 'You can activate now and pay the network costs from your wallet.'
+const FEE_CHANGED = 'Buckspay’s terms changed while you were looking. Review them and try again. Nothing was sent.'
+/** Why an activation Buckspay was to pay for falls back to the wallet paying. */
 const SPONSOR_FALLBACK: Record<SponsorshipError['reason'], string> = {
-  unavailable: 'Buckspay couldn’t pay for this registration.',
-  mismatch: 'Buckspay’s server offered a registration this app didn’t ask for, so your wallet never saw it.',
-  unsupported: 'Your wallet can’t sign a registration that Buckspay pays for.',
-  altered: 'Your wallet changed the registration before signing it, so it wasn’t sent.',
+  unavailable: 'Buckspay couldn’t pay for this activation.',
+  mismatch: 'Buckspay’s server offered an activation this app didn’t ask for, so your wallet never saw it.',
+  unsupported: 'Your wallet can’t sign an activation that Buckspay pays for.',
+  altered: 'Your wallet changed the activation before signing it, so it wasn’t sent.',
 }
 /** The JSON-RPC error of a wallet that does not implement a method, here `sign_transactions`. */
 const METHOD_NOT_FOUND = -32601
 const FAILED: Partial<Record<IdentityStep, string>> = {
   connect: 'The wallet couldn’t connect. Nothing was shared and nothing was charged. Try again.',
   'create-key': 'This phone couldn’t create its key. Nothing was charged. Try again.',
-  register: `The registration didn’t go through. ${NOT_REGISTERED} Try again.`,
+  activate: `The activation didn’t go through. ${NOT_ACTIVATED} Try again.`,
 }
 
 /** A failure these steps describe themselves. */
@@ -133,7 +143,7 @@ class IdentityError extends Error {
 }
 
 /**
- * A registration handed to the wallet, recorded before the wallet holds it, with the signature the
+ * An activation handed to the wallet, recorded before the wallet holds it, with the signature the
  * wallet returns once it sent it.
  */
 type Pending = {
@@ -144,15 +154,18 @@ type Pending = {
   signature?: Signature
 }
 
-/** The register step once Buckspay won't pay: why, and whether the wallet can pay instead. */
+/**
+ * The activate step once Buckspay won't pay: why, and whether the wallet can pay instead. A wallet
+ * that changed the transaction without enough SOL to pay itself has nothing to offer, and says so.
+ */
 function payFromWallet(current: IdentityState, reason: SponsorshipError['reason'], details?: string): IdentityState {
-  const canPay = current.quote !== undefined && current.quote.balance >= current.quote.cost
-  return {
-    ...current,
-    sponsorship: 'unavailable',
-    error: `${SPONSOR_FALLBACK[reason]} ${NOTHING_SENT} ${canPay ? PAY_INSTEAD : ADD_SOL}`,
-    details,
-  }
+  const sol = current.activation?.sol
+  const canPay = sol !== undefined && sol.balance >= sol.cost
+  const error =
+    reason === 'altered' && !canPay
+      ? onboardingCopy.walletChangedTransaction
+      : `${SPONSOR_FALLBACK[reason]} ${NOTHING_SENT} ${canPay ? PAY_INSTEAD : 'To activate now, add SOL to your wallet and pay from it.'}`
+  return { ...current, sponsorship: 'unavailable', error, details }
 }
 
 const isWalletError = (error: unknown, code: number) =>
@@ -174,13 +187,13 @@ export function describeIdentityError(error: unknown, step: IdentityStep): { err
     return { error: `You declined in your wallet. ${NOTHING_SENT}`, details }
   }
   if (isWalletError(error, ERROR_AUTHORIZATION_FAILED)) {
-    // While registering, the wallet rejected the cached authorization; while connecting, it declined.
-    return step === 'register'
+    // While activating, the wallet rejected the cached authorization; while connecting, it declined.
+    return step === 'activate'
       ? { error: `Your wallet no longer recognizes Buckspay. ${NOTHING_SENT} Connect it again.`, details }
       : { error: 'The wallet declined the connection. Nothing was shared and nothing was charged.', details }
   }
   if (isWalletError(error, ERROR_NOT_SUBMITTED)) {
-    return { error: `Your wallet couldn’t send the registration. ${NOT_REGISTERED} Try again.`, details }
+    return { error: `Your wallet couldn’t send the activation. ${NOT_ACTIVATED} Try again.`, details }
   }
   if (
     error instanceof SolanaMobileWalletAdapterError &&
@@ -192,8 +205,7 @@ export function describeIdentityError(error: unknown, step: IdentityStep): { err
     }
   }
   if (step === 'confirming') {
-    const unreachable =
-      'Can’t reach Solana to check the registration. It may still land; check again once you’re online.'
+    const unreachable = 'Can’t reach Solana to check the activation. It may still land; check again once you’re online.'
     return { error: isOffline(error) ? unreachable : STALLED, details }
   }
   if (isOffline(error)) {
@@ -202,7 +214,7 @@ export function describeIdentityError(error: unknown, step: IdentityStep): { err
   return { error: FAILED[step] ?? 'Buckspay couldn’t check this phone. Nothing was sent. Try again.', details }
 }
 
-/** A registration's transaction error, in plain words. */
+/** An activation's transaction error, in plain words. */
 function describeTransactionError(err: TransactionError): string {
   const failure = typeof err === 'object' && 'InstructionError' in err ? err.InstructionError[1] : err
   const custom = typeof failure === 'object' && 'Custom' in failure ? Number(failure.Custom) : undefined
@@ -217,13 +229,13 @@ function describeTransactionError(err: TransactionError): string {
     failure === 'InsufficientFundsForFee' ||
     (typeof failure === 'object' && 'InsufficientFundsForRent' in failure)
   ) {
-    return 'Your wallet doesn’t have enough SOL for the registration.'
+    return 'Your wallet doesn’t have enough SOL for the activation.'
   }
-  if (failure === 'ComputationalBudgetExceeded') return 'The registration ran out of compute on Solana.'
-  return 'Solana rejected the registration.'
+  if (failure === 'ComputationalBudgetExceeded') return 'The activation ran out of compute on Solana.'
+  return 'Solana rejected the activation.'
 }
 
-/** A stored registration, or `undefined` for one that is unreadable or of another shape. */
+/** A stored activation, or `undefined` for one that is unreadable or of another shape. */
 function parsePending(stored: string): Pending | undefined {
   try {
     const { chain, key, wallet, lastValidBlockHeight, signature } = JSON.parse(stored) ?? {}
@@ -301,8 +313,14 @@ async function transactionError(ctx: IdentityContext, signature: Signature): Pro
   return status.err
 }
 
+/** Whether the key's first lock exists: the activation registers the key and locks funds in one transaction. */
+async function lockExists(ctx: IdentityContext, key: ReadonlyUint8Array, minContextSlot: bigint) {
+  const [lock] = await findLockPda(key, 0, ctx.programAddress)
+  return (await fetchMaybeLock(ctx.rpc, lock, { commitment, minContextSlot })).exists
+}
+
 /**
- * Waits for a registration the wallet may have sent until its device account exists, the cluster
+ * Waits for an activation the wallet may have sent until its device account exists, the cluster
  * reports its transaction failed, or its blockhash expired, and returns the slot to read the device
  * account at, with the error of a transaction that failed. The block height and the slot come from
  * one response and the account is read at that slot or later, so an account still missing once the
@@ -314,7 +332,11 @@ async function settle(ctx: IdentityContext, address: Address, pending: Pending) 
   const deadline = Date.now() + SETTLE_MS
   for (;;) {
     const { absoluteSlot: slot, blockHeight } = await ctx.rpc.getEpochInfo({ commitment }).send()
-    if (await fetchDevice(ctx, address, hexToBytes(pending.key), slot).catch(() => undefined)) return { slot }
+    const key = hexToBytes(pending.key)
+    const landed = await Promise.all([fetchDevice(ctx, address, key, slot), lockExists(ctx, key, slot)]).catch(
+      () => undefined,
+    )
+    if (landed?.[0] && landed[1]) return { slot }
     const failed = pending.signature && (await transactionError(ctx, pending.signature).catch(() => undefined))
     if (failed) return { slot, failed }
     if (blockHeight > BigInt(pending.lastValidBlockHeight)) return { slot }
@@ -324,7 +346,7 @@ async function settle(ctx: IdentityContext, address: Address, pending: Pending) 
 }
 
 /**
- * Refuses to create or register a device key for a cluster other than the build's. The app always
+ * Refuses to create or activate a device key for a cluster other than the build's. The app always
  * configures the key for the build's cluster (`_layout.tsx`), so the first check only catches a
  * missing configuration; a key of another cluster shows in the cluster stored with it, as after an
  * update to a build for another cluster. Localnet and devnet builds both record `devnet`, the
@@ -345,17 +367,6 @@ async function checkCluster(ctx: IdentityContext) {
   }
 }
 
-/** Whether the build's gateway would pay for a registration now; `undefined` without a gateway. */
-async function offerSponsorship({ gateway }: IdentityContext): Promise<Sponsorship | undefined> {
-  if (!gateway) return undefined
-  try {
-    await gateway.sponsorship()
-    return 'free'
-  } catch {
-    return 'unavailable'
-  }
-}
-
 /** The step of a device key whose device account exists. */
 function bound(wallet: Address | undefined, deviceKey: DeviceKey, device: DeviceRecord): IdentityState {
   if (!wallet) return { step: 'connect', deviceKey, device }
@@ -365,57 +376,51 @@ function bound(wallet: Address | undefined, deviceKey: DeviceKey, device: Device
 /**
  * Derives the step from its sources of truth: the cached wallet authorization, the Keystore key and
  * the device account, read from storage once it was seen on Solana unless `refresh` asks Solana
- * again. A registration handed to the wallet is `confirming` until `advanceIdentity` settles it.
+ * again. An activation handed to the wallet is `confirming` until `advanceIdentity` settles it.
  */
-async function derive(
-  ctx: IdentityContext,
-  refresh = false,
-): Promise<{ state: IdentityState; registration?: Registration }> {
+async function derive(ctx: IdentityContext, refresh = false): Promise<IdentityState> {
   const wallet = (await ctx.cache.get())?.selectedAccount.address
   const deviceKey = (await getDeviceKey()) ?? undefined
-  if (!deviceKey) return { state: wallet ? { step: 'create-key', wallet } : { step: 'connect' } }
+  if (!deviceKey) return wallet ? { step: 'create-key', wallet } : { step: 'connect' }
   // A key created before its cluster was recorded (the app was killed in between) is this build's.
   if (!(await AsyncStorage.getItem(KEY_CLUSTER))) await AsyncStorage.setItem(KEY_CLUSTER, ctx.cluster)
   const key = bytesToHex(deviceKey.publicKey)
-  const [address] = await findDevicePda(deviceKey.publicKey)
+  const [address] = await findDevicePda(deviceKey.publicKey, ctx.programAddress)
   const stored = refresh ? undefined : await readDevice(ctx.chain, key, address)
   if (stored) {
     await AsyncStorage.removeItem(PENDING)
-    return { state: bound(wallet, deviceKey, stored) }
+    return bound(wallet, deviceKey, stored)
   }
   const pending = await readPending()
   if (pending && pending.chain === ctx.chain && pending.key === key && pending.wallet === wallet) {
-    return { state: { step: 'confirming', wallet, deviceKey, signature: pending.signature } }
+    return { step: 'confirming', wallet, deviceKey, signature: pending.signature }
   }
-  // Another chain's, key's or wallet's registration says nothing about this one: the device account decides.
+  // Another chain's, key's or wallet's activation says nothing about this one: the device account decides.
   if (pending) await AsyncStorage.removeItem(PENDING)
   try {
     const device = await fetchDevice(ctx, address, deviceKey.publicKey)
     if (device) {
       await storeDevice(ctx.chain, device)
-      return { state: bound(wallet, deviceKey, device) }
+      return bound(wallet, deviceKey, device)
     }
-    if (!wallet) return { state: { step: 'connect', deviceKey } }
-    const registration = await buildRegistration(wallet, ctx)
-    const [quote, sponsorship] = await Promise.all([quoteRegistration(ctx, registration), offerSponsorship(ctx)])
-    return { state: { step: 'register', wallet, deviceKey, quote, sponsorship }, registration }
+    if (!wallet) return { step: 'connect', deviceKey }
+    const quote = await readQuote(ctx.gateway)
+    const activation = await readActivation(ctx, wallet, quote)
+    const sponsorship = ctx.gateway ? (quote?.available ? 'free' : 'unavailable') : undefined
+    return { step: 'activate', wallet, deviceKey, activation, sponsorship }
   } catch (error) {
     if (!isUnreachable(error)) throw error
-    if (!wallet) return { state: { step: 'connect', deviceKey } }
-    return { state: { step: 'unreachable', wallet, deviceKey, ...describeIdentityError(error, 'unreachable') } }
+    if (!wallet) return { step: 'connect', deviceKey }
+    return { step: 'unreachable', wallet, deviceKey, ...describeIdentityError(error, 'unreachable') }
   }
 }
 
 /** Derives the onboarding step; never `loading`. */
-export async function resolveIdentity(
-  ctx: IdentityContext,
-  { refresh = false }: { refresh?: boolean } = {},
-): Promise<IdentityState> {
-  return (await derive(ctx, refresh)).state
-}
+export const resolveIdentity = (ctx: IdentityContext, { refresh = false }: { refresh?: boolean } = {}) =>
+  derive(ctx, refresh)
 
 /**
- * Waits for the registration recorded for this key and wallet and drops its record once the device
+ * Waits for the activation recorded for this key and wallet and drops its record once the device
  * account has been read after it; an account that cannot be read keeps it for the next attempt.
  */
 async function confirm(ctx: IdentityContext, state: IdentityState): Promise<IdentityState> {
@@ -431,7 +436,7 @@ async function confirm(ctx: IdentityContext, state: IdentityState): Promise<Iden
   ) {
     return resolveIdentity(ctx)
   }
-  const [address] = await findDevicePda(deviceKey.publicKey)
+  const [address] = await findDevicePda(deviceKey.publicKey, ctx.programAddress)
   let device: DeviceRecord | undefined
   let failed: TransactionError | undefined
   try {
@@ -450,60 +455,76 @@ async function confirm(ctx: IdentityContext, state: IdentityState): Promise<Iden
   if (!failed) return { ...current, error: EXPIRED }
   return {
     ...current,
-    error: `${describeTransactionError(failed)} Your wallet paid the network fee; nothing else was charged and this phone is not registered.`,
+    error: `${describeTransactionError(failed)} No funds moved, and this phone is not activated.`,
     details: json(failed),
     signature: pending.signature,
   }
 }
 
 /**
- * Registers through the gateway when the screen offered it for free, or with the wallet paying:
- * checks the registration before the wallet sees it, records it before it can be sent, and waits for
- * it once it was sent, or may have been.
+ * Activates through the gateway when the terms are within what it quoted, or with the wallet
+ * paying: checks the activation before the wallet sees it, records it before it can be sent, and
+ * waits for it once it was sent, or may have been.
  */
-async function register(ctx: IdentityContext, sponsored: boolean): Promise<IdentityState> {
+async function activate(ctx: IdentityContext, shown: IdentityState, input?: ActivationInput): Promise<IdentityState> {
   await checkCluster(ctx)
-  // The device account decides: a registration sent since the screen was derived may have landed.
-  const { state: current, registration } = await derive(ctx)
+  // The device account decides: an activation sent since the screen was derived may have landed.
+  const current = await derive(ctx)
   if (current.step === 'confirming') return confirm(ctx, current)
-  if (!registration || !current.quote) return current
-  if (sponsored) {
-    if (current.sponsorship !== 'free') return payFromWallet(current, 'unavailable')
-    return registerSponsored(ctx, current, registration)
+  const { activation, wallet } = current
+  if (current.step !== 'activate' || !activation || !wallet) return current
+  // The screen offered Buckspay's payment: if it is gone, the wallet decides whether to pay instead.
+  if (shown.sponsorship === 'free' && current.sponsorship !== 'free') return payFromWallet(current, 'unavailable')
+  const terms = input ?? { amount: activation.defaultAmount, lockDays: activation.defaultLockDays }
+  const { quote } = activation
+  if (shown.activation?.quote?.fee !== quote?.fee || shown.activation?.quote?.minFunding !== quote?.minFunding) {
+    return { ...current, error: FEE_CHANGED }
   }
-  const { balance, cost } = current.quote
+  const sponsored = shown.sponsorship === 'free' && isSponsored(activation, 'free', terms)
+  const invalid = checkInput(activation, terms, sponsored)
+  if (invalid) return { ...current, error: invalid }
+  const operation = await activationOperation(
+    ctx,
+    wallet,
+    activation.funding,
+    terms,
+    sponsored ? (quote?.fee ?? 0n) : 0n,
+  )
+  if (sponsored) return activateSponsored(ctx, current, operation)
+  const { balance, cost } = activation.sol
   if (balance < cost) {
     return {
       ...current,
-      error: `Your wallet has ${formatSol(balance)} SOL and registering costs about ${formatSol(cost, 'up')} SOL. Add SOL to your wallet, then try again. Nothing was sent.`,
+      error: `Your wallet has ${formatSol(balance)} SOL and activating costs about ${formatSol(cost, 'up')} SOL in network costs. Add SOL to your wallet, then try again. Nothing was sent.`,
     }
   }
-  const rejected = await simulateRegistration(ctx, registration)
+  const built = await buildSelfPaid(ctx, operation)
+  const rejected = await simulateTransaction(ctx, compileTransaction(built.message))
   if (rejected)
     return { ...current, error: `${describeTransactionError(rejected)} ${NOTHING_SENT}`, details: json(rejected) }
   // Recorded before the wallet holds it, so a relaunch after the app is killed meanwhile waits for it
   // instead of offering a second one.
   const pending: Pending = {
     chain: ctx.chain,
-    key: bytesToHex(registration.key),
-    wallet: registration.wallet,
-    lastValidBlockHeight: registration.lastValidBlockHeight.toString(),
+    key: bytesToHex(operation.key),
+    wallet,
+    lastValidBlockHeight: built.lastValidBlockHeight.toString(),
   }
   await AsyncStorage.setItem(PENDING, JSON.stringify(pending))
-  const confirming: IdentityState = { step: 'confirming', wallet: current.wallet, deviceKey: current.deviceKey }
+  const confirming: IdentityState = { step: 'confirming', wallet, deviceKey: current.deviceKey }
   let signature: SignatureBytes
   try {
-    signature = await sendRegistration(registration)
+    signature = await sendSelfPaid(built)
   } catch (error) {
     if (isWalletError(error, SolanaMobileWalletAdapterProtocolErrorCode.ERROR_AUTHORIZATION_FAILED)) throw error
     if (isWalletError(error, SolanaMobileWalletAdapterProtocolErrorCode.ERROR_NOT_SIGNED)) {
       await AsyncStorage.removeItem(PENDING)
-      return { ...current, ...describeIdentityError(error, 'register') }
+      return { ...current, ...describeIdentityError(error, 'activate') }
     }
     // Any other wallet error may come after it sent the transaction: wait until it can no longer land.
     ctx.onProgress?.(confirming)
     const settled = await confirm(ctx, confirming)
-    return settled.step === 'register' ? { ...settled, ...describeIdentityError(error, 'register') } : settled
+    return settled.step === 'activate' ? { ...settled, ...describeIdentityError(error, 'activate') } : settled
   }
   const sent = { ...pending, signature: getBase58Decoder().decode(signature) as Signature }
   await AsyncStorage.setItem(PENDING, JSON.stringify(sent))
@@ -513,49 +534,50 @@ async function register(ctx: IdentityContext, sponsored: boolean): Promise<Ident
 }
 
 /**
- * The sponsored registration: built by the app and checked against the gateway's, simulated, signed
+ * The sponsored activation: built by the app and checked against the gateway's, simulated, signed
  * by the wallet without sending, then sent by the gateway. Until the gateway has it nothing can be
  * sent, so a wallet that declines or fails sent nothing; one that cannot sign for a sponsor, or the
  * gateway's refusal or mismatch, falls back to the wallet paying, which the screen then shows.
  */
-async function registerSponsored(
+async function activateSponsored(
   ctx: IdentityContext,
   current: IdentityState,
-  registration: Registration,
+  operation: Operation,
 ): Promise<IdentityState> {
   const fallback = (reason: SponsorshipError['reason'], error: unknown) =>
     payFromWallet(current, reason, formatError(error))
+  const wallet = operation.wallet
   let sponsored
   try {
-    sponsored = await prepareSponsoredRegistration(ctx, registration)
+    sponsored = await prepareSponsored(ctx, operation)
   } catch (error) {
     if (error instanceof SponsorshipError) return fallback(error.reason, error.cause ?? error)
     throw error
   }
-  // A sponsored registration Solana would reject, such as one whose fee payer ran dry, is Buckspay's to fix.
-  const rejected = await simulateSponsoredRegistration(ctx, sponsored)
+  // A sponsored activation Solana would reject, such as one whose fee payer ran dry, is Buckspay's to fix.
+  const rejected = await simulateTransaction(ctx, sponsored.transaction)
   if (rejected) return payFromWallet(current, 'unavailable', json(rejected))
   let signed
   try {
-    signed = await signSponsoredRegistration(ctx, registration.wallet, sponsored)
+    signed = await signSponsored(ctx, wallet, sponsored)
   } catch (error) {
     if (error instanceof SponsorshipError) return fallback(error.reason, error.cause ?? error)
     if (isWalletError(error, SolanaMobileWalletAdapterProtocolErrorCode.ERROR_AUTHORIZATION_FAILED)) throw error
     if (isWalletError(error, METHOD_NOT_FOUND)) return fallback('unsupported', error)
-    return { ...current, ...describeIdentityError(error, 'register') }
+    return { ...current, ...describeIdentityError(error, 'activate') }
   }
   // Recorded before the gateway holds it, so a relaunch after the app is killed meanwhile waits for it.
   const pending: Pending = {
     chain: ctx.chain,
-    key: bytesToHex(registration.key),
-    wallet: registration.wallet,
+    key: bytesToHex(operation.key),
+    wallet,
     lastValidBlockHeight: sponsored.lastValidBlockHeight.toString(),
   }
   await AsyncStorage.setItem(PENDING, JSON.stringify(pending))
-  const confirming: IdentityState = { step: 'confirming', wallet: current.wallet, deviceKey: current.deviceKey }
+  const confirming: IdentityState = { step: 'confirming', wallet, deviceKey: current.deviceKey }
   let signature: string
   try {
-    signature = await submitSponsoredRegistration(ctx, registration, signed)
+    signature = await submitSponsored(ctx, operation, signed)
   } catch (error) {
     if (!notSent(error)) {
       // No answer, or not the gateway's own: it may have sent it. Wait until it can no longer land.
@@ -576,8 +598,12 @@ async function registerSponsored(
   return confirm(ctx, waiting)
 }
 
-/** Performs the action of `state.step` and derives the next state. */
-export async function advanceIdentity(ctx: IdentityContext, state: IdentityState): Promise<IdentityState> {
+/** Performs the action of `state.step` and derives the next state; `input` is what the user chose to add. */
+export async function advanceIdentity(
+  ctx: IdentityContext,
+  state: IdentityState,
+  input?: ActivationInput,
+): Promise<IdentityState> {
   try {
     switch (state.step) {
       case 'loading':
@@ -597,8 +623,8 @@ export async function advanceIdentity(ctx: IdentityContext, state: IdentityState
         await createDeviceKey()
         await AsyncStorage.setItem(KEY_CLUSTER, ctx.cluster)
         break
-      case 'register':
-        return await register(ctx, state.sponsorship === 'free')
+      case 'activate':
+        return await activate(ctx, state, input)
       case 'confirming':
         return await confirm(ctx, state)
       case 'ready':
@@ -607,14 +633,14 @@ export async function advanceIdentity(ctx: IdentityContext, state: IdentityState
     return await resolveIdentity(ctx)
   } catch (error) {
     if (
-      state.step === 'register' &&
+      state.step === 'activate' &&
       isWalletError(error, SolanaMobileWalletAdapterProtocolErrorCode.ERROR_AUTHORIZATION_FAILED)
     ) {
       // The wallet rejected our cached authorization and no fresh one was made in that session:
       // nothing was sent; start over from a fresh connection.
       await AsyncStorage.removeItem(PENDING)
       await ctx.disconnect()
-      return { ...(await resolveIdentity(ctx)), ...describeIdentityError(error, 'register') }
+      return { ...(await resolveIdentity(ctx)), ...describeIdentityError(error, 'activate') }
     }
     return { ...state, ...describeIdentityError(error, state.step) }
   }

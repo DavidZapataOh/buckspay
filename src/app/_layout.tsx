@@ -51,7 +51,7 @@ function Routes() {
   // Onboarding closes itself once the registration is confirmed: say so to screen readers.
   useEffect(() => {
     if (step === 'ready' && previous.current === 'confirming') {
-      AccessibilityInfo.announceForAccessibility('This phone is registered to your wallet.')
+      AccessibilityInfo.announceForAccessibility('This phone is activated and registered to your wallet.')
     }
     previous.current = step
   }, [step])
@@ -62,6 +62,10 @@ function Routes() {
         <Stack.Screen name="(tabs)" />
         <Stack.Protected guard={step !== 'ready'}>
           <Stack.Screen name="onboarding" options={{ presentation: 'modal' }} />
+        </Stack.Protected>
+        <Stack.Protected guard={step === 'ready'}>
+          <Stack.Screen name="add-funds" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="withdraw" options={{ presentation: 'modal' }} />
         </Stack.Protected>
       </Stack>
     </>

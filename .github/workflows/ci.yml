@@ -93,12 +93,38 @@ jobs:
         with:
           workspaces: anchor
       - run: cargo fmt --check
+      - run: bash scripts/check-stack.sh devnet
+      - run: bash scripts/check-stack.sh devnet,short-windows
       - run: anchor build -- --features devnet
       - run: cargo clippy --all-targets --features buckspay/devnet -- -D warnings
+      - run: cargo clippy -p buckspay --all-targets --features devnet,short-windows -- -D warnings
       - run: cargo test --features buckspay/devnet
       - run: cargo test -p buckspay-protocol --features verify
+      - run: cargo test -p buckspay-protocol --features verify,short-windows
       - run: cargo clippy -p buckspay-protocol --all-targets --features verify -- -D warnings
       - run: cargo build-sbf --manifest-path crates/protocol/Cargo.toml --arch v3 --tools-version v1.57
+      # The windows of the short profile, on the binary built for it.
+      - run: bash scripts/check-stack.sh devnet,short-windows && cargo test -p buckspay --features devnet,short-windows
+      # The binaries belong to their profile and cluster.
+      - run: |
+          source scripts/toolchain.sh
+          mkdir -p /tmp/prod /tmp/short
+          cargo build-sbf --features devnet && cp target/deploy/buckspay.so /tmp/prod/
+          cargo build-sbf --features devnet,short-windows && cp target/deploy/buckspay.so /tmp/short/
+          BUCKSPAY_DEPLOY_DIR=/tmp/prod node scripts/check-program.mjs devnet production
+          BUCKSPAY_DEPLOY_DIR=/tmp/short node scripts/check-program.mjs devnet short
+          ! BUCKSPAY_DEPLOY_DIR=/tmp/prod node scripts/check-program.mjs devnet short
+          ! BUCKSPAY_DEPLOY_DIR=/tmp/short node scripts/check-program.mjs devnet production
+          ! cargo check -p buckspay --features mainnet,short-windows
+      - run: node --test scripts/check-program.test.mjs
+      - run: bash scripts/toolchain.test.sh
+      # Only the payout module moves tokens out of an escrow.
+      - run: cargo test --manifest-path tools/check-payouts/Cargo.toml
+      - run: cargo clippy --manifest-path tools/check-payouts/Cargo.toml --all-targets -- -D warnings
+      - run: bash scripts/check-payouts.sh
+      - run: bash scripts/check-payouts.test.sh
+      # Devices of the previous program stay usable across an upgrade.
+      - run: bash scripts/upgrade-test.sh
       - run: pnpm codama:check
         working-directory: .
 
@@ -130,8 +156,11 @@ jobs:
           workspaces: |
             anchor
             gateway
-      # The gateway's tests run against solana-test-validator with this build of the program.
+      # The gateway's tests run against solana-test-validator with the short-windows build of the
+      # program and the token programs cloned from devnet.
       - run: anchor build -- --features devnet
+        working-directory: anchor
+      - run: bash scripts/build-short.sh
         working-directory: anchor
       - run: cargo fmt --all --check
         working-directory: gateway
@@ -170,6 +199,10 @@ jobs:
           solana-test-validator --reset --quiet --ledger "$RUNNER_TEMP/ledger" \
             --bpf-program "$(jq -r .address anchor/target/idl/buckspay.json)" anchor/target/deploy/buckspay.so &
           until solana cluster-version -u localhost; do sleep 1; done
+      # The funding token of the flows is a test mint at a fixed address; the build is configured with it.
+      - run: echo "EXPO_PUBLIC_FUNDING_MINT=$(node .maestro/scripts/usdc-faucet.mjs --print-mint)" >> "$GITHUB_ENV"
+      - name: Start the funding token faucet
+        run: node .maestro/scripts/usdc-faucet.mjs > "$RUNNER_TEMP/faucet.log" 2>&1 &
       # A localnet test build: the bundle talks to the validator forwarded to the emulator's localhost.
       - run: pnpm exec expo prebuild -p android --clean
         env:

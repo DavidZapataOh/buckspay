@@ -10,20 +10,15 @@ import { Screen } from '../../components/screen'
 import { StatusNote } from '../../components/status-note'
 import { useThemeColors } from '../../theme/use-theme-colors'
 import { useNetwork } from '../network/use-network'
-import {
-  confirmingNotice,
-  costNotice,
-  keyProtection,
-  shortfallNotice,
-  sponsorshipNotice,
-  stepCopy,
-} from './identity-copy'
+import { ACTIVE_PROFILE } from '../../protocol/active-profile'
+import { ActivationForm } from './activation-form'
+import { confirmingNotice, keyProtection, sponsorshipNotice, stepCopy } from './identity-copy'
 import { useDeviceIdentity } from './use-device-identity'
 
-/** Sets up paying and receiving: a wallet, this phone's key and its registration. */
+/** Sets up paying and receiving: a wallet, this phone's key and its first lock. */
 export function Onboarding() {
   const { getExplorerUrl } = useNetwork()
-  const { step, busy, error, details, signature, quote, sponsorship, wallet, device, deviceKey, next } =
+  const { step, busy, error, details, signature, activation, sponsorship, wallet, device, deviceKey, next } =
     useDeviceIdentity()
   const [showDetails, setShowDetails] = useState(false)
   const [primary] = useThemeColors('primary')
@@ -32,8 +27,8 @@ export function Onboarding() {
   const notice =
     step === 'confirming'
       ? confirmingNotice(signature)
-      : step === 'register' && quote
-        ? (shortfallNotice(quote, sponsorship) ?? (error ? undefined : sponsorshipNotice(sponsorship)))
+      : step === 'activate' && !error
+        ? sponsorshipNotice(sponsorship)
         : undefined
 
   return (
@@ -52,10 +47,15 @@ export function Onboarding() {
           <AppText variant="body" tone="muted">
             {content.body}
           </AppText>
-          {step === 'register' && quote ? (
-            <AppText testID="registration-cost" variant="body">
-              {costNotice(quote, sponsorship)}
-            </AppText>
+          {step === 'activate' && activation ? (
+            <ActivationForm
+              activation={activation}
+              sponsorship={sponsorship}
+              windows={ACTIVE_PROFILE.windows}
+              busy={busy}
+              action={content.action}
+              onSubmit={(input) => void next(input)}
+            />
           ) : null}
           {step === 'other-wallet' && device ? (
             <AddressRow testID="registered-wallet" address={device.wallet} label="Registered to" />
@@ -100,7 +100,7 @@ export function Onboarding() {
           <View className="grow" />
           {step === 'confirming' && !error ? (
             <ActivityIndicator testID="onboarding-waiting" accessibilityLabel="Waiting for Solana" color={primary} />
-          ) : (
+          ) : step === 'activate' && activation ? null : (
             <Button
               testID="onboarding-next"
               variant="filled"

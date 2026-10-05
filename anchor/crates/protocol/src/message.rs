@@ -8,13 +8,20 @@ pub mod kind {
     pub const SPEND_CONFLICT: u8 = 0x20;
     pub const ISSUE_CONFLICT: u8 = 0x21;
     pub const DEVICE_BINDING: u8 = 0x50;
+    pub const ROTATION: u8 = 0x51;
 }
 
 pub const NO_LOCK: u32 = u32::MAX;
 /// Seconds after a note's expiry during which its payees can still settle it.
+#[cfg(not(feature = "short-windows"))]
 pub const GRACE: u32 = 7 * 24 * 60 * 60;
+#[cfg(feature = "short-windows")]
+pub const GRACE: u32 = 60;
 /// Seconds after the grace period during which conflicts are still accepted.
+#[cfg(not(feature = "short-windows"))]
 pub const CHALLENGE: u32 = 7 * 24 * 60 * 60;
+#[cfg(feature = "short-windows")]
+pub const CHALLENGE: u32 = 60;
 const ISSUE_SLOT_TAG: &[u8; 4] = b"ISSU";
 
 fn header(bytes: &[u8], expected_kind: u8) -> Result<()> {

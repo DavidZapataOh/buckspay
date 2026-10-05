@@ -34,19 +34,68 @@ import {
   type SelfFetchFunctions,
   type SelfPlanAndSendFunctions,
 } from '@solana/kit/program-client-core'
-import { getDeviceCodec, type Device, type DeviceArgs } from '../accounts'
 import {
+  getDeviceCodec,
+  getLedgerCodec,
+  getLockCodec,
+  getRotationCodec,
+  type Device,
+  type DeviceArgs,
+  type Ledger,
+  type LedgerArgs,
+  type Lock,
+  type LockArgs,
+  type Rotation,
+  type RotationArgs,
+} from '../accounts'
+import {
+  getApplyWalletRotationInstruction,
+  getCancelWalletRotationInstruction,
+  getCloseLockInstructionAsync,
+  getCreateLockInstructionAsync,
+  getMigrateDeviceInstruction,
   getRegisterDeviceInstruction,
+  getReleaseLockInstructionAsync,
+  getRequestWalletRotationInstruction,
+  getWithdrawLockInstructionAsync,
+  parseApplyWalletRotationInstruction,
+  parseCancelWalletRotationInstruction,
+  parseCloseLockInstruction,
+  parseCreateLockInstruction,
+  parseMigrateDeviceInstruction,
   parseRegisterDeviceInstruction,
+  parseReleaseLockInstruction,
+  parseRequestWalletRotationInstruction,
+  parseWithdrawLockInstruction,
+  type ApplyWalletRotationInput,
+  type CancelWalletRotationInput,
+  type CloseLockAsyncInput,
+  type CreateLockAsyncInput,
+  type MigrateDeviceInput,
+  type ParsedApplyWalletRotationInstruction,
+  type ParsedCancelWalletRotationInstruction,
+  type ParsedCloseLockInstruction,
+  type ParsedCreateLockInstruction,
+  type ParsedMigrateDeviceInstruction,
   type ParsedRegisterDeviceInstruction,
+  type ParsedReleaseLockInstruction,
+  type ParsedRequestWalletRotationInstruction,
+  type ParsedWithdrawLockInstruction,
   type RegisterDeviceInput,
+  type ReleaseLockAsyncInput,
+  type RequestWalletRotationInput,
+  type WithdrawLockAsyncInput,
 } from '../instructions'
+import { findEscrowPda, findLedgerPda } from '../pdas'
 
 export const BUCKSPAY_PROGRAM_ADDRESS =
   'zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM' as Address<'zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM'>
 
 export enum BuckspayAccount {
   Device,
+  Ledger,
+  Lock,
+  Rotation,
 }
 
 export function identifyBuckspayAccount(account: { data: ReadonlyUint8Array } | ReadonlyUint8Array): BuckspayAccount {
@@ -60,6 +109,33 @@ export function identifyBuckspayAccount(account: { data: ReadonlyUint8Array } | 
   ) {
     return BuckspayAccount.Device
   }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([43, 41, 21, 213, 180, 176, 95, 32])),
+      0,
+    )
+  ) {
+    return BuckspayAccount.Ledger
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([8, 255, 36, 202, 210, 22, 57, 137])),
+      0,
+    )
+  ) {
+    return BuckspayAccount.Lock
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([185, 58, 166, 143, 105, 11, 94, 53])),
+      0,
+    )
+  ) {
+    return BuckspayAccount.Rotation
+  }
   throw new SolanaError(SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_ACCOUNT, {
     accountData: data,
     programName: 'buckspay',
@@ -67,7 +143,15 @@ export function identifyBuckspayAccount(account: { data: ReadonlyUint8Array } | 
 }
 
 export enum BuckspayInstruction {
+  ApplyWalletRotation,
+  CancelWalletRotation,
+  CloseLock,
+  CreateLock,
+  MigrateDevice,
   RegisterDevice,
+  ReleaseLock,
+  RequestWalletRotation,
+  WithdrawLock,
 }
 
 export function identifyBuckspayInstruction(
@@ -77,11 +161,83 @@ export function identifyBuckspayInstruction(
   if (
     containsBytes(
       data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([20, 213, 22, 192, 41, 156, 230, 10])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.ApplyWalletRotation
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([233, 63, 159, 51, 196, 144, 171, 206])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.CancelWalletRotation
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([58, 254, 183, 130, 151, 238, 95, 54])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.CloseLock
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([171, 216, 92, 167, 165, 8, 153, 90])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.CreateLock
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([198, 211, 107, 143, 97, 49, 220, 206])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.MigrateDevice
+  }
+  if (
+    containsBytes(
+      data,
       fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([210, 151, 56, 68, 22, 158, 90, 193])),
       0,
     )
   ) {
     return BuckspayInstruction.RegisterDevice
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([241, 251, 248, 8, 198, 190, 195, 6])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.ReleaseLock
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([17, 80, 61, 5, 234, 245, 246, 227])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.RequestWalletRotation
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([81, 157, 253, 160, 94, 29, 90, 143])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.WithdrawLock
   }
   throw new SolanaError(SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION, {
     instructionData: data,
@@ -89,18 +245,66 @@ export function identifyBuckspayInstruction(
   })
 }
 
-export type ParsedBuckspayInstruction<TProgram extends string = 'zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM'> = {
-  instructionType: BuckspayInstruction.RegisterDevice
-} & ParsedRegisterDeviceInstruction<TProgram>
+export type ParsedBuckspayInstruction<TProgram extends string = 'zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM'> =
+  | ({ instructionType: BuckspayInstruction.ApplyWalletRotation } & ParsedApplyWalletRotationInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.CancelWalletRotation } & ParsedCancelWalletRotationInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.CloseLock } & ParsedCloseLockInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.CreateLock } & ParsedCreateLockInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.MigrateDevice } & ParsedMigrateDeviceInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.RegisterDevice } & ParsedRegisterDeviceInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.ReleaseLock } & ParsedReleaseLockInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.RequestWalletRotation } & ParsedRequestWalletRotationInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.WithdrawLock } & ParsedWithdrawLockInstruction<TProgram>)
 
 export function parseBuckspayInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
 ): ParsedBuckspayInstruction<TProgram> {
   const instructionType = identifyBuckspayInstruction(instruction)
   switch (instructionType) {
+    case BuckspayInstruction.ApplyWalletRotation: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: BuckspayInstruction.ApplyWalletRotation,
+        ...parseApplyWalletRotationInstruction(instruction),
+      }
+    }
+    case BuckspayInstruction.CancelWalletRotation: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: BuckspayInstruction.CancelWalletRotation,
+        ...parseCancelWalletRotationInstruction(instruction),
+      }
+    }
+    case BuckspayInstruction.CloseLock: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.CloseLock, ...parseCloseLockInstruction(instruction) }
+    }
+    case BuckspayInstruction.CreateLock: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.CreateLock, ...parseCreateLockInstruction(instruction) }
+    }
+    case BuckspayInstruction.MigrateDevice: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.MigrateDevice, ...parseMigrateDeviceInstruction(instruction) }
+    }
     case BuckspayInstruction.RegisterDevice: {
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.RegisterDevice, ...parseRegisterDeviceInstruction(instruction) }
+    }
+    case BuckspayInstruction.ReleaseLock: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.ReleaseLock, ...parseReleaseLockInstruction(instruction) }
+    }
+    case BuckspayInstruction.RequestWalletRotation: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: BuckspayInstruction.RequestWalletRotation,
+        ...parseRequestWalletRotationInstruction(instruction),
+      }
+    }
+    case BuckspayInstruction.WithdrawLock: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.WithdrawLock, ...parseWithdrawLockInstruction(instruction) }
     }
     default:
       throw new SolanaError(SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE, {
@@ -113,6 +317,7 @@ export function parseBuckspayInstruction<TProgram extends string>(
 export type BuckspayPlugin = {
   accounts: BuckspayPluginAccounts
   instructions: BuckspayPluginInstructions
+  pdas: BuckspayPluginPdas
   identifyAccount: typeof identifyBuckspayAccount
   identifyInstruction: typeof identifyBuckspayInstruction
   parseInstruction: typeof parseBuckspayInstruction
@@ -120,13 +325,40 @@ export type BuckspayPlugin = {
 
 export type BuckspayPluginAccounts = {
   device: ReturnType<typeof getDeviceCodec> & SelfFetchFunctions<DeviceArgs, Device>
+  ledger: ReturnType<typeof getLedgerCodec> & SelfFetchFunctions<LedgerArgs, Ledger>
+  lock: ReturnType<typeof getLockCodec> & SelfFetchFunctions<LockArgs, Lock>
+  rotation: ReturnType<typeof getRotationCodec> & SelfFetchFunctions<RotationArgs, Rotation>
 }
 
 export type BuckspayPluginInstructions = {
+  applyWalletRotation: (
+    input: ApplyWalletRotationInput,
+  ) => ReturnType<typeof getApplyWalletRotationInstruction> & SelfPlanAndSendFunctions
+  cancelWalletRotation: (
+    input: CancelWalletRotationInput,
+  ) => ReturnType<typeof getCancelWalletRotationInstruction> & SelfPlanAndSendFunctions
+  closeLock: (input: CloseLockAsyncInput) => ReturnType<typeof getCloseLockInstructionAsync> & SelfPlanAndSendFunctions
+  createLock: (
+    input: MakeOptional<CreateLockAsyncInput, 'payer'>,
+  ) => ReturnType<typeof getCreateLockInstructionAsync> & SelfPlanAndSendFunctions
+  migrateDevice: (
+    input: MakeOptional<MigrateDeviceInput, 'payer'>,
+  ) => ReturnType<typeof getMigrateDeviceInstruction> & SelfPlanAndSendFunctions
   registerDevice: (
     input: MakeOptional<RegisterDeviceInput, 'payer'>,
   ) => ReturnType<typeof getRegisterDeviceInstruction> & SelfPlanAndSendFunctions
+  releaseLock: (
+    input: ReleaseLockAsyncInput,
+  ) => ReturnType<typeof getReleaseLockInstructionAsync> & SelfPlanAndSendFunctions
+  requestWalletRotation: (
+    input: MakeOptional<RequestWalletRotationInput, 'payer'>,
+  ) => ReturnType<typeof getRequestWalletRotationInstruction> & SelfPlanAndSendFunctions
+  withdrawLock: (
+    input: WithdrawLockAsyncInput,
+  ) => ReturnType<typeof getWithdrawLockInstructionAsync> & SelfPlanAndSendFunctions
 }
+
+export type BuckspayPluginPdas = { ledger: typeof findLedgerPda; escrow: typeof findEscrowPda }
 
 export type BuckspayPluginRequirements = ClientWithRpc<GetAccountInfoApi & GetMultipleAccountsApi> &
   ClientWithPayer &
@@ -137,14 +369,41 @@ export function buckspayProgram() {
   return <T extends BuckspayPluginRequirements>(client: T): ExtendedClient<T, { buckspay: BuckspayPlugin }> => {
     return extendClient(client, {
       buckspay: <BuckspayPlugin>{
-        accounts: { device: addSelfFetchFunctions(client, getDeviceCodec()) },
+        accounts: {
+          device: addSelfFetchFunctions(client, getDeviceCodec()),
+          ledger: addSelfFetchFunctions(client, getLedgerCodec()),
+          lock: addSelfFetchFunctions(client, getLockCodec()),
+          rotation: addSelfFetchFunctions(client, getRotationCodec()),
+        },
         instructions: {
+          applyWalletRotation: (input) => addSelfPlanAndSendFunctions(client, getApplyWalletRotationInstruction(input)),
+          cancelWalletRotation: (input) =>
+            addSelfPlanAndSendFunctions(client, getCancelWalletRotationInstruction(input)),
+          closeLock: (input) => addSelfPlanAndSendFunctions(client, getCloseLockInstructionAsync(input)),
+          createLock: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getCreateLockInstructionAsync({ ...input, payer: input.payer ?? client.payer }),
+            ),
+          migrateDevice: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getMigrateDeviceInstruction({ ...input, payer: input.payer ?? client.payer }),
+            ),
           registerDevice: (input) =>
             addSelfPlanAndSendFunctions(
               client,
               getRegisterDeviceInstruction({ ...input, payer: input.payer ?? client.payer }),
             ),
+          releaseLock: (input) => addSelfPlanAndSendFunctions(client, getReleaseLockInstructionAsync(input)),
+          requestWalletRotation: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getRequestWalletRotationInstruction({ ...input, payer: input.payer ?? client.payer }),
+            ),
+          withdrawLock: (input) => addSelfPlanAndSendFunctions(client, getWithdrawLockInstructionAsync(input)),
         },
+        pdas: { ledger: findLedgerPda, escrow: findEscrowPda },
         identifyAccount: identifyBuckspayAccount,
         identifyInstruction: identifyBuckspayInstruction,
         parseInstruction: parseBuckspayInstruction,

@@ -16,6 +16,69 @@ pub enum BuckspayError {
     /// 6001 - Missing or malformed secp256r1 verification of the device binding
     #[error("Missing or malformed secp256r1 verification of the device binding")]
     DeviceBinding = 0x1771,
+    /// 6002 - lock_seq is not the device's next lock sequence number
+    #[error("lock_seq is not the device's next lock sequence number")]
+    LockSeqMismatch = 0x1772,
+    /// 6003 - The device has used every lock sequence number
+    #[error("The device has used every lock sequence number")]
+    LockSeqExhausted = 0x1773,
+    /// 6004 - Amount must be greater than zero
+    #[error("Amount must be greater than zero")]
+    AmountZero = 0x1774,
+    /// 6005 - Amount overflows
+    #[error("Amount overflows")]
+    AmountOverflow = 0x1775,
+    /// 6006 - lock_until is too close
+    #[error("lock_until is too close")]
+    LockTooShort = 0x1776,
+    /// 6007 - lock_until is too far
+    #[error("lock_until is too far")]
+    LockTooLong = 0x1777,
+    /// 6008 - The cluster clock is outside the supported range
+    #[error("The cluster clock is outside the supported range")]
+    ClockOutOfRange = 0x1778,
+    /// 6009 - The mint has an extension the program does not support
+    #[error("The mint has an extension the program does not support")]
+    UnsupportedMintExtension = 0x1779,
+    /// 6010 - A sponsor fee is only allowed on a sponsored first lock
+    #[error("A sponsor fee is only allowed on a sponsored first lock")]
+    FeeNotAllowed = 0x177A,
+    /// 6011 - The sponsor fee is above its cap
+    #[error("The sponsor fee is above its cap")]
+    FeeTooHigh = 0x177B,
+    /// 6012 - The lock cannot be withdrawn yet
+    #[error("The lock cannot be withdrawn yet")]
+    WithdrawTooEarly = 0x177C,
+    /// 6013 - The lock cannot be released yet
+    #[error("The lock cannot be released yet")]
+    ReleaseTooEarly = 0x177D,
+    /// 6014 - The lock cannot be closed yet
+    #[error("The lock cannot be closed yet")]
+    CloseTooEarly = 0x177E,
+    /// 6015 - The lock has not been withdrawn
+    #[error("The lock has not been withdrawn")]
+    NotWithdrawn = 0x177F,
+    /// 6016 - The escrow is still open
+    #[error("The escrow is still open")]
+    EscrowOpen = 0x1780,
+    /// 6017 - A slash is still pending in the lock
+    #[error("A slash is still pending in the lock")]
+    SlashPending = 0x1781,
+    /// 6018 - The escrow holds less than the ledger owes
+    #[error("The escrow holds less than the ledger owes")]
+    InsufficientEscrow = 0x1782,
+    /// 6019 - Missing or malformed secp256r1 verification of the wallet rotation
+    #[error("Missing or malformed secp256r1 verification of the wallet rotation")]
+    RotationBinding = 0x1783,
+    /// 6020 - The wallet rotation cannot be applied yet
+    #[error("The wallet rotation cannot be applied yet")]
+    RotationNotReady = 0x1784,
+    /// 6021 - The new wallet is the current wallet
+    #[error("The new wallet is the current wallet")]
+    SameWallet = 0x1785,
+    /// 6022 - The account is not a device account to migrate
+    #[error("The account is not a device account to migrate")]
+    NotMigratable = 0x1786,
 }
 
 impl From<BuckspayError> for solana_program_error::ProgramError {

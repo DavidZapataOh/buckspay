@@ -40,19 +40,20 @@ An issue's `hops_left` is at most 16, and an issue always names a lock: `lock_se
 
 ## Messages
 
-| Kind   | Message       | Body (hashed into `CONTENT`)                                                                                              | Wire                                                                                         |
-| ------ | ------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `0x01` | Issue         | `ver ‖ kind ‖ issuer[33] ‖ mint[32] ‖ lock_seq:u32 ‖ cum_end:u64 ‖ salt[16] ‖ owner[33] ‖ amount:u64 ‖ caveats[27]` (163) | body ‖ sig (227)                                                                             |
-| `0x02` | Spend1        | `ver ‖ kind ‖ lock_seq:u32 ‖ salt[16] ‖ owner[33] ‖ caveats[27]` (82)                                                     | input[32] ‖ body ‖ sig (178)                                                                 |
-| `0x03` | Spend2        | `ver ‖ kind ‖ lock_seq:u32 ‖ salt[16] ‖ owner0[33] ‖ amount0:u64 ‖ caveats0[27] ‖ owner1[33]` (123)                       | input[32] ‖ body ‖ sig (219)                                                                 |
-| `0x10` | BondTicket    | `ver ‖ kind ‖ device[33] ‖ mint[32] ‖ lock_seq:u32 ‖ bond:u64 ‖ backing:u64 ‖ lock_until:u32 ‖ attester:u16` (93)         | body ‖ Ed25519 sig over `DOMAIN(ticket) ‖ body` (157)                                        |
-| `0x20` | SpendConflict |                                                                                                                           | `ver ‖ kind ‖ slot[32] ‖ content_a[32] ‖ sig_a ‖ content_b[32] ‖ sig_b ‖ recovery` (227)     |
-| `0x21` | IssueConflict |                                                                                                                           | `ver ‖ kind ‖ (lock_seq:u32 ‖ start:u64 ‖ end:u64 ‖ content[32] ‖ sig) × 2 ‖ recovery` (235) |
-| `0x50` | DeviceBinding | `ver ‖ kind ‖ wallet[32] ‖ key[33]` (67), signed under `DOMAIN(device)` with `SLOT` = wallet                              | none: the signature travels in a secp256r1 verification instruction                          |
+| Kind   | Message        | Body (hashed into `CONTENT`)                                                                                                           | Wire                                                                                         |
+| ------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `0x01` | Issue          | `ver ‖ kind ‖ issuer[33] ‖ mint[32] ‖ lock_seq:u32 ‖ cum_end:u64 ‖ salt[16] ‖ owner[33] ‖ amount:u64 ‖ caveats[27]` (163)              | body ‖ sig (227)                                                                             |
+| `0x02` | Spend1         | `ver ‖ kind ‖ lock_seq:u32 ‖ salt[16] ‖ owner[33] ‖ caveats[27]` (82)                                                                  | input[32] ‖ body ‖ sig (178)                                                                 |
+| `0x03` | Spend2         | `ver ‖ kind ‖ lock_seq:u32 ‖ salt[16] ‖ owner0[33] ‖ amount0:u64 ‖ caveats0[27] ‖ owner1[33]` (123)                                    | input[32] ‖ body ‖ sig (219)                                                                 |
+| `0x10` | BondTicket     | `ver ‖ kind ‖ device[33] ‖ mint[32] ‖ lock_seq:u32 ‖ bond:u64 ‖ backing:u64 ‖ lock_until:u32 ‖ attester:u16` (93)                      | body ‖ Ed25519 sig over `DOMAIN(ticket) ‖ body` (157)                                        |
+| `0x20` | SpendConflict  |                                                                                                                                        | `ver ‖ kind ‖ slot[32] ‖ content_a[32] ‖ sig_a ‖ content_b[32] ‖ sig_b ‖ recovery` (227)     |
+| `0x21` | IssueConflict  |                                                                                                                                        | `ver ‖ kind ‖ (lock_seq:u32 ‖ start:u64 ‖ end:u64 ‖ content[32] ‖ sig) × 2 ‖ recovery` (235) |
+| `0x50` | DeviceBinding  | `ver ‖ kind ‖ wallet[32] ‖ key[33]` (67), signed under `DOMAIN(device)` with `SLOT` = wallet                                           | none: the signature travels in a secp256r1 verification instruction                          |
+| `0x51` | DeviceRotation | `ver ‖ kind ‖ old_wallet[32] ‖ new_wallet[32] ‖ key[33] ‖ rotations:u32` (103), signed under `DOMAIN(device)` with `SLOT` = old wallet | none: the signature travels in a secp256r1 verification instruction                          |
 
 `recovery = recid_a | recid_b << 2`: the signer's key is recovered from both signatures, which must agree.
 
-Reserved kinds: `0x01–0x0F` notes, `0x10–0x1F` tickets, `0x20–0x2F` conflicts, `0x30` IOU, `0x40` PayWord, `0x50` device binding.
+Reserved kinds: `0x01–0x0F` notes, `0x10–0x1F` tickets, `0x20–0x2F` conflicts, `0x30` IOU, `0x40` PayWord, `0x50` device binding, `0x51` device rotation.
 
 ## Spends
 
@@ -77,7 +78,7 @@ A chain whose last output 0 is a terminal account is settled on chain with the s
 
 A holder checks its own spend before signing it with `check_spend_step`: the rules of one hop, and a consumed output that can still move, as a payment until its expiry and as a settlement until `expiry + GRACE`.
 
-`expiry` is the last time an output can be accepted offline. Its payee can settle it until `expiry + GRACE`, and conflicts are accepted until `expiry + GRACE + CHALLENGE`. `GRACE` and `CHALLENGE` are 7 days each.
+`expiry` is the last time an output can be accepted offline. Its payee can settle it until `expiry + GRACE`, and conflicts are accepted until `expiry + GRACE + CHALLENGE`. `GRACE` and `CHALLENGE` are 7 days each. The `short-windows` feature shortens them, and every window of the lock lifecycle (`lock`), to a minute for a separate build of the program with its own program id (`profile`); no real user's lock lives in it.
 
 ## Fraud
 

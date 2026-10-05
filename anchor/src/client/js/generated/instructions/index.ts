@@ -6,4 +6,12 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from './applyWalletRotation'
+export * from './cancelWalletRotation'
+export * from './closeLock'
+export * from './createLock'
+export * from './migrateDevice'
 export * from './registerDevice'
+export * from './releaseLock'
+export * from './requestWalletRotation'
+export * from './withdrawLock'

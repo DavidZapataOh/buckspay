@@ -1,8 +1,10 @@
-# The wallet rejects our cached authorization during registration (fakewallet's simulated invalid
+# The wallet rejects our cached authorization while activating (fakewallet's simulated invalid
 # auth token): the app clears it, asks to connect again and completes onboarding with the same device key.
+# Needs the validator and the funding token faucet (`scripts/usdc-faucet.mjs`).
 appId: xyz.buckspay.app
 env:
   RPC_URL: http://localhost:8899
+  FAUCET_URL: http://localhost:8898
 ---
 - clearState
 - stopApp: com.solana.mobilewalletadapter.fakewallet
@@ -25,11 +27,12 @@ env:
 - tapOn: AUTHORIZE
 - extendedWaitUntil:
     visible:
-      id: onboarding-register
+      id: onboarding-activate
     timeout: 30000
 - copyTextFrom:
     id: wallet-address
 - runScript: scripts/airdrop.js
+- runScript: scripts/fund-usdc.js
 - scrollUntilVisible:
     element:
       id: onboarding-next
@@ -54,12 +57,13 @@ env:
 - tapOn: AUTHORIZE
 - extendedWaitUntil:
     visible:
-      id: onboarding-register
+      id: onboarding-activate
     timeout: 30000
 # fakewallet authorizes a new account after a failed authorization: fund it too.
 - copyTextFrom:
     id: wallet-address
 - runScript: scripts/airdrop.js
+- runScript: scripts/fund-usdc.js
 - scrollUntilVisible:
     element:
       id: onboarding-next

@@ -21,6 +21,8 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
+  getU32Decoder,
+  getU32Encoder,
   getU8Decoder,
   getU8Encoder,
   transformEncoder,
@@ -43,9 +45,30 @@ export function getDeviceDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(DEVICE_DISCRIMINATOR)
 }
 
-export type Device = { discriminator: ReadonlyUint8Array; wallet: Address; bump: number }
+export type Device = {
+  discriminator: ReadonlyUint8Array
+  wallet: Address
+  bump: number
+  /**
+   * The sequence number the next lock must use: strictly increasing across mints, never reaches
+   * `NO_LOCK` as a lock's number.
+   */
+  nextLockSeq: number
+  /** Replay counter of wallet rotations. */
+  rotations: number
+}
 
-export type DeviceArgs = { wallet: Address; bump: number }
+export type DeviceArgs = {
+  wallet: Address
+  bump: number
+  /**
+   * The sequence number the next lock must use: strictly increasing across mints, never reaches
+   * `NO_LOCK` as a lock's number.
+   */
+  nextLockSeq: number
+  /** Replay counter of wallet rotations. */
+  rotations: number
+}
 
 /** Gets the encoder for {@link DeviceArgs} account data. */
 export function getDeviceEncoder(): FixedSizeEncoder<DeviceArgs> {
@@ -54,6 +77,8 @@ export function getDeviceEncoder(): FixedSizeEncoder<DeviceArgs> {
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
       ['wallet', getAddressEncoder()],
       ['bump', getU8Encoder()],
+      ['nextLockSeq', getU32Encoder()],
+      ['rotations', getU32Encoder()],
     ]),
     (value) => ({ ...value, discriminator: DEVICE_DISCRIMINATOR }),
   )
@@ -65,6 +90,8 @@ export function getDeviceDecoder(): FixedSizeDecoder<Device> {
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
     ['wallet', getAddressDecoder()],
     ['bump', getU8Decoder()],
+    ['nextLockSeq', getU32Decoder()],
+    ['rotations', getU32Decoder()],
   ])
 }
 
@@ -124,5 +151,5 @@ export async function fetchAllMaybeDevice(
 }
 
 export function getDeviceSize(): number {
-  return 41
+  return 49
 }

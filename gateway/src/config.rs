@@ -1,13 +1,21 @@
-use crate::{fees::APP_MAX_PRIORITY_FEE, hpke::HpkeKeys, limits::Caps};
-use buckspay_protocol::cluster::{DEVNET_GENESIS_HASH, MAINNET_GENESIS_HASH};
+use crate::{
+    fees::APP_MAX_PRIORITY_FEE,
+    hpke::HpkeKeys,
+    sponsor::{Caps, Escalation, FeeMode, Step},
+};
+use buckspay_protocol::{
+    cluster::{DEVNET_GENESIS_HASH, MAINNET_GENESIS_HASH},
+    profile::{PRODUCTION_DEVNET_PROGRAM_ID, SHORT_PROGRAM_ID},
+};
 use solana_keypair::Keypair;
+use solana_pubkey::Pubkey;
 use std::{
     env, fs,
     net::SocketAddr,
     num::NonZeroU32,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
-    time::Duration,
+    str::FromStr,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -52,6 +60,40 @@ impl Cluster {
     }
 }
 
+/// Which build of the program the gateway sponsors: the one real users' locks live in, or the
+/// short-windows build with its own program id, for checks that cannot wait for days.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Profile {
+    Production,
+    Short,
+}
+
+impl Profile {
+    /// `BUCKSPAY_PROFILE`. The short profile exists on devnet only, which is the only cluster a
+    /// gateway of this build runs on (`Cluster::parse` refuses mainnet).
+    pub fn parse(value: Option<&str>) -> Result<Self, String> {
+        match value {
+            None | Some("production") => Ok(Self::Production),
+            Some("short") => Ok(Self::Short),
+            Some(_) => Err("BUCKSPAY_PROFILE must be production or short".into()),
+        }
+    }
+
+    /// The program id of this profile. `configured` is `PROGRAM_ID` if set, which must be it.
+    pub fn program_id(self, configured: Option<&str>) -> Result<Pubkey, String> {
+        let own = match self {
+            Self::Production => PRODUCTION_DEVNET_PROGRAM_ID,
+            Self::Short => SHORT_PROGRAM_ID,
+        };
+        match configured {
+            Some(id) if id != own => Err(format!(
+                "PROGRAM_ID is not the program id of the {self:?} profile"
+            )),
+            _ => Ok(Pubkey::from_str(own).expect("the profile's program id is an address")),
+        }
+    }
+}
+
 /// Where the gateway listens.
 #[derive(Debug, PartialEq)]
 pub enum Listen {
@@ -85,7 +127,21 @@ pub struct Config {
     /// Where the sponsorship ledger is kept (systemd's `StateDirectory`).
     pub state_directory: PathBuf,
     pub max_priority_fee: u64,
+    pub requests_per_minute: NonZeroU32,
     pub caps: Caps,
+    pub program_id: Pubkey,
+    /// The one mint the gateway sponsors locks of.
+    pub mint: Pubkey,
+    /// Sponsored locks are at most this many days long.
+    pub max_lock_days: u32,
+    pub fee_mode: FeeMode,
+    /// A token account of the mint owned by the fee payer, which receives the `cost_plus` fee.
+    pub fee_token: Option<Pubkey>,
+    /// Micro-units of the mint per SOL: the operator's price for the `cost_plus` fee, no oracle.
+    pub sol_price_micro_usdc: Option<u64>,
+    /// Other addresses the gateway signs for, besides the fee payer: no endpoint accepts them as a
+    /// wallet.
+    pub held_keys: Vec<Pubkey>,
 }
 
 fn var<T: std::str::FromStr>(name: &str, default: &str) -> Result<T, String> {
@@ -115,6 +171,26 @@ impl Config {
                 "MAX_PRIORITY_FEE is above {APP_MAX_PRIORITY_FEE}, the most the app accepts"
             ));
         }
+        let profile = Profile::parse(env::var("BUCKSPAY_PROFILE").ok().as_deref())?;
+        let program_id = profile.program_id(env::var("PROGRAM_ID").ok().as_deref())?;
+        let defaults = Escalation::default();
+        let escalation = Escalation {
+            base_min_funding: var(
+                "MIN_SPONSORED_FUNDING",
+                &defaults.base_min_funding.to_string(),
+            )?,
+            steps: match env::var("ESCALATION_STEPS") {
+                Ok(steps) => parse_steps(&steps)?,
+                Err(_) => defaults.steps,
+            },
+            fee_on_percent: var("ESCALATION_FEE_ON_PERCENT", "50")?,
+            fee_off_percent: var("ESCALATION_FEE_OFF_PERCENT", "40")?,
+        };
+        let fee_mode = match env::var("ONBOARDING_FEE_MODE").as_deref() {
+            Err(_) | Ok("off") => FeeMode::Off,
+            Ok("cost_plus") => FeeMode::CostPlus,
+            Ok(_) => return Err("ONBOARDING_FEE_MODE must be off or cost_plus".into()),
+        };
         Ok(Self {
             cluster,
             rpc_url,
@@ -125,15 +201,71 @@ impl Config {
                 .map_err(|_| "STATE_DIRECTORY is not set")?
                 .into(),
             max_priority_fee,
+            requests_per_minute: var("REQUESTS_PER_MINUTE", "30")?,
             caps: Caps {
-                requests_per_minute: var::<NonZeroU32>("REQUESTS_PER_MINUTE", "30")?,
-                per_prefix: var("SPONSORED_PER_PREFIX_PER_DAY", "20")?,
+                cac_budget: var("CAC_BUDGET_LAMPORTS", "500000000")?,
+                open_rent_cap: var("OPEN_RENT_CAP_LAMPORTS", "600000000")?,
+                daily_onboardings: var("SPONSORED_DAILY_ONBOARDINGS", "200")?,
+                per_prefix_per_day: var("SPONSORED_PER_PREFIX_PER_DAY", "5")?,
+                per_prefix_per_30_days: var("SPONSORED_PER_PREFIX_PER_30_DAYS", "10")?,
                 preparing_per_prefix: var("PREPARING_PER_PREFIX", "3")?,
-                window: Duration::from_secs(24 * 60 * 60),
-                outstanding: var("SPONSORED_OUTSTANDING", "1000")?,
+                escalation,
+            },
+            program_id,
+            mint: Pubkey::from_str(&env::var("MINT").map_err(|_| "MINT is not set")?)
+                .map_err(|_| "MINT is not an address")?,
+            max_lock_days: var("SPONSORED_MAX_LOCK_DAYS", "45")?,
+            fee_mode,
+            fee_token: optional_address("FEE_TOKEN_ACCOUNT")?,
+            sol_price_micro_usdc: env::var("SOL_PRICE_MICRO_USDC")
+                .ok()
+                .map(|price| {
+                    price
+                        .parse()
+                        .map_err(|_| "SOL_PRICE_MICRO_USDC is not valid")
+                })
+                .transpose()?,
+            held_keys: match env::var("GATEWAY_KEYS") {
+                Ok(keys) => keys
+                    .split(',')
+                    .map(|key| {
+                        Pubkey::from_str(key.trim())
+                            .map_err(|_| "GATEWAY_KEYS holds an invalid address".to_owned())
+                    })
+                    .collect::<Result<_, _>>()?,
+                Err(_) => Vec::new(),
             },
         })
     }
+}
+
+fn optional_address(name: &str) -> Result<Option<Pubkey>, String> {
+    env::var(name)
+        .ok()
+        .map(|value| Pubkey::from_str(&value).map_err(|_| format!("{name} is not an address")))
+        .transpose()
+}
+
+/// `ESCALATION_STEPS`: `percent:funding` pairs, ascending in percent, separated by commas.
+fn parse_steps(value: &str) -> Result<Vec<Step>, String> {
+    let invalid = || "ESCALATION_STEPS is not valid".to_owned();
+    let steps: Vec<Step> = value
+        .split(',')
+        .map(|pair| {
+            let (percent, funding) = pair.split_once(':').ok_or_else(invalid)?;
+            Ok(Step {
+                at_percent: percent.trim().parse().map_err(|_| invalid())?,
+                min_funding: funding.trim().parse().map_err(|_| invalid())?,
+            })
+        })
+        .collect::<Result<_, String>>()?;
+    if steps
+        .windows(2)
+        .any(|pair| pair[0].at_percent >= pair[1].at_percent)
+    {
+        return Err("ESCALATION_STEPS must ascend in percent".into());
+    }
+    Ok(steps)
 }
 
 /// Refuses a key file that users other than its owner can read.
@@ -281,5 +413,46 @@ mod tests {
         );
         fs::remove_file(&elsewhere).unwrap();
         fs::remove_dir_all(&credentials).unwrap();
+    }
+
+    #[test]
+    fn a_profile_has_one_program_id() {
+        assert_eq!(Profile::parse(None), Ok(Profile::Production));
+        assert_eq!(Profile::parse(Some("short")), Ok(Profile::Short));
+        assert!(Profile::parse(Some("staging")).is_err());
+        let production = Profile::Production.program_id(None).unwrap();
+        let short = Profile::Short.program_id(None).unwrap();
+        assert_ne!(production, short);
+        assert_eq!(Profile::Short.program_id(Some(SHORT_PROGRAM_ID)), Ok(short));
+        assert!(
+            Profile::Short
+                .program_id(Some(PRODUCTION_DEVNET_PROGRAM_ID))
+                .is_err()
+        );
+        assert!(
+            Profile::Production
+                .program_id(Some(SHORT_PROGRAM_ID))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn escalation_steps_must_ascend() {
+        let steps = parse_steps("50:5000000, 65:10000000").unwrap();
+        assert_eq!(
+            steps,
+            [
+                Step {
+                    at_percent: 50,
+                    min_funding: 5_000_000
+                },
+                Step {
+                    at_percent: 65,
+                    min_funding: 10_000_000
+                }
+            ]
+        );
+        assert!(parse_steps("65:1,50:2").is_err());
+        assert!(parse_steps("50").is_err());
     }
 }

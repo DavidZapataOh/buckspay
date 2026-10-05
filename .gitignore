@@ -49,6 +49,7 @@ app-example
 /anchor/target/CACHEDIR.TAG
 /anchor/target/debug
 /anchor/target/deploy
+/anchor/target/deploy-short
 /anchor/target/flycheck*
 /anchor/target/package
 /anchor/target/release

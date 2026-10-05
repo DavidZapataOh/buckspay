@@ -14,12 +14,17 @@ pub struct Device {
     pub discriminator: [u8; 8],
     pub wallet: Address,
     pub bump: u8,
+    /// The sequence number the next lock must use: strictly increasing across mints, never reaches
+    /// `NO_LOCK` as a lock's number.
+    pub next_lock_seq: u32,
+    /// Replay counter of wallet rotations.
+    pub rotations: u32,
 }
 
 pub const DEVICE_DISCRIMINATOR: [u8; 8] = [153, 248, 23, 39, 83, 45, 68, 128];
 
 impl Device {
-    pub const LEN: usize = 41;
+    pub const LEN: usize = 49;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {

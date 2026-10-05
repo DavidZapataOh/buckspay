@@ -1,8 +1,11 @@
-# Fresh install of a localnet build with a gateway: a wallet that never held a lamport registers this
-# phone for free. The register step says so, fakewallet signs without sending, and the gateway pays.
+# Fresh install of a localnet build with a gateway: a wallet that never held a lamport activates this
+# phone for free, holding only the funding token it locks. The Add funds step says Buckspay pays the
+# network costs and that there is no fee, fakewallet signs without sending, and the gateway pays.
+# Needs the validator, the gateway configured with the faucet's token (`scripts/usdc-faucet.mjs`).
 appId: xyz.buckspay.app
 env:
   RPC_URL: http://localhost:8899
+  FAUCET_URL: http://localhost:8898
 ---
 - clearState
 - stopApp: com.solana.mobilewalletadapter.fakewallet
@@ -25,12 +28,14 @@ env:
 - tapOn: AUTHORIZE
 - extendedWaitUntil:
     visible:
-      id: onboarding-register
+      id: onboarding-activate
     timeout: 30000
-- assertVisible: 'Free: Buckspay pays the registration.'
+- assertVisible: Buckspay pays the network costs. Your wallet pays nothing else.
+- assertVisible: There is no fee.
 - assertNotVisible: .*Add SOL.*
 - copyTextFrom:
     id: wallet-address
+- runScript: scripts/fund-usdc.js
 - runScript: scripts/balance.js
 - assertTrue: ${output.balance == 0}
 - scrollUntilVisible:

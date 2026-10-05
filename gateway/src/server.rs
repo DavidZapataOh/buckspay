@@ -1,7 +1,10 @@
 use crate::{
+    chain::Rents,
     hpke::{HpkeKeys, PublishedKey},
-    limits::{Limits, Prefix, Refusal},
-    registration::{self, Pending},
+    limits::{Prefix, RateLimited, RequestLimits},
+    onboard, operations,
+    sponsor::{FeeMode, Refusal, SponsorLimits},
+    sponsored::{self, Pending},
 };
 use axum::{
     Extension, Json, RequestExt, Router,
@@ -10,10 +13,13 @@ use axum::{
     http::{HeaderName, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{any, get, post},
 };
+use buckspay_client::Program;
+use buckspay_protocol::lock::Windows;
 use serde::Serialize;
 use solana_keypair::Keypair;
+use solana_pubkey::Pubkey;
 use solana_rpc_client::nonblocking::rpc_client::RpcClient;
 use std::{
     collections::HashMap,
@@ -21,7 +27,10 @@ use std::{
     net::{IpAddr, SocketAddr},
     os::unix::fs::PermissionsExt,
     path::Path,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
     time::Duration,
 };
 use tokio::net::UnixListener;
@@ -39,15 +48,29 @@ pub const IN_FLIGHT: usize = 256;
 pub const RPC_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct Settings {
+    /// The deployment of the program being sponsored, and its windows.
+    pub program: Program,
+    pub windows: Windows,
     /// The genesis hash of the cluster the program is built for: device bindings sign for it.
     pub genesis_hash: [u8; 32],
+    /// The one mint locks are sponsored for.
+    pub mint: Pubkey,
     /// The highest compute unit price the gateway pays, in micro-lamports.
     pub max_priority_fee: u64,
-    /// What a registration costs the fee payer before its priority fee: the device account's
-    /// rent and three signatures, in lamports.
-    pub registration_cost: u64,
-    /// How long a prepared registration waits for the wallet's signature.
+    /// How long a prepared transaction waits for the wallet's signature.
     pub pending_ttl: Duration,
+    /// How long a sent transaction is waited for before its outcome is called unknown.
+    pub confirm_timeout: Duration,
+    /// Sponsored locks are at most this many days long.
+    pub max_lock_days: u32,
+    /// The operator's setting for the onboarding fee, which the escalation can raise but not lower.
+    pub fee_mode: FeeMode,
+    /// A token account of the mint owned by the fee payer, which receives the fee.
+    pub fee_token: Option<Pubkey>,
+    /// Micro-units of the mint per SOL, for pricing the fee.
+    pub sol_price_micro_usdc: Option<u64>,
+    /// Other addresses the gateway signs for: no endpoint accepts them as a wallet.
+    pub held_keys: Vec<Pubkey>,
 }
 
 /// Everything the endpoints share.
@@ -55,10 +78,18 @@ pub struct Gateway {
     pub rpc: RpcClient,
     pub fee_payer: Keypair,
     pub settings: Settings,
-    pub limits: Arc<Limits>,
+    pub requests: RequestLimits,
+    pub sponsor: Arc<SponsorLimits>,
     pub hpke: HpkeKeys,
-    /// Prepared registrations by device key.
+    /// What the program's accounts cost, as last read from the cluster.
+    pub(crate) rents: Mutex<Rents>,
+    /// Prepared transactions by device key.
     pub(crate) pending: Mutex<HashMap<[u8; 33], Pending>>,
+    /// The device keys of the rotation requests this process sponsored, by rotation account: the
+    /// account does not hold its key, and the janitor needs it to apply the rotation.
+    pub(crate) rotation_keys: Mutex<HashMap<Pubkey, [u8; 33]>>,
+    /// Locks the janitor found due whose wallet has no token account to release to.
+    pub(crate) stuck: AtomicU64,
 }
 
 impl Gateway {
@@ -66,17 +97,33 @@ impl Gateway {
         rpc: RpcClient,
         fee_payer: Keypair,
         settings: Settings,
-        limits: Limits,
+        rents: Rents,
+        requests: RequestLimits,
+        sponsor: Arc<SponsorLimits>,
         hpke: HpkeKeys,
     ) -> Self {
         Self {
             rpc,
             fee_payer,
             settings,
-            limits: Arc::new(limits),
+            requests,
+            sponsor,
             hpke,
+            rents: Mutex::new(rents),
             pending: Mutex::default(),
+            rotation_keys: Mutex::default(),
+            stuck: AtomicU64::new(0),
         }
+    }
+
+    pub fn rents(&self) -> Rents {
+        *self.rents.lock().unwrap()
+    }
+
+    /// Whether `address` is one the gateway signs for.
+    pub(crate) fn is_ours(&self, address: &Pubkey) -> bool {
+        use solana_signer::Signer;
+        *address == self.fee_payer.pubkey() || self.settings.held_keys.contains(address)
     }
 }
 
@@ -94,16 +141,23 @@ pub enum ClientAddress {
 #[derive(Clone, Copy)]
 pub struct Client(pub IpAddr);
 
-pub fn router(gateway: Gateway, client: ClientAddress) -> Router {
-    let state = Arc::new(gateway);
+pub fn router(state: Arc<Gateway>, client: ClientAddress) -> Router {
     let limited = Router::new()
         .route("/v1/hpke-config", get(hpke_config))
-        .route(
-            "/v1/registrations/sponsorship",
-            get(registration::sponsorship),
-        )
-        .route("/v1/registrations", post(registration::prepare))
-        .route("/v1/registrations/submit", post(registration::submit))
+        .route("/v1/onboarding/quote", get(onboard::quote))
+        .route("/v1/onboard", post(onboard::prepare))
+        .route("/v1/onboard/submit", post(sponsored::submit))
+        .route("/v1/locks", post(operations::lock))
+        .route("/v1/locks/submit", post(sponsored::submit))
+        .route("/v1/withdrawals", post(operations::withdrawal))
+        .route("/v1/withdrawals/submit", post(sponsored::submit))
+        .route("/v1/rotations/request", post(operations::rotation_request))
+        .route("/v1/rotations/cancel", post(operations::rotation_cancel))
+        .route("/v1/rotations/submit", post(sponsored::submit))
+        .route("/v1/rotations/pending", get(operations::rotation_pending))
+        .route("/v1/registrations", any(retired))
+        .route("/v1/registrations/sponsorship", any(retired))
+        .route("/v1/registrations/submit", any(retired))
         .layer(DefaultBodyLimit::max(BODY_LIMIT))
         .layer(RequestBodyDeadlineLayer::new(BODY_DEADLINE))
         .layer(
@@ -115,7 +169,7 @@ pub fn router(gateway: Gateway, client: ClientAddress) -> Router {
         .layer(middleware::from_fn_with_state(state.clone(), rate_limit))
         .layer(middleware::from_fn_with_state(client, client_address));
     Router::new()
-        .route("/health", get(|| async { "ok" }))
+        .route("/health", get(health))
         .merge(limited)
         .with_state(state)
 }
@@ -160,10 +214,28 @@ async fn rate_limit(
     request: Request,
     next: Next,
 ) -> Response {
-    match state.limits.request(Prefix::from(ip)) {
+    match state.requests.check(Prefix::from(ip)) {
         Ok(()) => next.run(request).await,
-        Err(refusal) => Error::Refused(refusal).into_response(),
+        Err(RateLimited) => Error::RateLimited.into_response(),
     }
+}
+
+/// Whether the gateway is up, and what the janitor and the caps report: locks it cannot release
+/// because their wallet has no token account, locks and rotations it has lent rent for, and sends
+/// whose outcome Solana never reported.
+async fn health(State(state): State<Arc<Gateway>>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "status": "ok",
+        "stuck": state.stuck.load(Ordering::Relaxed),
+        "openLocks": state.sponsor.open_locks(),
+        "unknownSends": state.sponsor.unknown_sends(),
+    }))
+}
+
+/// Sponsored registration without funds is exactly the state that no longer exists: registration
+/// and the first lock are one transaction.
+async fn retired() -> Error {
+    Error::Retired
 }
 
 #[derive(Serialize)]
@@ -182,11 +254,18 @@ async fn hpke_config(State(state): State<Arc<Gateway>>) -> Json<HpkeConfig> {
 pub enum Error {
     BadRequest(&'static str),
     Conflict(&'static str),
+    /// There is no prepared transaction for this key.
     Gone,
+    /// The endpoint was removed.
+    Retired,
+    RateLimited,
+    /// A cap or the minimum funding refuses the sponsorship.
     Refused(Refusal),
     /// Solana refused the transaction in its preflight simulation: nothing was sent.
     Rejected,
-    /// The fee payer cannot pay for the registrations being prepared.
+    /// The transaction landed and failed: the sponsor paid its fee.
+    Failed,
+    /// The fee payer cannot pay for what is being prepared.
     Unfunded,
     /// The gateway serves `IN_FLIGHT` requests already.
     Busy,
@@ -196,39 +275,66 @@ pub enum Error {
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
-        let (status, message) = match self {
-            Error::BadRequest(message) => (StatusCode::BAD_REQUEST, message.to_owned()),
-            Error::Conflict(message) => (StatusCode::CONFLICT, message.to_owned()),
-            Error::Gone => (
+        let json = |status, message: &str| (status, Json(serde_json::json!({ "error": message })));
+        match self {
+            Error::BadRequest(message) => json(StatusCode::BAD_REQUEST, message).into_response(),
+            Error::Conflict(message) => json(StatusCode::CONFLICT, message).into_response(),
+            Error::Gone => {
+                json(StatusCode::GONE, "no prepared transaction for this key").into_response()
+            }
+            Error::Retired => json(
                 StatusCode::GONE,
-                "no prepared registration for this key".to_owned(),
-            ),
-            Error::Refused(Refusal::RateLimited) => (
+                "registration without funds was retired: use /v1/onboard",
+            )
+            .into_response(),
+            Error::RateLimited => {
+                json(StatusCode::TOO_MANY_REQUESTS, "too many requests").into_response()
+            }
+            Error::Refused(Refusal::PrefixBusy) => json(
                 StatusCode::TOO_MANY_REQUESTS,
-                "too many requests".to_owned(),
-            ),
-            Error::Refused(Refusal::PrefixBusy) => (
+                "this network is preparing too many transactions",
+            )
+            .into_response(),
+            Error::Refused(Refusal::PrefixSpentToday) => json(
                 StatusCode::TOO_MANY_REQUESTS,
-                "this network is preparing too many registrations".to_owned(),
-            ),
-            Error::Refused(Refusal::PrefixSpent) => (
+                "sponsored transactions from this network are used up for today",
+            )
+            .into_response(),
+            Error::Refused(Refusal::PrefixSpentThisMonth) => json(
                 StatusCode::TOO_MANY_REQUESTS,
-                "sponsored registrations from this network are used up for today".to_owned(),
-            ),
-            Error::Busy => (
+                "sponsored transactions from this network are used up for this month",
+            )
+            .into_response(),
+            Error::Refused(Refusal::BelowMinimum(minimum)) => (
+                StatusCode::CONFLICT,
+                Json(serde_json::json!({
+                    "error": "the funding is below the minimum sponsored funding",
+                    "minFunding": minimum.to_string(),
+                })),
+            )
+                .into_response(),
+            Error::Refused(
+                Refusal::DailyCap | Refusal::CacBudget | Refusal::OpenRentCap | Refusal::Unwritable,
+            )
+            | Error::Unfunded => json(
                 StatusCode::SERVICE_UNAVAILABLE,
-                "the gateway is busy".to_owned(),
-            ),
-            Error::Refused(Refusal::BudgetSpent) | Error::Unfunded => (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "sponsorship is unavailable".to_owned(),
-            ),
-            Error::Rejected => (
+                "sponsorship is unavailable",
+            )
+            .into_response(),
+            Error::Busy => {
+                json(StatusCode::SERVICE_UNAVAILABLE, "the gateway is busy").into_response()
+            }
+            Error::Rejected => json(
                 StatusCode::UNPROCESSABLE_ENTITY,
-                "Solana refused the registration in its preflight; nothing was sent".to_owned(),
-            ),
-            Error::Upstream => (StatusCode::BAD_GATEWAY, "Solana is unreachable".to_owned()),
-        };
-        (status, Json(serde_json::json!({ "error": message }))).into_response()
+                "Solana refused the transaction in its preflight; nothing was sent",
+            )
+            .into_response(),
+            Error::Failed => {
+                json(StatusCode::CONFLICT, "the transaction was sent and failed").into_response()
+            }
+            Error::Upstream => {
+                json(StatusCode::BAD_GATEWAY, "Solana is unreachable").into_response()
+            }
+        }
     }
 }

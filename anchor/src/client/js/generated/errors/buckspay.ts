@@ -18,14 +18,100 @@ import { BUCKSPAY_PROGRAM_ADDRESS } from '../programs'
 export const BUCKSPAY_ERROR__DEVICE_KEY = 0x1770 // 6000
 /** DeviceBinding: Missing or malformed secp256r1 verification of the device binding */
 export const BUCKSPAY_ERROR__DEVICE_BINDING = 0x1771 // 6001
+/** LockSeqMismatch: lock_seq is not the device's next lock sequence number */
+export const BUCKSPAY_ERROR__LOCK_SEQ_MISMATCH = 0x1772 // 6002
+/** LockSeqExhausted: The device has used every lock sequence number */
+export const BUCKSPAY_ERROR__LOCK_SEQ_EXHAUSTED = 0x1773 // 6003
+/** AmountZero: Amount must be greater than zero */
+export const BUCKSPAY_ERROR__AMOUNT_ZERO = 0x1774 // 6004
+/** AmountOverflow: Amount overflows */
+export const BUCKSPAY_ERROR__AMOUNT_OVERFLOW = 0x1775 // 6005
+/** LockTooShort: lock_until is too close */
+export const BUCKSPAY_ERROR__LOCK_TOO_SHORT = 0x1776 // 6006
+/** LockTooLong: lock_until is too far */
+export const BUCKSPAY_ERROR__LOCK_TOO_LONG = 0x1777 // 6007
+/** ClockOutOfRange: The cluster clock is outside the supported range */
+export const BUCKSPAY_ERROR__CLOCK_OUT_OF_RANGE = 0x1778 // 6008
+/** UnsupportedMintExtension: The mint has an extension the program does not support */
+export const BUCKSPAY_ERROR__UNSUPPORTED_MINT_EXTENSION = 0x1779 // 6009
+/** FeeNotAllowed: A sponsor fee is only allowed on a sponsored first lock */
+export const BUCKSPAY_ERROR__FEE_NOT_ALLOWED = 0x177a // 6010
+/** FeeTooHigh: The sponsor fee is above its cap */
+export const BUCKSPAY_ERROR__FEE_TOO_HIGH = 0x177b // 6011
+/** WithdrawTooEarly: The lock cannot be withdrawn yet */
+export const BUCKSPAY_ERROR__WITHDRAW_TOO_EARLY = 0x177c // 6012
+/** ReleaseTooEarly: The lock cannot be released yet */
+export const BUCKSPAY_ERROR__RELEASE_TOO_EARLY = 0x177d // 6013
+/** CloseTooEarly: The lock cannot be closed yet */
+export const BUCKSPAY_ERROR__CLOSE_TOO_EARLY = 0x177e // 6014
+/** NotWithdrawn: The lock has not been withdrawn */
+export const BUCKSPAY_ERROR__NOT_WITHDRAWN = 0x177f // 6015
+/** EscrowOpen: The escrow is still open */
+export const BUCKSPAY_ERROR__ESCROW_OPEN = 0x1780 // 6016
+/** SlashPending: A slash is still pending in the lock */
+export const BUCKSPAY_ERROR__SLASH_PENDING = 0x1781 // 6017
+/** InsufficientEscrow: The escrow holds less than the ledger owes */
+export const BUCKSPAY_ERROR__INSUFFICIENT_ESCROW = 0x1782 // 6018
+/** RotationBinding: Missing or malformed secp256r1 verification of the wallet rotation */
+export const BUCKSPAY_ERROR__ROTATION_BINDING = 0x1783 // 6019
+/** RotationNotReady: The wallet rotation cannot be applied yet */
+export const BUCKSPAY_ERROR__ROTATION_NOT_READY = 0x1784 // 6020
+/** SameWallet: The new wallet is the current wallet */
+export const BUCKSPAY_ERROR__SAME_WALLET = 0x1785 // 6021
+/** NotMigratable: The account is not a device account to migrate */
+export const BUCKSPAY_ERROR__NOT_MIGRATABLE = 0x1786 // 6022
 
-export type BuckspayError = typeof BUCKSPAY_ERROR__DEVICE_BINDING | typeof BUCKSPAY_ERROR__DEVICE_KEY
+export type BuckspayError =
+  | typeof BUCKSPAY_ERROR__AMOUNT_OVERFLOW
+  | typeof BUCKSPAY_ERROR__AMOUNT_ZERO
+  | typeof BUCKSPAY_ERROR__CLOCK_OUT_OF_RANGE
+  | typeof BUCKSPAY_ERROR__CLOSE_TOO_EARLY
+  | typeof BUCKSPAY_ERROR__DEVICE_BINDING
+  | typeof BUCKSPAY_ERROR__DEVICE_KEY
+  | typeof BUCKSPAY_ERROR__ESCROW_OPEN
+  | typeof BUCKSPAY_ERROR__FEE_NOT_ALLOWED
+  | typeof BUCKSPAY_ERROR__FEE_TOO_HIGH
+  | typeof BUCKSPAY_ERROR__INSUFFICIENT_ESCROW
+  | typeof BUCKSPAY_ERROR__LOCK_SEQ_EXHAUSTED
+  | typeof BUCKSPAY_ERROR__LOCK_SEQ_MISMATCH
+  | typeof BUCKSPAY_ERROR__LOCK_TOO_LONG
+  | typeof BUCKSPAY_ERROR__LOCK_TOO_SHORT
+  | typeof BUCKSPAY_ERROR__NOT_MIGRATABLE
+  | typeof BUCKSPAY_ERROR__NOT_WITHDRAWN
+  | typeof BUCKSPAY_ERROR__RELEASE_TOO_EARLY
+  | typeof BUCKSPAY_ERROR__ROTATION_BINDING
+  | typeof BUCKSPAY_ERROR__ROTATION_NOT_READY
+  | typeof BUCKSPAY_ERROR__SAME_WALLET
+  | typeof BUCKSPAY_ERROR__SLASH_PENDING
+  | typeof BUCKSPAY_ERROR__UNSUPPORTED_MINT_EXTENSION
+  | typeof BUCKSPAY_ERROR__WITHDRAW_TOO_EARLY
 
 let buckspayErrorMessages: Record<BuckspayError, string> | undefined
 if (process.env['NODE_ENV'] !== 'production') {
   buckspayErrorMessages = {
+    [BUCKSPAY_ERROR__AMOUNT_OVERFLOW]: `Amount overflows`,
+    [BUCKSPAY_ERROR__AMOUNT_ZERO]: `Amount must be greater than zero`,
+    [BUCKSPAY_ERROR__CLOCK_OUT_OF_RANGE]: `The cluster clock is outside the supported range`,
+    [BUCKSPAY_ERROR__CLOSE_TOO_EARLY]: `The lock cannot be closed yet`,
     [BUCKSPAY_ERROR__DEVICE_BINDING]: `Missing or malformed secp256r1 verification of the device binding`,
     [BUCKSPAY_ERROR__DEVICE_KEY]: `Device key is not a compressed P-256 point`,
+    [BUCKSPAY_ERROR__ESCROW_OPEN]: `The escrow is still open`,
+    [BUCKSPAY_ERROR__FEE_NOT_ALLOWED]: `A sponsor fee is only allowed on a sponsored first lock`,
+    [BUCKSPAY_ERROR__FEE_TOO_HIGH]: `The sponsor fee is above its cap`,
+    [BUCKSPAY_ERROR__INSUFFICIENT_ESCROW]: `The escrow holds less than the ledger owes`,
+    [BUCKSPAY_ERROR__LOCK_SEQ_EXHAUSTED]: `The device has used every lock sequence number`,
+    [BUCKSPAY_ERROR__LOCK_SEQ_MISMATCH]: `lock_seq is not the device's next lock sequence number`,
+    [BUCKSPAY_ERROR__LOCK_TOO_LONG]: `lock_until is too far`,
+    [BUCKSPAY_ERROR__LOCK_TOO_SHORT]: `lock_until is too close`,
+    [BUCKSPAY_ERROR__NOT_MIGRATABLE]: `The account is not a device account to migrate`,
+    [BUCKSPAY_ERROR__NOT_WITHDRAWN]: `The lock has not been withdrawn`,
+    [BUCKSPAY_ERROR__RELEASE_TOO_EARLY]: `The lock cannot be released yet`,
+    [BUCKSPAY_ERROR__ROTATION_BINDING]: `Missing or malformed secp256r1 verification of the wallet rotation`,
+    [BUCKSPAY_ERROR__ROTATION_NOT_READY]: `The wallet rotation cannot be applied yet`,
+    [BUCKSPAY_ERROR__SAME_WALLET]: `The new wallet is the current wallet`,
+    [BUCKSPAY_ERROR__SLASH_PENDING]: `A slash is still pending in the lock`,
+    [BUCKSPAY_ERROR__UNSUPPORTED_MINT_EXTENSION]: `The mint has an extension the program does not support`,
+    [BUCKSPAY_ERROR__WITHDRAW_TOO_EARLY]: `The lock cannot be withdrawn yet`,
   }
 }
 

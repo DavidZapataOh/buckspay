@@ -7,3 +7,6 @@
  */
 
 export * from './device'
+export * from './ledger'
+export * from './lock'
+export * from './rotation'

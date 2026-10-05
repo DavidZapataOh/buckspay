@@ -1,7 +1,8 @@
-# Fresh install of a devnet build with the deployed gateway and the Mock MWA Wallet with no dev key
-# (a new, unfunded wallet). The register step says it is free; the Mock MWA Wallet answers
-# sign_transactions with its own signature alone where the message requires two, so the app refuses
-# the answer, sends nothing, and offers the wallet-pays path, which this wallet cannot afford.
+# Fresh install of a devnet build with the deployed gateway and the Mock MWA Wallet with a dev key
+# that holds at least 5 devnet USDC and no SOL. The Add funds step says Buckspay pays the network
+# costs; the Mock MWA Wallet answers sign_transactions with its own signature alone where the
+# message requires two, so the app refuses the answer, sends nothing, and says the wallet changed
+# the transaction, with nothing to pay the network itself with.
 appId: xyz.buckspay.app
 env:
   RPC_URL: https://api.devnet.solana.com
@@ -28,9 +29,9 @@ env:
     id: com.solana.mwallet:id/btn_connect
 - extendedWaitUntil:
     visible:
-      id: onboarding-register
+      id: onboarding-activate
     timeout: 30000
-- assertVisible: 'Free: Buckspay pays the registration.'
+- assertVisible: Buckspay pays the network costs. Your wallet pays nothing else.
 - assertNotVisible: .*Add SOL.*
 - copyTextFrom:
     id: wallet-address
@@ -51,10 +52,10 @@ env:
 - tapOn:
     id: com.solana.mwallet:id/btn_approve
 - extendedWaitUntil:
-    visible: .*To register now, add SOL to your wallet and pay from it.*
+    visible: .*Your wallet changed the transaction, so Buckspay could not cover its network cost.*
     timeout: 30000
-- assertVisible: .*Your wallet changed the registration before signing it, so it wasn’t sent.*
-- assertNotVisible: 'Free: Buckspay pays the registration.'
+- assertVisible: .*Nothing was sent and nothing was charged. Open Buckspay in Phantom or Solflare, or add about 0.005 SOL to activate with your own wallet.*
+- assertNotVisible: Buckspay pays the network costs. Your wallet pays nothing else.
 - assertNotVisible:
     id: device-ready
 - runScript: scripts/balance.js

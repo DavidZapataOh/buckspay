@@ -2,7 +2,7 @@ import type { Signature } from '@solana/kit'
 import type { DeviceKey } from '../../keys'
 import { formatSol } from '../../utils/format-sol'
 import type { IdentityState, IdentityStep, Sponsorship } from './device-identity'
-import type { RegistrationQuote } from './register-device'
+import type { Activation } from './activation'
 
 /** What each onboarding step says, its action, and where it is in the two steps the user sees. */
 export const stepCopy: Record<
@@ -31,15 +31,15 @@ export const stepCopy: Record<
     action: 'Create key',
     progress: 'Step 1 of 2',
   },
-  register: {
-    title: 'Register this phone',
-    body: 'This links this phone to your wallet publicly and permanently. Anyone can see the link on Solana, and it can’t be undone.',
-    action: 'Register this phone',
+  activate: {
+    title: 'Add funds',
+    body: 'Your funds go into a lock that backs what you pay. Activating links this phone to your wallet publicly and permanently. Anyone can see the link on Solana, and it can’t be undone.',
+    action: 'Activate',
     progress: 'Step 2 of 2',
   },
   confirming: {
-    title: 'Registering this phone',
-    body: 'Your wallet approved the registration.',
+    title: 'Activating this phone',
+    body: 'Your wallet approved the activation.',
     action: 'Check again',
     progress: 'Step 2 of 2',
   },
@@ -50,26 +50,22 @@ export const stepCopy: Record<
   },
 }
 
-/** What registering costs the wallet: nothing while Buckspay pays for it. */
-export const costNotice = ({ cost }: RegistrationQuote, sponsorship?: Sponsorship) =>
-  sponsorship === 'free'
-    ? 'Free: Buckspay pays the registration.'
-    : `Costs about ${formatSol(cost, 'up')} SOL from your wallet. Not refundable.`
-
-/** What the wallet lacks to register, if anything; nothing while Buckspay pays for it. */
-export const shortfallNotice = ({ balance, cost }: RegistrationQuote, sponsorship?: Sponsorship) =>
-  sponsorship !== 'free' && balance < cost
-    ? `Your wallet has ${formatSol(balance)} SOL. Add SOL to it before you register.`
+/** What the wallet lacks in SOL to pay the network costs itself, if anything; nothing while Buckspay pays. */
+export const shortfallNotice = ({ sol }: Activation, sponsored: boolean) =>
+  !sponsored && sol.balance < sol.cost
+    ? `Your wallet has ${formatSol(sol.balance)} SOL. Add SOL to it before you activate.`
     : undefined
 
-/** Why the wallet pays in a build where Buckspay pays for registrations. */
+/** Why the wallet pays in a build where Buckspay pays for activations. */
 export const sponsorshipNotice = (sponsorship?: Sponsorship) =>
-  sponsorship === 'unavailable' ? 'Buckspay can’t pay for registrations right now, so your wallet pays.' : undefined
+  sponsorship === 'unavailable'
+    ? 'Buckspay can’t pay for activations right now, so your wallet pays the network costs.'
+    : undefined
 
 export const confirmingNotice = (signature?: Signature) =>
   signature
     ? 'Sent to Solana. Waiting for confirmation, usually under a minute. You can leave this screen; this can’t be cancelled.'
-    : 'Your wallet may have sent the registration. Waiting until Solana confirms it or it expires, usually under a minute. You can leave this screen.'
+    : 'Your wallet may have sent the activation. Waiting until Solana confirms it or it expires, usually under a minute. You can leave this screen.'
 
 export const keyProtection: Record<DeviceKey['securityLevel'], string> = {
   strongbox: 'Secure chip (StrongBox)',
@@ -103,7 +99,7 @@ export function homeStatus({ step, error, device }: IdentityState): HomeStatus {
     case 'confirming':
       return {
         testID: 'home-confirming',
-        title: 'Registering this phone',
+        title: 'Activating this phone',
         body: 'Waiting for Solana to confirm it, usually under a minute.',
         action: 'See progress',
       }

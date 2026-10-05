@@ -6,6 +6,7 @@ import { Button } from '../../components/button'
 import { Screen } from '../../components/screen'
 import { homeStatus } from '../../features/identity/identity-copy'
 import { useDeviceIdentity } from '../../features/identity/use-device-identity'
+import { RotationAlert } from '../../features/lock/rotation-alert'
 import { BUILD_NETWORK } from '../../features/network/build-network'
 import { useThemeColors } from '../../theme/use-theme-colors'
 
@@ -28,6 +29,17 @@ export default function Home() {
           </AppText>
         ) : null}
         {device ? <AddressRow address={device.wallet} label="Registered to" /> : null}
+        {status.testID === 'device-ready' ? (
+          <View className="gap-3">
+            <Button testID="add-funds" variant="filled" label="Add funds" onPress={() => router.push('/add-funds')} />
+            <Button
+              testID="locks"
+              variant="tonal"
+              label="Locks and withdrawals"
+              onPress={() => router.push('/withdraw')}
+            />
+          </View>
+        ) : null}
         {status.action ? (
           <Button
             testID="setup-payments"
@@ -40,6 +52,7 @@ export default function Home() {
           <Button testID="home-retry" variant="filled" label={status.retry} busy={busy} onPress={() => void next()} />
         ) : null}
       </View>
+      {status.testID === 'device-ready' ? <RotationAlert /> : null}
       <View
         testID="network-chip"
         accessible

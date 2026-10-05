@@ -11,7 +11,12 @@ import {
   useState,
 } from 'react'
 import { AppState } from 'react-native'
+import { address } from '@solana/kit'
+import { ACTIVE_PROFILE } from '../../protocol/active-profile'
+import { BUILD_FUNDING_MINT } from '../lock/build-funding'
+import { BUILD_GATEWAY } from '../lock/gateway'
 import type { BuildNetwork } from '../network/build-network'
+import type { ActivationInput } from './activation'
 import {
   advanceIdentity,
   describeIdentityError,
@@ -19,13 +24,14 @@ import {
   type IdentityState,
   resolveIdentity,
 } from './device-identity'
-import { BUILD_GATEWAY } from './gateway'
+
+const PROGRAM_ADDRESS = address(ACTIVE_PROFILE.programId)
 
 export type DeviceIdentity = IdentityState & {
   /** True while a step runs or the state is being derived. */
   busy: boolean
-  /** Performs the current step; connecting goes on to create the key. */
-  next: () => Promise<void>
+  /** Performs the current step; connecting goes on to create the key. `input` is what activating adds. */
+  next: (input?: ActivationInput) => Promise<void>
   /** Forgets the wallet authorization on this phone; the device key and its registration stay. */
   disconnect: () => Promise<void>
 }
@@ -39,7 +45,7 @@ const DeviceIdentityContext = createContext<DeviceIdentity>({
 
 /**
  * Derives the device identity once, then after each of its own actions: the wallet authorization
- * changes only through `next` and `disconnect`. A registration that may still land is waited for
+ * changes only through `next` and `disconnect`. An activation that may still land is waited for
  * without a tap, a device account read from storage is checked against Solana in the background, and
  * coming back to the app retries what was waiting on Solana. `cache` is the one the
  * `MobileWalletProvider` uses.
@@ -66,6 +72,9 @@ export function DeviceIdentityProvider({
       getTransactionSigner,
       signTransactions,
       gateway: BUILD_GATEWAY,
+      programAddress: PROGRAM_ADDRESS,
+      windows: ACTIVE_PROFILE.windows,
+      mint: BUILD_FUNDING_MINT,
       onProgress: setState,
     }),
     [cluster, network.id, cache, client.rpc, connect, disconnect, getTransactionSigner, signTransactions],
@@ -91,9 +100,9 @@ export function DeviceIdentityProvider({
   )
 
   const next = useCallback(
-    () =>
+    (input?: ActivationInput) =>
       run(async (ctx) => {
-        const advanced = await advanceIdentity(ctx, state)
+        const advanced = await advanceIdentity(ctx, state, input)
         // Connecting and creating the key are one step for the user.
         return state.step === 'connect' && advanced.step === 'create-key' && !advanced.error
           ? advanceIdentity(ctx, advanced)

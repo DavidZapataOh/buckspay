@@ -12,6 +12,8 @@ pub mod verify;
 pub use caveats::{flags, Caveats, Owner, ScopeKind, MAX_DEPTH};
 pub use message::{kind, BondTicket, Issue, Outputs, Signed, Spend, CHALLENGE, GRACE, NO_LOCK};
 pub mod hash;
+pub mod lock;
+pub mod profile;
 
 pub use error::{ProtocolError, Result};
 

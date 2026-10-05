@@ -1,0 +1,24 @@
+[package]
+name = "check-payouts"
+version = "0.1.0"
+edition = "2021"
+description = "CI lint: only payout.rs may move tokens out of an escrow or make a raw cross-program invocation"
+
+[lib]
+name = "check_payouts"
+path = "src/lib.rs"
+
+[[bin]]
+name = "check-payouts"
+path = "src/main.rs"
+
+[dependencies]
+proc-macro2 = { version = "1", features = ["span-locations"] }
+syn = { version = "2", features = ["full", "visit", "extra-traits"] }
+toml = "0.8"
+
+[dev-dependencies]
+proptest = "1"
+tempfile = "3"
+
+[workspace]

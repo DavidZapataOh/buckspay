@@ -1,6 +1,5 @@
 import { equalBytes } from '@noble/curves/utils.js'
-import { BUCKSPAY_PROGRAM_ADDRESS } from '@project/anchor'
-import { type Address, getAddressEncoder } from '@solana/kit'
+import { type Address, address, getAddressEncoder } from '@solana/kit'
 import HardwareKeys, {
   type Cluster,
   type KeyRecord,
@@ -27,6 +26,7 @@ import {
   type Spend,
   verifySignature,
 } from '../protocol'
+import { ACTIVE_PROFILE } from '../protocol/active-profile'
 import { compactLowS, sec1FromSpki } from './convert'
 
 export type { Cluster }
@@ -49,7 +49,7 @@ export type DeviceKey = {
 }
 
 const GENESIS_HASH = { devnet: DEVNET_GENESIS_HASH, mainnet: MAINNET_GENESIS_HASH }
-const PROGRAM_ID = Uint8Array.from(getAddressEncoder().encode(BUCKSPAY_PROGRAM_ADDRESS))
+const PROGRAM_ID = Uint8Array.from(getAddressEncoder().encode(address(ACTIVE_PROFILE.programId)))
 
 let configured: Cluster | undefined
 let genesisHash: Uint8Array | undefined

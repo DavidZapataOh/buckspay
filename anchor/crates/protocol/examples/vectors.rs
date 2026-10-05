@@ -1,6 +1,9 @@
 use buckspay_protocol::cluster::{DEVNET_GENESIS_HASH, MAINNET_GENESIS_HASH};
-use buckspay_protocol::device::{device_binding_body, device_binding_envelope};
+use buckspay_protocol::device::{
+    device_binding_body, device_binding_envelope, device_rotation_body, device_rotation_envelope,
+};
 use buckspay_protocol::hash::{content, domain, envelope, message_id, output_id, purpose};
+use buckspay_protocol::profile::{PRODUCTION_DEVNET_PROGRAM_ID, SHORT_PROGRAM_ID};
 use buckspay_protocol::verify::{
     recover_issue_signer, recover_spend_signer, recovery_id, verify_issue_conflict, verify_payment,
     verify_settlement, verify_spend_conflict, Attester, Received, Receiver, Settled,
@@ -143,6 +146,75 @@ fn ticket(device: &Key, bond: u64, backing: u64) -> BondTicket {
         attester: 1,
         signature: [0; 64],
     }
+}
+
+fn device_rotation(
+    name: &str,
+    domain: &[u8; 32],
+    (old_wallet, new_wallet): (&[u8; 32], &[u8; 32]),
+    rotations: u32,
+    device: &Key,
+    key: [u8; 33],
+) -> Value {
+    let (body, envelope, signature, error) =
+        match device_rotation_envelope(domain, old_wallet, new_wallet, &key, rotations) {
+            Ok(envelope) => (
+                hex(&device_rotation_body(old_wallet, new_wallet, &key, rotations).unwrap()),
+                hex(&envelope),
+                hex(&device.sign(&envelope)),
+                String::new(),
+            ),
+            Err(error) => (
+                String::new(),
+                String::new(),
+                String::new(),
+                format!("{error:?}"),
+            ),
+        };
+    json!({
+        "name": name,
+        "old_wallet": hex(old_wallet),
+        "new_wallet": hex(new_wallet),
+        "device": hex(&key),
+        "rotations": rotations,
+        "body": body,
+        "envelope": envelope,
+        "signature": signature,
+        "error": error,
+    })
+}
+
+/// The windows of each profile and the program id of the one that has its own. The production
+/// windows are the crate's constants in a production build and the short ones in a `short-windows`
+/// build; `tests/profiles.rs` holds the committed block of the active profile to them.
+fn profiles() -> Value {
+    json!({
+        "production": {
+            "programIds": {
+                "devnet": PRODUCTION_DEVNET_PROGRAM_ID,
+                "mainnet": null,
+            },
+            "windows": {
+                "grace": 604_800,
+                "challenge": 604_800,
+                "claimWindow": 604_800,
+                "minNoteLife": 86_400,
+                "releaseDelay": 1_209_600,
+                "rotationDelay": 604_800,
+            },
+        },
+        "short": {
+            "programId": SHORT_PROGRAM_ID,
+            "windows": {
+                "grace": 60,
+                "challenge": 60,
+                "claimWindow": 60,
+                "minNoteLife": 60,
+                "releaseDelay": 60,
+                "rotationDelay": 60,
+            },
+        },
+    })
 }
 
 fn device_binding(
@@ -1373,6 +1445,12 @@ fn vectors() -> Value {
             device_binding("uncompressed_key", &device_domain, &[0xa1; 32], &alice, uncompressed),
             device_binding("account_as_key", &device_domain, &[0xa1; 32], &alice, account_owner),
         ],
+        "device_rotations": [
+            device_rotation("alice_first_rotation", &device_domain, (&[0xa1; 32], &[0xb5; 32]), 0, &alice, alice.public),
+            device_rotation("alice_after_seven_rotations", &device_domain, (&[0xb5; 32], &[0xa1; 32]), 7, &alice, alice.public),
+            device_rotation("uncompressed_key", &device_domain, (&[0xa1; 32], &[0xb5; 32]), 0, &alice, uncompressed),
+        ],
+        "profiles": profiles(),
     })
 }
 

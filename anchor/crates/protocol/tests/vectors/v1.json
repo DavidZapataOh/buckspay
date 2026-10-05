@@ -91,6 +91,41 @@
       "wallet": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
     }
   ],
+  "device_rotations": [
+    {
+      "body": "0151a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e2400000000",
+      "device": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
+      "envelope": "663656275b797b8eecef1b4adca52ee444bd2218d10a61bb42d1edf8b7ec73aba1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1fdbb436d063c99b72e0857f2dec22779d575bd9a2a166d15986910ef3cd6e363",
+      "error": "",
+      "name": "alice_first_rotation",
+      "new_wallet": "b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5",
+      "old_wallet": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "rotations": 0,
+      "signature": "65231de2d90155465dfb6864892d6c7ac3b0511598ef55f00df51be46a5fec3372367cac20b923904e934e0c755990691c276fd8666e11bf2a3ef2f83c127cdd"
+    },
+    {
+      "body": "0151b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a102550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e2407000000",
+      "device": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
+      "envelope": "663656275b797b8eecef1b4adca52ee444bd2218d10a61bb42d1edf8b7ec73abb5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5abaabd4c7d1d0aaf1cabc73451918ca0e4dd0336d814b44d156b7a4abc774719",
+      "error": "",
+      "name": "alice_after_seven_rotations",
+      "new_wallet": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "old_wallet": "b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5",
+      "rotations": 7,
+      "signature": "51abf2035c93694f78d1a2817b404fcc033513fb15924d375de86e0306521f4751b23a43c961b542fe0a3026a9c99745e84308c971d14612e36ce0ca7bf8242d"
+    },
+    {
+      "body": "",
+      "device": "04550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
+      "envelope": "",
+      "error": "Owner",
+      "name": "uncompressed_key",
+      "new_wallet": "b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5",
+      "old_wallet": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "rotations": 0,
+      "signature": ""
+    }
+  ],
   "domain": {
     "claim": "0155128466015355b2a2ca2559035a5437ab3451c23eea62a686fb4b5983e7f9",
     "device": "663656275b797b8eecef1b4adca52ee444bd2218d10a61bb42d1edf8b7ec73ab",
@@ -1385,6 +1420,33 @@
       ]
     }
   ],
+  "profiles": {
+    "production": {
+      "programIds": {
+        "devnet": "zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM",
+        "mainnet": null
+      },
+      "windows": {
+        "challenge": 604800,
+        "claimWindow": 604800,
+        "grace": 604800,
+        "minNoteLife": 86400,
+        "releaseDelay": 1209600,
+        "rotationDelay": 604800
+      }
+    },
+    "short": {
+      "programId": "JA82vFUvNM3vvRbYbiU3xx748qEchaJ3Htr8FKFEMFKT",
+      "windows": {
+        "challenge": 60,
+        "claimWindow": 60,
+        "grace": 60,
+        "minNoteLife": 60,
+        "releaseDelay": 60,
+        "rotationDelay": 60
+      }
+    }
+  },
   "settlements": [
     {
       "error": "",

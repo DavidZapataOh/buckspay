@@ -1,4 +1,4 @@
-#![cfg(feature = "verify")]
+#![cfg(all(feature = "verify", not(feature = "short-windows")))]
 
 #[path = "../examples/vectors.rs"]
 #[allow(dead_code)]

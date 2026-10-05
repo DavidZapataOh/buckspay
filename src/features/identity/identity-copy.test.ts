@@ -1,9 +1,9 @@
 import { address, getBase58Decoder, type Signature } from '@solana/kit'
 import { describe, expect, it } from 'vitest'
+import type { Activation } from './activation'
 import type { IdentityState } from './device-identity'
 import {
   confirmingNotice,
-  costNotice,
   homeStatus,
   keyProtection,
   shortfallNotice,
@@ -15,34 +15,27 @@ const ALICE = address('Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS')
 const device = { address: ALICE, wallet: ALICE, key: new Uint8Array(33) }
 
 describe('identity copy', () => {
-  it('says what registering costs, rounded up, and what the wallet lacks, rounded down', () => {
-    expect(costNotice({ balance: 0n, cost: 1_527_280n })).toBe(
-      'Costs about 0.0016 SOL from your wallet. Not refundable.',
+  it('says what the wallet lacks in SOL to pay the network itself, rounded down, and nothing while Buckspay pays', () => {
+    const activation = (balance: bigint, cost: bigint) => ({ sol: { balance, cost } }) as Activation
+    expect(shortfallNotice(activation(1_099_999n, 4_600_000n), false)).toBe(
+      'Your wallet has 0.001 SOL. Add SOL to it before you activate.',
     )
-    expect(shortfallNotice({ balance: 1_099_999n, cost: 1_527_280n })).toBe(
-      'Your wallet has 0.001 SOL. Add SOL to it before you register.',
-    )
-    expect(shortfallNotice({ balance: 1_527_280n, cost: 1_527_280n })).toBeUndefined()
+    expect(shortfallNotice(activation(4_600_000n, 4_600_000n), false)).toBeUndefined()
+    expect(shortfallNotice(activation(0n, 4_600_000n), true)).toBeUndefined()
   })
 
-  it('says a sponsored registration is free, and why the wallet pays when it is not', () => {
-    const quote = { balance: 0n, cost: 1_186_240n }
-    expect(costNotice(quote, 'free')).toBe('Free: Buckspay pays the registration.')
-    expect(shortfallNotice(quote, 'free')).toBeUndefined()
-    expect(costNotice(quote, 'unavailable')).toBe('Costs about 0.0012 SOL from your wallet. Not refundable.')
-    expect(shortfallNotice(quote, 'unavailable')).toBe('Your wallet has 0 SOL. Add SOL to it before you register.')
+  it('says why the wallet pays when Buckspay does not', () => {
     expect(sponsorshipNotice('unavailable')).toBe(
-      'Buckspay can’t pay for registrations right now, so your wallet pays.',
+      'Buckspay can’t pay for activations right now, so your wallet pays the network costs.',
     )
     expect(sponsorshipNotice('free')).toBeUndefined()
     expect(sponsorshipNotice()).toBeUndefined()
   })
 
-  it('tells the public, permanent link before registering, and that a sent registration cannot be cancelled', () => {
-    expect(stepCopy.register.body).toBe(
-      'This links this phone to your wallet publicly and permanently. Anyone can see the link on Solana, and it can’t be undone.',
-    )
-    expect([stepCopy.connect.progress, stepCopy['create-key'].progress, stepCopy.register.progress]).toEqual([
+  it('tells the public, permanent link before activating, and that a sent activation cannot be cancelled', () => {
+    expect(stepCopy.activate.title).toBe('Add funds')
+    expect(stepCopy.activate.body).toContain('publicly and permanently')
+    expect([stepCopy.connect.progress, stepCopy['create-key'].progress, stepCopy.activate.progress]).toEqual([
       'Step 1 of 2',
       'Step 1 of 2',
       'Step 2 of 2',
@@ -52,7 +45,7 @@ describe('identity copy', () => {
       'Sent to Solana. Waiting for confirmation, usually under a minute. You can leave this screen; this can’t be cancelled.',
     )
     expect(confirmingNotice()).toBe(
-      'Your wallet may have sent the registration. Waiting until Solana confirms it or it expires, usually under a minute. You can leave this screen.',
+      'Your wallet may have sent the activation. Waiting until Solana confirms it or it expires, usually under a minute. You can leave this screen.',
     )
   })
 
@@ -87,7 +80,7 @@ describe('identity copy', () => {
       retry: 'Try again',
     })
     expect(status({ step: 'loading', error: 'Keystore failed' })).toMatchObject({ retry: 'Try again' })
-    for (const step of ['connect', 'create-key', 'register'] as const) {
+    for (const step of ['connect', 'create-key', 'activate'] as const) {
       expect(status({ step })).toMatchObject({ testID: 'home-setup', action: 'Set up payments' })
     }
   })

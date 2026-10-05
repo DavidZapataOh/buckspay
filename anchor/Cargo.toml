@@ -3,6 +3,7 @@ members = [
     "programs/*",
     "crates/*"
 ]
+exclude = ["tools/*"]
 resolver = "2"
 
 [workspace.package]

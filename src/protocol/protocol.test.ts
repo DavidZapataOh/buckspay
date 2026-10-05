@@ -14,6 +14,8 @@ import {
   decodeSpendConflict,
   deviceBindingBody,
   deviceBindingEnvelope,
+  deviceRotationBody,
+  deviceRotationEnvelope,
   DEVNET_GENESIS_HASH,
   domain,
   encodeBondTicket,
@@ -323,6 +325,38 @@ describe('device bindings', () => {
     const length = expect.objectContaining({ name: 'ProtocolError', code: 'Length' })
     expect(() => deviceBindingBody(wallet.subarray(1), key)).toThrow(length)
     expect(() => deviceBindingBody(wallet, key.subarray(1))).toThrow(length)
+  })
+})
+
+describe('device rotations', () => {
+  const DEVICE_DOMAIN = hexToBytes(vectors.domain.device)
+  for (const vector of vectors.device_rotations) {
+    it(`${vector.name} ${vector.error ? `fails with ${vector.error}` : 'matches Rust'}`, () => {
+      const [oldWallet, newWallet] = [vector.old_wallet, vector.new_wallet].map((wallet) => hexToBytes(wallet))
+      const key = hexToBytes(vector.device)
+      if (vector.error) {
+        expect(() => deviceRotationEnvelope(DEVICE_DOMAIN, oldWallet, newWallet, key, vector.rotations)).toThrow(
+          expect.objectContaining({ name: 'ProtocolError', code: vector.error }),
+        )
+        return
+      }
+      expect(bytesToHex(deviceRotationBody(oldWallet, newWallet, key, vector.rotations))).toBe(vector.body)
+      const message = deviceRotationEnvelope(DEVICE_DOMAIN, oldWallet, newWallet, key, vector.rotations)
+      expect(bytesToHex(message)).toBe(vector.envelope)
+      verifySignature(key, message, hexToBytes(vector.signature))
+    })
+  }
+
+  it('is not a device binding, and rejects widths and counters it cannot encode', () => {
+    const [vector] = vectors.device_rotations
+    const [oldWallet, newWallet] = [vector.old_wallet, vector.new_wallet].map((wallet) => hexToBytes(wallet))
+    const key = hexToBytes(vector.device)
+    expect(deviceRotationBody(oldWallet, newWallet, key, 0)[1]).toBe(Kind.Rotation)
+    expect(Kind.Rotation).not.toBe(Kind.DeviceBinding)
+    const length = expect.objectContaining({ name: 'ProtocolError', code: 'Length' })
+    expect(() => deviceRotationBody(oldWallet.subarray(1), newWallet, key, 0)).toThrow(length)
+    expect(() => deviceRotationBody(oldWallet, newWallet, key, -1)).toThrow(length)
+    expect(() => deviceRotationBody(oldWallet, newWallet, key, 2 ** 32)).toThrow(length)
   })
 })
 
