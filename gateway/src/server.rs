@@ -297,6 +297,8 @@ pub enum Error {
     Unfunded,
     /// The gateway serves `IN_FLIGHT` requests already.
     Busy,
+    /// Solana's node did not know the blockhash in its preflight: nothing was sent, try again.
+    Retry,
     /// Solana could not be read, or did not answer whether it took a transaction.
     Upstream,
 }
@@ -358,6 +360,14 @@ impl IntoResponse for Error {
                 "Solana refused the transaction in its preflight; nothing was sent",
             )
             .into_response(),
+            Error::Retry => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "error": "Solana did not know the transaction's blockhash yet; nothing was sent, try again",
+                    "retry": true,
+                })),
+            )
+                .into_response(),
             Error::Failed => {
                 json(StatusCode::CONFLICT, "the transaction was sent and failed").into_response()
             }

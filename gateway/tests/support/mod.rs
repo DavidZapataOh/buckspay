@@ -571,9 +571,33 @@ impl Sponsor {
         rents: Rents,
         per_minute: u32,
     ) -> Self {
+        Self::on(
+            rpc(url),
+            fee_payer,
+            limits,
+            float,
+            settings,
+            client,
+            rents,
+            per_minute,
+        )
+    }
+
+    /// A gateway that reads and sends through `rpc`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn on(
+        rpc: RpcClient,
+        fee_payer: Keypair,
+        limits: Arc<SponsorLimits>,
+        float: Arc<SettlementLimits>,
+        settings: Settings,
+        client: ClientAddress,
+        rents: Rents,
+        per_minute: u32,
+    ) -> Self {
         let fee_payer_address = fee_payer.pubkey();
         let gateway = Arc::new(Gateway::new(
-            rpc(url),
+            rpc,
             fee_payer,
             settings,
             rents,

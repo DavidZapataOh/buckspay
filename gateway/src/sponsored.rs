@@ -18,6 +18,7 @@ use solana_rpc_client_api::config::RpcSimulateTransactionConfig;
 use solana_signature::Signature;
 use solana_signer::Signer;
 use solana_transaction::versioned::VersionedTransaction;
+use solana_transaction_error::TransactionError;
 use solana_transaction_status_client_types::TransactionConfirmationStatus;
 use std::{
     sync::{Arc, MutexGuard},
@@ -313,6 +314,34 @@ pub(crate) async fn confirm(state: &Gateway, signature: &Signature) -> Outcome {
     Outcome::Unknown
 }
 
+/// How often a send is attempted while the RPC node preflighting it has not seen the blockhash yet,
+/// and how long it waits between attempts. A public RPC is many nodes behind one address: the node
+/// that served the blockhash can be ahead of the one that preflights the send.
+const SEND_ATTEMPTS: u32 = 8;
+const SEND_RETRY_WAIT: Duration = Duration::from_millis(500);
+
+async fn send_through_lag(
+    state: &Gateway,
+    transaction: &VersionedTransaction,
+) -> Result<Signature, solana_rpc_client_api::client_error::Error> {
+    let mut attempt = 1;
+    loop {
+        match state.rpc.send_transaction(transaction).await {
+            Err(error)
+                if attempt < SEND_ATTEMPTS
+                    && matches!(
+                        error.get_transaction_error(),
+                        Some(TransactionError::BlockhashNotFound)
+                    ) =>
+            {
+                attempt += 1;
+                tokio::time::sleep(SEND_RETRY_WAIT).await;
+            }
+            result => return result,
+        }
+    }
+}
+
 pub(crate) async fn submit(
     State(state): State<Arc<Gateway>>,
     Json(request): Json<SubmitRequest>,
@@ -352,10 +381,14 @@ pub(crate) async fn submit(
     // Sent after a preflight simulation at the client's commitment: a transaction that would fail
     // is refused here, costs nothing and is not counted. Any other error leaves it unknown whether
     // the transaction was sent.
-    let signature = match state.rpc.send_transaction(&transaction).await {
+    let signature = match send_through_lag(&state, &transaction).await {
         Ok(signature) => signature,
         Err(error) => {
             return Err(match error.get_transaction_error() {
+                Some(TransactionError::BlockhashNotFound) => {
+                    warn!("Solana did not know the blockhash of a sponsored transaction");
+                    Error::Retry
+                }
                 Some(error) => {
                     warn!(%error, "a sponsored transaction failed its preflight");
                     Error::Rejected
