@@ -1,5 +1,7 @@
 import { hexToBytes } from '@noble/hashes/utils.js'
 import {
+  SolanaMobileWalletAdapterError,
+  SolanaMobileWalletAdapterErrorCode,
   SolanaMobileWalletAdapterProtocolError,
   SolanaMobileWalletAdapterProtocolErrorCode,
 } from '@solana-mobile/mobile-wallet-adapter-protocol'
@@ -45,7 +47,8 @@ const SIGNATURE = getBase58Decoder().decode(new Uint8Array(64).fill(9))
 let status: { err: unknown; confirmationStatus: string } | null
 let simulation: unknown
 let gateway: Gateway & { submitted: number }
-let walletAnswer: 'signs' | 'declines' | 'unsupported'
+let walletEvents: string[]
+let walletAnswer: 'signs' | 'declines' | 'unsupported' | 'closes' | 'fails' | 'unauthorized' | 'closesOnce'
 let sentByWallet: Transaction[]
 
 const reply = <T>(value: T) => ({ send: async () => value })
@@ -79,6 +82,26 @@ const context = (withGateway = true): PerformContext & { rpc: never } =>
           'User declined',
         )
       }
+      walletEvents.push('wallet')
+      if (walletAnswer === 'closesOnce') {
+        walletAnswer = 'signs'
+        throw new SolanaMobileWalletAdapterError(SolanaMobileWalletAdapterErrorCode.ERROR_SESSION_CLOSED, 'closed', {
+          closeEvent: { code: 1006 },
+        } as never)
+      }
+      if (walletAnswer === 'closes') {
+        throw new SolanaMobileWalletAdapterError(SolanaMobileWalletAdapterErrorCode.ERROR_SESSION_CLOSED, 'closed', {
+          closeEvent: { code: 1006 },
+        } as never)
+      }
+      if (walletAnswer === 'unauthorized') {
+        throw new SolanaMobileWalletAdapterProtocolError(
+          0,
+          SolanaMobileWalletAdapterProtocolErrorCode.ERROR_AUTHORIZATION_FAILED,
+          'auth token not valid',
+        )
+      }
+      if (walletAnswer === 'fails') throw new Error('Invalid transaction type')
       if (walletAnswer === 'unsupported')
         throw new SolanaMobileWalletAdapterProtocolError(0, -32601, 'Method not found')
       return { ...transaction, signatures: { ...transaction.signatures, [WALLET]: new Uint8Array(64).fill(7) } }
@@ -90,6 +113,7 @@ describe('running an operation', () => {
     status = { err: null, confirmationStatus: 'confirmed' }
     simulation = null
     walletAnswer = 'signs'
+    walletEvents = []
     sentByWallet = []
     const prepare = async (): Promise<Prepared> => ({
       transaction: getBase64EncodedWireTransaction(await buildWithdrawalTransaction(terms, params)),
@@ -114,6 +138,69 @@ describe('running an operation', () => {
   })
 
   afterEach(() => vi.useRealTimers())
+
+  it.each(['closes', 'unauthorized'] as const)(
+    'asks to connect the wallet again when it %s before signing, and sends nothing',
+    async (answer) => {
+      walletAnswer = answer
+      const outcome = await runOperation(context(), withdrawalOperation(params), true)
+      expect(outcome).toMatchObject({ status: 'failed', payInstead: false, reconnect: true })
+      expect(outcome.status === 'failed' && outcome.error).toContain('Nothing was sent')
+      expect(gateway.submitted).toBe(0)
+    },
+  )
+
+  it('asks the wallet again once when its session closed unanswered', async () => {
+    walletAnswer = 'closesOnce'
+    expect(await runOperation(context(), withdrawalOperation(params), true)).toMatchObject({ status: 'done' })
+    expect(walletEvents).toEqual(['wallet', 'wallet'])
+  })
+
+  it('opens no wallet session before the gateway and the RPC have answered', async () => {
+    const slow =
+      <T>(name: string, value: T) =>
+      async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        walletEvents.push(name)
+        return value
+      }
+    const prepare = gateway.prepare.bind(gateway)
+    gateway.prepare = async (...args) => {
+      const prepared = await prepare(...args)
+      await slow('gateway', null)()
+      return prepared
+    }
+    const reads = {
+      ...rpc,
+      getLatestBlockhash: () => ({
+        send: slow('rpc', {
+          context: { slot: 1n },
+          value: { blockhash: operations.blockhash, lastValidBlockHeight: 100n },
+        }),
+      }),
+      simulateTransaction: () => ({ send: slow('rpc', { context: { slot: 1n }, value: { err: null, logs: [] } }) }),
+    }
+    await runOperation({ ...context(), rpc: reads as never }, withdrawalOperation(params), true)
+    expect(walletEvents).toEqual(['gateway', 'rpc', 'rpc', 'wallet'])
+  })
+
+  it('asks to try again, keeping the sponsorship, when the gateway says Solana was slow to see the transaction', async () => {
+    gateway.submit = async () => {
+      throw new GatewayError(503, 'try again', { retry: true })
+    }
+    const outcome = await runOperation(context(), withdrawalOperation(params), true)
+    expect(outcome).toMatchObject({ status: 'failed', payInstead: false })
+    expect(outcome.status === 'failed' && outcome.error).toMatch(/Nothing was sent.*Try again/)
+  })
+
+  it('says nothing was sent when the wallet fails to sign for another reason', async () => {
+    walletAnswer = 'fails'
+    const outcome = await runOperation(context(), withdrawalOperation(params), true)
+    expect(outcome).toMatchObject({ status: 'failed', details: 'Invalid transaction type', payInstead: true })
+    expect(outcome.status === 'failed' && outcome.error).toContain('couldn’t sign')
+    expect(outcome.status === 'failed' && outcome.error).toContain('Nothing was sent')
+    expect(gateway.submitted).toBe(0)
+  })
 
   it('has the gateway pay and send it once the wallet signed it', async () => {
     expect(await runOperation(context(), withdrawalOperation(params), true)).toEqual({

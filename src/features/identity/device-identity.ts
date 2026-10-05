@@ -124,6 +124,7 @@ const SPONSOR_FALLBACK: Record<SponsorshipError['reason'], string> = {
   mismatch: 'Buckspay’s server offered an activation this app didn’t ask for, so your wallet never saw it.',
   unsupported: 'Your wallet can’t sign an activation that Buckspay pays for.',
   altered: 'Your wallet changed the activation before signing it, so it wasn’t sent.',
+  unsigned: 'Your wallet couldn’t sign the activation.',
 }
 /** The JSON-RPC error of a wallet that does not implement a method, here `sign_transactions`. */
 const METHOD_NOT_FOUND = -32601

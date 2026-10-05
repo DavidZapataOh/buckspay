@@ -19,7 +19,7 @@ import { useOperationContext } from './use-operation-context'
 /** Adds a lock to an activated phone: the same funds, terms and costs as the first one. */
 export function AddFunds() {
   const ctx = useOperationContext()
-  const { wallet, deviceKey } = useDeviceIdentity()
+  const { wallet, deviceKey, disconnect } = useDeviceIdentity()
   const { nextLockSeq, refresh } = useLocks()
   const [primary] = useThemeColors('primary')
   const [offer, setOffer] = useState<Activation>()
@@ -67,6 +67,7 @@ export function AddFunds() {
                 }
                 setError(outcome.error)
                 if (outcome.payInstead) setSponsorship('unavailable')
+                if (outcome.reconnect) await disconnect()
               })
               .finally(() => setBusy(false))
           }}

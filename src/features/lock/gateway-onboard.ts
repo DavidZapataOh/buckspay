@@ -1,3 +1,9 @@
+import {
+  SolanaMobileWalletAdapterError,
+  SolanaMobileWalletAdapterErrorCode,
+  SolanaMobileWalletAdapterProtocolError,
+  SolanaMobileWalletAdapterProtocolErrorCode,
+} from '@solana-mobile/mobile-wallet-adapter-protocol'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { getSetComputeUnitLimitInstruction } from '@solana-program/compute-budget'
 import {
@@ -36,6 +42,8 @@ export const MAX_SPONSORED_PRIORITY_FEE = 1_000_000n
 export const SPONSORED_LIFETIME_MARGIN = 150n
 
 const commitment = 'confirmed'
+/** The JSON-RPC error of a wallet that does not implement a method, here `sign_transactions`. */
+export const METHOD_NOT_FOUND = -32601
 
 export type OperationContext = {
   rpc: Rpc<GetLatestBlockhashApi & SimulateTransactionApi>
@@ -49,12 +57,25 @@ export type OperationContext = {
 
 /** Why a sponsored transaction cannot go ahead; nothing was sent and the wallet may pay instead. */
 export class SponsorshipError extends Error {
-  readonly reason: 'unavailable' | 'mismatch' | 'unsupported' | 'altered'
+  readonly reason: 'unavailable' | 'mismatch' | 'unsupported' | 'altered' | 'unsigned'
   constructor(reason: SponsorshipError['reason'], cause?: unknown) {
     super(`sponsored transaction ${reason}`, { cause })
     this.reason = reason
   }
 }
+
+/** A wallet's deliberate answer, which the caller words itself: a refusal, a forgotten authorization or a missing method. */
+const isWalletAnswer = (error: unknown) =>
+  error instanceof SolanaMobileWalletAdapterProtocolError &&
+  (error.code === SolanaMobileWalletAdapterProtocolErrorCode.ERROR_NOT_SIGNED ||
+    error.code === SolanaMobileWalletAdapterProtocolErrorCode.ERROR_AUTHORIZATION_FAILED ||
+    error.code === METHOD_NOT_FOUND)
+
+/** The wallet's session ended before it answered: nothing was signed, and a new session may be. */
+const isSessionClosed = (error: unknown) =>
+  error instanceof SolanaMobileWalletAdapterError &&
+  (error.code === SolanaMobileWalletAdapterErrorCode.ERROR_SESSION_CLOSED ||
+    error.code === SolanaMobileWalletAdapterErrorCode.ERROR_SESSION_TIMEOUT)
 
 const sameBytes = (a: ReadonlyUint8Array, b: ReadonlyUint8Array) =>
   a.length === b.length && a.every((byte, i) => byte === b[i])
@@ -144,11 +165,17 @@ export async function signSponsored(
 ): Promise<Transaction> {
   let signed
   try {
-    signed = await ctx.signTransactions(transaction)
+    // The blockhash outlives a second session, so one that closed unanswered is asked for again.
+    signed = await ctx.signTransactions(transaction).catch((error: unknown) => {
+      if (!isSessionClosed(error)) throw error
+      return ctx.signTransactions(transaction)
+    })
   } catch (error) {
     // Signing reads nothing from Solana: a Solana error here is the wallet's answer failing to decode.
     if (isSolanaError(error)) throw new SponsorshipError('altered', error)
-    throw error
+    // The gateway sends only what `submitSponsored` hands it, so nothing was sent when signing fails.
+    if (isWalletAnswer(error)) throw error
+    throw new SponsorshipError('unsigned', error)
   }
   if (!sameBytes(signed.messageBytes, transaction.messageBytes) || !signed.signatures[wallet]) {
     throw new SponsorshipError('altered')

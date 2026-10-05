@@ -20,7 +20,7 @@ import { useOperationContext } from './use-operation-context'
 /** This phone's locks, with the date each can be withdrawn from and a button once it can. */
 export function Withdraw() {
   const ctx = useOperationContext()
-  const { wallet, deviceKey } = useDeviceIdentity()
+  const { wallet, deviceKey, disconnect } = useDeviceIdentity()
   const { locks, error: readError, loading, refresh } = useLocks()
   const [primary] = useThemeColors('primary')
   const [now] = useState(() => Math.floor(Date.now() / 1000))
@@ -62,6 +62,7 @@ export function Withdraw() {
     }
     setError(outcome.error)
     setPayInstead(outcome.payInstead)
+    if (outcome.reconnect) await disconnect()
   }
 
   return (
