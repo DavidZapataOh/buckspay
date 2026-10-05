@@ -1,6 +1,9 @@
 mod apply_wallet_rotation;
 mod cancel_wallet_rotation;
+mod claim_lost_spend;
+mod claim_unbacked;
 mod close_lock;
+mod close_records;
 mod close_spent;
 mod create_lock;
 #[cfg(feature = "devnet")]
@@ -16,7 +19,10 @@ mod withdrawal;
 
 pub use apply_wallet_rotation::*;
 pub use cancel_wallet_rotation::*;
+pub use claim_lost_spend::*;
+pub use claim_unbacked::*;
 pub use close_lock::*;
+pub use close_records::*;
 pub use close_spent::*;
 pub use create_lock::*;
 #[cfg(feature = "devnet")]

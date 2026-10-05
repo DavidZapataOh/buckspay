@@ -1,5 +1,6 @@
 use crate::{
     chain::Rents,
+    claims,
     float::SettlementLimits,
     hpke::{HpkeKeys, PublishedKey},
     limits::{Prefix, RateLimited, RequestLimits},
@@ -73,6 +74,8 @@ pub struct Settings {
     pub sol_price_micro_usdc: Option<u64>,
     /// Other addresses the gateway signs for: no endpoint accepts them as a wallet.
     pub held_keys: Vec<Pubkey>,
+    /// Lamports of rent the gateway may have out in claim accounts at once.
+    pub claim_float_cap: u64,
 }
 
 /// Everything the endpoints share.
@@ -94,6 +97,8 @@ pub struct Gateway {
     pub(crate) rotation_keys: Mutex<HashMap<Pubkey, [u8; 33]>>,
     /// Locks the janitor found due whose wallet has no token account to release to.
     pub(crate) stuck: AtomicU64,
+    /// Held while a claim is filed, so that the cap on what is fronted for claims holds exactly.
+    pub(crate) claiming: tokio::sync::Mutex<()>,
 }
 
 /// What bounds the gateway: requests per network, what it lends to onboard, and what it lends as
@@ -125,6 +130,7 @@ impl Gateway {
             pending: Mutex::default(),
             rotation_keys: Mutex::default(),
             stuck: AtomicU64::new(0),
+            claiming: tokio::sync::Mutex::new(()),
         }
     }
 
@@ -176,6 +182,7 @@ pub fn router(state: Arc<Gateway>, client: ClientAddress) -> Router {
                 .route("/v1/settlements", post(settlements::settle))
                 .route("/v1/settlements/quote", get(settlements::quote))
                 .route("/v1/reclaims", post(settlements::reclaim))
+                .route("/v1/fraud/claim", post(claims::claim))
                 .layer(DefaultBodyLimit::max(settlements::BODY_LIMIT)),
         )
         .layer(RequestBodyDeadlineLayer::new(BODY_DEADLINE))

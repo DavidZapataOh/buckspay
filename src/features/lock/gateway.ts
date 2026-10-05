@@ -77,6 +77,9 @@ export type ReclaimRequest = SettlementRequest & { owner: string; which: 0 | 1; 
 /** The gateway sent the transaction, or the last record of the chain was paid already. */
 export type SettlementAnswer = { signature: string } | { status: 'settled' }
 
+/** The gateway filed the claim, or the loss was claimed already. */
+export type ClaimAnswer = { signature: string } | { status: 'claimed' }
+
 /** Buckspay's gateway, which pays for onboarding, locks, withdrawals and rotations the wallet signs. */
 export type Gateway = {
   quote(): Promise<Quote>
@@ -92,6 +95,8 @@ export type SettlementGateway = {
   settle(request: SettlementRequest): Promise<SettlementAnswer>
   /** Takes back an output nobody settled, paying the wallet the owner's key is bound to. */
   reclaim(request: ReclaimRequest): Promise<SettlementAnswer>
+  /** Files the loss a chain proves, with no signature and nothing paid to anybody: the payer's bond burns. */
+  claim(request: SettlementRequest): Promise<ClaimAnswer>
 }
 
 export function createGateway(url: string): Gateway & SettlementGateway {
@@ -137,6 +142,7 @@ export function createGateway(url: string): Gateway & SettlementGateway {
     },
     settle: (request) => call('/v1/settlements', request),
     reclaim: (request) => call('/v1/reclaims', request),
+    claim: (request) => call('/v1/fraud/claim', request),
   }
 }
 

@@ -81,6 +81,9 @@ pub const MIN_LOCK: u32 = GRACE + CHALLENGE + MIN_NOTE_LIFE;
 /// `Lock` and `Ledger` can be closed this long after `lock_until`.
 pub const RECORD_TTL: u32 = CLAIM_WINDOW + CHALLENGE;
 pub const MAX_LOCK: u32 = 366 * 24 * 60 * 60;
+/// A receiver refuses a ticket that is valid for longer than this from now, so an attester cannot
+/// make a ticket outlive the freshness the receivers rely on.
+pub const TICKET_TTL_MAX: u32 = 3 * 24 * 60 * 60;
 pub const MAX_SPONSOR_FEE_DIVISOR: u64 = 4;
 
 // Every inequality the settlement, report and ticket logic relies on, checked when the crate

@@ -2,6 +2,7 @@
 //! user funds or keys.
 
 pub mod chain;
+pub mod claims;
 pub mod config;
 pub mod fees;
 pub mod float;

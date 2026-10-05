@@ -1,4 +1,5 @@
 import type { Windows } from '../../protocol'
+import type { ClaimOutcome } from './settle'
 
 /**
  * Shown once, before the first clear-text settlement: what the chain publishes. The private path,
@@ -34,11 +35,30 @@ const duration = (seconds: number) => {
 export const reclaimWindowNotice = ({ claimWindow, challenge }: Windows) =>
   `You can take an unsettled payment back for ${duration(claimWindow + challenge)} after its settlement window, or until its lock ends if that is sooner. An output of a key with no registered device cannot be taken back at all.`
 
+const notRepaid = 'You were not repaid: the bond is not paid out.'
+
+/** What filing the loss did: the bond burns, nobody is repaid, and the words promise nothing else. */
+export function claimNotice(outcome: ClaimOutcome): string {
+  switch (outcome.kind) {
+    case 'burned':
+      return `The payer signed this money twice. Their bond is destroyed. ${notRepaid}`
+    case 'claimed':
+      return `The payer signed this money twice and their bond was already destroyed. ${notRepaid}`
+    case 'nothing_to_burn':
+      if (outcome.reason === 'no_bond') return `The payer's lock has nothing left to burn. ${notRepaid}`
+      if (outcome.reason === 'lock_ended')
+        return `The payer's lock has ended, so the loss can no longer be filed. ${notRepaid}`
+      return `This loss cannot be filed against the payer's lock. ${notRepaid}`
+    case 'unavailable':
+      return 'Buckspay could not file the loss now. Keep this payment and try again later.'
+  }
+}
+
 /** What a refusal asks of the user. */
 export function refusalNotice(kind: string, retryAt?: number): string {
   switch (kind) {
     case 'conflict':
-      return 'Another payment of the same money was settled first. Keep this payment: it is evidence.'
+      return 'The payer signed this money twice: another payment of it was settled first. You were not repaid: the bond is not paid out. Keep this payment.'
     case 'no_token_account':
       return 'The account that is paid has no token account for this money yet. Create it in the wallet, then settle again.'
     case 'window':

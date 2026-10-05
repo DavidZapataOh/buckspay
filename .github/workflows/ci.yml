@@ -122,6 +122,8 @@ jobs:
       - run: cargo test --manifest-path tools/check-payouts/Cargo.toml
       - run: cargo clippy --manifest-path tools/check-payouts/Cargo.toml --all-targets -- -D warnings
       - run: bash scripts/check-payouts.sh
+      # What a claim burns, against the mechanisms that pay claimants out of a bond.
+      - run: python3 sim/econ.py --check
       - run: bash scripts/check-payouts.test.sh
       # Devices of the previous program stay usable across an upgrade.
       - run: bash scripts/upgrade-test.sh

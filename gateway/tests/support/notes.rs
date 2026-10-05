@@ -1,5 +1,5 @@
 //! Notes the way a wallet builds them: signed by real P-256 keys, with the salts changed until every
-//! output has a record address and a payment to a device stepping its expiry down.
+//! output has a record address and a claim address and a payment to a device stepping its expiry down.
 #![allow(dead_code)]
 use super::*;
 use buckspay_protocol::{
@@ -29,7 +29,7 @@ pub fn reclaim_domain() -> [u8; 32] {
 }
 
 pub fn recordable(id: &[u8; 32]) -> bool {
-    record::address(&program().id().to_bytes(), id).is_some()
+    record::recordable(&program().id().to_bytes(), id)
 }
 
 pub fn caveats(expiry: u32, hops_left: u8) -> Caveats {
@@ -152,7 +152,7 @@ impl Note {
                 [Some(holding.first), holding.second]
                     .into_iter()
                     .flatten()
-                    .all(|o| !matches!(o.owner, Owner::Device(_)) || recordable(&o.id))
+                    .all(|o| recordable(&o.id))
             })
             .unwrap();
         self.spends.push(SignedMessage {

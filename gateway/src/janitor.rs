@@ -7,6 +7,7 @@
 //! from every key; a lock whose wallet has no token account stays open and is counted as stuck.
 use crate::{
     chain::{self, TokenAccount, associated_token_address},
+    claims::{CLAIM_CLOSABLE_OFFSET, CLAIM_LEN, CLAIM_PAYER_OFFSET, claim_discriminator},
     float::{Found, Read},
     onboard::{chain_now, read},
     server::{Error, Gateway},
@@ -59,6 +60,8 @@ pub struct Report {
     pub settlements_closed: u32,
     pub settlements_forgotten: u32,
     pub settlements_adopted: u32,
+    /// Claims closed: the rent the gateway fronted for them is back.
+    pub claims_closed: u32,
 }
 
 /// The accounts of the program of `size` bytes whose payer, at `offset`, is the gateway.
@@ -307,6 +310,9 @@ pub async fn run_once(state: &Gateway, rotation_grace: Duration) -> Result<Repor
     if let Err(error) = settlement_records(state, now, &mut report).await {
         warn!(?error, "the settlement records could not be tended");
     }
+    if let Err(error) = close_claims(state, now, &mut report).await {
+        warn!(?error, "the claims could not be tended");
+    }
     state
         .stuck
         .store(u64::from(report.stuck), Ordering::Relaxed);
@@ -317,6 +323,44 @@ pub async fn run_once(state: &Gateway, rotation_grace: Duration) -> Result<Repor
         warn!(%error, "the sponsorship ledger could not be written");
     }
     Ok(report)
+}
+
+/// The claims the gateway paid for that are still open, each with the second it can be closed.
+/// Read from the chain alone: a restart loses nothing and a claim nobody remembers is found.
+pub async fn open_claims(state: &Gateway) -> Result<Vec<(Pubkey, u32)>, Error> {
+    let discriminator = claim_discriminator();
+    Ok(paid_by_us(state, CLAIM_LEN, CLAIM_PAYER_OFFSET)
+        .await?
+        .into_iter()
+        .filter(|(_, account)| account.data[..8] == discriminator)
+        .filter_map(|(address, account)| {
+            let closable = account.data[CLAIM_CLOSABLE_OFFSET..].try_into().ok()?;
+            Some((address, u32::from_le_bytes(closable)))
+        })
+        .collect())
+}
+
+/// Closes the claims that are due, with the rent going back to the fee payer that fronted it.
+async fn close_claims(state: &Gateway, now: u64, report: &mut Report) -> Result<(), Error> {
+    let fee_payer = state.fee_payer.pubkey();
+    let pairs: Vec<(Pubkey, Pubkey)> = open_claims(state)
+        .await?
+        .into_iter()
+        .filter(|(_, closable_at)| u64::from(*closable_at) <= now)
+        .take(CLOSE_BATCH)
+        .map(|(address, _)| (address, fee_payer))
+        .collect();
+    if pairs.is_empty() {
+        return Ok(());
+    }
+    let close = transactions::close_records(&state.settings.program, &pairs);
+    if send_with_limit(state, &[close], CLOSE_COMPUTE_UNIT_LIMIT).await {
+        report.claims_closed += u32::try_from(pairs.len()).unwrap_or(u32::MAX);
+        info!(claims = pairs.len(), "returned the rent of claims");
+    } else {
+        warn!("a claim close did not land");
+    }
+    Ok(())
 }
 
 /// The settlement records the gateway paid for: brings its ledger in line with a confirmed read of

@@ -1,6 +1,7 @@
 #![cfg(feature = "verify")]
 
 use buckspay_protocol::hash::{content, domain, envelope, message_id, output_id, purpose};
+use buckspay_protocol::slash::min_bond;
 use buckspay_protocol::verify::{
     verify_issue_conflict, verify_payment, verify_settlement, verify_spend_conflict, Attester,
     Liability, Receiver,
@@ -118,7 +119,7 @@ fn issue_on(
 }
 
 fn recordable(id: &[u8; 32]) -> bool {
-    record::address(&PROGRAM, id).is_some()
+    record::recordable(&PROGRAM, id)
 }
 
 /// The signer changes the salt until every output of the spend is recordable, whoever owns it:
@@ -150,7 +151,7 @@ fn attester() -> ed25519_dalek::SigningKey {
 }
 
 fn ticket(device: &Owner, mint: [u8; 32], backing: u64) -> BondTicket {
-    bonded(device, mint, backing, backing)
+    bonded(device, mint, min_bond(backing).unwrap(), backing)
 }
 
 fn bonded(device: &Owner, mint: [u8; 32], bond: u64, backing: u64) -> BondTicket {
@@ -160,7 +161,8 @@ fn bonded(device: &Owner, mint: [u8; 32], bond: u64, backing: u64) -> BondTicket
         lock_seq: 0,
         bond,
         backing,
-        lock_until: EXPIRY + GRACE + CHALLENGE,
+        lock_until: EXPIRY + GRACE + CHALLENGE + 1,
+        valid_until: NOW + 86_400,
         attester: 1,
         signature: [0; 64],
     };
@@ -626,7 +628,7 @@ fn delegated_issue_is_the_issuer_bond_liability() {
             &bob,
             &issued,
             &[to_bob],
-            &[bonded(&issuer_key, USDC, 99, 100)]
+            &[bonded(&issuer_key, USDC, min_bond(100).unwrap() - 1, 100)]
         ),
         Err(ProtocolError::Ticket)
     );
@@ -1106,8 +1108,8 @@ fn a_payment_names_every_lock_liable_for_it() {
         },
     );
     let tickets = [
-        bonded(&issuer_key, USDC, 150, 100),
-        bonded(&alice_key, USDC, 120, 0),
+        bonded(&issuer_key, USDC, 400, 100),
+        bonded(&alice_key, USDC, 400, 0),
     ];
     let lock = |device: &Owner, bond| Liability {
         device: device.encode(),
@@ -1126,7 +1128,7 @@ fn a_payment_names_every_lock_liable_for_it() {
         assert_eq!(received.output.amount, amount);
         assert_eq!(
             *received.liable,
-            [lock(&issuer_key, 150), lock(&alice_key, 120)]
+            [lock(&issuer_key, 400), lock(&alice_key, 400)]
         );
     }
 }

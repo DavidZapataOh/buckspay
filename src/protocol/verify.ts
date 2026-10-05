@@ -33,9 +33,11 @@ import {
   type Spend,
   type SpendConflict,
   ticketMessage,
+  TICKET_TTL_MAX,
 } from './codec'
 import { content, envelope, issueSlot, messageId, outputId } from './hash'
-import { recordAddress } from './record'
+import { isRecordable, recordAddress } from './record'
+import { covers } from './slash'
 
 export type Output = { id: Uint8Array; owner: Owner; amount: bigint; caveats: Caveats }
 export type Attester = { id: number; key: Uint8Array }
@@ -218,7 +220,13 @@ function verifySpend(domain: Uint8Array, input: Output, { message, signature }: 
   return [first, { id: outputId(id, 1), owner: input.owner, amount: input.amount - amount, caveats: changeCaveats }]
 }
 
+/** An output a receiver accepts offline can be settled and, if its chain is a fraud, claimed. */
 function requireRecordable(program: Uint8Array, output: Uint8Array) {
+  if (!isRecordable(program, output)) throw new ProtocolError('Unrecordable')
+}
+
+/** An output settled on chain needs a record address only: nobody claims what is being paid. */
+function requireSettleRecordable(program: Uint8Array, output: Uint8Array) {
   if (!recordAddress(program, output)) throw new ProtocolError('Unrecordable')
 }
 
@@ -227,8 +235,8 @@ function requireRecordable(program: Uint8Array, output: Uint8Array) {
  * names, the hop follows the rules receivers and the program apply, and `input` can still move at
  * `now`: until its expiry as a payment, until `expiry + GRACE` as a settlement.
  *
- * The spend must also be recordable: `input` and every output the spend gives to a device have a
- * record address under `program`; the signer changes the salt until they do.
+ * The spend must also be recordable: `input` and every output the spend creates have a record
+ * address and a claim address under `program`; the signer changes the salt until they do.
  */
 export function checkSpendStep(domain: Uint8Array, program: Uint8Array, input: Output, spend: Spend, now: number) {
   checkU32(now)
@@ -236,16 +244,16 @@ export function checkSpendStep(domain: Uint8Array, program: Uint8Array, input: O
   checkSpend(spend)
   if (!equalBytes(spend.input, input.id)) throw new ProtocolError('Linkage')
   if (now > input.caveats.expiry + (settles(spend) ? GRACE : 0)) throw new ProtocolError('Expired')
-  const [owner] = hop(input, spend)
+  hop(input, spend)
   requireRecordable(program, input.id)
   const id = messageId(envelope(domain, input.id, content(encodeSpendBody(spend))))
-  if (owner.type === 'device') requireRecordable(program, outputId(id, 0))
+  requireRecordable(program, outputId(id, 0))
   if (spend.outputs.type === 'two') requireRecordable(program, outputId(id, 1))
 }
 
 /**
- * Checks an issue before its issuer signs it: its output has a record address under `program` (the
- * issuer changes the salt until it does).
+ * Checks an issue before its issuer signs it: its output has a record address and a claim address
+ * under `program` (the issuer changes the salt until it does).
  */
 export function checkIssueStep(domain: Uint8Array, program: Uint8Array, issue: Issue) {
   checkIssue(issue)
@@ -362,8 +370,15 @@ function checkBounds(spends: Signed<Spend>[], tickets: BondTicket[]) {
 }
 
 /**
- * The ticket for `(device, lockSeq)`, which must be on `mint`, locked past the conflict window of
- * `expiry`, cover the liability and be signed by a trusted attester.
+ * Whether a ticket whose last second is `validUntil` can be used at `now`: it has not run out and
+ * is not valid for more than `TICKET_TTL_MAX` from now, whatever its attester signed.
+ */
+const fresh = (now: number, validUntil: number) => now <= validUntil && validUntil - now <= TICKET_TTL_MAX
+
+/**
+ * The ticket for `(device, lockSeq)`, which must be on `mint`, locked beyond the conflict window of
+ * `expiry` (a claim needs `now < lockUntil`, so the last second of the window needs one more),
+ * fresh, cover the liability and be signed by a trusted attester.
  */
 function ticket(
   receiver: Receiver,
@@ -380,7 +395,8 @@ function ticket(
   const valid =
     found !== undefined &&
     equalBytes(found.mint, mint) &&
-    found.lockUntil >= expiry + GRACE + CHALLENGE &&
+    found.lockUntil > expiry + GRACE + CHALLENGE &&
+    fresh(receiver.now, found.validUntil) &&
     covers(found) &&
     attested(receiver, found)
   if (!valid) throw new ProtocolError('Ticket')
@@ -440,7 +456,7 @@ export function verifyPayment(
       note.lockSeq,
       note.mint,
       note.caveats.expiry,
-      (t) => t.bond >= note.amount && t.backing >= note.cumEnd,
+      (t) => covers(t.bond, note.amount) && t.backing >= note.cumEnd,
     ),
   )
   const output = follow(receiver.noteDomain, issued, spends, (input, spend) => {
@@ -453,10 +469,12 @@ export function verifyPayment(
     }
     addLiability(
       liable,
-      ticket(receiver, tickets, input.owner, lockSeq, note.mint, input.caveats.expiry, (t) => t.bond >= input.amount),
+      ticket(receiver, tickets, input.owner, lockSeq, note.mint, input.caveats.expiry, (t) =>
+        covers(t.bond, input.amount),
+      ),
     )
   })
-  if (spends.length === 0 || output.owner.type === 'device') requireRecordable(receiver.program, output.id)
+  requireRecordable(receiver.program, output.id)
   if (!sameOwner(output.owner, receiver.me)) throw new ProtocolError('Payee')
   if (!redeemable(receiver, output.caveats)) throw new ProtocolError('Scope')
   const stranded = output.owner.type === 'device' && output.caveats.hopsLeft === 0
@@ -476,8 +494,10 @@ export function verifySettlement(
   spends: Signed<Spend>[],
 ): Settled {
   checkBytes(program, 32)
-  const output = follow(domain, verifyIssue(domain, issue), spends, (input) => requireRecordable(program, input.id))
-  if (spends.length === 0) requireRecordable(program, output.id)
+  const output = follow(domain, verifyIssue(domain, issue), spends, (input) =>
+    requireSettleRecordable(program, input.id),
+  )
+  if (spends.length === 0) requireSettleRecordable(program, output.id)
   if (output.owner.type !== 'account') throw new ProtocolError('Payee')
   return settled(issue.message, output)
 }

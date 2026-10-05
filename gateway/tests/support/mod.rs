@@ -457,6 +457,7 @@ pub fn settings() -> Settings {
         fee_token: None,
         sol_price_micro_usdc: None,
         held_keys: Vec::new(),
+        claim_float_cap: 50_000_000,
     }
 }
 
@@ -490,6 +491,7 @@ pub async fn rents() -> Rents {
         ledger: rent(103).await,
         escrow: rent(165).await,
         record: rent(81).await,
+        claim: rent(92).await,
     }
 }
 

@@ -88,18 +88,37 @@ export const BUCKSPAY_ERROR__RECORD_NOT_CLOSABLE = 0x1792 // 6034
 export const BUCKSPAY_ERROR__RECLAIM_CLOSED = 0x1793 // 6035
 /** ReclaimExpired: The reclaim signature is past its deadline */
 export const BUCKSPAY_ERROR__RECLAIM_EXPIRED = 0x1794 // 6036
-/** UnrecordableOutput: An output of the chain has no record address */
+/** UnrecordableOutput: An output of the chain has no record address or no claim address */
 export const BUCKSPAY_ERROR__UNRECORDABLE_OUTPUT = 0x1795 // 6037
+/** NotConflicting: The two messages do not conflict */
+export const BUCKSPAY_ERROR__NOT_CONFLICTING = 0x1796 // 6038
+/** ConflictProof: The proof does not match its body, signer or lock */
+export const BUCKSPAY_ERROR__CONFLICT_PROOF = 0x1797 // 6039
+/** NoBond: The lock has no free bond to slash */
+export const BUCKSPAY_ERROR__NO_BOND = 0x1798 // 6040
+/** ClaimTooLate: The claim deadline of the output has passed */
+export const BUCKSPAY_ERROR__CLAIM_TOO_LATE = 0x1799 // 6041
+/** NotClaimable: The loss cannot be claimed from this lock */
+export const BUCKSPAY_ERROR__NOT_CLAIMABLE = 0x179a // 6042
+/** NoRecord: The output has no record */
+export const BUCKSPAY_ERROR__NO_RECORD = 0x179b // 6043
+/** AlreadyClaimed: The output was already claimed */
+export const BUCKSPAY_ERROR__ALREADY_CLAIMED = 0x179c // 6044
+/** OverCoverage: The output is larger than the lock's bond covers */
+export const BUCKSPAY_ERROR__OVER_COVERAGE = 0x179d // 6045
 
 export type BuckspayError =
+  | typeof BUCKSPAY_ERROR__ALREADY_CLAIMED
   | typeof BUCKSPAY_ERROR__ALREADY_SETTLED
   | typeof BUCKSPAY_ERROR__AMOUNT_OVERFLOW
   | typeof BUCKSPAY_ERROR__AMOUNT_ZERO
   | typeof BUCKSPAY_ERROR__CHAIN_INVALID
   | typeof BUCKSPAY_ERROR__CHAIN_VERIFICATION
+  | typeof BUCKSPAY_ERROR__CLAIM_TOO_LATE
   | typeof BUCKSPAY_ERROR__CLOCK_OUT_OF_RANGE
   | typeof BUCKSPAY_ERROR__CLOSE_TOO_EARLY
   | typeof BUCKSPAY_ERROR__CONFLICTING_SPEND
+  | typeof BUCKSPAY_ERROR__CONFLICT_PROOF
   | typeof BUCKSPAY_ERROR__DEVICE_BINDING
   | typeof BUCKSPAY_ERROR__DEVICE_KEY
   | typeof BUCKSPAY_ERROR__ESCROW_OPEN
@@ -111,8 +130,13 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__LOCK_SEQ_MISMATCH
   | typeof BUCKSPAY_ERROR__LOCK_TOO_LONG
   | typeof BUCKSPAY_ERROR__LOCK_TOO_SHORT
+  | typeof BUCKSPAY_ERROR__NO_BOND
+  | typeof BUCKSPAY_ERROR__NO_RECORD
+  | typeof BUCKSPAY_ERROR__NOT_CLAIMABLE
+  | typeof BUCKSPAY_ERROR__NOT_CONFLICTING
   | typeof BUCKSPAY_ERROR__NOT_MIGRATABLE
   | typeof BUCKSPAY_ERROR__NOT_WITHDRAWN
+  | typeof BUCKSPAY_ERROR__OVER_COVERAGE
   | typeof BUCKSPAY_ERROR__RECLAIM_CLOSED
   | typeof BUCKSPAY_ERROR__RECLAIM_EXPIRED
   | typeof BUCKSPAY_ERROR__RECLAIM_TOO_EARLY
@@ -134,14 +158,17 @@ export type BuckspayError =
 let buckspayErrorMessages: Record<BuckspayError, string> | undefined
 if (process.env['NODE_ENV'] !== 'production') {
   buckspayErrorMessages = {
+    [BUCKSPAY_ERROR__ALREADY_CLAIMED]: `The output was already claimed`,
     [BUCKSPAY_ERROR__ALREADY_SETTLED]: `This message was already paid`,
     [BUCKSPAY_ERROR__AMOUNT_OVERFLOW]: `Amount overflows`,
     [BUCKSPAY_ERROR__AMOUNT_ZERO]: `Amount must be greater than zero`,
     [BUCKSPAY_ERROR__CHAIN_INVALID]: `The messages are not a valid chain`,
     [BUCKSPAY_ERROR__CHAIN_VERIFICATION]: `The transaction does not carry the secp256r1 verification of exactly this chain`,
+    [BUCKSPAY_ERROR__CLAIM_TOO_LATE]: `The claim deadline of the output has passed`,
     [BUCKSPAY_ERROR__CLOCK_OUT_OF_RANGE]: `The cluster clock is outside the supported range`,
     [BUCKSPAY_ERROR__CLOSE_TOO_EARLY]: `The lock cannot be closed yet`,
     [BUCKSPAY_ERROR__CONFLICTING_SPEND]: `The output was already consumed by another message`,
+    [BUCKSPAY_ERROR__CONFLICT_PROOF]: `The proof does not match its body, signer or lock`,
     [BUCKSPAY_ERROR__DEVICE_BINDING]: `Missing or malformed secp256r1 verification of the device binding`,
     [BUCKSPAY_ERROR__DEVICE_KEY]: `Device key is not a compressed P-256 point`,
     [BUCKSPAY_ERROR__ESCROW_OPEN]: `The escrow is still open`,
@@ -153,8 +180,13 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__LOCK_SEQ_MISMATCH]: `lock_seq is not the device's next lock sequence number`,
     [BUCKSPAY_ERROR__LOCK_TOO_LONG]: `lock_until is too far`,
     [BUCKSPAY_ERROR__LOCK_TOO_SHORT]: `lock_until is too close`,
+    [BUCKSPAY_ERROR__NO_BOND]: `The lock has no free bond to slash`,
+    [BUCKSPAY_ERROR__NO_RECORD]: `The output has no record`,
+    [BUCKSPAY_ERROR__NOT_CLAIMABLE]: `The loss cannot be claimed from this lock`,
+    [BUCKSPAY_ERROR__NOT_CONFLICTING]: `The two messages do not conflict`,
     [BUCKSPAY_ERROR__NOT_MIGRATABLE]: `The account is not a device account to migrate`,
     [BUCKSPAY_ERROR__NOT_WITHDRAWN]: `The lock has not been withdrawn`,
+    [BUCKSPAY_ERROR__OVER_COVERAGE]: `The output is larger than the lock's bond covers`,
     [BUCKSPAY_ERROR__RECLAIM_CLOSED]: `The reclaim window of the output has closed`,
     [BUCKSPAY_ERROR__RECLAIM_EXPIRED]: `The reclaim signature is past its deadline`,
     [BUCKSPAY_ERROR__RECLAIM_TOO_EARLY]: `The output cannot be reclaimed yet`,
@@ -167,7 +199,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__SETTLEMENT_CLOSED]: `The settlement window of the output has closed`,
     [BUCKSPAY_ERROR__SLASH_PENDING]: `A slash is still pending in the lock`,
     [BUCKSPAY_ERROR__TOO_MANY_SPENDS]: `Too many spends for one instruction`,
-    [BUCKSPAY_ERROR__UNRECORDABLE_OUTPUT]: `An output of the chain has no record address`,
+    [BUCKSPAY_ERROR__UNRECORDABLE_OUTPUT]: `An output of the chain has no record address or no claim address`,
     [BUCKSPAY_ERROR__UNSUPPORTED_MINT_EXTENSION]: `The mint has an extension the program does not support`,
     [BUCKSPAY_ERROR__WITHDRAW_TOO_EARLY]: `The lock cannot be withdrawn yet`,
     [BUCKSPAY_ERROR__WRONG_LOCK]: `The issue does not match the lock it names`,

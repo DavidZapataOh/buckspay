@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { resolveProfile } from '../../protocol/profile'
 import {
   balanceNotice,
+  claimNotice,
   gatewayLabel,
   payeeObligation,
   reclaimLabel,
@@ -36,11 +37,28 @@ describe('what the user is told about settling and reclaiming', () => {
   })
 
   it('answers each refusal in words, and offers to pay when the sponsor cannot', () => {
-    expect(refusalNotice('conflict')).toContain('evidence')
+    expect(refusalNotice('conflict')).toContain('signed this money twice')
+    expect(refusalNotice('conflict')).toContain('You were not repaid')
     expect(refusalNotice('horizon', Date.UTC(2030, 5, 1) / 1000)).toContain('2030-06-01')
     expect(refusalNotice('below_minimum')).toContain('pay for it yourself')
     expect(refusalNotice('busy')).toContain('pay for it yourself')
     expect(refusalNotice('horizon')).not.toContain('undefined')
     expect(balanceNotice).toContain('every account')
+  })
+
+  it('says what the claim did, and never promises repayment', () => {
+    expect(claimNotice({ kind: 'burned', signature: 'x' })).toContain('bond is destroyed')
+    expect(claimNotice({ kind: 'claimed' })).toContain('already')
+    expect(claimNotice({ kind: 'nothing_to_burn', reason: 'no_bond' })).toContain('nothing left to burn')
+    expect(claimNotice({ kind: 'nothing_to_burn', reason: 'lock_ended' })).toContain('ended')
+    expect(claimNotice({ kind: 'unavailable' })).toContain('try again')
+    for (const outcome of [
+      { kind: 'burned' as const, signature: 'x' },
+      { kind: 'claimed' as const },
+      { kind: 'nothing_to_burn' as const, reason: 'no_bond' },
+    ]) {
+      expect(claimNotice(outcome)).toContain('not repaid')
+      expect(claimNotice(outcome)).not.toMatch(/protected|insured|guaranteed|bounded|pays you/i)
+    }
   })
 })

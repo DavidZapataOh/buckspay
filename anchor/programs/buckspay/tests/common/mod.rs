@@ -654,6 +654,22 @@ impl Env {
             .count()
     }
 
+    /// The compute units a transaction that fails consumes before it does.
+    pub fn failed_units(&mut self, ixs: &[Instruction]) -> u64 {
+        self.svm.expire_blockhash();
+        let message = VersionedMessage::Legacy(Message::new_with_blockhash(
+            ixs,
+            Some(&self.payer.pubkey()),
+            &self.svm.latest_blockhash(),
+        ));
+        let tx = VersionedTransaction::try_new(message, &[&self.payer]).unwrap();
+        self.svm
+            .send_transaction(tx)
+            .expect_err("the transaction fails")
+            .meta
+            .compute_units_consumed
+    }
+
     /// A deployed program that is not a token program.
     pub fn foreign_program(&self) -> Pubkey {
         MEMO_PROGRAM
@@ -1197,3 +1213,5 @@ pub fn migrate_ix(payer: &Pubkey, key: [u8; 33]) -> Instruction {
         data: buckspay::instruction::MigrateDevice { key }.data(),
     }
 }
+
+pub mod claims;

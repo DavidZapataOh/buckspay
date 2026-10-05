@@ -1,7 +1,7 @@
 import { act } from 'react'
 import { create } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SettlementGateway } from '../lock/gateway'
+import { GatewayError, type SettlementGateway } from '../lock/gateway'
 import { useSettlement } from './use-settlement'
 
 declare global {
@@ -48,6 +48,39 @@ describe('settlement hook', () => {
       await last().reclaim({ ...request, owner: 'cc', which: 0, deadline: 1, signature: 'dd' })
     })
     expect(last().state).toEqual({ step: 'done', outcome: { kind: 'settled' } })
+  })
+
+  it('files the loss by itself when a settlement fails on a conflict, and says what happened', async () => {
+    const claim = vi.fn(async () => ({ signature: '5claim' }))
+    const settle = vi.fn(() => Promise.reject(new GatewayError(409, 'conflict', { recorded: 'ab12', selfPay: true })))
+    const gateway = { settle, reclaim: vi.fn(), claim } as unknown as SettlementGateway
+    await act(async () => {
+      create(<Probe gateway={gateway} />)
+    })
+    await act(async () => {
+      await last().settle(request)
+    })
+    expect(claim).toHaveBeenCalledWith(request)
+    expect(last().state).toEqual({
+      step: 'done',
+      outcome: { kind: 'refused', refusal: { kind: 'conflict', recorded: 'ab12' }, selfPay: true },
+      claim: { kind: 'burned', signature: '5claim' },
+    })
+  })
+
+  it('files nothing for a settlement that fails for any other reason', async () => {
+    const claim = vi.fn()
+    const settle = vi.fn(() => Promise.reject(new GatewayError(409, 'window', { selfPay: true })))
+    const gateway = { settle, reclaim: vi.fn(), claim } as unknown as SettlementGateway
+    await act(async () => {
+      create(<Probe gateway={gateway} />)
+    })
+    await act(async () => {
+      await last().settle(request)
+    })
+    expect(claim).not.toHaveBeenCalled()
+    expect(last().state).toMatchObject({ step: 'done' })
+    expect(last().state).not.toHaveProperty('claim')
   })
 
   it('does nothing without a gateway, and says it does not know', async () => {

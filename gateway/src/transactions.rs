@@ -5,9 +5,10 @@ use crate::message;
 use buckspay_client::{
     Program,
     instructions::{
-        ApplyWalletRotationBuilder, CancelWalletRotationBuilder, CloseLockBuilder,
-        CloseSpentBuilder, CreateLockBuilder, ReclaimOutputBuilder, RegisterDeviceBuilder,
-        ReleaseLockBuilder, RequestWalletRotationBuilder, SettleNoteBuilder, WithdrawLockBuilder,
+        ApplyWalletRotationBuilder, CancelWalletRotationBuilder, ClaimLostSpendBuilder,
+        ClaimUnbackedBuilder, CloseLockBuilder, CloseRecordsBuilder, CloseSpentBuilder,
+        CreateLockBuilder, ReclaimOutputBuilder, RegisterDeviceBuilder, ReleaseLockBuilder,
+        RequestWalletRotationBuilder, SettleNoteBuilder, WithdrawLockBuilder,
     },
     types::Link,
 };
@@ -328,6 +329,90 @@ pub fn close_spent(program: &Program, pairs: &[(Pubkey, Pubkey)]) -> Instruction
         })
         .collect();
     let mut builder = CloseSpentBuilder::new();
+    builder.add_remaining_accounts(&metas);
+    program.target(builder.instruction())
+}
+
+/// What a claim names besides the chain: the lock that is burned, the claim account it creates and
+/// the record it reads.
+#[derive(Clone, Copy, Debug)]
+pub struct Filing {
+    pub payer: Pubkey,
+    pub lock: Pubkey,
+    pub mint: Pubkey,
+    pub token_program: Pubkey,
+    pub claim: Pubkey,
+    pub record: Pubkey,
+}
+
+/// `claim_lost_spend`: burns twice the payment of the spend that lost, out of the lock `lock_key`
+/// and `lock_seq` name.
+pub fn claim_lost_spend(
+    program: &Program,
+    filing: &Filing,
+    issue: [u8; 163],
+    spends: Vec<Link>,
+    lock_key: [u8; 33],
+    lock_seq: u32,
+) -> Instruction {
+    let mut builder = ClaimLostSpendBuilder::new();
+    builder
+        .payer(filing.payer)
+        .lock(filing.lock)
+        .ledger(program.find_ledger_pda(&filing.lock).0)
+        .escrow(program.find_escrow_pda(&filing.lock).0)
+        .mint(filing.mint)
+        .claim(filing.claim)
+        .record(filing.record)
+        .token_program(filing.token_program)
+        .issue(issue)
+        .spends(spends)
+        .lock_key(lock_key)
+        .lock_seq(lock_seq);
+    program.target(builder.instruction())
+}
+
+/// `claim_unbacked`: burns twice the last output of a chain the issuer's backing cannot pay, out
+/// of the issuer's lock, reading the records of the outputs the chain consumed.
+pub fn claim_unbacked(
+    program: &Program,
+    filing: &Filing,
+    issue: [u8; 163],
+    spends: Vec<Link>,
+    consumed: &[Pubkey],
+) -> Instruction {
+    let metas: Vec<AccountMeta> = consumed
+        .iter()
+        .map(|record| AccountMeta::new_readonly(*record, false))
+        .collect();
+    let mut builder = ClaimUnbackedBuilder::new();
+    builder
+        .payer(filing.payer)
+        .lock(filing.lock)
+        .ledger(program.find_ledger_pda(&filing.lock).0)
+        .escrow(program.find_escrow_pda(&filing.lock).0)
+        .mint(filing.mint)
+        .claim(filing.claim)
+        .record(filing.record)
+        .token_program(filing.token_program)
+        .issue(issue)
+        .spends(spends)
+        .add_remaining_accounts(&metas);
+    program.target(builder.instruction())
+}
+
+/// `close_records` for the claims of `pairs`, each with the account its rent goes back to.
+pub fn close_records(program: &Program, pairs: &[(Pubkey, Pubkey)]) -> Instruction {
+    let metas: Vec<AccountMeta> = pairs
+        .iter()
+        .flat_map(|(claim, receiver)| {
+            [
+                AccountMeta::new(*claim, false),
+                AccountMeta::new(*receiver, false),
+            ]
+        })
+        .collect();
+    let mut builder = CloseRecordsBuilder::new();
     builder.add_remaining_accounts(&metas);
     program.target(builder.instruction())
 }

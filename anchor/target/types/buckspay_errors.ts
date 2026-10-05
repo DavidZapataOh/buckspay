@@ -37,7 +37,15 @@ export const BuckspayErrorCode = {
   RecordNotClosable: 6034,
   ReclaimClosed: 6035,
   ReclaimExpired: 6036,
-  UnrecordableOutput: 6037
+  UnrecordableOutput: 6037,
+  NotConflicting: 6038,
+  ConflictProof: 6039,
+  NoBond: 6040,
+  ClaimTooLate: 6041,
+  NotClaimable: 6042,
+  NoRecord: 6043,
+  AlreadyClaimed: 6044,
+  OverCoverage: 6045
 };
 
 export type BuckspayErrorName = keyof typeof BuckspayErrorCode;

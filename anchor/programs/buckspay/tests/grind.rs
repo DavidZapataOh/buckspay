@@ -8,6 +8,7 @@ mod common;
 use anchor_lang::prelude::Pubkey;
 use buckspay::{BuckspayError as E, ESCROW_SEED};
 use buckspay_protocol::{chain, lock::EXPIRY_STEP, Caveats, Issue, Outputs, Spend, NO_LOCK};
+use common::claims::claim_address_of;
 use common::*;
 use proptest::prelude::*;
 use solana_signer::Signer;
@@ -191,7 +192,7 @@ fn unrecordable(wanted_hop: bool, s: &Setup, second: &Issuer) -> Chain {
                 let (_, env) =
                     chain::spend_signing(&buckspay::note_domain(), c, candidate).unwrap();
                 let (holding, _) = chain::spend_outputs(&env, c, candidate).unwrap();
-                !recordable(&holding.first.id)
+                spent_address_of(&holding.first.id).is_none()
             })
             .unwrap()
     });
@@ -254,6 +255,15 @@ proptest! {
         prop_assert_eq!(
             buckspay_protocol::record::address(&buckspay::ID.to_bytes(), &id),
             spent_address_of(&id).map(|a| a.to_bytes())
+        );
+    }
+
+    /// The same for the address of the claim of an output.
+    #[test]
+    fn the_program_and_the_protocol_crate_agree_on_every_claim_address(id in any::<[u8; 32]>()) {
+        prop_assert_eq!(
+            buckspay_protocol::record::claim_address(&buckspay::ID.to_bytes(), &id),
+            claim_address_of(&id).map(|a| a.to_bytes())
         );
     }
 }

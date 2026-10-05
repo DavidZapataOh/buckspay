@@ -6,6 +6,17 @@ fn run(role: Role, source: &str) -> Vec<Finding> {
     check_source(Path::new("src/test.rs"), source, role).expect("the test source parses")
 }
 
+/// What `payout.rs` is told about the calls in `source`, without what it says about the shape of
+/// the functions that make them (every function of the file must be one of four).
+fn call_findings(source: &str) -> Vec<Finding> {
+    run(Role::Payout, source)
+        .into_iter()
+        .filter(|f| {
+            !f.message.contains("of any visibility") && !f.message.contains("no impl blocks")
+        })
+        .collect()
+}
+
 fn assert_flagged(label: &str, source: &str) {
     let findings = run(Role::Program, source);
     assert!(!findings.is_empty(), "{label} was not flagged:\n{source}");
@@ -77,7 +88,7 @@ fn every_evasion_outside_payout_is_flagged() {
 #[test]
 fn the_same_code_is_allowed_in_payout_rs() {
     for (label, source) in EVASIONS.iter().filter(|(label, _)| *label != "re-export") {
-        let findings = run(Role::Payout, source);
+        let findings = call_findings(source);
         assert!(findings.is_empty(), "{label} in payout.rs: {findings:?}");
     }
 }
@@ -158,7 +169,7 @@ fn payout_rs_has_a_fixed_public_surface_and_pay_out_takes_only_a_debit() {
     let ok = "pub fn pay_out(a: &A, escrow: &mut E, debit: Debit) -> Result<()> { Ok(()) }
               pub fn pay_in(f: &F, amount: u64) -> Result<()> { Ok(()) }
               pub fn close_escrow(a: &A) -> Result<()> { Ok(()) }
-              fn helper(amount: u64) {}";
+              pub fn burn_out(a: &A, escrow: &mut E, debit: Debit) -> Result<()> { Ok(()) }";
     assert_clean("the expected surface", Role::Payout, ok);
     for (label, source) in [
         ("a new public function", "pub fn pay_everyone(a: &A) {}"),
@@ -351,7 +362,7 @@ proptest! {
         ];
         let form = if group { &forms[2] } else { &forms[index % forms.len()] };
         prop_assert!(!run(Role::Program, form).is_empty(), "not flagged: {form}");
-        prop_assert!(run(Role::Payout, form).is_empty(), "flagged in payout.rs: {form}");
+        prop_assert!(call_findings(form).is_empty(), "flagged in payout.rs: {form}");
     }
 
     #[test]
@@ -359,5 +370,175 @@ proptest! {
         let ty = ["Mint", "TokenAccount", "TokenInterface"][which];
         let source = format!("use anchor_spl::token_interface::{{{ty} as {name}}}; type X = {name};");
         prop_assert!(run(Role::Program, &source).is_empty(), "{source}");
+    }
+}
+
+#[test]
+fn a_burn_outside_payout_rs_is_flagged() {
+    assert_flagged(
+        "a burn in another file",
+        "use anchor_spl::token_interface::{burn, Burn}; fn f(c: C) { burn(c, 1).unwrap(); }",
+    );
+    assert_flagged(
+        "a burn renamed",
+        "use anchor_spl::token_interface::burn as b; fn f(c: C) { b(c, 1).unwrap(); }",
+    );
+}
+
+#[test]
+fn burn_out_must_take_a_debit_last_and_no_integer() {
+    for (label, source) in [
+        ("no debit", "pub fn burn_out(a: &A, escrow: &mut E) {}"),
+        ("a raw amount", "pub fn burn_out(a: &A, amount: u64) {}"),
+        (
+            "a raw amount next to the debit",
+            "pub fn burn_out(a: &A, amount: u64, debit: Debit) {}",
+        ),
+        (
+            "a reference to a debit",
+            "pub fn burn_out(a: &A, debit: &Debit) {}",
+        ),
+    ] {
+        assert!(
+            !run(Role::Payout, source).is_empty(),
+            "{label} was not flagged"
+        );
+    }
+    assert_clean(
+        "the real shape",
+        Role::Payout,
+        "pub fn burn_out(a: &A, escrow: &mut E, debit: Debit) -> Result<()> { Ok(()) }",
+    );
+}
+
+#[test]
+fn a_helper_of_any_visibility_in_payout_rs_is_flagged() {
+    for (label, source) in [
+        ("private", "fn helper(amount: u64) {}"),
+        ("pub(crate)", "pub(crate) fn burn_anything(amount: u64) {}"),
+        ("a method", "impl X { fn go(&self, amount: u64) {} }"),
+    ] {
+        assert!(
+            !run(Role::Payout, source).is_empty(),
+            "{label} was not flagged"
+        );
+    }
+}
+
+#[test]
+fn only_the_top_level_filing_rs_may_name_burn_out() {
+    assert_eq!(Role::of(Path::new("filing.rs")), Role::Filing);
+    assert_eq!(Role::of(Path::new("instructions/filing.rs")), Role::Program);
+    assert_eq!(Role::of(Path::new("filing/mod.rs")), Role::Program);
+}
+
+/// Every way the burn can be named in code that is not the one call: a rule on call
+/// expressions would see only a direct call by its last path segment.
+const BURN_EVASIONS: &[(&str, &str)] = &[
+    (
+        "a direct call",
+        "fn f() { burn_out(a, l, e, m, t, d).unwrap(); }",
+    ),
+    (
+        "a path call",
+        "fn f() { crate::payout::burn_out(a, l, e, m, t, d).unwrap(); }",
+    ),
+    (
+        "an aliased import",
+        "use crate::payout::burn_out as b; fn f() { b(a, l, e, m, t, d).unwrap(); }",
+    ),
+    (
+        "a function value",
+        "fn f() { let g = crate::payout::burn_out; g(a, l, e, m, t, d).unwrap(); }",
+    ),
+    ("a function value passed on", "fn f() { run(burn_out); }"),
+    (
+        "a renamed module",
+        "use crate::payout as p; fn f() { p::burn_out(a, l, e, m, t, d).unwrap(); }",
+    ),
+    (
+        "a glob import",
+        "use crate::payout::*; fn f() { burn_out(a, l, e, m, t, d).unwrap(); }",
+    ),
+    ("a re-export", "pub use crate::payout::burn_out;"),
+    (
+        "a raw identifier",
+        "fn f() { r#burn_out(a, l, e, m, t, d).unwrap(); }",
+    ),
+    (
+        "inside a macro argument",
+        "fn f() { require!(burn_out(a, l, e, m, t, d).is_ok(), E::X); }",
+    ),
+    (
+        "a function-local import",
+        "fn f() { use crate::payout::burn_out; burn_out(a, l, e, m, t, d).unwrap(); }",
+    ),
+    (
+        "a nested module",
+        "mod inner { pub fn f() { crate::payout::burn_out(a, l, e, m, t, d).unwrap(); } }",
+    ),
+    (
+        "a method body",
+        "impl A { fn run(&self) { burn_out(a, l, e, m, t, d).unwrap(); } }",
+    ),
+    (
+        "a closure",
+        "fn f() { let g = || burn_out(a, l, e, m, t, d); }",
+    ),
+    (
+        "an attribute argument",
+        "#[allow(unused)] #[cfg_attr(test, doc = burn_out)] fn f() {}",
+    ),
+];
+
+#[test]
+fn burn_out_is_named_only_by_filing_rs_whatever_the_spelling() {
+    for (label, source) in BURN_EVASIONS {
+        let outside = check_source(
+            Path::new("src/instructions/other.rs"),
+            source,
+            Role::Program,
+        )
+        .unwrap();
+        assert!(
+            outside
+                .iter()
+                .any(|f| f.message.contains("`burn_out` is named only")),
+            "{label} was not flagged outside filing.rs: {outside:?}"
+        );
+        // The one file that calls it may spell it any way it likes.
+        let own = check_source(Path::new("src/filing.rs"), source, Role::Filing).unwrap();
+        assert!(
+            own.iter()
+                .all(|f| !f.message.contains("`burn_out` is named only")),
+            "{label} was flagged in filing.rs"
+        );
+    }
+}
+
+#[test]
+fn a_mention_in_a_comment_or_a_string_or_a_longer_name_is_not_a_burn() {
+    for (label, source) in [
+        ("a comment", "// burn_out burns\n fn f() {}"),
+        ("a doc comment", "/// See [`payout::burn_out`].\nfn f() {}"),
+        ("a string", "fn f() { msg!(\"burn_out\"); }"),
+        (
+            "a longer name",
+            "fn burn_out_everything() {} fn f() { burn_out_everything(); }",
+        ),
+        ("a shorter name", "fn burn() {} fn f() { burn(); }"),
+    ] {
+        assert_clean(label, Role::Program, source);
+    }
+}
+
+#[test]
+fn an_alias_of_the_burn_is_found_by_its_name() {
+    // An alias of the burn, by `use .. as` and by a binding, is flagged outside the filing.
+    for source in [
+        "use crate::payout::burn_out as b; fn f() { b(a, l, e, m, t, ledger.drain(1)).unwrap(); }",
+        "fn f() { let g = crate::payout::burn_out; g(a, l, e, m, t, ledger.drain(1)).unwrap(); }",
+    ] {
+        assert!(!run(Role::Program, source).is_empty(), "{source}");
     }
 }

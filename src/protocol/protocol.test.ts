@@ -1,10 +1,16 @@
+import { ed25519 } from '@noble/curves/ed25519.js'
 import { p256 } from '@noble/curves/nist.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { describe, expect, it } from 'vitest'
 import vectors from '../../anchor/crates/protocol/tests/vectors/v1.json'
 import {
+  CLAIM_SEED,
+  claimAddress,
+  isRecordable,
+  type BondTicket,
   type Caveats,
+  TICKET_TTL_MAX,
   checkIssueStep,
   checkSpendStep,
   content,
@@ -29,6 +35,7 @@ import {
   encodeSpendConflict,
   envelope,
   EXPIRY_STEP,
+  CHALLENGE,
   GRACE,
   Kind,
   MAINNET_GENESIS_HASH,
@@ -421,6 +428,38 @@ describe('record addresses and the step', () => {
     expect(RECORD_BUMP).toBe(vectors.record_addresses.bump)
   })
 
+  it('derives the claim address of every vector output like Rust', () => {
+    for (const { output, claim_address: address } of vectors.record_addresses.outputs) {
+      const derived = claimAddress(PROGRAM, hexToBytes(output))
+      expect(derived ? bytesToHex(derived) : '').toBe(address)
+    }
+    expect(vectors.record_addresses.outputs.some(({ claim_address: a }) => a === '')).toBe(true)
+    expect(vectors.record_addresses.outputs.some(({ claim_address: a }) => a !== '')).toBe(true)
+    expect(bytesToHex(CLAIM_SEED)).toBe(vectors.record_addresses.claim_seed)
+  })
+
+  it('accepts an output only if both of its addresses exist', () => {
+    for (const { output, address, claim_address: claim } of vectors.record_addresses.outputs) {
+      expect(isRecordable(PROGRAM, hexToBytes(output))).toBe(address !== '' && claim !== '')
+    }
+    expect(vectors.record_addresses.outputs.some((o) => o.address !== '' && o.claim_address === '')).toBe(true)
+  })
+
+  it('has a claim address exactly when the canonical bump is the fixed one', async () => {
+    const { getProgramDerivedAddress, getAddressDecoder } = await import('@solana/kit')
+    const program = getAddressDecoder().decode(PROGRAM)
+    for (let n = 0; n < 64; n++) {
+      const output = sha256(Uint8Array.of(n))
+      const [address, bump] = await getProgramDerivedAddress({
+        programAddress: program,
+        seeds: [new TextEncoder().encode('claim'), output],
+      })
+      const derived = claimAddress(PROGRAM, output)
+      expect(derived !== undefined, `output ${n}`).toBe(bump === RECORD_BUMP)
+      if (derived) expect(getAddressDecoder().decode(derived)).toBe(address)
+    }
+  })
+
   it('has a record address exactly when the canonical bump is the fixed one', async () => {
     const { getProgramDerivedAddress, getAddressDecoder } = await import('@solana/kit')
     const program = getAddressDecoder().decode(PROGRAM)
@@ -496,7 +535,7 @@ describe('spend steps', () => {
     scopeKind: ScopeKind.Any,
     scope: new Uint8Array(20),
   })
-  const recordable = (id: Uint8Array) => recordAddress(PROGRAM, id) !== undefined
+  const recordable = (id: Uint8Array) => isRecordable(PROGRAM, id)
   const idOf = (predicate: (id: Uint8Array) => boolean) => {
     for (let n = 0; ; n++) {
       const id = sha256(Uint8Array.of(n, 0xee))
@@ -586,5 +625,52 @@ describe('spend steps', () => {
         refused.push(n)
       }
     }
+  })
+})
+
+describe('ticket freshness and the lock window', () => {
+  const [vector] = vectors.payments
+  const base = receiver(vector)
+  const issue = decodeIssue(hexToBytes(vector.issue))
+  const spends = decodeSpends(vector.spends)
+  const issuer = issue.message.issuer
+  const resign = (ticket: BondTicket, changes: Partial<BondTicket>): BondTicket => {
+    const changed = { ...ticket, ...changes }
+    const secret = vectors.attesters.find(({ id }) => id === ticket.attester)!.secret
+    const signature = ed25519.sign(ticketMessage(hexToBytes(vectors.domain.ticket), changed), hexToBytes(secret))
+    return { ...changed, signature }
+  }
+  const pay = (changes: (ticket: BondTicket) => Partial<BondTicket>, only?: Uint8Array) => () =>
+    verifyPayment(
+      base,
+      issue,
+      spends,
+      decodeTickets(vector.tickets).map((t) =>
+        only && !bytesToHex(t.device).includes(bytesToHex(only)) ? t : resign(t, changes(t)),
+      ),
+    )
+  const refused = expect.objectContaining({ name: 'ProtocolError', code: 'Ticket' })
+
+  it('accepts a ticket until validUntil and never for longer than three days from now', () => {
+    const at = (validUntil: number) => pay(() => ({ validUntil }))
+    expect(at(vector.now - 1)).toThrow(refused)
+    expect(at(vector.now)).not.toThrow()
+    expect(at(vector.now + TICKET_TTL_MAX)).not.toThrow()
+    expect(at(vector.now + TICKET_TTL_MAX + 1)).toThrow(refused)
+    expect(at(2 ** 32 - 1)).toThrow(refused)
+    expect(TICKET_TTL_MAX).toBe(3 * 24 * 60 * 60)
+  })
+
+  it('needs the lock to outlast the conflict window by a second', () => {
+    const settledBy = issue.message.caveats.expiry + GRACE + CHALLENGE
+    const at = (lockUntil: number) => pay(() => ({ lockUntil }), issuer)
+    expect(at(settledBy)).toThrow(refused)
+    expect(at(settledBy + 1)).not.toThrow()
+  })
+
+  it('needs the bond to cover the amount at the payment limit, not at the amount', () => {
+    const amount = issue.message.amount
+    expect(pay(() => ({ bond: 4n * amount - 1n }), issuer)).toThrow(refused)
+    expect(pay(() => ({ bond: 4n * amount }), issuer)).not.toThrow()
   })
 })

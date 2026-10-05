@@ -1,15 +1,11 @@
 //! The `Spent` accounts: one program-derived account per consumed output.
-use anchor_lang::{
-    prelude::*,
-    system_program::{
-        allocate, assign, create_account, transfer, Allocate, Assign, CreateAccount, Transfer,
-    },
-};
+use anchor_lang::prelude::*;
 
 use buckspay_protocol::record::RECORD_BUMP;
 
 use crate::{
     error::BuckspayError,
+    pda::create_pda,
     records::{decide, Record, RecordError},
     settlement::Presented,
     state::{Spent, SPENT_SEED},
@@ -90,59 +86,13 @@ pub fn apply<'info>(
         spent.try_serialize(&mut &mut data[..])?;
     } else {
         let space = Spent::DISCRIMINATOR.len() + Spent::INIT_SPACE;
-        let required = Rent::get()?.minimum_balance(space);
-        let seeds: &[&[u8]] = &[SPENT_SEED, &presented.output, &[RECORD_BUMP]];
-        let signer = &[seeds];
-        if account.lamports() == 0 {
-            create_account(
-                CpiContext::new_with_signer(
-                    system_program.key(),
-                    CreateAccount {
-                        from: payer.to_account_info(),
-                        to: account.clone(),
-                    },
-                    signer,
-                ),
-                required,
-                space as u64,
-                &crate::ID,
-            )?;
-        } else {
-            // Someone sent lamports to the address first: top it up instead of failing.
-            let missing = required.saturating_sub(account.lamports());
-            if missing > 0 {
-                transfer(
-                    CpiContext::new(
-                        system_program.key(),
-                        Transfer {
-                            from: payer.to_account_info(),
-                            to: account.clone(),
-                        },
-                    ),
-                    missing,
-                )?;
-            }
-            allocate(
-                CpiContext::new_with_signer(
-                    system_program.key(),
-                    Allocate {
-                        account_to_allocate: account.clone(),
-                    },
-                    signer,
-                ),
-                space as u64,
-            )?;
-            assign(
-                CpiContext::new_with_signer(
-                    system_program.key(),
-                    Assign {
-                        account_to_assign: account.clone(),
-                    },
-                    signer,
-                ),
-                &crate::ID,
-            )?;
-        }
+        create_pda(
+            account,
+            &[SPENT_SEED, &presented.output, &[RECORD_BUMP]],
+            space,
+            payer,
+            system_program,
+        )?;
         let spent = Spent {
             content: presented.content,
             payer: payer.key(),
@@ -154,4 +104,37 @@ pub fn apply<'info>(
         spent.try_serialize(&mut &mut data[..])?;
     }
     Ok(decision.pay)
+}
+
+/// What a record says, as claims read it.
+pub struct View {
+    pub content: [u8; 32],
+    pub flags: u8,
+    pub expiry: u32,
+}
+
+/// The record of `output`, or `None` if nobody consumed it. The account must be at the derived
+/// address; claims never write it.
+pub fn read(account: &AccountInfo, output: &[u8; 32]) -> Result<Option<View>> {
+    require_keys_eq!(
+        account.key(),
+        address(output)?,
+        BuckspayError::RecordAccounts
+    );
+    if account.owner == &crate::ID {
+        let data = account.try_borrow_data()?;
+        let spent = Spent::try_deserialize(&mut &data[..])?;
+        return Ok(Some(View {
+            content: spent.content,
+            flags: spent.flags,
+            expiry: spent.expiry,
+        }));
+    }
+    require_keys_eq!(
+        *account.owner,
+        system_program::ID,
+        BuckspayError::RecordAccounts
+    );
+    require!(account.data_is_empty(), BuckspayError::RecordAccounts);
+    Ok(None)
 }

@@ -51,7 +51,10 @@ import {
 import {
   getApplyWalletRotationInstruction,
   getCancelWalletRotationInstruction,
+  getClaimLostSpendInstructionAsync,
+  getClaimUnbackedInstructionAsync,
   getCloseLockInstructionAsync,
+  getCloseRecordsInstruction,
   getCloseSpentInstruction,
   getCreateLockInstructionAsync,
   getMigrateDeviceInstruction,
@@ -64,7 +67,10 @@ import {
   getWithdrawLockInstructionAsync,
   parseApplyWalletRotationInstruction,
   parseCancelWalletRotationInstruction,
+  parseClaimLostSpendInstruction,
+  parseClaimUnbackedInstruction,
   parseCloseLockInstruction,
+  parseCloseRecordsInstruction,
   parseCloseSpentInstruction,
   parseCreateLockInstruction,
   parseMigrateDeviceInstruction,
@@ -77,13 +83,19 @@ import {
   parseWithdrawLockInstruction,
   type ApplyWalletRotationInput,
   type CancelWalletRotationInput,
+  type ClaimLostSpendAsyncInput,
+  type ClaimUnbackedAsyncInput,
   type CloseLockAsyncInput,
+  type CloseRecordsInput,
   type CloseSpentInput,
   type CreateLockAsyncInput,
   type MigrateDeviceInput,
   type ParsedApplyWalletRotationInstruction,
   type ParsedCancelWalletRotationInstruction,
+  type ParsedClaimLostSpendInstruction,
+  type ParsedClaimUnbackedInstruction,
   type ParsedCloseLockInstruction,
+  type ParsedCloseRecordsInstruction,
   type ParsedCloseSpentInstruction,
   type ParsedCreateLockInstruction,
   type ParsedMigrateDeviceInstruction,
@@ -161,7 +173,10 @@ export function identifyBuckspayAccount(account: { data: ReadonlyUint8Array } | 
 export enum BuckspayInstruction {
   ApplyWalletRotation,
   CancelWalletRotation,
+  ClaimLostSpend,
+  ClaimUnbacked,
   CloseLock,
+  CloseRecords,
   CloseSpent,
   CreateLock,
   MigrateDevice,
@@ -199,11 +214,38 @@ export function identifyBuckspayInstruction(
   if (
     containsBytes(
       data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([90, 67, 152, 110, 114, 14, 106, 164])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.ClaimLostSpend
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([101, 56, 237, 173, 41, 93, 166, 120])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.ClaimUnbacked
+  }
+  if (
+    containsBytes(
+      data,
       fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([58, 254, 183, 130, 151, 238, 95, 54])),
       0,
     )
   ) {
     return BuckspayInstruction.CloseLock
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([37, 238, 211, 208, 66, 79, 182, 30])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.CloseRecords
   }
   if (
     containsBytes(
@@ -300,7 +342,10 @@ export function identifyBuckspayInstruction(
 export type ParsedBuckspayInstruction<TProgram extends string = 'zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM'> =
   | ({ instructionType: BuckspayInstruction.ApplyWalletRotation } & ParsedApplyWalletRotationInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CancelWalletRotation } & ParsedCancelWalletRotationInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.ClaimLostSpend } & ParsedClaimLostSpendInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.ClaimUnbacked } & ParsedClaimUnbackedInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CloseLock } & ParsedCloseLockInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.CloseRecords } & ParsedCloseRecordsInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CloseSpent } & ParsedCloseSpentInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CreateLock } & ParsedCreateLockInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.MigrateDevice } & ParsedMigrateDeviceInstruction<TProgram>)
@@ -331,9 +376,20 @@ export function parseBuckspayInstruction<TProgram extends string>(
         ...parseCancelWalletRotationInstruction(instruction),
       }
     }
+    case BuckspayInstruction.ClaimLostSpend: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.ClaimLostSpend, ...parseClaimLostSpendInstruction(instruction) }
+    }
+    case BuckspayInstruction.ClaimUnbacked: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.ClaimUnbacked, ...parseClaimUnbackedInstruction(instruction) }
+    }
     case BuckspayInstruction.CloseLock: {
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.CloseLock, ...parseCloseLockInstruction(instruction) }
+    }
+    case BuckspayInstruction.CloseRecords: {
+      return { instructionType: BuckspayInstruction.CloseRecords, ...parseCloseRecordsInstruction(instruction) }
     }
     case BuckspayInstruction.CloseSpent: {
       return { instructionType: BuckspayInstruction.CloseSpent, ...parseCloseSpentInstruction(instruction) }
@@ -408,7 +464,14 @@ export type BuckspayPluginInstructions = {
   cancelWalletRotation: (
     input: CancelWalletRotationInput,
   ) => ReturnType<typeof getCancelWalletRotationInstruction> & SelfPlanAndSendFunctions
+  claimLostSpend: (
+    input: MakeOptional<ClaimLostSpendAsyncInput, 'payer'>,
+  ) => ReturnType<typeof getClaimLostSpendInstructionAsync> & SelfPlanAndSendFunctions
+  claimUnbacked: (
+    input: MakeOptional<ClaimUnbackedAsyncInput, 'payer'>,
+  ) => ReturnType<typeof getClaimUnbackedInstructionAsync> & SelfPlanAndSendFunctions
   closeLock: (input: CloseLockAsyncInput) => ReturnType<typeof getCloseLockInstructionAsync> & SelfPlanAndSendFunctions
+  closeRecords: (input: CloseRecordsInput) => ReturnType<typeof getCloseRecordsInstruction> & SelfPlanAndSendFunctions
   closeSpent: (input: CloseSpentInput) => ReturnType<typeof getCloseSpentInstruction> & SelfPlanAndSendFunctions
   createLock: (
     input: MakeOptional<CreateLockAsyncInput, 'payer'>,
@@ -460,7 +523,18 @@ export function buckspayProgram() {
           applyWalletRotation: (input) => addSelfPlanAndSendFunctions(client, getApplyWalletRotationInstruction(input)),
           cancelWalletRotation: (input) =>
             addSelfPlanAndSendFunctions(client, getCancelWalletRotationInstruction(input)),
+          claimLostSpend: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getClaimLostSpendInstructionAsync({ ...input, payer: input.payer ?? client.payer }),
+            ),
+          claimUnbacked: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getClaimUnbackedInstructionAsync({ ...input, payer: input.payer ?? client.payer }),
+            ),
           closeLock: (input) => addSelfPlanAndSendFunctions(client, getCloseLockInstructionAsync(input)),
+          closeRecords: (input) => addSelfPlanAndSendFunctions(client, getCloseRecordsInstruction(input)),
           closeSpent: (input) => addSelfPlanAndSendFunctions(client, getCloseSpentInstruction(input)),
           createLock: (input) =>
             addSelfPlanAndSendFunctions(

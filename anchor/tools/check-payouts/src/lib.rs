@@ -68,7 +68,7 @@ const ANCHOR_SPL_ALLOWED: &[&str] = &[
     "ID",
     "id",
 ];
-const PAYOUT_PUBLIC_FUNCTIONS: &[&str] = &["pay_out", "pay_in", "close_escrow"];
+const PAYOUT_PUBLIC_FUNCTIONS: &[&str] = &["pay_out", "pay_in", "close_escrow", "burn_out"];
 const DEBIT_FORBIDDEN_DERIVES: &[&str] = &[
     "Clone",
     "Copy",
@@ -119,6 +119,8 @@ pub enum Role {
     Payout,
     /// `src/accounting.rs`: defines `Debit`.
     Accounting,
+    /// `src/filing.rs`: the one file that may name `burn_out`.
+    Filing,
 }
 
 impl Role {
@@ -126,6 +128,7 @@ impl Role {
         match relative_to_src.to_str() {
             Some("payout.rs") => Self::Payout,
             Some("accounting.rs") => Self::Accounting,
+            Some("filing.rs") => Self::Filing,
             _ => Self::Program,
         }
     }
@@ -211,7 +214,31 @@ pub fn check_source(file: &Path, source: &str, role: Role) -> Result<Vec<Finding
     if role == Role::Payout {
         checker.check_payout_items(&ast.items);
     }
+    if !matches!(role, Role::Payout | Role::Filing) {
+        let tokens: TokenStream = source
+            .parse()
+            .map_err(|e| format!("{}: {e}", file.display()))?;
+        let mut lines = Vec::new();
+        mentions(tokens, "burn_out", &mut lines);
+        for line in lines {
+            checker.flag(line, "`burn_out` is named only by payout.rs, which defines it, and filing.rs, its one call: an alias, a path, a re-export or a function value anywhere else is a burn the call-site rule cannot see".into());
+        }
+    }
     Ok(checker.findings)
+}
+
+/// Every line where `name` appears as an identifier in `stream`, groups and macro arguments
+/// included; comments and string literals are not identifiers.
+fn mentions(stream: TokenStream, name: &str, lines: &mut Vec<usize>) {
+    for tree in stream {
+        match tree {
+            TokenTree::Ident(ident) if ident.to_string().trim_start_matches("r#") == name => {
+                lines.push(ident.span().start().line);
+            }
+            TokenTree::Group(group) => mentions(group.stream(), name, lines),
+            _ => {}
+        }
+    }
 }
 
 #[derive(Default)]
@@ -430,14 +457,20 @@ impl Checker<'_> {
                 }
                 Item::Fn(f) => {
                     let name = f.sig.ident.to_string();
-                    if matches!(f.vis, Visibility::Public(_))
-                        && !PAYOUT_PUBLIC_FUNCTIONS.contains(&name.as_str())
-                    {
-                        self.flag(f.span().start().line, format!("new public function `{name}` in payout.rs: review it and add it to the lint"));
+                    // Private and `pub(crate)` functions too: a helper that takes a raw amount would
+                    // move tokens without a `Debit`.
+                    if !PAYOUT_PUBLIC_FUNCTIONS.contains(&name.as_str()) {
+                        self.flag(f.span().start().line, format!("function `{name}` in payout.rs, of any visibility: payout.rs holds exactly {PAYOUT_PUBLIC_FUNCTIONS:?}; review it and add it to the lint"));
                     }
-                    if name == "pay_out" {
+                    if name == "pay_out" || name == "burn_out" {
                         self.check_pay_out(f);
                     }
+                }
+                Item::Impl(i) => {
+                    self.flag(
+                        i.span().start().line,
+                        "payout.rs has no impl blocks: a method could move tokens without a `Debit`".into(),
+                    );
                 }
                 _ => {}
             }

@@ -6,6 +6,7 @@ use crate::{
     flags, record, BondTicket, Caveats, Issue, Owner, ProtocolError, Result, ScopeKind, Signed,
     Spend, CHALLENGE, GRACE, MAX_DEPTH, NO_LOCK,
 };
+use crate::{lock::TICKET_TTL_MAX, slash::covers};
 
 pub fn verify_signature(key: &[u8; 33], message: &[u8], signature: &[u8; 64]) -> Result<()> {
     let key = VerifyingKey::from_sec1_bytes(key).map_err(|_| ProtocolError::Signer)?;
@@ -105,7 +106,7 @@ pub struct Attester {
 pub struct Receiver<'a> {
     pub note_domain: [u8; 32],
     /// The settlement program the receiver will settle through: every output it depends on must
-    /// have a record address under it.
+    /// have a record address and a claim address under it.
     pub program: [u8; 32],
     pub ticket_domain: [u8; 32],
     pub attesters: &'a [Attester],
@@ -236,8 +237,8 @@ pub(crate) fn verify_spend(
 /// scope, lock), and `input` can still move at `now`: until its expiry as a payment, until
 /// `expiry + GRACE` as a settlement.
 ///
-/// The spend must also be recordable: `input` and every output the spend gives to a device have a
-/// record address under `program`; the signer changes the salt until they do.
+/// The spend must also be recordable: `input` and every output the spend creates have a record
+/// address and a claim address under `program`; the signer changes the salt until they do.
 pub fn check_spend_step(
     domain: &[u8; 32],
     program: &[u8; 32],
@@ -262,21 +263,27 @@ pub fn check_spend_step(
     let (_, env) = chain::spend_signing(domain, input, spend)?;
     let (holding, _) = chain::spend_outputs(&env, input, spend)?;
     for output in [Some(holding.first), holding.second].into_iter().flatten() {
-        if matches!(output.owner, Owner::Device(_)) {
-            recordable(program, &output.id)?;
-        }
+        recordable(program, &output.id)?;
     }
     Ok(())
 }
 
-/// Checks an issue before its issuer signs it: its output has a record address under `program`
-/// (the issuer changes the salt until it does).
+/// Checks an issue before its issuer signs it: its output has a record address and a claim
+/// address under `program` (the issuer changes the salt until it does).
 pub fn check_issue_step(domain: &[u8; 32], program: &[u8; 32], issue: &Issue) -> Result<()> {
     let (_, output) = chain::issue_signing(domain, issue)?;
     recordable(program, &output.id)
 }
 
+/// An output a receiver accepts offline can be settled and, if its chain is a fraud, claimed.
 fn recordable(program: &[u8; 32], output: &[u8; 32]) -> Result<()> {
+    record::recordable(program, output)
+        .then_some(())
+        .ok_or(ProtocolError::Unrecordable)
+}
+
+/// An output settled on chain needs a record address only: nobody claims what is being paid.
+fn spent_recordable(program: &[u8; 32], output: &[u8; 32]) -> Result<()> {
     record::address(program, output)
         .map(drop)
         .ok_or(ProtocolError::Unrecordable)
@@ -352,8 +359,16 @@ fn check_bounds(spends: &[Signed<Spend>], tickets: &[BondTicket]) -> Result<()> 
     Ok(())
 }
 
-/// The ticket for `(device, lock_seq)`, which must be on `mint`, locked past the conflict window
-/// of `expiry`, cover the liability and be signed by a trusted attester.
+/// Whether a ticket whose last second is `valid_until` can be used at `now`: it has not run out and is
+/// not valid for more than `TICKET_TTL_MAX` from now, whatever its attester signed.
+fn fresh(now: u32, valid_until: u32) -> bool {
+    now <= valid_until && valid_until - now <= TICKET_TTL_MAX
+}
+
+/// The ticket for `(device, lock_seq)`, which must be on `mint`, locked beyond the conflict window
+/// of `expiry` (a claim needs `now < lock_until`, so the last second of the window needs one more),
+/// fresh (valid now and no longer than `TICKET_TTL_MAX` from now), cover the liability and be
+/// signed by a trusted attester.
 fn ticket(
     receiver: &Receiver,
     tickets: &[BondTicket],
@@ -369,7 +384,8 @@ fn ticket(
         .find(|t| Owner::Device(t.device) == *device && t.lock_seq == lock_seq)
         .ok_or(ProtocolError::Ticket)?;
     let valid = ticket.mint == *mint
-        && u64::from(ticket.lock_until) >= settled_by
+        && u64::from(ticket.lock_until) > settled_by
+        && fresh(receiver.now, ticket.valid_until)
         && covers(ticket)
         && attested(receiver, ticket);
     if !valid {
@@ -422,7 +438,7 @@ pub fn verify_payment(
         note.lock_seq,
         &note.mint,
         note.caveats.expiry,
-        |t| t.bond >= note.amount && t.backing >= note.cum_end,
+        |t| covers(t.bond, note.amount) && t.backing >= note.cum_end,
     )?)?;
     let output = follow(&receiver.note_domain, issued, spends, |input, spend| {
         recordable(&receiver.program, &input.id)?;
@@ -444,12 +460,10 @@ pub fn verify_payment(
             lock_seq,
             &note.mint,
             input.caveats.expiry,
-            |t| t.bond >= input.amount,
+            |t| covers(t.bond, input.amount),
         )?)
     })?;
-    if spends.is_empty() || matches!(output.owner, Owner::Device(_)) {
-        recordable(&receiver.program, &output.id)?;
-    }
+    recordable(&receiver.program, &output.id)?;
     if output.owner != receiver.me {
         return Err(ProtocolError::Payee);
     }
@@ -480,10 +494,10 @@ pub fn verify_settlement(
     spends: &[Signed<Spend>],
 ) -> Result<Settled> {
     let output = follow(domain, verify_issue(domain, issue)?, spends, |input, _| {
-        recordable(program, &input.id)
+        spent_recordable(program, &input.id)
     })?;
     if spends.is_empty() {
-        recordable(program, &output.id)?;
+        spent_recordable(program, &output.id)?;
     }
     match output.owner {
         Owner::Account(_) => Ok(Settled::new(&issue.message, output)),
@@ -498,6 +512,7 @@ mod tests {
     use crate::hash::content;
     use crate::hash::envelope;
     use crate::message::issue_slot;
+    use crate::slash::min_bond;
     use crate::Outputs;
     use crate::ScopeKind;
     use ed25519_dalek::Signer as _;
@@ -636,7 +651,7 @@ mod tests {
     use crate::lock::EXPIRY_STEP;
 
     fn recordable_id(id: &[u8; 32]) -> bool {
-        record::address(&PROGRAM, id).is_some()
+        record::recordable(&PROGRAM, id)
     }
 
     fn caveats(hops_left: u8) -> Caveats {
@@ -661,9 +676,17 @@ mod tests {
             bond,
             backing: 20_000,
             lock_until,
+            valid_until: NOW + 86_400,
             attester: 1,
             signature: [0; 64],
         };
+        let message = ticket.signed_message(&TICKET_DOMAIN);
+        ticket.signature = attester().sign(&message).to_bytes();
+        ticket
+    }
+
+    fn valid_until(mut ticket: BondTicket, valid_until: u32) -> BondTicket {
+        ticket.valid_until = valid_until;
         let message = ticket.signed_message(&TICKET_DOMAIN);
         ticket.signature = attester().sign(&message).to_bytes();
         ticket
@@ -718,7 +741,7 @@ mod tests {
         chain::issue_signing(&DOMAIN, &issue.message).unwrap().1.id
     }
 
-    /// The salt is changed until every output the spend gives to a device is recordable. A spend
+    /// The salt is changed until every output the spend creates is recordable. A spend
     /// that breaks a rule keeps its first salt: the tests that use it expect the rule's error.
     fn signed_spend(holder: &SigningKey, input: &Output, outputs: Outputs) -> Signed<Spend> {
         let build = |salt: u8| {
@@ -733,7 +756,7 @@ mod tests {
                 [Some(holding.first), holding.second]
                     .into_iter()
                     .flatten()
-                    .all(|o| !matches!(o.owner, Owner::Device(_)) || recordable_id(&o.id))
+                    .all(|o| recordable_id(&o.id))
             });
             (
                 Signed {
@@ -782,11 +805,11 @@ mod tests {
                 caveats: payment_caveats(2, 2),
             },
         );
-        let lock_until = EXPIRY + GRACE + CHALLENGE;
+        let lock_until = EXPIRY + GRACE + CHALLENGE + 1;
         let tickets = [
-            ticket(issuer_key, 20_000, lock_until),
-            ticket(alice_key, 20_000, lock_until),
-            ticket(bob_key, 12_000, lock_until),
+            ticket(issuer_key, min_bond(20_000).unwrap(), lock_until),
+            ticket(alice_key, min_bond(20_000).unwrap(), lock_until),
+            ticket(bob_key, min_bond(12_000).unwrap(), lock_until),
         ];
         let attesters = attesters();
 
@@ -811,9 +834,9 @@ mod tests {
         assert_eq!(
             *received.liable,
             [
-                lock(issuer_key, 20_000),
-                lock(alice_key, 20_000),
-                lock(bob_key, 12_000)
+                lock(issuer_key, min_bond(20_000).unwrap()),
+                lock(alice_key, min_bond(20_000).unwrap()),
+                lock(bob_key, min_bond(12_000).unwrap())
             ]
         );
     }
@@ -833,18 +856,18 @@ mod tests {
                 caveats: payment_caveats(3, 1),
             },
         );
-        let lock_until = EXPIRY + GRACE + CHALLENGE;
-        let issuer_ticket = ticket(issuer_key, 20_000, lock_until);
+        let lock_until = EXPIRY + GRACE + CHALLENGE + 1;
+        let issuer_ticket = ticket(issuer_key, min_bond(20_000).unwrap(), lock_until);
         let forged = BondTicket {
             bond: 1_000_000,
-            ..ticket(alice_key, 20_000, lock_until)
+            ..ticket(alice_key, min_bond(20_000).unwrap(), lock_until)
         };
         let attesters = attesters();
         let receiver = receiver(&attesters, bob_key);
         for alice_ticket in [
             None,
-            Some(ticket(alice_key, 19_999, lock_until)),
-            Some(ticket(alice_key, 20_000, lock_until - 1)),
+            Some(ticket(alice_key, min_bond(20_000).unwrap() - 1, lock_until)),
+            Some(ticket(alice_key, min_bond(20_000).unwrap(), lock_until - 1)),
             Some(forged),
         ] {
             let tickets: &[BondTicket] = match &alice_ticket {
@@ -856,7 +879,10 @@ mod tests {
                 Err(ProtocolError::Ticket)
             );
         }
-        let tickets = [issuer_ticket, ticket(alice_key, 20_000, lock_until)];
+        let tickets = [
+            issuer_ticket,
+            ticket(alice_key, min_bond(20_000).unwrap(), lock_until),
+        ];
         assert!(verify_payment(&receiver, &issue, &[to_bob], &tickets).is_ok());
         assert_eq!(
             verify_payment(
@@ -968,10 +994,16 @@ mod tests {
                 caveats: payment_caveats(3, 1),
             },
         );
-        let lock_until = EXPIRY + GRACE + CHALLENGE;
+        let lock_until = EXPIRY + GRACE + CHALLENGE + 1;
         let tickets = [
-            ticket(issuer_key, 20_000, lock_until),
-            ticket(alice_key, 20_000, lock_until),
+            valid_until(
+                ticket(issuer_key, min_bond(20_000).unwrap(), lock_until),
+                EXPIRY + 86_400,
+            ),
+            valid_until(
+                ticket(alice_key, min_bond(20_000).unwrap(), lock_until),
+                EXPIRY + 86_400,
+            ),
         ];
         let attesters = attesters();
         let late = Receiver {
@@ -1044,7 +1076,11 @@ mod tests {
                 caveats: caveats(3),
             },
         );
-        let tickets = [ticket(issuer_key, 20_000, EXPIRY + GRACE + CHALLENGE)];
+        let tickets = [ticket(
+            issuer_key,
+            min_bond(20_000).unwrap(),
+            EXPIRY + GRACE + CHALLENGE + 1,
+        )];
         let attesters = attesters();
         assert_eq!(
             verify_payment(&receiver(&attesters, bob_key), &issue, &[spend], &tickets),
@@ -1267,13 +1303,14 @@ mod tests {
             .unwrap();
         assert_eq!(check(&bad), Err(ProtocolError::Unrecordable));
         assert_eq!(check(&good), Ok(()));
-        // A terminal account's output is never recorded, so it needs no address.
+        // A terminal account's output needs the addresses too: a receiver accepts it offline and a
+        // claim for its loss is keyed by it.
         let to_account = |salt| pay(salt, Owner::Account([5; 32]));
-        let bad_for_a_device = (0u8..)
+        let bad_for_an_account = (0u8..)
             .map(to_account)
             .find(|s| !recordable_id(&output_id(s)))
             .unwrap();
-        assert_eq!(check(&bad_for_a_device), Ok(()));
+        assert_eq!(check(&bad_for_an_account), Err(ProtocolError::Unrecordable));
         // An input without a record address cannot be spent: its signer could never settle it.
         let unrecordable_input = Output {
             id: (0u8..)
@@ -1315,5 +1352,45 @@ mod tests {
             Err(ProtocolError::Unrecordable)
         );
         assert_eq!(check_issue_step(&DOMAIN, &PROGRAM, &issue(good)), Ok(()));
+    }
+
+    fn pay_issue_with(ticket: BondTicket) -> Result<()> {
+        let (issuer, issuer_key) = key(1);
+        let (_, alice_key) = key(2);
+        let issue = signed_issue(&issuer, issuer_key, alice_key);
+        let attesters = attesters();
+        verify_payment(&receiver(&attesters, alice_key), &issue, &[], &[ticket]).map(drop)
+    }
+
+    #[test]
+    fn a_ticket_is_fresh_until_valid_until_and_never_for_longer_than_the_ttl_from_now() {
+        use crate::lock::TICKET_TTL_MAX;
+        let (_, issuer_key) = key(1);
+        let lock_until = EXPIRY + GRACE + CHALLENGE + 1;
+        let bond = min_bond(20_000).unwrap();
+        let with = |until: u32| valid_until(ticket(issuer_key, bond, lock_until), until);
+        assert_eq!(pay_issue_with(with(NOW - 1)), Err(ProtocolError::Ticket));
+        assert_eq!(pay_issue_with(with(NOW)), Ok(()));
+        assert_eq!(pay_issue_with(with(NOW + TICKET_TTL_MAX)), Ok(()));
+        assert_eq!(
+            pay_issue_with(with(NOW + TICKET_TTL_MAX + 1)),
+            Err(ProtocolError::Ticket)
+        );
+        assert_eq!(pay_issue_with(with(u32::MAX)), Err(ProtocolError::Ticket));
+    }
+
+    #[test]
+    fn the_lock_must_outlast_the_conflict_window_by_a_second() {
+        let (_, issuer_key) = key(1);
+        let settled_by = EXPIRY + GRACE + CHALLENGE;
+        let bond = min_bond(20_000).unwrap();
+        for (lock_until, ok) in [
+            (settled_by - 1, false),
+            (settled_by, false),
+            (settled_by + 1, true),
+        ] {
+            let result = pay_issue_with(ticket(issuer_key, bond, lock_until));
+            assert_eq!(result.is_ok(), ok, "lock_until {lock_until}");
+        }
     }
 }

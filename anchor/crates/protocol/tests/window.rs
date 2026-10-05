@@ -2,7 +2,8 @@ use buckspay_protocol::{
     lock::EXPIRY_STEP,
     lock::{CLAIM_WINDOW, RECORD_TTL},
     window::{
-        claims_end, closable_at, reclaim, reclaim_opens, report_deadline, settle, Reclaim, Settle,
+        claim_closable_at, claims_end, closable_at, reclaim, reclaim_opens, report_deadline,
+        settle, Reclaim, Settle,
     },
     CHALLENGE, GRACE,
 };
@@ -86,6 +87,39 @@ proptest! {
 
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(50_000))]
+
+    /// A claim can be filed until the earlier of the claim deadline of the contested output and
+    /// the end of its lock; the record of the claim outlives that second, so a second claim of the
+    /// same loss never finds the address free while a claim can still be filed.
+    #[test]
+    fn a_claim_outlives_every_second_it_can_be_filed(
+        expiry in any::<u32>(), lock in any::<u32>(), now in any::<u32>(),
+    ) {
+        let fileable = now < lock && u64::from(now) <= report_deadline(expiry);
+        if fileable {
+            prop_assert!(u64::from(now) < claim_closable_at(expiry, lock));
+        }
+        if u64::from(now) >= claim_closable_at(expiry, lock) {
+            prop_assert!(!fileable);
+        }
+    }
+
+    /// The life of a claim, and so the float a sponsor holds for it, is a function of the contested
+    /// output: at most `E + GRACE + CHALLENGE + CLAIM_WINDOW + RECORD_TTL` whatever the lock.
+    #[test]
+    fn a_claim_lives_by_its_output_and_never_by_its_lock(expiry in any::<u32>(), lock in any::<u32>()) {
+        let bound = u64::from(expiry)
+            + u64::from(GRACE)
+            + u64::from(CHALLENGE)
+            + u64::from(CLAIM_WINDOW)
+            + u64::from(RECORD_TTL);
+        prop_assert!(claim_closable_at(expiry, lock) <= bound);
+        prop_assert!(claim_closable_at(expiry, u32::MAX) <= bound);
+        prop_assert_eq!(
+            claim_closable_at(expiry, lock),
+            report_deadline(expiry).min(u64::from(lock)) + u64::from(CLAIM_WINDOW) + u64::from(RECORD_TTL)
+        );
+    }
 
     /// A payee's reclaim opens before the spender's reclaim of the output it paid with, by at least
     /// `EXPIRY_STEP`: whenever the spender's window is open the payee's has already opened.

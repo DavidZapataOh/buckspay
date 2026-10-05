@@ -24,9 +24,9 @@ pub struct Chain {
     pub issue: Issue,
 }
 
-/// Whether an output id has a record address under the program.
+/// Whether an output id has a record address and a claim address under the program.
 pub fn recordable(id: &[u8; 32]) -> bool {
-    record::address(&buckspay::ID.to_bytes(), id).is_some()
+    record::recordable(&buckspay::ID.to_bytes(), id)
 }
 
 /// `salt` with its last two bytes replaced by `n`: the signer's way of trying another id.
@@ -56,7 +56,7 @@ impl Chain {
         owner: Owner,
         c: Caveats,
     ) -> Self {
-        // The issuer changes the salt until the issue's output has a record address.
+        // The issuer changes the salt until the issue's output has a record and a claim address.
         let (issue, envelope, output) = (0u16..)
             .map(|n| {
                 let issue = Issue {
@@ -94,8 +94,8 @@ impl Chain {
 
     /// Appends a spend of output `input` (0 payment, 1 change) of the last message, signed by
     /// `signer`, as an honest signer builds it: a payment to a device expires `EXPIRY_STEP` before
-    /// the output it spends, and the salt is changed until every output the spend gives to a
-    /// device has a record address.
+    /// the output it spends, and the salt is changed until every output the spend creates has a
+    /// record address and a claim address.
     pub fn spend(self, signer: &Key, input: u8, spend: impl FnOnce(&Output) -> Spend) -> Self {
         self.spend_raw(signer, input, |consumed| {
             let mut spend = spend(consumed);
@@ -125,7 +125,7 @@ impl Chain {
                             [Some(holding.first), holding.second]
                                 .into_iter()
                                 .flatten()
-                                .all(|o| !matches!(o.owner, Owner::Device(_)) || recordable(&o.id))
+                                .all(|o| recordable(&o.id))
                         })
                 })
                 .unwrap()

@@ -1,6 +1,7 @@
 use buckspay_client::{Program, accounts};
 use buckspay_gateway::{
     chain::{self, Rents},
+    claims,
     config::{Config, Listen},
     float::{Caps as FloatCaps, SettlementLimits},
     janitor,
@@ -75,6 +76,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .get_minimum_balance_for_rent_exemption(settlements::RECORD_LEN as usize)
             .await
             .map_err(unreachable)?,
+        claim: rpc
+            .get_minimum_balance_for_rent_exemption(claims::CLAIM_LEN as usize)
+            .await
+            .map_err(unreachable)?,
     };
 
     // The app accepts a fee only into the fee payer's associated token account of the mint.
@@ -117,6 +122,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         pending_ttl: PENDING_TTL,
         confirm_timeout: CONFIRM_TIMEOUT,
         max_lock_days: config.max_lock_days,
+        claim_float_cap: config.claim_float_cap,
         fee_mode: config.fee_mode,
         fee_token: config.fee_token,
         sol_price_micro_usdc: config.sol_price_micro_usdc,

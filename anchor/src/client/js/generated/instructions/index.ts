@@ -8,7 +8,10 @@
 
 export * from './applyWalletRotation'
 export * from './cancelWalletRotation'
+export * from './claimLostSpend'
+export * from './claimUnbacked'
 export * from './closeLock'
+export * from './closeRecords'
 export * from './closeSpent'
 export * from './createLock'
 export * from './migrateDevice'

@@ -144,3 +144,58 @@ fn every_settlement_instruction_runs_on_the_built_binary() {
     env.submit(&[close]).unwrap(); // close_spent
     assert!(env.svm.get_account(&record).is_none());
 }
+
+/// Runs `claim_lost_spend`, `claim_unbacked` and `close_records` on the real SBF binary.
+#[test]
+fn every_claim_instruction_runs_on_the_built_binary() {
+    use buckspay_protocol::NO_LOCK;
+    use common::claims::*;
+
+    let mut w = world();
+    let (winning, losing) = (w.winning(0), w.losing(0, 2));
+    w.settle(&winning).unwrap();
+    let supply = w.env.supply();
+    w.claim(&losing).unwrap(); // claim_lost_spend
+    assert_eq!(w.env.supply(), supply - 2 * AMOUNT);
+
+    // The issuer backs 30 and signs two notes of 20 that overlap; the second cannot be paid.
+    w.issuer = w.env.issuer(11, BOND, 30_000_000, 60);
+    let holder = Key::new(60);
+    let paid = Chain::issue(
+        &w.issuer.key,
+        &w.env.mint,
+        0,
+        0,
+        AMOUNT,
+        holder.owner(),
+        caveats(w.expiry, 4),
+    )
+    .spend1_to_account(&holder, 0, &w.winner, NO_LOCK, 1);
+    w.settle(&paid).unwrap();
+    let unbacked = Chain::issue(
+        &w.issuer.key,
+        &w.env.mint,
+        0,
+        10_000_000,
+        AMOUNT,
+        w.victim.key.owner(),
+        caveats(w.expiry, 4),
+    );
+    let ixs = claim_unbacked_ixs(&w.payer(), &w.issuer.lock, &w.env.mint, &unbacked);
+    w.env.submit(&ixs).unwrap(); // claim_unbacked
+    let supply = w.env.supply();
+
+    let payer = w.payer();
+    let claims = [&losing, &unbacked].map(|chain| {
+        let id = chain.last.first.id;
+        (claim_address(&id), w.env.claim(&id).unwrap().closable_at)
+    });
+    w.env
+        .warp(i64::from(claims.iter().map(|(_, at)| *at).max().unwrap()));
+    let pairs = claims.map(|(claim, _)| (claim, payer));
+    w.env.submit(&[close_records_ix(&pairs)]).unwrap(); // close_records
+    assert!(pairs
+        .iter()
+        .all(|(claim, _)| w.env.svm.get_account(claim).is_none()));
+    assert_eq!(w.env.supply(), supply);
+}

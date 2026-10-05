@@ -116,6 +116,14 @@ describe('gateway client', () => {
     expect(JSON.parse(String(reclaimed[1]?.body))).toEqual(reclaim)
   })
 
+  it('posts the chain of a loss to the claim route', async () => {
+    const fetch = stub({ signature: '5sig' })
+    const chain = { issue: 'aa', spends: ['bb'] }
+    expect(await gateway.claim(chain)).toEqual({ signature: '5sig' })
+    expect(fetch.mock.calls[0][0]).toBe('https://gateway.test/v1/fraud/claim')
+    expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toEqual(chain)
+  })
+
   it('keeps what a refusal said besides its message', async () => {
     stub({ error: 'horizon', retryAt: 1_900_000_000, selfPay: true }, { status: 422 })
     const refused = await gateway.settle({ issue: 'aa', spends: [] }).catch((error: unknown) => error)

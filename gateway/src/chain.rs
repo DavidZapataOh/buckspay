@@ -73,6 +73,8 @@ pub struct Rents {
     pub escrow: u64,
     /// A settlement record.
     pub record: u64,
+    /// A claim.
+    pub claim: u64,
 }
 
 impl Rents {

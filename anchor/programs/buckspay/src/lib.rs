@@ -6,11 +6,14 @@ use buckspay_protocol::{
 };
 
 pub mod accounting;
+pub mod burn;
 mod clock;
 pub mod error;
+mod filing;
 mod instructions;
 mod mint;
 pub mod payout;
+mod pda;
 pub mod records;
 pub mod refund;
 pub mod rules;
@@ -23,8 +26,8 @@ pub use error::BuckspayError;
 pub use instructions::*;
 pub use settlement::Link;
 pub use state::{
-    Device, Ledger, Lock, Rotation, Spent, DEVICE_SEED, ESCROW_SEED, LEDGER_SEED, LOCK_SEED,
-    ROTATION_SEED, SPENT_SEED,
+    Claim, Device, Ledger, Lock, Rotation, Spent, CLAIM_SEED, DEVICE_SEED, ESCROW_SEED,
+    LEDGER_SEED, LOCK_SEED, ROTATION_SEED, SPENT_SEED,
 };
 
 #[cfg(not(any(feature = "devnet", feature = "mainnet")))]
@@ -143,6 +146,26 @@ pub mod buckspay {
     /// Closes the records whose retention has passed and returns their rent to whoever paid it.
     pub fn close_spent<'info>(ctx: Context<'info, CloseSpent>) -> Result<()> {
         CloseSpent::process(ctx.remaining_accounts)
+    }
+
+    /// Burns what the loss of the branch that lost the contested output proves.
+    pub fn claim_lost_spend(ctx: Context<ClaimLostSpend>, lost: LostSpend) -> Result<()> {
+        ctx.accounts.process(&lost)
+    }
+
+    /// Burns what the loss of a chain the issuer's backing can no longer pay proves.
+    pub fn claim_unbacked<'info>(
+        ctx: Context<'info, ClaimUnbacked<'info>>,
+        issue: [u8; settlement::ISSUE_BODY_LEN],
+        spends: Vec<Link>,
+    ) -> Result<()> {
+        ctx.accounts
+            .process(&issue, &spends, ctx.remaining_accounts)
+    }
+
+    /// Closes claims whose retention has passed.
+    pub fn close_records<'info>(ctx: Context<'info, CloseRecords>) -> Result<()> {
+        CloseRecords::process(ctx.remaining_accounts)
     }
 }
 

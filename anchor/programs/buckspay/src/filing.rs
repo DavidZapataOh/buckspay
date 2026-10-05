@@ -1,0 +1,78 @@
+//! What the two claim instructions have in common: writing the claim of an output once, and
+//! burning what it proves out of the lock's free bond.
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use buckspay_protocol::record::RECORD_BUMP;
+
+use crate::{
+    burn::burn_for,
+    error::BuckspayError,
+    payout::burn_out,
+    pda::create_pda,
+    state::{Claim, Ledger, CLAIM_SEED},
+};
+
+/// The claim address of `output`: one `create_program_address` with the fixed bump, whatever the
+/// output id. An output whose address is on the curve cannot be claimed (`UnrecordableOutput`);
+/// receivers refuse such an output, so no loss is ever outside this check.
+fn address(output: &[u8; 32]) -> Result<Pubkey> {
+    Pubkey::create_program_address(&[CLAIM_SEED, output, &[RECORD_BUMP]], &crate::ID)
+        .map_err(|_| error!(BuckspayError::UnrecordableOutput))
+}
+
+/// A loss of `loss` in `output`, claimed from `lock`.
+pub(crate) struct Filing<'a, 'info> {
+    pub lock_address: &'a Pubkey,
+    pub ledger: &'a mut Account<'info, Ledger>,
+    pub escrow: &'a mut InterfaceAccount<'info, TokenAccount>,
+    pub mint: &'a InterfaceAccount<'info, Mint>,
+    pub token_program: &'a Interface<'info, TokenInterface>,
+    pub claim: &'a AccountInfo<'info>,
+    pub payer: &'a Signer<'info>,
+    pub system_program: &'a Program<'info, System>,
+}
+
+/// Writes the claim of `output` and burns `slash::penalty(loss, free bond)` out of the escrow. The
+/// claim record stays until `closable_at`, so the same loss cannot be burned twice.
+pub(crate) fn file(
+    f: Filing<'_, '_>,
+    output: &[u8; 32],
+    loss: u64,
+    closable_at: u32,
+) -> Result<()> {
+    require_keys_eq!(
+        f.claim.key(),
+        address(output)?,
+        BuckspayError::RecordAccounts
+    );
+    require!(
+        *f.claim.owner == anchor_lang::system_program::ID && f.claim.data_is_empty(),
+        BuckspayError::AlreadyClaimed
+    );
+    let debit = burn_for(f.ledger, loss)?;
+
+    create_pda(
+        f.claim,
+        &[CLAIM_SEED, output, &[RECORD_BUMP]],
+        Claim::DISCRIMINATOR.len() + Claim::INIT_SPACE,
+        f.payer,
+        f.system_program,
+    )?;
+    let claim = Claim {
+        lock: *f.lock_address,
+        amount: loss,
+        burned: debit.amount(),
+        payer: f.payer.key(),
+        closable_at,
+    };
+    claim.try_serialize(&mut &mut f.claim.try_borrow_mut_data()?[..])?;
+
+    burn_out(
+        f.ledger,
+        f.lock_address,
+        f.escrow,
+        f.mint,
+        f.token_program,
+        debit,
+    )
+}

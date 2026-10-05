@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { GatewayError, type SettlementGateway } from '../lock/gateway'
-import { reclaim, settle } from './settle'
+import { fileClaim, reclaim, settle } from './settle'
 
 const request = { issue: 'aa', spends: ['bb'] }
 const reclaimRequest = { ...request, owner: 'cc', which: 0 as const, deadline: 1, signature: 'dd' }
 const gatewayThatAnswers = (answer: () => Promise<unknown>) =>
-  ({ settle: answer, reclaim: answer }) as unknown as SettlementGateway
+  ({ settle: answer, reclaim: answer, claim: answer }) as unknown as SettlementGateway
 const refusing = (status: number, body: Record<string, unknown>) =>
   gatewayThatAnswers(() => Promise.reject(new GatewayError(status, String(body.error), body)))
 
@@ -86,6 +86,50 @@ describe('settling through the gateway', () => {
     })
     expect(await reclaim(refusing(409, { error: 'closed', selfPay: true }), reclaimRequest)).toMatchObject({
       refusal: { kind: 'closed' },
+    })
+  })
+})
+
+describe('filing the loss of a payment that could not be settled', () => {
+  it('says the bond was burned, or that the loss was claimed already', async () => {
+    expect(
+      await fileClaim(
+        gatewayThatAnswers(async () => ({ signature: '5xyz' })),
+        request,
+      ),
+    ).toEqual({
+      kind: 'burned',
+      signature: '5xyz',
+    })
+    expect(
+      await fileClaim(
+        gatewayThatAnswers(async () => ({ status: 'claimed' })),
+        request,
+      ),
+    ).toEqual({
+      kind: 'claimed',
+    })
+  })
+
+  it('says when there is nothing to burn, and why, so the app does not retry', async () => {
+    for (const reason of ['no_bond', 'not_claimable', 'over_coverage', 'claim_too_late', 'lock_ended']) {
+      expect(await fileClaim(refusing(409, { error: reason }), request)).toEqual({ kind: 'nothing_to_burn', reason })
+    }
+  })
+
+  it('keeps the chain to try again when the gateway cannot say', async () => {
+    expect(await fileClaim(refusing(503, { error: 'float_cap', retryAfter: 90 }), request)).toEqual({
+      kind: 'unavailable',
+      retryAfter: 90,
+    })
+    expect(await fileClaim(refusing(502, {}), request)).toEqual({ kind: 'unavailable' })
+    expect(
+      await fileClaim(
+        gatewayThatAnswers(() => Promise.reject(new Error('offline'))),
+        request,
+      ),
+    ).toEqual({
+      kind: 'unavailable',
     })
   })
 })

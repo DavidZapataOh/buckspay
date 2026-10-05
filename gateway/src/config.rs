@@ -131,6 +131,8 @@ pub struct Config {
     pub caps: Caps,
     /// Lamports of rent the gateway may have out in settlement records.
     pub settlement_float_cap: u64,
+    /// Lamports of rent the gateway may have out in claim accounts at once.
+    pub claim_float_cap: u64,
     /// Base units of bond a lock needs for each open sponsored settlement record.
     pub settlement_bond_per_record: u64,
     pub program_id: Pubkey,
@@ -216,6 +218,7 @@ impl Config {
                 escalation,
             },
             settlement_float_cap: var("SETTLEMENT_FLOAT_CAP_LAMPORTS", "1000000000")?,
+            claim_float_cap: var("CLAIM_FLOAT_CAP_LAMPORTS", "500000000")?,
             settlement_bond_per_record: var("SETTLEMENT_BOND_PER_RECORD", "1000000")?,
             program_id,
             mint: Pubkey::from_str(&env::var("MINT").map_err(|_| "MINT is not set")?)

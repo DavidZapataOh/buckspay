@@ -77,6 +77,22 @@ pub enum BuckspayError {
     ReclaimClosed,
     #[msg("The reclaim signature is past its deadline")]
     ReclaimExpired,
-    #[msg("An output of the chain has no record address")]
+    #[msg("An output of the chain has no record address or no claim address")]
     UnrecordableOutput,
+    #[msg("The two messages do not conflict")]
+    NotConflicting,
+    #[msg("The proof does not match its body, signer or lock")]
+    ConflictProof,
+    #[msg("The lock has no free bond to slash")]
+    NoBond,
+    #[msg("The claim deadline of the output has passed")]
+    ClaimTooLate,
+    #[msg("The loss cannot be claimed from this lock")]
+    NotClaimable,
+    #[msg("The output has no record")]
+    NoRecord,
+    #[msg("The output was already claimed")]
+    AlreadyClaimed,
+    #[msg("The output is larger than the lock's bond covers")]
+    OverCoverage,
 }

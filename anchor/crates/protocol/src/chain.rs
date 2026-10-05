@@ -148,3 +148,171 @@ pub fn spend_outputs(env: &[u8; 96], input: &Output, spend: &Spend) -> Result<(H
         owner,
     ))
 }
+
+/// The lock whose bond backs a spend by `spender` that names `lock_seq`: that lock when it names
+/// one, else the lock of the nearest earlier spend that names one (`earlier` is every earlier
+/// holder with the lock it named, oldest first), else the issuer's. Only [`backer`] says whether a
+/// spend that names no lock has a lock to blame at all.
+pub fn liable_lock(
+    issuer: &[u8; 33],
+    issue_lock_seq: u32,
+    earlier: &[([u8; 33], u32)],
+    spender: &[u8; 33],
+    lock_seq: u32,
+) -> ([u8; 33], u32) {
+    if lock_seq != NO_LOCK {
+        return (*spender, lock_seq);
+    }
+    earlier
+        .iter()
+        .rev()
+        .find(|(_, seq)| *seq != NO_LOCK)
+        .map_or((*issuer, issue_lock_seq), |&(key, seq)| (key, seq))
+}
+
+/// The lock that is liable for a spend by `spender` that names `lock_seq`, or `None` when no lock
+/// is. A spend that names a lock is backed by it. A spend that names none is backed by the chain's
+/// lock only when the output it consumes is `DELEGATED` or `AUTHORITY_ONLY` (`unlocked`, the rules
+/// as they bind the holder): a plain settlement to a terminal account is backed by nothing, since
+/// no receiver accepted it offline, so nobody can be defrauded by one and no bond answers for it.
+pub fn backer(
+    issuer: &[u8; 33],
+    issue_lock_seq: u32,
+    earlier: &[([u8; 33], u32)],
+    spender: &[u8; 33],
+    lock_seq: u32,
+    unlocked: bool,
+) -> Option<([u8; 33], u32)> {
+    if lock_seq == NO_LOCK && !unlocked {
+        return None;
+    }
+    Some(liable_lock(
+        issuer,
+        issue_lock_seq,
+        earlier,
+        spender,
+        lock_seq,
+    ))
+}
+
+#[cfg(test)]
+mod liability_tests {
+    extern crate std;
+    use super::*;
+    use proptest::prelude::*;
+
+    fn key(tag: u8) -> [u8; 33] {
+        let mut key = [tag; 33];
+        key[0] = 0x02;
+        key
+    }
+
+    #[test]
+    fn a_spend_that_names_a_lock_is_backed_by_that_lock_of_its_spender() {
+        assert_eq!(
+            liable_lock(&key(1), 9, &[(key(2), 4)], &key(3), 7),
+            (key(3), 7)
+        );
+    }
+
+    #[test]
+    fn a_spend_without_a_lock_is_backed_by_the_nearest_earlier_named_lock() {
+        let earlier = [
+            (key(2), 4),
+            (key(3), NO_LOCK),
+            (key(4), 6),
+            (key(5), NO_LOCK),
+        ];
+        assert_eq!(
+            liable_lock(&key(1), 9, &earlier, &key(6), NO_LOCK),
+            (key(4), 6)
+        );
+    }
+
+    #[test]
+    fn a_spend_without_a_lock_and_with_none_before_is_backed_by_the_issuer() {
+        assert_eq!(liable_lock(&key(1), 9, &[], &key(6), NO_LOCK), (key(1), 9));
+        let earlier = [(key(2), NO_LOCK), (key(3), NO_LOCK)];
+        assert_eq!(
+            liable_lock(&key(1), 9, &earlier, &key(6), NO_LOCK),
+            (key(1), 9)
+        );
+    }
+
+    proptest! {
+        #[test]
+        fn the_liable_lock_is_always_one_the_chain_names(
+            issuer in 1u8..255, issue_seq in 0u32..1000, spender in 1u8..255,
+            seq in prop_oneof![Just(NO_LOCK), 0u32..1000],
+            earlier in proptest::collection::vec((1u8..255, prop_oneof![Just(NO_LOCK), 0u32..1000]), 0..8),
+        ) {
+            let earlier: std::vec::Vec<([u8; 33], u32)> =
+                earlier.into_iter().map(|(k, s)| (key(k), s)).collect();
+            let (k, s) = liable_lock(&key(issuer), issue_seq, &earlier, &key(spender), seq);
+            prop_assert_ne!(s, NO_LOCK);
+            let named = (k == key(spender) && s == seq)
+                || earlier.iter().any(|&(ek, es)| ek == k && es == s)
+                || (k == key(issuer) && s == issue_seq);
+            prop_assert!(named);
+            if seq != NO_LOCK {
+                prop_assert_eq!((k, s), (key(spender), seq));
+            }
+        }
+    }
+
+    #[test]
+    fn a_plain_settlement_is_backed_by_nothing() {
+        let earlier = [(key(2), 4)];
+        assert_eq!(backer(&key(1), 9, &earlier, &key(3), NO_LOCK, false), None);
+        assert_eq!(backer(&key(1), 9, &[], &key(3), NO_LOCK, false), None);
+    }
+
+    #[test]
+    fn a_delegated_or_authority_only_spend_without_a_lock_is_backed_by_the_chains_lock() {
+        let earlier = [(key(2), 4), (key(3), NO_LOCK)];
+        assert_eq!(
+            backer(&key(1), 9, &earlier, &key(6), NO_LOCK, true),
+            Some((key(2), 4))
+        );
+        assert_eq!(
+            backer(&key(1), 9, &[], &key(6), NO_LOCK, true),
+            Some((key(1), 9))
+        );
+    }
+
+    #[test]
+    fn a_spend_that_names_a_lock_is_backed_by_it_whether_or_not_the_output_is_unlocked() {
+        for unlocked in [false, true] {
+            assert_eq!(
+                backer(&key(1), 9, &[(key(2), 4)], &key(3), 7, unlocked),
+                Some((key(3), 7))
+            );
+        }
+    }
+
+    proptest! {
+        /// Whatever the chain, a lock answers for a spend only if the spend names it, or the
+        /// output it consumed was delegated or authority-only and the chain names it.
+        #[test]
+        fn a_lock_is_blamed_only_when_it_named_itself_or_a_delegation_points_at_it(
+            issuer in 1u8..255, issue_seq in 0u32..1000, spender in 1u8..255,
+            seq in prop_oneof![Just(NO_LOCK), 0u32..1000], unlocked in any::<bool>(),
+            earlier in proptest::collection::vec((1u8..255, prop_oneof![Just(NO_LOCK), 0u32..1000]), 0..8),
+        ) {
+            let earlier: std::vec::Vec<([u8; 33], u32)> =
+                earlier.into_iter().map(|(k, s)| (key(k), s)).collect();
+            let blamed = backer(&key(issuer), issue_seq, &earlier, &key(spender), seq, unlocked);
+            match blamed {
+                None => prop_assert!(seq == NO_LOCK && !unlocked),
+                Some((k, s)) => {
+                    prop_assert_ne!(s, NO_LOCK);
+                    if seq != NO_LOCK {
+                        prop_assert_eq!((k, s), (key(spender), seq));
+                    } else {
+                        prop_assert!(unlocked);
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
-    close_account, transfer_checked, CloseAccount, Mint, TokenAccount, TokenInterface,
+    burn, close_account, transfer_checked, Burn, CloseAccount, Mint, TokenAccount, TokenInterface,
     TransferChecked,
 };
 
@@ -122,4 +122,33 @@ pub fn pay_in<'info>(
         amount,
         mint.decimals,
     )
+}
+
+/// Destroys the amount of `debit` out of `escrow`, signed by `ledger`, then reloads `escrow` and
+/// checks solvency. The only code that burns.
+pub fn burn_out<'info>(
+    ledger: &Account<'info, Ledger>,
+    lock: &Pubkey,
+    escrow: &mut InterfaceAccount<'info, TokenAccount>,
+    mint: &InterfaceAccount<'info, Mint>,
+    token_program: &Interface<'info, TokenInterface>,
+    debit: Debit,
+) -> Result<()> {
+    let amount = debit.into_amount();
+    require!(amount > 0, BuckspayError::AmountZero);
+    let seeds: &[&[u8]] = &[LEDGER_SEED, lock.as_ref(), &[ledger.bump]];
+    burn(
+        CpiContext::new_with_signer(
+            token_program.key(),
+            Burn {
+                mint: mint.to_account_info(),
+                from: escrow.to_account_info(),
+                authority: ledger.to_account_info(),
+            },
+            &[seeds],
+        ),
+        amount,
+    )?;
+    escrow.reload()?;
+    assert_solvent(ledger, escrow.amount)
 }

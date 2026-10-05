@@ -5,6 +5,7 @@ use buckspay_protocol::device::{
 use buckspay_protocol::hash::{content, domain, envelope, message_id, output_id, purpose};
 use buckspay_protocol::profile::{PRODUCTION_DEVNET_PROGRAM_ID, SHORT_PROGRAM_ID};
 use buckspay_protocol::reclaim::{reclaim_body, reclaim_envelope, record_content};
+use buckspay_protocol::slash::{covers, exposure, min_bond, payment_limit, penalty};
 use buckspay_protocol::verify::{
     recover_issue_signer, recover_spend_signer, recovery_id, verify_issue_conflict, verify_payment,
     verify_settlement, verify_spend_conflict, Attester, Received, Receiver, Settled,
@@ -25,7 +26,7 @@ const PROGRAM_ID: [u8; 32] = [0xb0; 32];
 const NOW: u32 = 1_800_000_000;
 const EXPIRY: u32 = 1_900_000_000;
 const MIN_WINDOW: u32 = 86_400;
-const LOCK_UNTIL: u32 = EXPIRY + GRACE + CHALLENGE;
+const LOCK_UNTIL: u32 = EXPIRY + GRACE + CHALLENGE + 1;
 const MINT: [u8; 32] = [3; 32];
 const ATTESTER_SEED: [u8; 32] = [0xa7; 32];
 const ORGANISER_ADDRESS: [u8; 32] = [0xa0; 32];
@@ -146,6 +147,7 @@ fn ticket(device: &Key, bond: u64, backing: u64) -> BondTicket {
         bond,
         backing,
         lock_until: LOCK_UNTIL,
+        valid_until: NOW + 86_400,
         attester: 1,
         signature: [0; 64],
     }
@@ -317,7 +319,11 @@ fn issue_with(
 }
 
 fn recordable(id: &[u8; 32]) -> bool {
-    record::address(&PROGRAM_ID, id).is_some()
+    record::recordable(&PROGRAM_ID, id)
+}
+
+fn has_record_but_no_claim(id: &[u8; 32]) -> bool {
+    record::address(&PROGRAM_ID, id).is_some() && record::claim_address(&PROGRAM_ID, id).is_none()
 }
 
 fn spend(
@@ -623,8 +629,8 @@ fn vectors() -> Value {
     let mallory = Key::new("mallory", 5);
 
     let issuer_ticket = domains.sign(ticket(&issuer, 1_000_000, 40_000));
-    let alice_ticket = domains.sign(ticket(&alice, 20_000, 0));
-    let bob_ticket = domains.sign(ticket(&bob, 20_000, 0));
+    let alice_ticket = domains.sign(ticket(&alice, min_bond(20_000).unwrap(), 0));
+    let bob_ticket = domains.sign(ticket(&bob, min_bond(20_000).unwrap(), 0));
     let tickets = [issuer_ticket, alice_ticket, bob_ticket];
     let one_hop = [issuer_ticket, alice_ticket];
     let issuer_only = [issuer_ticket];
@@ -785,9 +791,28 @@ fn vectors() -> Value {
         signature: to_bob.signature,
     });
     let with_alice = |alice_ticket: BondTicket| [issuer_ticket, alice_ticket];
-    let insufficient_bond = with_alice(domains.sign(ticket(&alice, 19_999, 0)));
+    let insufficient_bond =
+        with_alice(domains.sign(ticket(&alice, min_bond(20_000).unwrap() - 1, 0)));
     let short_lock = with_alice(domains.sign(BondTicket {
         lock_until: LOCK_UNTIL - 1,
+        ..alice_ticket
+    }));
+    let late_tickets = [
+        domains.sign(BondTicket {
+            valid_until: EXPIRY + 86_400,
+            ..issuer_ticket
+        }),
+        domains.sign(BondTicket {
+            valid_until: EXPIRY + 86_400,
+            ..alice_ticket
+        }),
+    ];
+    let stale = with_alice(domains.sign(BondTicket {
+        valid_until: NOW - 1,
+        ..alice_ticket
+    }));
+    let valid_too_long = with_alice(domains.sign(BondTicket {
+        valid_until: NOW + buckspay_protocol::lock::TICKET_TTL_MAX + 1,
         ..alice_ticket
     }));
     let forged = with_alice(BondTicket {
@@ -802,7 +827,7 @@ fn vectors() -> Value {
         expiry: NOW + MIN_WINDOW - 1,
         ..caveats(3)
     };
-    let small_issuer_bond = [domains.sign(ticket(&issuer, 19_999, 40_000))];
+    let small_issuer_bond = [domains.sign(ticket(&issuer, min_bond(20_000).unwrap() - 1, 40_000))];
     let unbonded_issuer = [domains.sign(ticket(&issuer, 0, 40_000))];
     let last_hop = with_caveats(caveats(1));
     let stranding_change = spend(
@@ -947,7 +972,7 @@ fn vectors() -> Value {
                 "expired",
                 &issued_wire,
                 &[to_bob],
-                &one_hop,
+                &late_tickets,
                 &bob,
                 ProtocolError::Expired,
             )
@@ -1093,6 +1118,22 @@ fn vectors() -> Value {
             &issued_wire,
             &[to_bob],
             &short_lock,
+            &bob,
+            ProtocolError::Ticket,
+        ),
+        issue_case(
+            "stale_ticket",
+            &issued_wire,
+            &[to_bob],
+            &stale,
+            &bob,
+            ProtocolError::Ticket,
+        ),
+        issue_case(
+            "ticket_valid_too_long",
+            &issued_wire,
+            &[to_bob],
+            &valid_too_long,
             &bob,
             ProtocolError::Ticket,
         ),
@@ -1450,7 +1491,39 @@ fn vectors() -> Value {
                 },
             )
         })
-        .find(|issue| !recordable(&issued_id(domain, issue)))
+        .find(|issue| record::address(&PROGRAM_ID, &issued_id(domain, issue)).is_none())
+        .unwrap();
+    let claimless_issue = (0u8..)
+        .map(|salt| {
+            sign_issue(
+                domain,
+                &issuer,
+                Issue {
+                    salt: [salt; 16],
+                    ..issued.message
+                },
+            )
+        })
+        .find(|issue| has_record_but_no_claim(&issued_id(domain, issue)))
+        .unwrap();
+    let claimless_payment = (6u8..)
+        .map(|salt| {
+            let message = Spend {
+                input: first,
+                lock_seq: 0,
+                salt: [salt; 16],
+                outputs: Outputs::One {
+                    owner: bob.owner(),
+                    caveats: caveats(3),
+                },
+            };
+            let env = envelope(domain, &first, &message.content());
+            Signed {
+                message,
+                signature: alice.sign(&env),
+            }
+        })
+        .find(|spend| has_record_but_no_claim(&spent_id(domain, spend, 0)))
         .unwrap();
     let unrecordable_payment = (6u8..)
         .map(|salt| {
@@ -1469,7 +1542,7 @@ fn vectors() -> Value {
                 signature: alice.sign(&env),
             }
         })
-        .find(|spend| !recordable(&spent_id(domain, spend, 0)))
+        .find(|spend| record::address(&PROGRAM_ID, &spent_id(domain, spend, 0)).is_none())
         .unwrap();
     let past_unrecordable = spend(
         domain,
@@ -1491,6 +1564,25 @@ fn vectors() -> Value {
             caveats: caveats(2),
         },
     );
+    let claimless_settles = (6u8..)
+        .map(|salt| {
+            let message = Spend {
+                input: first,
+                lock_seq: NO_LOCK,
+                salt: [salt; 16],
+                outputs: Outputs::One {
+                    owner: MERCHANT_ACCOUNT,
+                    caveats: caveats(3),
+                },
+            };
+            let env = envelope(domain, &first, &message.content());
+            Signed {
+                message,
+                signature: alice.sign(&env),
+            }
+        })
+        .find(|spend| has_record_but_no_claim(&spent_id(domain, spend, 0)))
+        .unwrap();
     let same_expiry_to_an_account = spend(
         domain,
         &alice,
@@ -1504,7 +1596,56 @@ fn vectors() -> Value {
             },
         },
     );
+    let claimless_to_merchant = (6u8..)
+        .map(|salt| {
+            let input = spent_id(domain, &to_merchant, 0);
+            let message = Spend {
+                input,
+                lock_seq: 0,
+                salt: [salt; 16],
+                outputs: Outputs::One {
+                    owner: MERCHANT_ACCOUNT,
+                    caveats: caveats(2),
+                },
+            };
+            let env = envelope(domain, &input, &message.content());
+            Signed {
+                message,
+                signature: bob.sign(&env),
+            }
+        })
+        .find(|spend| has_record_but_no_claim(&spent_id(domain, spend, 0)))
+        .unwrap();
+    let past_claimless = spend(
+        domain,
+        &bob,
+        &spent_id(domain, &claimless_payment, 0),
+        0,
+        Outputs::One {
+            owner: carol.owner(),
+            caveats: caveats(2),
+        },
+    );
+    let account_case = Invalid {
+        name: "account_output_without_a_claim_address",
+        kind: kind::ISSUE,
+        wire: for_bob.encode().to_vec(),
+        spends: vec![to_merchant, claimless_to_merchant],
+        tickets: tickets.to_vec(),
+        me: MERCHANT_ACCOUNT,
+        now: NOW,
+        accept_authorities: &[],
+        error: ProtocolError::Unrecordable,
+    };
     let step_and_record_cases = [
+        issue_case(
+            "consumed_output_without_a_claim_address",
+            &issued_wire,
+            &[claimless_payment, past_claimless],
+            &tickets,
+            &carol,
+            ProtocolError::Unrecordable,
+        ),
         issue_case(
             "payment_to_a_device_with_the_inputs_expiry",
             &issued_wire,
@@ -1530,6 +1671,22 @@ fn vectors() -> Value {
             ProtocolError::Unrecordable,
         ),
         issue_case(
+            "issue_output_without_a_claim_address",
+            &claimless_issue.encode(),
+            &[],
+            &issuer_only,
+            &alice,
+            ProtocolError::Unrecordable,
+        ),
+        issue_case(
+            "last_output_without_a_claim_address",
+            &issued_wire,
+            &[claimless_payment],
+            &one_hop,
+            &bob,
+            ProtocolError::Unrecordable,
+        ),
+        issue_case(
             "last_output_without_a_record_address",
             &issued_wire,
             &[unrecordable_payment],
@@ -1552,6 +1709,8 @@ fn vectors() -> Value {
         spent_id(domain, &to_bob, 1),
         spent_id(domain, &unrecordable_payment, 0),
         issued_id(domain, &unrecordable_issue),
+        issued_id(domain, &claimless_issue),
+        spent_id(domain, &claimless_payment, 0),
     ]
     .into_iter()
     .chain((0u8..11).map(|n| [n; 32]))
@@ -1559,6 +1718,7 @@ fn vectors() -> Value {
         json!({
             "output": hex(&output),
             "address": record::address(&PROGRAM_ID, &output).map(|a| hex(&a)).unwrap_or_default(),
+            "claim_address": record::claim_address(&PROGRAM_ID, &output).map(|a| hex(&a)).unwrap_or_default(),
         })
     })
     .collect();
@@ -1621,6 +1781,7 @@ fn vectors() -> Value {
         ],
         "record_addresses": {
             "seed": hex(record::SPENT_SEED),
+            "claim_seed": hex(record::CLAIM_SEED),
             "bump": record::RECORD_BUMP,
             "program_id": hex(&PROGRAM_ID),
             "outputs": record_addresses,
@@ -1632,10 +1793,11 @@ fn vectors() -> Value {
             settlement("unbonded_receiver_settles", domain, &issued, &[to_bob, bob_settles]),
             settlement("issued_to_account", domain, &to_account, &[]),
             settlement("same_expiry_to_an_account", domain, &issued, &[same_expiry_to_an_account]),
+            settlement("claim_address_is_not_needed_to_settle", domain, &issued, &[claimless_settles]),
             settlement("consumed_output_without_a_record_address", domain, &issued, &[unrecordable_payment, settles_past_unrecordable]),
             settlement("device_output", domain, &issued, &[to_bob]),
         ],
-        "invalid": invalid_cases.into_iter().chain(step_and_record_cases).map(|case| invalid(&domains, case)).collect::<Vec<_>>(),
+        "invalid": invalid_cases.into_iter().chain(step_and_record_cases).chain([account_case]).map(|case| invalid(&domains, case)).collect::<Vec<_>>(),
         "conflicts": spend_conflicts.into_iter().chain(issue_conflicts).collect::<Vec<_>>(),
         "device_bindings": [
             device_binding("alice_to_wallet", &device_domain, &[0xa1; 32], &alice, alice.public),
@@ -1651,7 +1813,63 @@ fn vectors() -> Value {
         "profiles": profiles(),
         "reclaims": reclaims(&derived_reclaim_domain),
         "secp256r1_layouts": secp256r1_layouts(),
+        "slash": slash(),
     })
+}
+
+/// What a claim burns and what a bond backs, on the edges of the integer range and on a few
+/// ordinary sizes. Amounts are decimal strings: they do not fit a JSON number.
+fn slash() -> Value {
+    let edges = [
+        0u64,
+        1,
+        2,
+        3,
+        4,
+        5,
+        99,
+        100,
+        101,
+        399,
+        400,
+        25_000_000,
+        100_000_000,
+    ];
+    let wide = [u64::MAX / 4, u64::MAX / 4 + 1, u64::MAX - 1, u64::MAX];
+    let values: Vec<u64> = edges.into_iter().chain(wide).collect();
+    let penalties: Vec<Value> = values
+        .iter()
+        .flat_map(|&loss| values.iter().map(move |&free| (loss, free)))
+        .map(|(loss, free)| {
+            json!({
+                "loss": loss.to_string(),
+                "free": free.to_string(),
+                "burn": penalty(loss, free).to_string(),
+            })
+        })
+        .collect();
+    let limits: Vec<Value> = values
+        .iter()
+        .map(|&bond| {
+            json!({
+                "bond": bond.to_string(),
+                "exposure": exposure(bond).to_string(),
+                "payment_limit": payment_limit(bond).to_string(),
+                "covers_the_limit": covers(bond, payment_limit(bond)),
+                "covers_one_more": payment_limit(bond) < u64::MAX && covers(bond, payment_limit(bond) + 1),
+            })
+        })
+        .collect();
+    let min_bonds: Vec<Value> = values
+        .iter()
+        .map(|&amount| {
+            json!({
+                "amount": amount.to_string(),
+                "bond": min_bond(amount).map(|bond| bond.to_string()),
+            })
+        })
+        .collect();
+    json!({ "penalties": penalties, "limits": limits, "min_bonds": min_bonds })
 }
 
 /// The message an owner signs to take an output back, for a few deadlines, and what a reclaim

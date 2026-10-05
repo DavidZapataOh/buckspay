@@ -7,7 +7,10 @@
 
 pub(crate) mod r#apply_wallet_rotation;
 pub(crate) mod r#cancel_wallet_rotation;
+pub(crate) mod r#claim_lost_spend;
+pub(crate) mod r#claim_unbacked;
 pub(crate) mod r#close_lock;
+pub(crate) mod r#close_records;
 pub(crate) mod r#close_spent;
 pub(crate) mod r#create_lock;
 pub(crate) mod r#migrate_device;
@@ -21,7 +24,10 @@ pub(crate) mod r#withdraw_lock;
 
 pub use self::r#apply_wallet_rotation::*;
 pub use self::r#cancel_wallet_rotation::*;
+pub use self::r#claim_lost_spend::*;
+pub use self::r#claim_unbacked::*;
 pub use self::r#close_lock::*;
+pub use self::r#close_records::*;
 pub use self::r#close_spent::*;
 pub use self::r#create_lock::*;
 pub use self::r#migrate_device::*;

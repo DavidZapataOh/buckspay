@@ -97,6 +97,243 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "claimLostSpend",
+      "docs": [
+        "Burns what the loss of the branch that lost the contested output proves."
+      ],
+      "discriminator": [
+        90,
+        67,
+        152,
+        110,
+        114,
+        14,
+        106,
+        164
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Anyone: the claim pays nobody, so nobody needs standing to file it."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "lock"
+        },
+        {
+          "name": "ledger",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lock"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lock"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "docs": [
+            "Writable because the burn lowers its supply."
+          ],
+          "writable": true
+        },
+        {
+          "name": "claim",
+          "docs": [
+            "which creates it."
+          ],
+          "writable": true
+        },
+        {
+          "name": "record"
+        },
+        {
+          "name": "instructions",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "lost",
+          "type": {
+            "defined": {
+              "name": "lostSpend"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "claimUnbacked",
+      "docs": [
+        "Burns what the loss of a chain the issuer's backing can no longer pay proves."
+      ],
+      "discriminator": [
+        101,
+        56,
+        237,
+        173,
+        41,
+        93,
+        166,
+        120
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Anyone: the claim pays nobody, so nobody needs standing to file it."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "lock"
+        },
+        {
+          "name": "ledger",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lock"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lock"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "docs": [
+            "Writable because the burn lowers its supply."
+          ],
+          "writable": true
+        },
+        {
+          "name": "claim",
+          "docs": [
+            "which creates it."
+          ],
+          "writable": true
+        },
+        {
+          "name": "record"
+        },
+        {
+          "name": "instructions",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "issue",
+          "type": {
+            "array": [
+              "u8",
+              163
+            ]
+          }
+        },
+        {
+          "name": "spends",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "link"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "closeLock",
       "discriminator": [
         58,
@@ -186,6 +423,24 @@ export type Buckspay = {
           "type": "u32"
         }
       ]
+    },
+    {
+      "name": "closeRecords",
+      "docs": [
+        "Closes claims whose retention has passed."
+      ],
+      "discriminator": [
+        37,
+        238,
+        211,
+        208,
+        66,
+        79,
+        182,
+        30
+      ],
+      "accounts": [],
+      "args": []
     },
     {
       "name": "closeSpent",
@@ -1226,7 +1481,47 @@ export type Buckspay = {
     {
       "code": 6037,
       "name": "unrecordableOutput",
-      "msg": "An output of the chain has no record address"
+      "msg": "An output of the chain has no record address or no claim address"
+    },
+    {
+      "code": 6038,
+      "name": "notConflicting",
+      "msg": "The two messages do not conflict"
+    },
+    {
+      "code": 6039,
+      "name": "conflictProof",
+      "msg": "The proof does not match its body, signer or lock"
+    },
+    {
+      "code": 6040,
+      "name": "noBond",
+      "msg": "The lock has no free bond to slash"
+    },
+    {
+      "code": 6041,
+      "name": "claimTooLate",
+      "msg": "The claim deadline of the output has passed"
+    },
+    {
+      "code": 6042,
+      "name": "notClaimable",
+      "msg": "The loss cannot be claimed from this lock"
+    },
+    {
+      "code": 6043,
+      "name": "noRecord",
+      "msg": "The output has no record"
+    },
+    {
+      "code": 6044,
+      "name": "alreadyClaimed",
+      "msg": "The output was already claimed"
+    },
+    {
+      "code": 6045,
+      "name": "overCoverage",
+      "msg": "The output is larger than the lock's bond covers"
     }
   ],
   "types": [
@@ -1426,6 +1721,51 @@ export type Buckspay = {
               "issuer's key chooses the lock's address and with it the cost of that search."
             ],
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "lostSpend",
+      "docs": [
+        "The chain of a branch that lost: the issue and the spends up to and including the culprit's, the",
+        "last spend. The loss claimed is the culprit's payment, output 0 of that spend. `lock_key` and",
+        "`lock_seq` name the lock that backed it."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "issue",
+            "type": {
+              "array": [
+                "u8",
+                163
+              ]
+            }
+          },
+          {
+            "name": "spends",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "link"
+                }
+              }
+            }
+          },
+          {
+            "name": "lockKey",
+            "type": {
+              "array": [
+                "u8",
+                33
+              ]
+            }
+          },
+          {
+            "name": "lockSeq",
+            "type": "u32"
           }
         ]
       }

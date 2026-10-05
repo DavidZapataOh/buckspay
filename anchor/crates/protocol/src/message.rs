@@ -316,16 +316,18 @@ pub struct BondTicket {
     pub bond: u64,
     pub backing: u64,
     pub lock_until: u32,
+    /// The last second at which a receiver accepts a payment on the strength of this ticket.
+    pub valid_until: u32,
     pub attester: u16,
     pub signature: [u8; 64],
 }
 
 impl BondTicket {
-    pub const BODY_LEN: usize = 93;
+    pub const BODY_LEN: usize = 97;
     pub const WIRE_LEN: usize = Self::BODY_LEN + 64;
 
-    fn body(&self) -> [u8; 93] {
-        let mut out = [0; 93];
+    fn body(&self) -> [u8; 97] {
+        let mut out = [0; 97];
         out[0] = VERSION;
         out[1] = kind::BOND_TICKET;
         out[2..35].copy_from_slice(&self.device);
@@ -334,14 +336,15 @@ impl BondTicket {
         out[71..79].copy_from_slice(&self.bond.to_le_bytes());
         out[79..87].copy_from_slice(&self.backing.to_le_bytes());
         out[87..91].copy_from_slice(&self.lock_until.to_le_bytes());
-        out[91..93].copy_from_slice(&self.attester.to_le_bytes());
+        out[91..95].copy_from_slice(&self.valid_until.to_le_bytes());
+        out[95..97].copy_from_slice(&self.attester.to_le_bytes());
         out
     }
 
-    pub fn encode(&self) -> [u8; 157] {
-        let mut out = [0; 157];
-        out[..93].copy_from_slice(&self.body());
-        out[93..].copy_from_slice(&self.signature);
+    pub fn encode(&self) -> [u8; 161] {
+        let mut out = [0; 161];
+        out[..97].copy_from_slice(&self.body());
+        out[97..].copy_from_slice(&self.signature);
         out
     }
 
@@ -357,16 +360,17 @@ impl BondTicket {
             bond: u64_at(bytes, 71),
             backing: u64_at(bytes, 79),
             lock_until: u32_at(bytes, 87),
-            attester: u16::from_le_bytes(array(bytes, 91)),
-            signature: array(bytes, 93),
+            valid_until: u32_at(bytes, 91),
+            attester: u16::from_le_bytes(array(bytes, 95)),
+            signature: array(bytes, 97),
         };
         device(&ticket.device)?;
         Ok(ticket)
     }
 
     /// The bytes the attester signs with Ed25519: the ticket-purpose domain, then the body.
-    pub fn signed_message(&self, ticket_domain: &[u8; 32]) -> [u8; 125] {
-        let mut out = [0; 125];
+    pub fn signed_message(&self, ticket_domain: &[u8; 32]) -> [u8; 129] {
+        let mut out = [0; 129];
         out[..32].copy_from_slice(ticket_domain);
         out[32..].copy_from_slice(&self.body());
         out
@@ -602,6 +606,7 @@ mod tests {
             bond: 100,
             backing: 500,
             lock_until: 1_900_000_000,
+            valid_until: 1_800_086_400,
             attester: 1,
             signature: [9; 64],
         };

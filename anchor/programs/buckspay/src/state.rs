@@ -87,3 +87,22 @@ pub struct Spent {
     /// `records::PAID` and `records::RECLAIMED`.
     pub flags: u8,
 }
+
+pub use buckspay_protocol::record::CLAIM_SEED;
+
+/// A loss that was claimed and burned out of one lock's bond. The output id is in the seeds, so a
+/// loss is claimed once for ever; nothing is paid out of a claim, so its filer needs no standing.
+#[account]
+#[derive(InitSpace, Debug, PartialEq, Eq)]
+pub struct Claim {
+    pub lock: Pubkey,
+    /// What the claim proves lost: the amount of the output claimed.
+    pub amount: u64,
+    /// What the claim burned out of the lock's free bond.
+    pub burned: u64,
+    /// Gets the rent back.
+    pub payer: Pubkey,
+    /// `window::claim_closable_at` of the contested output: after the last second the loss can be
+    /// claimed, which is what stops a second claim.
+    pub closable_at: u32,
+}

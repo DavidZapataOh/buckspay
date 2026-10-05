@@ -121,9 +121,33 @@ pub enum BuckspayError {
     /// 6036 - The reclaim signature is past its deadline
     #[error("The reclaim signature is past its deadline")]
     ReclaimExpired = 0x1794,
-    /// 6037 - An output of the chain has no record address
-    #[error("An output of the chain has no record address")]
+    /// 6037 - An output of the chain has no record address or no claim address
+    #[error("An output of the chain has no record address or no claim address")]
     UnrecordableOutput = 0x1795,
+    /// 6038 - The two messages do not conflict
+    #[error("The two messages do not conflict")]
+    NotConflicting = 0x1796,
+    /// 6039 - The proof does not match its body, signer or lock
+    #[error("The proof does not match its body, signer or lock")]
+    ConflictProof = 0x1797,
+    /// 6040 - The lock has no free bond to slash
+    #[error("The lock has no free bond to slash")]
+    NoBond = 0x1798,
+    /// 6041 - The claim deadline of the output has passed
+    #[error("The claim deadline of the output has passed")]
+    ClaimTooLate = 0x1799,
+    /// 6042 - The loss cannot be claimed from this lock
+    #[error("The loss cannot be claimed from this lock")]
+    NotClaimable = 0x179A,
+    /// 6043 - The output has no record
+    #[error("The output has no record")]
+    NoRecord = 0x179B,
+    /// 6044 - The output was already claimed
+    #[error("The output was already claimed")]
+    AlreadyClaimed = 0x179C,
+    /// 6045 - The output is larger than the lock's bond covers
+    #[error("The output is larger than the lock's bond covers")]
+    OverCoverage = 0x179D,
 }
 
 impl From<BuckspayError> for solana_program_error::ProgramError {

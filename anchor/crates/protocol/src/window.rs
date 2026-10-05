@@ -41,6 +41,14 @@ pub const fn claims_end(expiry: u32, lock_until: u32) -> u64 {
     end + CLAIM_WINDOW as u64
 }
 
+/// The second at which the claim of an output whose contested output expires at `expiry` may be
+/// closed: after the last claim window of the contested output (`claims_end`) and one
+/// `RECORD_TTL` more, so a claim outlives the last second the same loss could be claimed again.
+/// It is a function of the contested output and never of how long its lock is chosen to last.
+pub const fn claim_closable_at(expiry: u32, lock_until: u32) -> u64 {
+    claims_end(expiry, lock_until) + Windows::ACTIVE.record_ttl() as u64
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Settle {
     Open,

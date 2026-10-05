@@ -130,7 +130,7 @@ impl Ledger {
         Ok(())
     }
 
-    /// A claim, a burn or the reporter takes `amount` out of the pool.
+    /// A claim or the burn takes `amount` out of the pool.
     pub fn pay_slashed(&mut self, amount: u64) -> Result<Debit> {
         require!(amount > 0, BuckspayError::AmountZero);
         self.bond_slashed = self

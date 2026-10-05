@@ -47,6 +47,8 @@ export const MAX_DEPTH = 16
 export const NO_LOCK = 0xffffffff
 export const GRACE = 7 * 24 * 60 * 60
 export const CHALLENGE = 7 * 24 * 60 * 60
+/** A receiver refuses a ticket valid for longer than this from now, whatever its attester signed. */
+export const TICKET_TTL_MAX = 3 * 24 * 60 * 60
 /** A payment to a device expires at least this long before the output it spends. */
 export const EXPIRY_STEP = 60 * 60
 export const Kind = {
@@ -63,7 +65,7 @@ export const Kind = {
 export const Flags = { Delegated: 1, AuthorityOnly: 2, Sticky: 2, Known: 3 } as const
 export const ScopeKind = { Any: 0, Merchant: 1, Category: 2, Authority: 3 } as const
 
-const U64_MAX = 2n ** 64n - 1n
+export const U64_MAX = 2n ** 64n - 1n
 
 const checkUint = (value: number, max: number) => {
   if (!Number.isInteger(value) || value < 0 || value > max) throw new ProtocolError('Length')
@@ -88,8 +90,8 @@ export const SPEND1_BODY_LEN = 82
 export const SPEND2_BODY_LEN = 123
 export const SPEND1_WIRE_LEN = 178
 export const SPEND2_WIRE_LEN = 219
-export const BOND_TICKET_BODY_LEN = 93
-export const BOND_TICKET_WIRE_LEN = 157
+export const BOND_TICKET_BODY_LEN = 97
+export const BOND_TICKET_WIRE_LEN = 161
 export const SPEND_CONFLICT_WIRE_LEN = 227
 export const ISSUE_CONFLICT_WIRE_LEN = 235
 
@@ -117,6 +119,8 @@ export type BondTicket = {
   bond: bigint
   backing: bigint
   lockUntil: number
+  /** The last second at which a receiver accepts a payment on the strength of this ticket. */
+  validUntil: number
   attester: number
   signature: Uint8Array
 }
@@ -188,6 +192,7 @@ const bondTicketBodyCodec = getStructCodec([
   ['bond', getU64Codec()],
   ['backing', getU64Codec()],
   ['lockUntil', getU32Codec()],
+  ['validUntil', getU32Codec()],
   ['attester', getU16Codec()],
 ])
 
@@ -462,9 +467,19 @@ export const ticketMessage = (ticketDomain: Uint8Array, ticket: BondTicket) =>
 
 export function decodeBondTicket(wire: Uint8Array): BondTicket {
   checkHeader(wire, BOND_TICKET_WIRE_LEN, Kind.BondTicket)
-  const { device, mint, lockSeq, bond, backing, lockUntil, attester } = bondTicketBodyCodec.decode(wire)
+  const { device, mint, lockSeq, bond, backing, lockUntil, validUntil, attester } = bondTicketBodyCodec.decode(wire)
   checkDevice(device)
-  return { device, mint, lockSeq, bond, backing, lockUntil, attester, signature: wire.slice(BOND_TICKET_BODY_LEN) }
+  return {
+    device,
+    mint,
+    lockSeq,
+    bond,
+    backing,
+    lockUntil,
+    validUntil,
+    attester,
+    signature: wire.slice(BOND_TICKET_BODY_LEN),
+  }
 }
 
 function checkRecovery(recovery: number) {

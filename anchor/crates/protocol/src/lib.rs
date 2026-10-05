@@ -11,6 +11,7 @@ pub mod message;
 pub mod reclaim;
 pub mod record;
 pub mod secp256r1;
+pub mod slash;
 #[cfg(feature = "verify")]
 pub mod verify;
 pub use caveats::{flags, Caveats, Owner, ScopeKind, MAX_DEPTH};

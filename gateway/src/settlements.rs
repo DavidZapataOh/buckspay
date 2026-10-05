@@ -4,6 +4,7 @@
 //! wallet signs: the device signatures inside the chain are the only authority.
 use crate::{
     chain::{self, SIGNATURE_FEE, TokenAccount, associated_token_address},
+    claims,
     fees::priority_fee,
     float::{Kind, NewRecord, Refusal, Request as FloatRequest, Sending},
     onboard::{chain_now, read},
@@ -47,7 +48,7 @@ use std::{net::IpAddr, sync::Arc};
 use tracing::{error, info, warn};
 
 /// The least compute unit limit a settlement asks for.
-const MIN_COMPUTE_UNIT_LIMIT: u32 = 10_000;
+pub(crate) const MIN_COMPUTE_UNIT_LIMIT: u32 = 10_000;
 
 /// The most spends one instruction verifies: eight signatures take the issue and seven spends.
 pub const MAX_SPENDS: usize = MAX_SIGNATURES - 1;
@@ -117,6 +118,8 @@ pub enum Problem {
     NoTokenAccount,
     /// The lock does not exist, does not back the issue or holds too little.
     Lock(&'static str),
+    /// The program refuses the claim: nothing the wallet can do by paying for it.
+    Claim(&'static str),
     Limits(Refusal, Option<u32>),
 }
 
@@ -132,11 +135,13 @@ impl IntoResponse for Problem {
             Problem::NoTokenAccount => {
                 (StatusCode::CONFLICT, json!({ "error": "no_token_account" }))
             }
-            Problem::Lock(message) => (StatusCode::CONFLICT, json!({ "error": message })),
+            Problem::Lock(message) | Problem::Claim(message) => {
+                (StatusCode::CONFLICT, json!({ "error": message }))
+            }
             Problem::Limits(refusal, retry_after) => limits_response(refusal, *retry_after),
         };
         // A refusal the wallet can get round by paying for the transaction itself.
-        if !matches!(self, Problem::Invalid(_)) {
+        if !matches!(self, Problem::Invalid(_) | Problem::Claim(_)) {
             body["selfPay"] = json!(true);
         }
         let mut response = (status, Json(body)).into_response();
@@ -186,12 +191,12 @@ impl From<Problem> for Error {
     }
 }
 
-fn parse_issue(value: &str) -> Result<Signed<Issue>, Problem> {
+pub(crate) fn parse_issue(value: &str) -> Result<Signed<Issue>, Problem> {
     let bytes = hex::decode(value).map_err(|_| Problem::Invalid("issue is not hex"))?;
     Signed::<Issue>::decode(&bytes).map_err(|_| Problem::Invalid("issue is not a signed issue"))
 }
 
-fn parse_spends(values: &[String]) -> Result<Vec<Signed<Spend>>, Problem> {
+pub(crate) fn parse_spends(values: &[String]) -> Result<Vec<Signed<Spend>>, Problem> {
     if values.len() > MAX_SPENDS {
         return Err(Problem::Invalid("too many spends for one instruction"));
     }
@@ -207,25 +212,28 @@ fn parse_spends(values: &[String]) -> Result<Vec<Signed<Spend>>, Problem> {
 
 /// An output a spend of the chain consumed, as its record keeps it.
 #[derive(Clone, Copy, Debug)]
-struct Consumed {
-    output: [u8; 32],
-    content: [u8; 32],
-    expiry: u32,
+pub(crate) struct Consumed {
+    pub(crate) output: [u8; 32],
+    pub(crate) content: [u8; 32],
+    pub(crate) expiry: u32,
+    /// Whether the output is `DELEGATED` or `AUTHORITY_ONLY` for its holder: a spend of it is
+    /// backed by the chain's lock when it names none.
+    pub(crate) unlocked: bool,
 }
 
 /// What the program reads of a chain: the keys, envelopes and signatures to verify, the links, the
 /// outputs consumed and the outputs of the last message.
-struct Walk {
-    issue: Issue,
-    issue_body: [u8; 163],
-    entries: Vec<([u8; 33], [u8; 96], [u8; 64])>,
-    links: Vec<Link>,
-    consumed: Vec<Consumed>,
-    last: Holding,
+pub(crate) struct Walk {
+    pub(crate) issue: Issue,
+    pub(crate) issue_body: [u8; 163],
+    pub(crate) entries: Vec<([u8; 33], [u8; 96], [u8; 64])>,
+    pub(crate) links: Vec<Link>,
+    pub(crate) consumed: Vec<Consumed>,
+    pub(crate) last: Holding,
 }
 
 /// Walks the chain with the rules the program applies, refusing an output that cannot be recorded.
-fn walk(
+pub(crate) fn walk(
     program: &Pubkey,
     note_domain: &[u8; 32],
     issue: &Signed<Issue>,
@@ -267,6 +275,7 @@ fn walk(
             output: input.id,
             content: content(&body[..len]),
             expiry: input.caveats.expiry,
+            unlocked: rules::unlocked(&input.caveats.for_holder(&input.owner)),
         });
         last = next;
     }
@@ -781,12 +790,12 @@ pub async fn loaded_accounts_size(
 
 /// The limit the transaction asks for: what the runtime counts plus a tenth, never a constant: an
 /// upgrade of the program changes it.
-fn loaded_accounts_limit(counted: u32) -> u32 {
+pub(crate) fn loaded_accounts_limit(counted: u32) -> u32 {
     let margin = u64::from(counted) * LOADED_ACCOUNTS_MARGIN_PERCENT / 100;
     u32::try_from(u64::from(counted) + margin).unwrap_or(u32::MAX)
 }
 
-fn compose(
+pub(crate) fn compose(
     state: &Gateway,
     instructions: &[Instruction],
     blockhash: Hash,
@@ -995,9 +1004,19 @@ pub(crate) async fn settle(
     Extension(Client(ip)): Extension<Client>,
     Json(request): Json<SettlementRequest>,
 ) -> Result<Json<serde_json::Value>, Error> {
-    match inspect_settlement(&state, ip, &request).await? {
-        Planned::Settled => Ok(Json(json!({ "status": "settled" }))),
-        Planned::Send(job) => sponsor(&state, *job).await,
+    match inspect_settlement(&state, ip, &request).await {
+        Ok(Planned::Settled) => Ok(Json(json!({ "status": "settled" }))),
+        Ok(Planned::Send(job)) => sponsor(&state, *job).await,
+        Err(error) => {
+            // What made the settlement fail is the evidence of a loss: nobody has to ask for it.
+            if matches!(
+                &error,
+                Error::Settlement(Problem::Conflict(_) | Problem::Lock("insufficient_backing"))
+            ) {
+                claims::file_in_background(state, request);
+            }
+            Err(error)
+        }
     }
 }
 

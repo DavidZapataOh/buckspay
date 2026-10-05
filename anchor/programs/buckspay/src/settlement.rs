@@ -36,8 +36,12 @@ pub struct Walk {
     /// The key and envelope each message must have been signed with, issue first.
     pub entries: Vec<Expected>,
     pub consumed: Vec<Consumed>,
+    /// The decoded spends, in chain order.
+    pub spends: Vec<Spend>,
     /// The outputs of the last message (the issue's output when there are no spends).
     pub last: Holding,
+    /// The output the last spend consumed, whole: a claim needs its amount and its rules.
+    pub contested: Option<Output>,
 }
 
 /// A message presented to the record of the output it consumed.
@@ -66,6 +70,8 @@ pub fn walk(domain: &[u8; 32], issue_body: &[u8; ISSUE_BODY_LEN], links: &[Link]
         second: None,
     };
     let mut consumed = Vec::with_capacity(links.len());
+    let mut spends = Vec::with_capacity(links.len());
+    let mut contested = None;
     for link in links {
         let input: Output = match link.input {
             0 => last.first,
@@ -83,13 +89,17 @@ pub fn walk(domain: &[u8; 32], issue_body: &[u8; ISSUE_BODY_LEN], links: &[Link]
             content: content(&link.body),
             expiry: input.caveats.expiry,
         });
+        contested = Some(input);
+        spends.push(spend);
         last = next;
     }
     Ok(Walk {
         issue,
         entries,
         consumed,
+        spends,
         last,
+        contested,
     })
 }
 
