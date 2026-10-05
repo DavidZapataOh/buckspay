@@ -1,4 +1,4 @@
-// Reads the balance of the copied wallet address on the local validator, in lamports.
+// Reads the balance of the copied wallet address at the flow's RPC_URL, in lamports.
 const response = http.post(RPC_URL, {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({

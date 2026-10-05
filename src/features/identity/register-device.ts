@@ -22,6 +22,7 @@ import {
   type GetFeeForMessageApi,
   type GetLatestBlockhashApi,
   type GetMinimumBalanceForRentExemptionApi,
+  isSolanaError,
   pipe,
   type ReadonlyUint8Array,
   type Rpc,
@@ -262,14 +263,22 @@ export const simulateSponsoredRegistration = (ctx: RegisterDeviceContext, { tran
 
 /**
  * Has the wallet sign the sponsored registration without sending it, and refuses anything but those
- * exact bytes with the wallet's signature.
+ * exact bytes with the wallet's signature. An answer that does not decode as a transaction with
+ * the message's signer slots, such as one signature where two are required, is refused the same way.
  */
 export async function signSponsoredRegistration(
   ctx: RegisterDeviceContext,
   wallet: Address,
   { transaction }: SponsoredRegistration,
 ): Promise<Transaction> {
-  const signed = await ctx.signTransactions(transaction)
+  let signed
+  try {
+    signed = await ctx.signTransactions(transaction)
+  } catch (error) {
+    // Signing reads nothing from Solana: a Solana error here is the wallet's answer failing to decode.
+    if (isSolanaError(error)) throw new SponsorshipError('altered', error)
+    throw error
+  }
   if (!sameBytes(signed.messageBytes, transaction.messageBytes) || !signed.signatures[wallet]) {
     throw new SponsorshipError('altered')
   }

@@ -2,12 +2,19 @@
 	# No admin API: a configuration change takes a restart, and nothing local can rewrite it.
 	admin off
 	# No access log. Error entries and Go's server messages carry client addresses, so they are
-	# not logged either.
+	# not logged either, nor the certificate manager's informational entries, which name the
+	# address of each ACME validation request.
 	log default {
-		exclude http.log.error http.stdlib
+		exclude http.log.error http.stdlib tls
 	}
-	# A client that trickles its headers or body is cut off.
+	log tls {
+		include tls
+		level WARN
+	}
 	servers {
+		# UDP 443 is closed, so no HTTP/3.
+		protocols h1 h2
+		# A client that trickles its headers or body is cut off.
 		timeouts {
 			read_header 10s
 			read_body 10s

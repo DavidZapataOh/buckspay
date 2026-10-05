@@ -245,7 +245,15 @@ class Cluster {
 let cluster: Cluster
 let wallet: Address
 let walletFailure:
-  'none' | 'revoked' | 'declined' | 'before-sending' | 'after-sending' | 'killed' | 'unsupported' | 'altered'
+  | 'none'
+  | 'revoked'
+  | 'declined'
+  | 'before-sending'
+  | 'after-sending'
+  | 'killed'
+  | 'unsupported'
+  | 'altered'
+  | 'one-signature'
 let gateway: Gateway | undefined
 let walletCalls: number
 const connect = vi.fn(async () => cache.set(authorization(wallet)))
@@ -288,6 +296,13 @@ async function signTransactions(transaction: Transaction): Promise<Transaction> 
   // A wallet without `sign_transactions` answers JSON-RPC's method not found.
   if (failure === 'unsupported') throw new SolanaMobileWalletAdapterProtocolError(0, -32601, 'Method not found')
   if (failure === 'killed') return new Promise(() => {})
+  if (failure === 'one-signature') {
+    // A wallet that answers with its signature alone, where the message requires two (the Mock MWA
+    // Wallet): the wallet kit decodes that answer and throws.
+    return getTransactionDecoder().decode(
+      Uint8Array.from([1, ...new Uint8Array(64).fill(7), ...transaction.messageBytes]),
+    )
+  }
   const signatures = { ...transaction.signatures, [wallet]: new Uint8Array(64).fill(7) as SignatureBytes }
   if (failure === 'altered') {
     // A wallet that adds its own priority fee signs another message.
@@ -969,6 +984,23 @@ describe('device identity', () => {
     walletFailure = 'none'
     expect(await advanceIdentity(context(), refused)).toMatchObject({ step: 'ready', wallet: ALICE })
     expect(sponsor.submitted).toBe(0)
+  })
+
+  it('offers an unfunded wallet the paid path when its answer has one signature where two are required', async () => {
+    const sponsor = (gateway = new Gateway())
+    cluster.balances.set(ALICE, 0n)
+    const atRegister = await walk('connect', 'create-key', 'register')
+    expect(atRegister.sponsorship).toBe('free')
+    walletFailure = 'one-signature'
+    const refused = await advanceIdentity(context(), atRegister)
+    expect(refused).toMatchObject({ step: 'register', sponsorship: 'unavailable' })
+    expect(refused.error).toBe(
+      'Your wallet changed the registration before signing it, so it wasn’t sent. Nothing was sent and nothing was charged. To register now, add SOL to your wallet and pay from it.',
+    )
+    expect(refused.details).toContain('expected the transaction to have 2 signatures, got 1')
+    expect(sponsor.submitted).toBe(0)
+    expect(cluster.sent).toHaveLength(0)
+    expect(storedItems()).not.toHaveProperty('registration')
   })
 
   it('sends nothing when the wallet declines a sponsored registration, or is killed while it holds it', async () => {

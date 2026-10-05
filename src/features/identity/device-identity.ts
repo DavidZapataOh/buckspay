@@ -539,7 +539,7 @@ async function registerSponsored(
   try {
     signed = await signSponsoredRegistration(ctx, registration.wallet, sponsored)
   } catch (error) {
-    if (error instanceof SponsorshipError) return fallback(error.reason, error)
+    if (error instanceof SponsorshipError) return fallback(error.reason, error.cause ?? error)
     if (isWalletError(error, SolanaMobileWalletAdapterProtocolErrorCode.ERROR_AUTHORIZATION_FAILED)) throw error
     if (isWalletError(error, METHOD_NOT_FOUND)) return fallback('unsupported', error)
     return { ...current, ...describeIdentityError(error, 'register') }

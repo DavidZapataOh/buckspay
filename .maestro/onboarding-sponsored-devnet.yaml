@@ -1,0 +1,61 @@
+# Fresh install of a devnet build with the deployed gateway and the Mock MWA Wallet with no dev key
+# (a new, unfunded wallet). The register step says it is free; the Mock MWA Wallet answers
+# sign_transactions with its own signature alone where the message requires two, so the app refuses
+# the answer, sends nothing, and offers the wallet-pays path, which this wallet cannot afford.
+appId: xyz.buckspay.app
+env:
+  RPC_URL: https://api.devnet.solana.com
+---
+- clearState
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: setup-payments
+    timeout: 60000
+- tapOn:
+    id: setup-payments
+- extendedWaitUntil:
+    visible:
+      id: onboarding-connect
+    timeout: 20000
+- tapOn:
+    id: onboarding-next
+- extendedWaitUntil:
+    visible:
+      id: com.solana.mwallet:id/btn_connect
+    timeout: 20000
+- tapOn:
+    id: com.solana.mwallet:id/btn_connect
+- extendedWaitUntil:
+    visible:
+      id: onboarding-register
+    timeout: 30000
+- assertVisible: 'Free: Buckspay pays the registration.'
+- assertNotVisible: .*Add SOL.*
+- copyTextFrom:
+    id: wallet-address
+- runScript: scripts/balance.js
+- assertTrue: ${output.balance == 0}
+- scrollUntilVisible:
+    element:
+      id: onboarding-next
+- tapOn:
+    id: onboarding-next
+- tapOn:
+    id: com.solana.mwallet:id/btn_connect
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: com.solana.mwallet:id/btn_approve
+    timeout: 20000
+- tapOn:
+    id: com.solana.mwallet:id/btn_approve
+- extendedWaitUntil:
+    visible: .*To register now, add SOL to your wallet and pay from it.*
+    timeout: 30000
+- assertVisible: .*Your wallet changed the registration before signing it, so it wasn’t sent.*
+- assertNotVisible: 'Free: Buckspay pays the registration.'
+- assertNotVisible:
+    id: device-ready
+- runScript: scripts/balance.js
+- assertTrue: ${output.balance == 0}

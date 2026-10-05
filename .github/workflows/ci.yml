@@ -188,6 +188,9 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@v2
+        env:
+          # The default 15 s is too short for Maestro's driver on a CI emulator.
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 240000
         with:
           api-level: 36
           target: google_apis

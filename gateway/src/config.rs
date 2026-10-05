@@ -136,15 +136,42 @@ impl Config {
     }
 }
 
-/// Reads a `solana-keygen` keypair file, refusing one that other users can read.
-pub fn read_keypair(path: &Path) -> Result<Keypair, String> {
+/// Refuses a key file that users other than its owner can read.
+///
+/// systemd copies `LoadCredential=` files into `$CREDENTIALS_DIRECTORY` as `0440` files owned by
+/// root that "only the UID associated with the unit via `User=` (and the superuser)" can read,
+/// through an ACL (systemd.exec(5), "Credentials"). Their group bits only mirror that ACL, so
+/// inside that directory a key file is refused for its world bits alone.
+pub(crate) fn check_key_file(path: &Path) -> Result<(), String> {
+    let credentials = env::var_os("CREDENTIALS_DIRECTORY").map(PathBuf::from);
+    check_key_file_in(path, credentials.as_deref())
+}
+
+fn check_key_file_in(path: &Path, credentials: Option<&Path>) -> Result<(), String> {
     let name = path.display();
-    let metadata = fs::metadata(path).map_err(|error| format!("{name}: {error}"))?;
-    if metadata.permissions().mode() & 0o077 != 0 {
+    let mode = fs::metadata(path)
+        .map_err(|error| format!("{name}: {error}"))?
+        .permissions()
+        .mode();
+    let is_credential = credentials.is_some_and(|directory| {
+        match (fs::canonicalize(path), fs::canonicalize(directory)) {
+            (Ok(file), Ok(directory)) => file.starts_with(directory),
+            _ => false,
+        }
+    });
+    let others = if is_credential { 0o007 } else { 0o077 };
+    if mode & others != 0 {
         return Err(format!(
             "{name} must not be readable by other users (chmod 600)"
         ));
     }
+    Ok(())
+}
+
+/// Reads a `solana-keygen` keypair file, refusing one that other users can read.
+pub fn read_keypair(path: &Path) -> Result<Keypair, String> {
+    let name = path.display();
+    check_key_file(path)?;
     let bytes: Vec<u8> = serde_json::from_str(
         &fs::read_to_string(path).map_err(|error| format!("{name}: {error}"))?,
     )
@@ -225,5 +252,34 @@ mod tests {
         );
         fs::remove_file(&path).unwrap();
         assert!(read_keypair(&path).is_err());
+    }
+
+    #[test]
+    fn accepts_systemd_credentials_without_world_bits() {
+        let credentials =
+            env::temp_dir().join(format!("buckspay-credentials-{}", std::process::id()));
+        fs::create_dir_all(&credentials).unwrap();
+        let credential = credentials.join("fee-payer");
+        fs::write(&credential, "[]").unwrap();
+        fs::set_permissions(&credential, fs::Permissions::from_mode(0o440)).unwrap();
+        assert_eq!(check_key_file_in(&credential, Some(&credentials)), Ok(()));
+        assert!(check_key_file_in(&credential, None).is_err());
+        fs::set_permissions(&credential, fs::Permissions::from_mode(0o444)).unwrap();
+        assert!(
+            check_key_file_in(&credential, Some(&credentials))
+                .unwrap_err()
+                .contains("chmod 600")
+        );
+
+        let elsewhere = env::temp_dir().join(format!("buckspay-key-{}.json", std::process::id()));
+        fs::write(&elsewhere, "[]").unwrap();
+        fs::set_permissions(&elsewhere, fs::Permissions::from_mode(0o640)).unwrap();
+        assert!(
+            check_key_file_in(&elsewhere, Some(&credentials))
+                .unwrap_err()
+                .contains("chmod 600")
+        );
+        fs::remove_file(&elsewhere).unwrap();
+        fs::remove_dir_all(&credentials).unwrap();
     }
 }

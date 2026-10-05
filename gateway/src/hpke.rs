@@ -1,3 +1,4 @@
+use crate::config::check_key_file;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use hpke::{
     Deserializable, HpkeError, Kem as _, OpModeR, Serializable, aead::ChaCha20Poly1305,
@@ -5,7 +6,7 @@ use hpke::{
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use std::{fs, os::unix::fs::PermissionsExt, path::Path};
+use std::{fs, path::Path};
 
 /// RFC 9180 identifiers of the one suite the gateway accepts.
 pub const KEM_ID: u16 = 0x0020;
@@ -79,12 +80,7 @@ impl HpkeKeys {
         let mut secrets = Vec::new();
         for path in paths {
             let name = path.display();
-            let metadata = fs::metadata(path).map_err(|error| format!("{name}: {error}"))?;
-            if metadata.permissions().mode() & 0o077 != 0 {
-                return Err(format!(
-                    "{name} must not be readable by other users (chmod 600)"
-                ));
-            }
+            check_key_file(path)?;
             let bytes = fs::read(path).map_err(|error| format!("{name}: {error}"))?;
             secrets.push(
                 <[u8; 32]>::try_from(bytes.as_slice())
