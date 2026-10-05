@@ -1,6 +1,7 @@
 //! Buckspay's gateway: sponsors onboarding, locks, withdrawals and wallet rotations without holding
 //! user funds or keys.
 
+pub mod attester;
 pub mod chain;
 pub mod claims;
 pub mod config;

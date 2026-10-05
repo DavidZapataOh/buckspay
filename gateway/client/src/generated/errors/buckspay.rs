@@ -148,6 +148,33 @@ pub enum BuckspayError {
     /// 6045 - The output is larger than the lock's bond covers
     #[error("The output is larger than the lock's bond covers")]
     OverCoverage = 0x179D,
+    /// 6046 - The stake is below the minimum
+    #[error("The stake is below the minimum")]
+    StakeTooLow = 0x179E,
+    /// 6047 - The key is not a canonical point of the prime-order subgroup
+    #[error("The key is not a canonical point of the prime-order subgroup")]
+    AttesterKey = 0x179F,
+    /// 6048 - The attester's status does not allow this
+    #[error("The attester's status does not allow this")]
+    AttesterStatus = 0x17A0,
+    /// 6049 - The attester cannot withdraw its stake yet
+    #[error("The attester cannot withdraw its stake yet")]
+    ExitNotReady = 0x17A1,
+    /// 6050 - The key was rotated too recently to rotate again
+    #[error("The key was rotated too recently to rotate again")]
+    RotationCooldown = 0x17A2,
+    /// 6051 - The instruction before this one is not the Ed25519 verification of this ticket
+    #[error("The instruction before this one is not the Ed25519 verification of this ticket")]
+    TicketBinding = 0x17A3,
+    /// 6052 - The chain does not contradict the ticket
+    #[error("The chain does not contradict the ticket")]
+    TicketNotProvablyFalse = 0x17A4,
+    /// 6053 - The attester was already slashed
+    #[error("The attester was already slashed")]
+    AlreadySlashed = 0x17A5,
+    /// 6054 - The key that signed the ticket is not one the attester answers for
+    #[error("The key that signed the ticket is not one the attester answers for")]
+    UnknownSigner = 0x17A6,
 }
 
 impl From<BuckspayError> for solana_program_error::ProgramError {

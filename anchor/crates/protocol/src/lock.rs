@@ -14,6 +14,11 @@ pub struct Windows {
     pub rotation_delay: u32,
     /// A payment to a device expires at least this long before the output it spends.
     pub expiry_step: u32,
+    /// A receiver refuses a ticket that is valid for longer than this from now, so an attester
+    /// cannot make a ticket outlive the freshness the receivers rely on.
+    pub ticket_ttl_max: u32,
+    /// A receiver stops believing a registry entry it read longer ago than this.
+    pub max_registry_age: u32,
 }
 
 impl Windows {
@@ -25,6 +30,8 @@ impl Windows {
         release_delay: 14 * 24 * 60 * 60,
         rotation_delay: 7 * 24 * 60 * 60,
         expiry_step: 60 * 60,
+        ticket_ttl_max: 3 * 24 * 60 * 60,
+        max_registry_age: 7 * 24 * 60 * 60,
     };
 
     pub const SHORT: Self = Self {
@@ -35,6 +42,8 @@ impl Windows {
         release_delay: 60,
         rotation_delay: 60,
         expiry_step: 5,
+        ticket_ttl_max: 180,
+        max_registry_age: 60,
     };
 
     /// The windows this crate was compiled with.
@@ -64,6 +73,8 @@ mod windows {
     pub const RELEASE_DELAY: u32 = Windows::PRODUCTION.release_delay;
     pub const ROTATION_DELAY: u32 = Windows::PRODUCTION.rotation_delay;
     pub const EXPIRY_STEP: u32 = Windows::PRODUCTION.expiry_step;
+    pub const TICKET_TTL_MAX: u32 = Windows::PRODUCTION.ticket_ttl_max;
+    pub const MAX_REGISTRY_AGE: u32 = Windows::PRODUCTION.max_registry_age;
 }
 #[cfg(feature = "short-windows")]
 mod windows {
@@ -73,17 +84,19 @@ mod windows {
     pub const RELEASE_DELAY: u32 = Windows::SHORT.release_delay;
     pub const ROTATION_DELAY: u32 = Windows::SHORT.rotation_delay;
     pub const EXPIRY_STEP: u32 = Windows::SHORT.expiry_step;
+    pub const TICKET_TTL_MAX: u32 = Windows::SHORT.ticket_ttl_max;
+    pub const MAX_REGISTRY_AGE: u32 = Windows::SHORT.max_registry_age;
 }
-pub use windows::{CLAIM_WINDOW, EXPIRY_STEP, MIN_NOTE_LIFE, RELEASE_DELAY, ROTATION_DELAY};
+pub use windows::{
+    CLAIM_WINDOW, EXPIRY_STEP, MAX_REGISTRY_AGE, MIN_NOTE_LIFE, RELEASE_DELAY, ROTATION_DELAY,
+    TICKET_TTL_MAX,
+};
 
 /// `lock_until` must be at least this far from now: one note, from issue to the end of the challenge.
 pub const MIN_LOCK: u32 = GRACE + CHALLENGE + MIN_NOTE_LIFE;
 /// `Lock` and `Ledger` can be closed this long after `lock_until`.
 pub const RECORD_TTL: u32 = CLAIM_WINDOW + CHALLENGE;
 pub const MAX_LOCK: u32 = 366 * 24 * 60 * 60;
-/// A receiver refuses a ticket that is valid for longer than this from now, so an attester cannot
-/// make a ticket outlive the freshness the receivers rely on.
-pub const TICKET_TTL_MAX: u32 = 3 * 24 * 60 * 60;
 pub const MAX_SPONSOR_FEE_DIVISOR: u64 = 4;
 
 // Every inequality the settlement, report and ticket logic relies on, checked when the crate
@@ -147,6 +160,8 @@ mod tests {
                 release_delay: RELEASE_DELAY,
                 rotation_delay: ROTATION_DELAY,
                 expiry_step: EXPIRY_STEP,
+                ticket_ttl_max: TICKET_TTL_MAX,
+                max_registry_age: MAX_REGISTRY_AGE,
             }
         );
         assert_eq!(

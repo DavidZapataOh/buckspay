@@ -56,5 +56,5 @@ export function findLockPda(
  * more for each lower bump) plus 4,500 CU of instructions the wallet adds, and at least 40,000 CU.
  */
 export function registerDeviceComputeUnitLimit(bump: number): number {
-  return Math.max(40_000, 11_281 + 1_500 * (255 - bump) + 4_500)
+  return Math.max(40_000, 11_283 + 1_500 * (255 - bump) + 4_500)
 }

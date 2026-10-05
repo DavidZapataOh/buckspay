@@ -417,6 +417,7 @@ dependencies = [
  "base64 0.22.1",
  "buckspay-client",
  "buckspay-protocol",
+ "ed25519-dalek",
  "governor",
  "hex",
  "hpke",

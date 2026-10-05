@@ -821,20 +821,29 @@ fn the_program_has_no_instruction_that_pays_a_claimant() {
             "claim_lost_spend",
             "claim_unbacked",
             "close_records",
+            "register_attester",
+            "top_up_attester",
+            "rotate_attester_key",
+            "request_attester_exit",
+            "cancel_attester_exit",
+            "withdraw_attester_stake",
+            "report_false_ticket",
         ]
     );
-    // The claim path moves tokens only through the burn.
+    // The claim path moves tokens only through the burn, and so does the report of a false ticket:
+    // what an attester stakes is destroyed, never paid to the reporter or to a victim.
     for name in [
         "claim_lost_spend.rs",
         "claim_unbacked.rs",
+        "report_false_ticket.rs",
         "filing.rs",
         "burn.rs",
     ] {
         let text = std::fs::read_to_string(
-            src.join(if name.starts_with("claim") {
-                "instructions"
-            } else {
+            src.join(if name.starts_with("filing") || name.starts_with("burn") {
                 ""
+            } else {
+                "instructions"
             })
             .join(name),
         )

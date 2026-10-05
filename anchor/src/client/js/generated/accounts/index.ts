@@ -6,6 +6,7 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from './attester'
 export * from './device'
 export * from './ledger'
 export * from './lock'

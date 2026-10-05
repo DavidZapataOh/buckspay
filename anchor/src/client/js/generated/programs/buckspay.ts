@@ -35,10 +35,13 @@ import {
   type SelfPlanAndSendFunctions,
 } from '@solana/kit/program-client-core'
 import {
+  getAttesterCodec,
   getDeviceCodec,
   getLedgerCodec,
   getLockCodec,
   getRotationCodec,
+  type Attester,
+  type AttesterArgs,
   type Device,
   type DeviceArgs,
   type Ledger,
@@ -50,6 +53,7 @@ import {
 } from '../accounts'
 import {
   getApplyWalletRotationInstruction,
+  getCancelAttesterExitInstruction,
   getCancelWalletRotationInstruction,
   getClaimLostSpendInstructionAsync,
   getClaimUnbackedInstructionAsync,
@@ -60,12 +64,19 @@ import {
   getMigrateDeviceInstruction,
   getReclaimOutputInstructionAsync,
   getRecordPrefixInstruction,
+  getRegisterAttesterInstructionAsync,
   getRegisterDeviceInstruction,
   getReleaseLockInstructionAsync,
+  getReportFalseTicketInstructionAsync,
+  getRequestAttesterExitInstruction,
   getRequestWalletRotationInstruction,
+  getRotateAttesterKeyInstruction,
   getSettleNoteInstructionAsync,
+  getTopUpAttesterInstructionAsync,
+  getWithdrawAttesterStakeInstructionAsync,
   getWithdrawLockInstructionAsync,
   parseApplyWalletRotationInstruction,
+  parseCancelAttesterExitInstruction,
   parseCancelWalletRotationInstruction,
   parseClaimLostSpendInstruction,
   parseClaimUnbackedInstruction,
@@ -76,12 +87,19 @@ import {
   parseMigrateDeviceInstruction,
   parseReclaimOutputInstruction,
   parseRecordPrefixInstruction,
+  parseRegisterAttesterInstruction,
   parseRegisterDeviceInstruction,
   parseReleaseLockInstruction,
+  parseReportFalseTicketInstruction,
+  parseRequestAttesterExitInstruction,
   parseRequestWalletRotationInstruction,
+  parseRotateAttesterKeyInstruction,
   parseSettleNoteInstruction,
+  parseTopUpAttesterInstruction,
+  parseWithdrawAttesterStakeInstruction,
   parseWithdrawLockInstruction,
   type ApplyWalletRotationInput,
+  type CancelAttesterExitInput,
   type CancelWalletRotationInput,
   type ClaimLostSpendAsyncInput,
   type ClaimUnbackedAsyncInput,
@@ -91,6 +109,7 @@ import {
   type CreateLockAsyncInput,
   type MigrateDeviceInput,
   type ParsedApplyWalletRotationInstruction,
+  type ParsedCancelAttesterExitInstruction,
   type ParsedCancelWalletRotationInstruction,
   type ParsedClaimLostSpendInstruction,
   type ParsedClaimUnbackedInstruction,
@@ -101,25 +120,38 @@ import {
   type ParsedMigrateDeviceInstruction,
   type ParsedReclaimOutputInstruction,
   type ParsedRecordPrefixInstruction,
+  type ParsedRegisterAttesterInstruction,
   type ParsedRegisterDeviceInstruction,
   type ParsedReleaseLockInstruction,
+  type ParsedReportFalseTicketInstruction,
+  type ParsedRequestAttesterExitInstruction,
   type ParsedRequestWalletRotationInstruction,
+  type ParsedRotateAttesterKeyInstruction,
   type ParsedSettleNoteInstruction,
+  type ParsedTopUpAttesterInstruction,
+  type ParsedWithdrawAttesterStakeInstruction,
   type ParsedWithdrawLockInstruction,
   type ReclaimOutputAsyncInput,
   type RecordPrefixInput,
+  type RegisterAttesterAsyncInput,
   type RegisterDeviceInput,
   type ReleaseLockAsyncInput,
+  type ReportFalseTicketAsyncInput,
+  type RequestAttesterExitInput,
   type RequestWalletRotationInput,
+  type RotateAttesterKeyInput,
   type SettleNoteAsyncInput,
+  type TopUpAttesterAsyncInput,
+  type WithdrawAttesterStakeAsyncInput,
   type WithdrawLockAsyncInput,
 } from '../instructions'
-import { findEscrowPda, findLedgerPda } from '../pdas'
+import { findEscrowPda, findLedgerPda, findRegisterAttesterEscrowPda, findRegisterAttesterLedgerPda } from '../pdas'
 
 export const BUCKSPAY_PROGRAM_ADDRESS =
   'zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM' as Address<'zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM'>
 
 export enum BuckspayAccount {
+  Attester,
   Device,
   Ledger,
   Lock,
@@ -128,6 +160,15 @@ export enum BuckspayAccount {
 
 export function identifyBuckspayAccount(account: { data: ReadonlyUint8Array } | ReadonlyUint8Array): BuckspayAccount {
   const data = 'data' in account ? account.data : account
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([145, 187, 162, 7, 215, 117, 215, 94])),
+      0,
+    )
+  ) {
+    return BuckspayAccount.Attester
+  }
   if (
     containsBytes(
       data,
@@ -172,6 +213,7 @@ export function identifyBuckspayAccount(account: { data: ReadonlyUint8Array } | 
 
 export enum BuckspayInstruction {
   ApplyWalletRotation,
+  CancelAttesterExit,
   CancelWalletRotation,
   ClaimLostSpend,
   ClaimUnbacked,
@@ -182,10 +224,16 @@ export enum BuckspayInstruction {
   MigrateDevice,
   ReclaimOutput,
   RecordPrefix,
+  RegisterAttester,
   RegisterDevice,
   ReleaseLock,
+  ReportFalseTicket,
+  RequestAttesterExit,
   RequestWalletRotation,
+  RotateAttesterKey,
   SettleNote,
+  TopUpAttester,
+  WithdrawAttesterStake,
   WithdrawLock,
 }
 
@@ -201,6 +249,15 @@ export function identifyBuckspayInstruction(
     )
   ) {
     return BuckspayInstruction.ApplyWalletRotation
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([191, 253, 128, 141, 197, 233, 19, 240])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.CancelAttesterExit
   }
   if (
     containsBytes(
@@ -291,6 +348,15 @@ export function identifyBuckspayInstruction(
   if (
     containsBytes(
       data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([111, 233, 124, 30, 66, 228, 125, 85])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.RegisterAttester
+  }
+  if (
+    containsBytes(
+      data,
       fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([210, 151, 56, 68, 22, 158, 90, 193])),
       0,
     )
@@ -309,6 +375,24 @@ export function identifyBuckspayInstruction(
   if (
     containsBytes(
       data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([157, 110, 192, 232, 107, 121, 71, 230])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.ReportFalseTicket
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([81, 19, 181, 211, 210, 121, 186, 180])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.RequestAttesterExit
+  }
+  if (
+    containsBytes(
+      data,
       fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([17, 80, 61, 5, 234, 245, 246, 227])),
       0,
     )
@@ -318,11 +402,38 @@ export function identifyBuckspayInstruction(
   if (
     containsBytes(
       data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([137, 138, 222, 109, 82, 98, 189, 220])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.RotateAttesterKey
+  }
+  if (
+    containsBytes(
+      data,
       fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([21, 43, 198, 188, 252, 22, 228, 86])),
       0,
     )
   ) {
     return BuckspayInstruction.SettleNote
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([129, 247, 114, 74, 139, 217, 62, 0])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.TopUpAttester
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([93, 174, 147, 206, 151, 65, 240, 59])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.WithdrawAttesterStake
   }
   if (
     containsBytes(
@@ -341,6 +452,7 @@ export function identifyBuckspayInstruction(
 
 export type ParsedBuckspayInstruction<TProgram extends string = 'zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM'> =
   | ({ instructionType: BuckspayInstruction.ApplyWalletRotation } & ParsedApplyWalletRotationInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.CancelAttesterExit } & ParsedCancelAttesterExitInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CancelWalletRotation } & ParsedCancelWalletRotationInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.ClaimLostSpend } & ParsedClaimLostSpendInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.ClaimUnbacked } & ParsedClaimUnbackedInstruction<TProgram>)
@@ -351,10 +463,16 @@ export type ParsedBuckspayInstruction<TProgram extends string = 'zkJoXgVrQ8kvJGv
   | ({ instructionType: BuckspayInstruction.MigrateDevice } & ParsedMigrateDeviceInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.ReclaimOutput } & ParsedReclaimOutputInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RecordPrefix } & ParsedRecordPrefixInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.RegisterAttester } & ParsedRegisterAttesterInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RegisterDevice } & ParsedRegisterDeviceInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.ReleaseLock } & ParsedReleaseLockInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.ReportFalseTicket } & ParsedReportFalseTicketInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.RequestAttesterExit } & ParsedRequestAttesterExitInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RequestWalletRotation } & ParsedRequestWalletRotationInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.RotateAttesterKey } & ParsedRotateAttesterKeyInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.SettleNote } & ParsedSettleNoteInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.TopUpAttester } & ParsedTopUpAttesterInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.WithdrawAttesterStake } & ParsedWithdrawAttesterStakeInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.WithdrawLock } & ParsedWithdrawLockInstruction<TProgram>)
 
 export function parseBuckspayInstruction<TProgram extends string>(
@@ -367,6 +485,13 @@ export function parseBuckspayInstruction<TProgram extends string>(
       return {
         instructionType: BuckspayInstruction.ApplyWalletRotation,
         ...parseApplyWalletRotationInstruction(instruction),
+      }
+    }
+    case BuckspayInstruction.CancelAttesterExit: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: BuckspayInstruction.CancelAttesterExit,
+        ...parseCancelAttesterExitInstruction(instruction),
       }
     }
     case BuckspayInstruction.CancelWalletRotation: {
@@ -410,6 +535,10 @@ export function parseBuckspayInstruction<TProgram extends string>(
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.RecordPrefix, ...parseRecordPrefixInstruction(instruction) }
     }
+    case BuckspayInstruction.RegisterAttester: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.RegisterAttester, ...parseRegisterAttesterInstruction(instruction) }
+    }
     case BuckspayInstruction.RegisterDevice: {
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.RegisterDevice, ...parseRegisterDeviceInstruction(instruction) }
@@ -418,6 +547,20 @@ export function parseBuckspayInstruction<TProgram extends string>(
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.ReleaseLock, ...parseReleaseLockInstruction(instruction) }
     }
+    case BuckspayInstruction.ReportFalseTicket: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: BuckspayInstruction.ReportFalseTicket,
+        ...parseReportFalseTicketInstruction(instruction),
+      }
+    }
+    case BuckspayInstruction.RequestAttesterExit: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: BuckspayInstruction.RequestAttesterExit,
+        ...parseRequestAttesterExitInstruction(instruction),
+      }
+    }
     case BuckspayInstruction.RequestWalletRotation: {
       assertIsInstructionWithAccounts(instruction)
       return {
@@ -425,9 +568,27 @@ export function parseBuckspayInstruction<TProgram extends string>(
         ...parseRequestWalletRotationInstruction(instruction),
       }
     }
+    case BuckspayInstruction.RotateAttesterKey: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: BuckspayInstruction.RotateAttesterKey,
+        ...parseRotateAttesterKeyInstruction(instruction),
+      }
+    }
     case BuckspayInstruction.SettleNote: {
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.SettleNote, ...parseSettleNoteInstruction(instruction) }
+    }
+    case BuckspayInstruction.TopUpAttester: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.TopUpAttester, ...parseTopUpAttesterInstruction(instruction) }
+    }
+    case BuckspayInstruction.WithdrawAttesterStake: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: BuckspayInstruction.WithdrawAttesterStake,
+        ...parseWithdrawAttesterStakeInstruction(instruction),
+      }
     }
     case BuckspayInstruction.WithdrawLock: {
       assertIsInstructionWithAccounts(instruction)
@@ -451,6 +612,7 @@ export type BuckspayPlugin = {
 }
 
 export type BuckspayPluginAccounts = {
+  attester: ReturnType<typeof getAttesterCodec> & SelfFetchFunctions<AttesterArgs, Attester>
   device: ReturnType<typeof getDeviceCodec> & SelfFetchFunctions<DeviceArgs, Device>
   ledger: ReturnType<typeof getLedgerCodec> & SelfFetchFunctions<LedgerArgs, Ledger>
   lock: ReturnType<typeof getLockCodec> & SelfFetchFunctions<LockArgs, Lock>
@@ -461,6 +623,9 @@ export type BuckspayPluginInstructions = {
   applyWalletRotation: (
     input: ApplyWalletRotationInput,
   ) => ReturnType<typeof getApplyWalletRotationInstruction> & SelfPlanAndSendFunctions
+  cancelAttesterExit: (
+    input: CancelAttesterExitInput,
+  ) => ReturnType<typeof getCancelAttesterExitInstruction> & SelfPlanAndSendFunctions
   cancelWalletRotation: (
     input: CancelWalletRotationInput,
   ) => ReturnType<typeof getCancelWalletRotationInstruction> & SelfPlanAndSendFunctions
@@ -485,24 +650,47 @@ export type BuckspayPluginInstructions = {
   recordPrefix: (
     input: MakeOptional<RecordPrefixInput, 'payer'>,
   ) => ReturnType<typeof getRecordPrefixInstruction> & SelfPlanAndSendFunctions
+  registerAttester: (
+    input: MakeOptional<RegisterAttesterAsyncInput, 'payer'>,
+  ) => ReturnType<typeof getRegisterAttesterInstructionAsync> & SelfPlanAndSendFunctions
   registerDevice: (
     input: MakeOptional<RegisterDeviceInput, 'payer'>,
   ) => ReturnType<typeof getRegisterDeviceInstruction> & SelfPlanAndSendFunctions
   releaseLock: (
     input: ReleaseLockAsyncInput,
   ) => ReturnType<typeof getReleaseLockInstructionAsync> & SelfPlanAndSendFunctions
+  reportFalseTicket: (
+    input: ReportFalseTicketAsyncInput,
+  ) => ReturnType<typeof getReportFalseTicketInstructionAsync> & SelfPlanAndSendFunctions
+  requestAttesterExit: (
+    input: RequestAttesterExitInput,
+  ) => ReturnType<typeof getRequestAttesterExitInstruction> & SelfPlanAndSendFunctions
   requestWalletRotation: (
     input: MakeOptional<RequestWalletRotationInput, 'payer'>,
   ) => ReturnType<typeof getRequestWalletRotationInstruction> & SelfPlanAndSendFunctions
+  rotateAttesterKey: (
+    input: RotateAttesterKeyInput,
+  ) => ReturnType<typeof getRotateAttesterKeyInstruction> & SelfPlanAndSendFunctions
   settleNote: (
     input: MakeOptional<SettleNoteAsyncInput, 'payer'>,
   ) => ReturnType<typeof getSettleNoteInstructionAsync> & SelfPlanAndSendFunctions
+  topUpAttester: (
+    input: TopUpAttesterAsyncInput,
+  ) => ReturnType<typeof getTopUpAttesterInstructionAsync> & SelfPlanAndSendFunctions
+  withdrawAttesterStake: (
+    input: WithdrawAttesterStakeAsyncInput,
+  ) => ReturnType<typeof getWithdrawAttesterStakeInstructionAsync> & SelfPlanAndSendFunctions
   withdrawLock: (
     input: WithdrawLockAsyncInput,
   ) => ReturnType<typeof getWithdrawLockInstructionAsync> & SelfPlanAndSendFunctions
 }
 
-export type BuckspayPluginPdas = { ledger: typeof findLedgerPda; escrow: typeof findEscrowPda }
+export type BuckspayPluginPdas = {
+  ledger: typeof findLedgerPda
+  escrow: typeof findEscrowPda
+  registerAttesterLedger: typeof findRegisterAttesterLedgerPda
+  registerAttesterEscrow: typeof findRegisterAttesterEscrowPda
+}
 
 export type BuckspayPluginRequirements = ClientWithRpc<GetAccountInfoApi & GetMultipleAccountsApi> &
   ClientWithPayer &
@@ -514,6 +702,7 @@ export function buckspayProgram() {
     return extendClient(client, {
       buckspay: <BuckspayPlugin>{
         accounts: {
+          attester: addSelfFetchFunctions(client, getAttesterCodec()),
           device: addSelfFetchFunctions(client, getDeviceCodec()),
           ledger: addSelfFetchFunctions(client, getLedgerCodec()),
           lock: addSelfFetchFunctions(client, getLockCodec()),
@@ -521,6 +710,7 @@ export function buckspayProgram() {
         },
         instructions: {
           applyWalletRotation: (input) => addSelfPlanAndSendFunctions(client, getApplyWalletRotationInstruction(input)),
+          cancelAttesterExit: (input) => addSelfPlanAndSendFunctions(client, getCancelAttesterExitInstruction(input)),
           cancelWalletRotation: (input) =>
             addSelfPlanAndSendFunctions(client, getCancelWalletRotationInstruction(input)),
           claimLostSpend: (input) =>
@@ -556,25 +746,42 @@ export function buckspayProgram() {
               client,
               getRecordPrefixInstruction({ ...input, payer: input.payer ?? client.payer }),
             ),
+          registerAttester: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getRegisterAttesterInstructionAsync({ ...input, payer: input.payer ?? client.payer }),
+            ),
           registerDevice: (input) =>
             addSelfPlanAndSendFunctions(
               client,
               getRegisterDeviceInstruction({ ...input, payer: input.payer ?? client.payer }),
             ),
           releaseLock: (input) => addSelfPlanAndSendFunctions(client, getReleaseLockInstructionAsync(input)),
+          reportFalseTicket: (input) =>
+            addSelfPlanAndSendFunctions(client, getReportFalseTicketInstructionAsync(input)),
+          requestAttesterExit: (input) => addSelfPlanAndSendFunctions(client, getRequestAttesterExitInstruction(input)),
           requestWalletRotation: (input) =>
             addSelfPlanAndSendFunctions(
               client,
               getRequestWalletRotationInstruction({ ...input, payer: input.payer ?? client.payer }),
             ),
+          rotateAttesterKey: (input) => addSelfPlanAndSendFunctions(client, getRotateAttesterKeyInstruction(input)),
           settleNote: (input) =>
             addSelfPlanAndSendFunctions(
               client,
               getSettleNoteInstructionAsync({ ...input, payer: input.payer ?? client.payer }),
             ),
+          topUpAttester: (input) => addSelfPlanAndSendFunctions(client, getTopUpAttesterInstructionAsync(input)),
+          withdrawAttesterStake: (input) =>
+            addSelfPlanAndSendFunctions(client, getWithdrawAttesterStakeInstructionAsync(input)),
           withdrawLock: (input) => addSelfPlanAndSendFunctions(client, getWithdrawLockInstructionAsync(input)),
         },
-        pdas: { ledger: findLedgerPda, escrow: findEscrowPda },
+        pdas: {
+          ledger: findLedgerPda,
+          escrow: findEscrowPda,
+          registerAttesterLedger: findRegisterAttesterLedgerPda,
+          registerAttesterEscrow: findRegisterAttesterEscrowPda,
+        },
         identifyAccount: identifyBuckspayAccount,
         identifyInstruction: identifyBuckspayInstruction,
         parseInstruction: parseBuckspayInstruction,

@@ -45,7 +45,16 @@ export const BuckspayErrorCode = {
   NotClaimable: 6042,
   NoRecord: 6043,
   AlreadyClaimed: 6044,
-  OverCoverage: 6045
+  OverCoverage: 6045,
+  StakeTooLow: 6046,
+  AttesterKey: 6047,
+  AttesterStatus: 6048,
+  ExitNotReady: 6049,
+  RotationCooldown: 6050,
+  TicketBinding: 6051,
+  TicketNotProvablyFalse: 6052,
+  AlreadySlashed: 6053,
+  UnknownSigner: 6054
 };
 
 export type BuckspayErrorName = keyof typeof BuckspayErrorCode;

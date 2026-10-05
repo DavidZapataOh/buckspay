@@ -26,7 +26,7 @@ pub fn find_device_pda(key: &[u8; 33]) -> (Address, u8) {
 /// 4,500 CU of instructions a wallet may add, and at least 40,000 CU. Equal to the app's
 /// `registerDeviceComputeUnitLimit`.
 pub fn register_device_compute_unit_limit(bump: u8) -> u32 {
-    (11_281 + 1_500 * u32::from(255 - bump) + 4_500).max(40_000)
+    (11_283 + 1_500 * u32::from(255 - bump) + 4_500).max(40_000)
 }
 
 /// A deployment of the program. The generated builders target `BUCKSPAY_ID`, the production

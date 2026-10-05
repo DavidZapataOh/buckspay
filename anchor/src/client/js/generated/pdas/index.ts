@@ -8,3 +8,5 @@
 
 export * from './escrow'
 export * from './ledger'
+export * from './registerAttesterEscrow'
+export * from './registerAttesterLedger'

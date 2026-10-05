@@ -69,6 +69,7 @@ import {
   verifySpendConflict,
   walkChain,
 } from '.'
+import { registryEntry } from '../test-support/registry'
 
 const NOTE_DOMAIN = hexToBytes(vectors.domain.note)
 const PROGRAM = hexToBytes(vectors.record_addresses.program_id)
@@ -84,10 +85,11 @@ const expectSettled = (settled: Settled, result: NonNullable<(typeof vectors.set
 }
 const expectReceived = (received: Received, result: (typeof vectors.payments)[number]['result']) => {
   expectSettled(received, result)
-  const liable = received.liable.map(({ device, lockSeq, bond }) => ({
+  const liable = received.liable.map(({ device, lockSeq, bond, attester }) => ({
     device: bytesToHex(device),
     lock_seq: lockSeq,
     bond: bond.toString(),
+    attester,
   }))
   expect(liable).toEqual(result.liable)
 }
@@ -95,6 +97,9 @@ type ReceiverVector = {
   me: string
   now: number
   min_window: number
+  max_note_life: number
+  attesters?: (typeof vectors.registry)[number][]
+  reason?: string
   accept_category: boolean
   accept_authorities: string[]
 }
@@ -102,10 +107,11 @@ const receiver = (vector: ReceiverVector): Receiver => ({
   noteDomain: NOTE_DOMAIN,
   program: PROGRAM,
   ticketDomain: hexToBytes(vectors.domain.ticket),
-  attesters: vectors.attesters.map(({ id, public: key }) => ({ id, key: hexToBytes(key) })),
+  attesters: (vector.attesters ?? vectors.registry).map(registryEntry),
   me: decodeOwner(hexToBytes(vector.me)),
   now: vector.now,
   minWindow: vector.min_window,
+  maxNoteLife: vector.max_note_life,
   acceptCategory: vector.accept_category,
   acceptAuthorities: vector.accept_authorities.map(hexToBytes),
 })
@@ -184,6 +190,7 @@ describe('payments', () => {
             )
           : decodeSpend(wire)
       expect(run).toThrow(expect.objectContaining({ name: 'ProtocolError', code: vector.error }))
+      if (vector.reason) expect(run).toThrow(expect.objectContaining({ reason: vector.reason }))
     })
   }
 

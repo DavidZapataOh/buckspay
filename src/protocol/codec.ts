@@ -56,6 +56,7 @@ export const Kind = {
   Spend1: 0x02,
   Spend2: 0x03,
   BondTicket: 0x10,
+  Revocation: 0x11,
   SpendConflict: 0x20,
   IssueConflict: 0x21,
   DeviceBinding: 0x50,

@@ -12,6 +12,7 @@ export const Purpose = {
   Iou: 'iou',
   Voice: 'voice',
   Claim: 'claim',
+  Revoke: 'revoke',
 } as const
 
 const DOMAIN_TAG = utf8ToBytes('BUCKSPAY:v1:')

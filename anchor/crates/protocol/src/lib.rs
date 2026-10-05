@@ -1,5 +1,6 @@
 #![no_std]
 
+pub mod attest;
 pub mod caveats;
 pub mod chain;
 pub mod cluster;
@@ -12,6 +13,8 @@ pub mod reclaim;
 pub mod record;
 pub mod secp256r1;
 pub mod slash;
+#[cfg(feature = "verify")]
+pub mod ticket;
 #[cfg(feature = "verify")]
 pub mod verify;
 pub use caveats::{flags, Caveats, Owner, ScopeKind, MAX_DEPTH};

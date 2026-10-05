@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::error::BuckspayError;
-use crate::state::Ledger;
+use crate::state::{Ledger, ATTESTER_LEDGER_MARKER};
 
 /// The ledger's authorisation of one payout out of an escrow.
 ///
@@ -105,6 +105,21 @@ impl Ledger {
     }
 
     /// A settlement or reclaim takes `amount` from the backing.
+    /// Adds to the free stake of an attester's ledger. A lock's bond is fixed by its record for ever,
+    /// so only a ledger marked as an attester's can grow.
+    pub fn add_stake(&mut self, amount: u64) -> Result<()> {
+        require!(
+            self.key[0] == ATTESTER_LEDGER_MARKER,
+            BuckspayError::AttesterStatus
+        );
+        require!(amount > 0, BuckspayError::AmountZero);
+        self.bond_free = self
+            .bond_free
+            .checked_add(amount)
+            .ok_or_else(|| error!(BuckspayError::AmountOverflow))?;
+        Ok(())
+    }
+
     pub fn pay_backing(&mut self, amount: u64) -> Result<Debit> {
         require!(amount > 0, BuckspayError::AmountZero);
         self.backing_left = self

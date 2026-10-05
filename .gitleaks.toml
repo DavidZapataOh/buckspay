@@ -10,3 +10,14 @@ regex = '''\[\s*(?:\d{1,3}\s*,\s*){63}\d{1,3}\s*\]'''
 id = "buckspay-gateway-key-file"
 description = "A gateway key file, which never leaves the server"
 path = '''(^|/)(fee-payer\.json|hpke(\.previous)?\.key|hpke\.pem)$'''
+
+[[allowlists]]
+description = "Committed protocol test vectors: public keys, signatures and messages of fixed test identities"
+paths = [
+  '''anchor/crates/protocol/tests/vectors/[a-z0-9_]+\.json''',
+]
+
+[[rules]]
+id = "buckspay-attester-key-file"
+description = "The signing seed of an attester, which never leaves its server"
+path = '''(^|/)ticket\.key$'''

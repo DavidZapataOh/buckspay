@@ -28,3 +28,7 @@ solana-hash = { version = "4.0.0", features = ["decode"] }
 [[example]]
 name = "vectors"
 required-features = ["verify"]
+
+[[example]]
+name = "ed25519_parity"
+required-features = ["verify"]

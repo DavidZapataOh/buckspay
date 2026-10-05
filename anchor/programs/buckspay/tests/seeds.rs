@@ -1,11 +1,12 @@
 use anchor_lang::{prelude::Pubkey, Space};
 use buckspay::state::{Device, Ledger, Lock, Rotation};
 use buckspay::state::{
-    DEVICE_SEED, ESCROW_SEED, LEDGER_SEED, LOCK_SEED, ROTATION_SEED, SPENT_SEED,
+    ATTESTER_SEED, DEVICE_SEED, ESCROW_SEED, LEDGER_SEED, LOCK_SEED, ROTATION_SEED, SPENT_SEED,
 };
 use proptest::prelude::*;
 
-const PREFIXES: [&[u8]; 6] = [
+const PREFIXES: [&[u8]; 7] = [
+    ATTESTER_SEED,
     DEVICE_SEED,
     ROTATION_SEED,
     LOCK_SEED,

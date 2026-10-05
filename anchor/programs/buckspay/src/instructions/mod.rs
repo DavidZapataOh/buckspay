@@ -1,4 +1,5 @@
 mod apply_wallet_rotation;
+mod attester;
 mod cancel_wallet_rotation;
 mod claim_lost_spend;
 mod claim_unbacked;
@@ -12,12 +13,14 @@ mod reclaim_output;
 mod record_prefix;
 mod register_device;
 mod release_lock;
+mod report_false_ticket;
 mod request_wallet_rotation;
 mod settle_note;
 mod withdraw_lock;
 mod withdrawal;
 
 pub use apply_wallet_rotation::*;
+pub use attester::*;
 pub use cancel_wallet_rotation::*;
 pub use claim_lost_spend::*;
 pub use claim_unbacked::*;
@@ -31,6 +34,7 @@ pub use reclaim_output::*;
 pub use record_prefix::*;
 pub use register_device::*;
 pub use release_lock::*;
+pub use report_false_ticket::*;
 pub use request_wallet_rotation::*;
 pub use settle_note::*;
 pub use withdraw_lock::*;

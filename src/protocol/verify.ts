@@ -1,4 +1,3 @@
-import { ed25519 } from '@noble/curves/ed25519.js'
 import { p256 } from '@noble/curves/nist.js'
 import { equalBytes } from '@noble/curves/utils.js'
 import { concatBytes } from '@noble/hashes/utils.js'
@@ -6,7 +5,6 @@ import {
   admits,
   type BondTicket,
   type Caveats,
-  CHALLENGE,
   change,
   checkBytes,
   checkIssue,
@@ -32,15 +30,13 @@ import {
   type Signed,
   type Spend,
   type SpendConflict,
-  ticketMessage,
-  TICKET_TTL_MAX,
 } from './codec'
 import { content, envelope, issueSlot, messageId, outputId } from './hash'
 import { isRecordable, recordAddress } from './record'
-import { covers } from './slash'
+import { accept, checkCount } from './ticket'
+import type { Attester, Liability, Need } from './ticket'
 
 export type Output = { id: Uint8Array; owner: Owner; amount: bigint; caveats: Caveats }
-export type Attester = { id: number; key: Uint8Array }
 /** What the receiving wallet trusts and requires. */
 export type Receiver = {
   noteDomain: Uint8Array
@@ -54,6 +50,11 @@ export type Receiver = {
   me: Owner
   now: number
   minWindow: number
+  /**
+   * The longest note the receiver accepts, counted from now: a note that expires later than
+   * `now + maxNoteLife` outlives what an attester's exit delay covers.
+   */
+  maxNoteLife: number
   /** Accepts category-scoped payments; only for a receiver that checks categories itself. */
   acceptCategory: boolean
   /**
@@ -62,8 +63,6 @@ export type Receiver = {
    */
   acceptAuthorities: Uint8Array[]
 }
-/** A lock whose bond backs a payment, with the bond its ticket shows. */
-export type Liability = { device: Uint8Array; lockSeq: number; bond: bigint }
 /**
  * A chain that ends in a terminal account, as the program settles it: output 0 of its last message,
  * with the issue backing it.
@@ -334,75 +333,6 @@ const settled = (issue: Issue, output: Output): Settled => ({
   lockSeq: issue.lockSeq,
 })
 
-/** A canonical encoding of a point in the prime-order subgroup, other than the identity. */
-function primeOrder(bytes: Uint8Array): boolean {
-  try {
-    const point = ed25519.Point.fromBytes(bytes)
-    return point.isTorsionFree() && !point.isSmallOrder()
-  } catch {
-    return false
-  }
-}
-
-function attested(receiver: Receiver, ticket: BondTicket): boolean {
-  const attester = receiver.attesters.find((attester) => attester.id === ticket.attester)
-  if (!attester || !primeOrder(attester.key) || !primeOrder(ticket.signature.subarray(0, 32))) return false
-  try {
-    return ed25519.verify(ticket.signature, ticketMessage(receiver.ticketDomain, ticket), attester.key, {
-      zip215: false,
-    })
-  } catch {
-    return false
-  }
-}
-
-/**
- * A payment carries at most one ticket per message and at most one per lock, so a sender cannot
- * make the receiver check more signatures than the chain needs.
- */
-function checkBounds(spends: Signed<Spend>[], tickets: BondTicket[]) {
-  if (spends.length > MAX_DEPTH) throw new ProtocolError('Depth')
-  if (tickets.length > spends.length + 1) throw new ProtocolError('Ticket')
-  const duplicate = tickets.some((a, i) =>
-    tickets.slice(i + 1).some((b) => equalBytes(a.device, b.device) && a.lockSeq === b.lockSeq),
-  )
-  if (duplicate) throw new ProtocolError('Ticket')
-}
-
-/**
- * Whether a ticket whose last second is `validUntil` can be used at `now`: it has not run out and
- * is not valid for more than `TICKET_TTL_MAX` from now, whatever its attester signed.
- */
-const fresh = (now: number, validUntil: number) => now <= validUntil && validUntil - now <= TICKET_TTL_MAX
-
-/**
- * The ticket for `(device, lockSeq)`, which must be on `mint`, locked beyond the conflict window of
- * `expiry` (a claim needs `now < lockUntil`, so the last second of the window needs one more),
- * fresh, cover the liability and be signed by a trusted attester.
- */
-function ticket(
-  receiver: Receiver,
-  tickets: BondTicket[],
-  device: Owner,
-  lockSeq: number,
-  mint: Uint8Array,
-  expiry: number,
-  covers: (ticket: BondTicket) => boolean,
-): Liability {
-  const found = tickets.find(
-    (ticket) => sameOwner({ type: 'device', key: ticket.device }, device) && ticket.lockSeq === lockSeq,
-  )
-  const valid =
-    found !== undefined &&
-    equalBytes(found.mint, mint) &&
-    found.lockUntil > expiry + GRACE + CHALLENGE &&
-    fresh(receiver.now, found.validUntil) &&
-    covers(found) &&
-    attested(receiver, found)
-  if (!valid) throw new ProtocolError('Ticket')
-  return { device: found.device, lockSeq, bond: found.bond }
-}
-
 function addLiability(liable: Liability[], lock: Liability) {
   if (!liable.some((l) => equalBytes(l.device, lock.device) && l.lockSeq === lock.lockSeq)) liable.push(lock)
 }
@@ -439,25 +369,25 @@ export function verifyPayment(
 ): Received {
   checkU32(receiver.now)
   checkU32(receiver.minWindow)
+  checkU32(receiver.maxNoteLife)
   checkBytes(receiver.program, 32)
   checkOwnerBytes(receiver.me)
   for (const address of receiver.acceptAuthorities) checkBytes(address, 32)
-  checkBounds(spends, tickets)
+  if (spends.length > MAX_DEPTH) throw new ProtocolError('Depth')
+  checkCount(spends.length, tickets)
   const note = issue.message
   const issued = verifyIssue(receiver.noteDomain, issue)
   const liable: Liability[] = []
-  const issuer: Owner = { type: 'device', key: note.issuer }
+  const vouch = (device: Owner, lockSeq: number, need: Need) =>
+    accept(receiver.now, receiver.ticketDomain, receiver.attesters, tickets, device, lockSeq, need)
   addLiability(
     liable,
-    ticket(
-      receiver,
-      tickets,
-      issuer,
-      note.lockSeq,
-      note.mint,
-      note.caveats.expiry,
-      (t) => covers(t.bond, note.amount) && t.backing >= note.cumEnd,
-    ),
+    vouch({ type: 'device', key: note.issuer }, note.lockSeq, {
+      mint: note.mint,
+      amount: note.amount,
+      backing: note.cumEnd,
+      expiry: note.caveats.expiry,
+    }),
   )
   const output = follow(receiver.noteDomain, issued, spends, (input, spend) => {
     requireRecordable(receiver.program, input.id)
@@ -469,16 +399,17 @@ export function verifyPayment(
     }
     addLiability(
       liable,
-      ticket(receiver, tickets, input.owner, lockSeq, note.mint, input.caveats.expiry, (t) =>
-        covers(t.bond, input.amount),
-      ),
+      vouch(input.owner, lockSeq, { mint: note.mint, amount: input.amount, expiry: input.caveats.expiry }),
     )
   })
   requireRecordable(receiver.program, output.id)
   if (!sameOwner(output.owner, receiver.me)) throw new ProtocolError('Payee')
   if (!redeemable(receiver, output.caveats)) throw new ProtocolError('Scope')
   const stranded = output.owner.type === 'device' && output.caveats.hopsLeft === 0
-  if (stranded || output.caveats.expiry < receiver.now + receiver.minWindow) throw new ProtocolError('Window')
+  const { expiry } = output.caveats
+  if (stranded || expiry < receiver.now + receiver.minWindow || expiry > receiver.now + receiver.maxNoteLife) {
+    throw new ProtocolError('Window')
+  }
   return { ...settled(note, output), liable }
 }
 

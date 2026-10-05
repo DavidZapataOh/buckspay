@@ -1,3 +1,4 @@
+use buckspay_protocol::attest::{revoke_domain, Revocation, MAX_REGISTRY_AGE};
 use buckspay_protocol::cluster::{DEVNET_GENESIS_HASH, MAINNET_GENESIS_HASH};
 use buckspay_protocol::device::{
     device_binding_body, device_binding_envelope, device_rotation_body, device_rotation_envelope,
@@ -6,9 +7,11 @@ use buckspay_protocol::hash::{content, domain, envelope, message_id, output_id, 
 use buckspay_protocol::profile::{PRODUCTION_DEVNET_PROGRAM_ID, SHORT_PROGRAM_ID};
 use buckspay_protocol::reclaim::{reclaim_body, reclaim_envelope, record_content};
 use buckspay_protocol::slash::{covers, exposure, min_bond, payment_limit, penalty};
+use buckspay_protocol::ticket::TicketError;
 use buckspay_protocol::verify::{
     recover_issue_signer, recover_spend_signer, recovery_id, verify_issue_conflict, verify_payment,
-    verify_settlement, verify_spend_conflict, Attester, Received, Receiver, Settled,
+    verify_payment_explained, verify_settlement, verify_spend_conflict, Attester, Received,
+    Receiver, Refusal, Settled,
 };
 use buckspay_protocol::{
     flags, kind, BondTicket, Caveats, Issue, IssueClaim, IssueConflict, Outputs, Owner,
@@ -29,11 +32,15 @@ const MIN_WINDOW: u32 = 86_400;
 const LOCK_UNTIL: u32 = EXPIRY + GRACE + CHALLENGE + 1;
 const MINT: [u8; 32] = [3; 32];
 const ATTESTER_SEED: [u8; 32] = [0xa7; 32];
+const AUTHORITY_SEED: [u8; 32] = [0xa8; 32];
+const STAKE: u64 = 1_000_000;
+/// After every `now` of the vectors, so a registry entry is never older than its reader.
+const REGISTRY_READ_AT: u32 = EXPIRY + 365 * 86_400;
 const ORGANISER_ADDRESS: [u8; 32] = [0xa0; 32];
 const ORGANISER: Owner = Owner::Account(ORGANISER_ADDRESS);
 const MERCHANT_ADDRESS: [u8; 32] = [0xb5; 32];
 const MERCHANT_ACCOUNT: Owner = Owner::Account(MERCHANT_ADDRESS);
-const PURPOSES: [(&str, &[u8]); 9] = [
+const PURPOSES: [(&str, &[u8]); 10] = [
     ("note", purpose::NOTE),
     ("ticket", purpose::TICKET),
     ("device", purpose::DEVICE),
@@ -43,6 +50,7 @@ const PURPOSES: [(&str, &[u8]); 9] = [
     ("iou", purpose::IOU),
     ("voice", purpose::VOICE),
     ("claim", purpose::CLAIM),
+    ("revoke", purpose::REVOKE),
 ];
 
 struct Key {
@@ -92,6 +100,7 @@ impl Domains {
             me,
             now,
             min_window: MIN_WINDOW,
+            max_note_life: u32::MAX,
             accept_category: false,
             accept_authorities: &[],
         }
@@ -207,6 +216,8 @@ fn profiles() -> Value {
                 "releaseDelay": 1_209_600,
                 "rotationDelay": 604_800,
                 "expiryStep": 3_600,
+                "ticketTtlMax": 259_200,
+                "maxRegistryAge": 604_800,
             },
         },
         "short": {
@@ -219,6 +230,8 @@ fn profiles() -> Value {
                 "releaseDelay": 60,
                 "rotationDelay": 60,
                 "expiryStep": 5,
+                "ticketTtlMax": 180,
+                "maxRegistryAge": 60,
             },
         },
     })
@@ -468,6 +481,7 @@ fn payment(
         "name": name,
         "now": receiver.now,
         "min_window": receiver.min_window,
+        "max_note_life": receiver.max_note_life,
         "accept_category": receiver.accept_category,
         "accept_authorities": addresses_hex(receiver.accept_authorities),
         "me": hex(&receiver.me.encode()),
@@ -504,6 +518,7 @@ fn received_json(received: &Received) -> Value {
                 "device": hex(&lock.device),
                 "lock_seq": lock.lock_seq,
                 "bond": lock.bond.to_string(),
+                "attester": lock.attester,
             })
         })
         .collect();
@@ -540,34 +555,79 @@ struct Invalid<'a> {
     now: u32,
     accept_authorities: &'a [[u8; 32]],
     error: ProtocolError,
+    /// The registry the receiver read, when it is not the vectors' own.
+    attesters: Option<Vec<Attester>>,
+    max_note_life: u32,
+    reason: Option<TicketError>,
+}
+
+fn attesters_json(attesters: &[Attester]) -> Value {
+    json!(attesters
+        .iter()
+        .map(|a| json!({
+            "id": a.id,
+            "authority": hex(&a.authority),
+            "mint": hex(&a.mint),
+            "stake": a.stake.to_string(),
+            "key": hex(&a.key),
+            "prev_key": hex(&a.prev_key),
+            "prev_trusted_until": a.prev_trusted_until,
+            "revoked": a.revoked.iter().map(|k| hex(k)).collect::<Vec<_>>(),
+            "synced_at": a.synced_at,
+            "active": a.active,
+            "relied": a.relied.to_string(),
+        }))
+        .collect::<Vec<_>>())
 }
 
 fn invalid(domains: &Domains, case: Invalid) -> Value {
     let receiver = Receiver {
         accept_authorities: case.accept_authorities,
+        attesters: case.attesters.as_deref().unwrap_or(&domains.attesters),
+        max_note_life: case.max_note_life,
         ..domains.receiver(case.me, case.now)
     };
-    let result = if case.kind == kind::ISSUE {
-        Signed::<Issue>::decode(&case.wire).and_then(|issue| {
-            verify_payment(&receiver, &issue, &case.spends, &case.tickets).map(drop)
-        })
+    let explained = if case.kind == kind::ISSUE {
+        Signed::<Issue>::decode(&case.wire)
+            .map_err(Refusal::from)
+            .and_then(|issue| {
+                verify_payment_explained(&receiver, &issue, &case.spends, &case.tickets).map(drop)
+            })
     } else {
-        Signed::<Spend>::decode(&case.wire).map(drop)
+        Signed::<Spend>::decode(&case.wire)
+            .map(drop)
+            .map_err(Refusal::from)
     };
-    assert_eq!(result, Err(case.error), "{}", case.name);
-    json!({
+    assert_eq!(
+        explained.map_err(ProtocolError::from),
+        Err(case.error),
+        "{}",
+        case.name
+    );
+    if let Some(reason) = case.reason {
+        assert_eq!(explained, Err(Refusal::Ticket(reason)), "{}", case.name);
+    }
+    let mut value = json!({
         "name": case.name,
         "kind": case.kind,
         "wire": hex(&case.wire),
         "now": receiver.now,
         "min_window": receiver.min_window,
+        "max_note_life": receiver.max_note_life,
         "accept_category": receiver.accept_category,
         "accept_authorities": addresses_hex(receiver.accept_authorities),
         "me": hex(&receiver.me.encode()),
         "spends": spends_hex(&case.spends),
         "tickets": tickets_hex(&case.tickets),
         "error": format!("{:?}", case.error),
-    })
+    });
+    if let Some(attesters) = &case.attesters {
+        value["attesters"] = attesters_json(attesters);
+    }
+    if let Some(reason) = case.reason {
+        value["reason"] = json!(format!("{reason:?}"));
+    }
+    value
 }
 
 fn conflict(name: &str, wire: &[u8], signer: &Key, result: Result<(), ProtocolError>) -> Value {
@@ -602,20 +662,29 @@ fn issue_conflict_result(
 
 fn vectors() -> Value {
     let attester = ed25519_dalek::SigningKey::from_bytes(&ATTESTER_SEED);
+    let authority = ed25519_dalek::SigningKey::from_bytes(&AUTHORITY_SEED);
     let honest_key = attester.verifying_key().to_edwards();
     let mixed_key = honest_key + EIGHT_TORSION[1];
     let domains = Domains {
         note: domain(purpose::NOTE, &DEVNET_GENESIS_HASH, &PROGRAM_ID),
         ticket: domain(purpose::TICKET, &DEVNET_GENESIS_HASH, &PROGRAM_ID),
         attesters: [
-            Attester {
-                id: 1,
-                key: attester.verifying_key().to_bytes(),
-            },
-            Attester {
-                id: 2,
-                key: mixed_key.compress().to_bytes(),
-            },
+            Attester::new(
+                1,
+                authority.verifying_key().to_bytes(),
+                MINT,
+                STAKE,
+                attester.verifying_key().to_bytes(),
+                REGISTRY_READ_AT,
+            ),
+            Attester::new(
+                2,
+                authority.verifying_key().to_bytes(),
+                MINT,
+                STAKE,
+                mixed_key.compress().to_bytes(),
+                REGISTRY_READ_AT,
+            ),
         ],
         attester,
     };
@@ -1636,6 +1705,9 @@ fn vectors() -> Value {
         now: NOW,
         accept_authorities: &[],
         error: ProtocolError::Unrecordable,
+        attesters: None,
+        max_note_life: u32::MAX,
+        reason: None,
     };
     let step_and_record_cases = [
         issue_case(
@@ -1703,6 +1775,80 @@ fn vectors() -> Value {
             ProtocolError::Unrecordable,
         ),
     ];
+    let registry_case = |name, entry: Attester, reason| Invalid {
+        attesters: Some(vec![entry]),
+        reason: Some(reason),
+        ..issue_case(
+            name,
+            &issued_wire,
+            &[],
+            &issuer_only,
+            &alice,
+            ProtocolError::Ticket,
+        )
+    };
+    let honest = domains.attesters[0];
+    let attester_cases = [
+        registry_case(
+            "stale_registry",
+            Attester {
+                synced_at: NOW - MAX_REGISTRY_AGE - 1,
+                ..honest
+            },
+            TicketError::RegistryStale,
+        ),
+        registry_case(
+            "attester_stake_too_small",
+            Attester {
+                stake: min_bond(20_000).unwrap() - 1,
+                ..honest
+            },
+            TicketError::AttesterStake,
+        ),
+        registry_case(
+            "attester_mint",
+            Attester {
+                mint: [4; 32],
+                ..honest
+            },
+            TicketError::AttesterMint,
+        ),
+        registry_case(
+            "revoked_key",
+            Attester {
+                revoked: [honest.key, [0; 32]],
+                ..honest
+            },
+            TicketError::UnknownKey,
+        ),
+        registry_case(
+            "attester_inactive",
+            Attester {
+                active: false,
+                ..honest
+            },
+            TicketError::Inactive,
+        ),
+        registry_case(
+            "attester_cap",
+            Attester {
+                relied: payment_limit(STAKE) - 19_999,
+                ..honest
+            },
+            TicketError::AttesterCap,
+        ),
+        Invalid {
+            max_note_life: EXPIRY - NOW - 1,
+            ..issue_case(
+                "note_too_long",
+                &issued_wire,
+                &[],
+                &issuer_only,
+                &alice,
+                ProtocolError::Window,
+            )
+        },
+    ];
     let record_addresses: Vec<Value> = [
         first,
         spent_id(domain, &to_bob, 0),
@@ -1756,6 +1902,9 @@ fn vectors() -> Value {
             { "id": 1, "secret": hex(&ATTESTER_SEED), "public": hex(&domains.attesters[0].key) },
             { "id": 2, "secret": "", "public": hex(&domains.attesters[1].key) },
         ],
+        "authority": { "secret": hex(&AUTHORITY_SEED), "public": hex(&domains.attesters[0].authority) },
+        "registry": attesters_json(&domains.attesters),
+        "revocations": revocations(&domains, &authority),
         "messages": [
             issue_note(domain, &issued),
             spend_note("spend2", domain, &to_bob),
@@ -1778,6 +1927,7 @@ fn vectors() -> Value {
             payment("merchant_settles", &at(MERCHANT_ACCOUNT), &for_bob, &[to_merchant, merchant_settles], &tickets),
             payment("category_accepted", &Receiver { accept_category: true, ..at(bob.owner()) }, &issued, &[category_payment], &one_hop),
             payment("skips_a_ticket_for_another_lock", &at(bob.owner()), &delegated, &[delegated_to_bob(0)], &[unsigned_alice_ticket, issuer_ticket]),
+            payment("a_note_as_long_as_the_receiver_allows", &Receiver { max_note_life: EXPIRY - NOW, ..at(alice.owner()) }, &issued, &[], &issuer_only),
         ],
         "record_addresses": {
             "seed": hex(record::SPENT_SEED),
@@ -1797,7 +1947,7 @@ fn vectors() -> Value {
             settlement("consumed_output_without_a_record_address", domain, &issued, &[unrecordable_payment, settles_past_unrecordable]),
             settlement("device_output", domain, &issued, &[to_bob]),
         ],
-        "invalid": invalid_cases.into_iter().chain(step_and_record_cases).chain([account_case]).map(|case| invalid(&domains, case)).collect::<Vec<_>>(),
+        "invalid": invalid_cases.into_iter().chain(step_and_record_cases).chain([account_case]).chain(attester_cases).map(|case| invalid(&domains, case)).collect::<Vec<_>>(),
         "conflicts": spend_conflicts.into_iter().chain(issue_conflicts).collect::<Vec<_>>(),
         "device_bindings": [
             device_binding("alice_to_wallet", &device_domain, &[0xa1; 32], &alice, alice.public),
@@ -1814,6 +1964,52 @@ fn vectors() -> Value {
         "reclaims": reclaims(&derived_reclaim_domain),
         "secp256r1_layouts": secp256r1_layouts(),
         "slash": slash(),
+    })
+}
+
+/// Revocations by the attester's authority and what a receiver's entry does with each.
+fn revocations(domains: &Domains, authority: &ed25519_dalek::SigningKey) -> Value {
+    let revoke = revoke_domain(&DEVNET_GENESIS_HASH, &PROGRAM_ID);
+    let foreign = revoke_domain(&MAINNET_GENESIS_HASH, &PROGRAM_ID);
+    let other = ed25519_dalek::SigningKey::from_bytes(&[0xa9; 32]);
+    let entry = domains.attesters[0];
+    let signed = |attester: u16, signer: &ed25519_dalek::SigningKey, under: &[u8; 32]| {
+        let mut revocation = Revocation {
+            attester,
+            key: entry.key,
+            signature: [0; 64],
+        };
+        revocation.signature = signer.sign(&revocation.signed_message(under)).to_bytes();
+        revocation
+    };
+    let cases = [
+        (
+            "the_authority_revokes_the_current_key",
+            signed(1, authority, &revoke),
+        ),
+        (
+            "a_revocation_names_one_attester",
+            signed(2, authority, &revoke),
+        ),
+        (
+            "another_cluster_cannot_revoke",
+            signed(1, authority, &foreign),
+        ),
+        ("another_signer_cannot_revoke", signed(1, &other, &revoke)),
+    ];
+    json!({
+        "domain": hex(&revoke),
+        "cases": cases.map(|(name, revocation)| {
+            let mut after = entry;
+            let result = after.apply_revocation(&revoke, &revocation);
+            json!({
+                "name": name,
+                "wire": hex(&revocation.encode()),
+                "signed_message": hex(&revocation.signed_message(&revoke)),
+                "error": result.err().map(|e| format!("{e:?}")),
+                "revoked": after.revoked.iter().map(|k| hex(k)).collect::<Vec<_>>(),
+            })
+        }),
     })
 }
 
@@ -1929,6 +2125,9 @@ fn issue_case<'a>(
         now: NOW,
         accept_authorities: &[],
         error,
+        attesters: None,
+        max_note_life: u32::MAX,
+        reason: None,
     }
 }
 

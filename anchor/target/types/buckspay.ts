@@ -52,6 +52,55 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "cancelAttesterExit",
+      "discriminator": [
+        191,
+        253,
+        128,
+        141,
+        197,
+        233,
+        19,
+        240
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "attester"
+          ]
+        },
+        {
+          "name": "attester",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  116,
+                  116,
+                  101,
+                  115,
+                  116,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "attester.id",
+                "account": "attester"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "cancelWalletRotation",
       "discriminator": [
         233,
@@ -810,6 +859,132 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "registerAttester",
+      "docs": [
+        "Registers an attester with its stake. The authority signs and may be a multisig."
+      ],
+      "discriminator": [
+        111,
+        233,
+        124,
+        30,
+        66,
+        228,
+        125,
+        85
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "docs": [
+            "Pays the rent of the attester's three accounts and gets the ledger's and the escrow's back",
+            "when the stake is withdrawn."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "attester",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  116,
+                  116,
+                  101,
+                  115,
+                  116,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "args.id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "ledger",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "attester"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "attester"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "funder",
+          "writable": true
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "registerAttesterArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "registerDevice",
       "discriminator": [
         210,
@@ -963,6 +1138,167 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "reportFalseTicket",
+      "docs": [
+        "Destroys the whole stake of the attester that signed a ticket the chain contradicts."
+      ],
+      "discriminator": [
+        157,
+        110,
+        192,
+        232,
+        107,
+        121,
+        71,
+        230
+      ],
+      "accounts": [
+        {
+          "name": "reporter",
+          "docs": [
+            "Anyone: the report pays nobody, so nobody needs standing to file it."
+          ],
+          "signer": true
+        },
+        {
+          "name": "attester",
+          "writable": true
+        },
+        {
+          "name": "ledger",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "attester"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "attester"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "docs": [
+            "Writable because the burn lowers its supply."
+          ],
+          "writable": true
+        },
+        {
+          "name": "device",
+          "docs": [
+            "handler."
+          ]
+        },
+        {
+          "name": "lock",
+          "docs": [
+            "handler."
+          ]
+        },
+        {
+          "name": "instructions",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "tokenProgram"
+        }
+      ],
+      "args": [
+        {
+          "name": "ticket",
+          "type": {
+            "array": [
+              "u8",
+              161
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "requestAttesterExit",
+      "discriminator": [
+        81,
+        19,
+        181,
+        211,
+        210,
+        121,
+        186,
+        180
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "attester"
+          ]
+        },
+        {
+          "name": "attester",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  116,
+                  116,
+                  101,
+                  115,
+                  116,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "attester.id",
+                "account": "attester"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "requestWalletRotation",
       "discriminator": [
         17,
@@ -1010,6 +1346,72 @@ export type Buckspay = {
               33
             ]
           }
+        }
+      ]
+    },
+    {
+      "name": "rotateAttesterKey",
+      "docs": [
+        "Replaces the key that signs tickets; the old one stays accountable for `EXIT_DELAY`."
+      ],
+      "discriminator": [
+        137,
+        138,
+        222,
+        109,
+        82,
+        98,
+        189,
+        220
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "attester"
+          ]
+        },
+        {
+          "name": "attester",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  116,
+                  116,
+                  101,
+                  115,
+                  116,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "attester.id",
+                "account": "attester"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "newKey",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "trustPrevious",
+          "type": "bool"
         }
       ]
     },
@@ -1132,6 +1534,233 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "topUpAttester",
+      "discriminator": [
+        129,
+        247,
+        114,
+        74,
+        139,
+        217,
+        62,
+        0
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "attester"
+          ]
+        },
+        {
+          "name": "attester",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  116,
+                  116,
+                  101,
+                  115,
+                  116,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "attester.id",
+                "account": "attester"
+              }
+            ]
+          }
+        },
+        {
+          "name": "ledger",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "attester"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "attester"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "relations": [
+            "attester"
+          ]
+        },
+        {
+          "name": "funder",
+          "writable": true
+        },
+        {
+          "name": "tokenProgram"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "withdrawAttesterStake",
+      "discriminator": [
+        93,
+        174,
+        147,
+        206,
+        151,
+        65,
+        240,
+        59
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "attester"
+          ]
+        },
+        {
+          "name": "attester",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  116,
+                  116,
+                  101,
+                  115,
+                  116,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "attester.id",
+                "account": "attester"
+              }
+            ]
+          }
+        },
+        {
+          "name": "ledger",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "attester"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "attester"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "relations": [
+            "attester"
+          ]
+        },
+        {
+          "name": "destination",
+          "docs": [
+            "Any token account of the mint but the escrow itself: the authority's signature names it."
+          ],
+          "writable": true
+        },
+        {
+          "name": "rentReceiver",
+          "writable": true
+        },
+        {
+          "name": "tokenProgram"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "withdrawLock",
       "discriminator": [
         81,
@@ -1239,6 +1868,19 @@ export type Buckspay = {
     }
   ],
   "accounts": [
+    {
+      "name": "attester",
+      "discriminator": [
+        145,
+        187,
+        162,
+        7,
+        215,
+        117,
+        215,
+        94
+      ]
+    },
     {
       "name": "device",
       "discriminator": [
@@ -1522,9 +2164,136 @@ export type Buckspay = {
       "code": 6045,
       "name": "overCoverage",
       "msg": "The output is larger than the lock's bond covers"
+    },
+    {
+      "code": 6046,
+      "name": "stakeTooLow",
+      "msg": "The stake is below the minimum"
+    },
+    {
+      "code": 6047,
+      "name": "attesterKey",
+      "msg": "The key is not a canonical point of the prime-order subgroup"
+    },
+    {
+      "code": 6048,
+      "name": "attesterStatus",
+      "msg": "The attester's status does not allow this"
+    },
+    {
+      "code": 6049,
+      "name": "exitNotReady",
+      "msg": "The attester cannot withdraw its stake yet"
+    },
+    {
+      "code": 6050,
+      "name": "rotationCooldown",
+      "msg": "The key was rotated too recently to rotate again"
+    },
+    {
+      "code": 6051,
+      "name": "ticketBinding",
+      "msg": "The instruction before this one is not the Ed25519 verification of this ticket"
+    },
+    {
+      "code": 6052,
+      "name": "ticketNotProvablyFalse",
+      "msg": "The chain does not contradict the ticket"
+    },
+    {
+      "code": 6053,
+      "name": "alreadySlashed",
+      "msg": "The attester was already slashed"
+    },
+    {
+      "code": 6054,
+      "name": "unknownSigner",
+      "msg": "The key that signed the ticket is not one the attester answers for"
     }
   ],
   "types": [
+    {
+      "name": "attester",
+      "docs": [
+        "A registered attester: who answers for it, which mint its stake and tickets are in, and the key",
+        "that signs its tickets. Its stake is in the `Ledger` and escrow at `[\"ledger\", attester]` and",
+        "`[\"escrow\", attester]`. The record is never closed, so an id is never reused."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u16"
+          },
+          {
+            "name": "authority",
+            "docs": [
+              "Signs every instruction that changes the attester, and its revocations."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "key",
+            "docs": [
+              "Signs new tickets."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "prevKey",
+            "docs": [
+              "The key before the last rotation; all zeros if none. Accountable until `prev_until`."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "prevTrustedUntil",
+            "docs": [
+              "Receivers believe the previous key before this time; zero after a compromise."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "prevUntil",
+            "type": "u32"
+          },
+          {
+            "name": "registeredAt",
+            "type": "u32"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "exitAt",
+            "docs": [
+              "When the attester asked to leave or was slashed."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
     {
       "name": "createLockArgs",
       "type": {
@@ -1766,6 +2535,31 @@ export type Buckspay = {
           {
             "name": "lockSeq",
             "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "registerAttesterArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u16"
+          },
+          {
+            "name": "key",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "stake",
+            "type": "u64"
           }
         ]
       }

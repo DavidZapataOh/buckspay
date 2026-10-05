@@ -236,12 +236,12 @@ fn accepts_the_verification_anywhere_before_the_registration() {
 
 /// What `register_device` costs at bump 255 in the app's transaction `[compute unit limit,
 /// verification, register_device]`.
-const REGISTER_COMPUTE_UNITS: u64 = 8_366;
+const REGISTER_COMPUTE_UNITS: u64 = 8_368;
 
 /// The cost of the app's transaction `[compute unit limit, verification, register_device]`:
 /// Anchor's canonical bump search costs 1,500 CU for each bump below 255.
 #[test]
-fn costs_8366_cu_plus_1500_for_each_bump_below_255() {
+fn costs_8368_cu_plus_1500_for_each_bump_below_255() {
     let mut env = Env::new(TokenKind::Classic);
     let wallet = env.funded_keypair();
     let mut bumps = BTreeSet::new();

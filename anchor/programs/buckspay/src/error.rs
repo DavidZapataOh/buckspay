@@ -95,4 +95,22 @@ pub enum BuckspayError {
     AlreadyClaimed,
     #[msg("The output is larger than the lock's bond covers")]
     OverCoverage,
+    #[msg("The stake is below the minimum")]
+    StakeTooLow,
+    #[msg("The key is not a canonical point of the prime-order subgroup")]
+    AttesterKey,
+    #[msg("The attester's status does not allow this")]
+    AttesterStatus,
+    #[msg("The attester cannot withdraw its stake yet")]
+    ExitNotReady,
+    #[msg("The key was rotated too recently to rotate again")]
+    RotationCooldown,
+    #[msg("The instruction before this one is not the Ed25519 verification of this ticket")]
+    TicketBinding,
+    #[msg("The chain does not contradict the ticket")]
+    TicketNotProvablyFalse,
+    #[msg("The attester was already slashed")]
+    AlreadySlashed,
+    #[msg("The key that signed the ticket is not one the attester answers for")]
+    UnknownSigner,
 }

@@ -3,9 +3,11 @@ use buckspay_protocol::{
     cluster,
     device::{device_binding_envelope, device_rotation_envelope},
     hash::{domain, purpose},
+    BondTicket,
 };
 
 pub mod accounting;
+mod attestation;
 pub mod burn;
 mod clock;
 pub mod error;
@@ -26,8 +28,8 @@ pub use error::BuckspayError;
 pub use instructions::*;
 pub use settlement::Link;
 pub use state::{
-    Claim, Device, Ledger, Lock, Rotation, Spent, CLAIM_SEED, DEVICE_SEED, ESCROW_SEED,
-    LEDGER_SEED, LOCK_SEED, ROTATION_SEED, SPENT_SEED,
+    Attester, Claim, Device, Ledger, Lock, Rotation, Spent, ATTESTER_SEED, CLAIM_SEED, DEVICE_SEED,
+    ESCROW_SEED, LEDGER_SEED, LOCK_SEED, ROTATION_SEED, SPENT_SEED,
 };
 
 #[cfg(not(any(feature = "devnet", feature = "mainnet")))]
@@ -167,11 +169,57 @@ pub mod buckspay {
     pub fn close_records<'info>(ctx: Context<'info, CloseRecords>) -> Result<()> {
         CloseRecords::process(ctx.remaining_accounts)
     }
+
+    /// Registers an attester with its stake. The authority signs and may be a multisig.
+    pub fn register_attester(
+        ctx: Context<RegisterAttester>,
+        args: RegisterAttesterArgs,
+    ) -> Result<()> {
+        ctx.accounts.process(&args, &ctx.bumps)
+    }
+
+    pub fn top_up_attester(ctx: Context<TopUpAttester>, amount: u64) -> Result<()> {
+        ctx.accounts.process(amount)
+    }
+
+    /// Replaces the key that signs tickets; the old one stays accountable for `EXIT_DELAY`.
+    pub fn rotate_attester_key(
+        ctx: Context<ManageAttester>,
+        new_key: [u8; 32],
+        trust_previous: bool,
+    ) -> Result<()> {
+        ctx.accounts.rotate_key(new_key, trust_previous)
+    }
+
+    pub fn request_attester_exit(ctx: Context<ManageAttester>) -> Result<()> {
+        ctx.accounts.request_exit()
+    }
+
+    pub fn cancel_attester_exit(ctx: Context<ManageAttester>) -> Result<()> {
+        ctx.accounts.cancel_exit()
+    }
+
+    pub fn withdraw_attester_stake(ctx: Context<WithdrawAttesterStake>) -> Result<()> {
+        ctx.accounts.process()
+    }
+
+    /// Destroys the whole stake of the attester that signed a ticket the chain contradicts.
+    pub fn report_false_ticket(
+        ctx: Context<ReportFalseTicket>,
+        ticket: [u8; BondTicket::WIRE_LEN],
+    ) -> Result<()> {
+        ctx.accounts.process(&ticket)
+    }
 }
 
 /// The domain of issues and spends on this cluster and program.
 pub fn note_domain() -> [u8; 32] {
     domain(purpose::NOTE, &GENESIS_HASH, &ID.to_bytes())
+}
+
+/// The domain of bond tickets on this cluster and program.
+pub fn ticket_domain() -> [u8; 32] {
+    domain(purpose::TICKET, &GENESIS_HASH, &ID.to_bytes())
 }
 
 /// The domain of reclaims on this cluster and program.

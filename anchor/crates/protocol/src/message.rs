@@ -5,6 +5,7 @@ pub mod kind {
     pub const SPEND1: u8 = 0x02;
     pub const SPEND2: u8 = 0x03;
     pub const BOND_TICKET: u8 = 0x10;
+    pub const REVOCATION: u8 = 0x11;
     pub const SPEND_CONFLICT: u8 = 0x20;
     pub const ISSUE_CONFLICT: u8 = 0x21;
     pub const DEVICE_BINDING: u8 = 0x50;

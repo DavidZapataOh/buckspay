@@ -10,7 +10,10 @@ use buckspay_protocol::{
     flags, BondTicket, Caveats, Issue, IssueClaim, IssueConflict, Outputs, Owner, ProtocolError,
     ScopeKind, Signed, Spend, SpendConflict, CHALLENGE, GRACE, NO_LOCK,
 };
-use buckspay_protocol::{lock::EXPIRY_STEP, record};
+use buckspay_protocol::{
+    lock::{EXPIRY_STEP, TICKET_TTL_MAX},
+    record,
+};
 use ed25519_dalek::Signer as _;
 use p256::ecdsa::{signature::Signer, Signature, SigningKey};
 
@@ -19,6 +22,12 @@ const PROGRAM: [u8; 32] = [2; 32];
 const NOW: u32 = 1_800_000_000;
 const EXPIRY: u32 = 1_900_000_000;
 const USDC: [u8; 32] = [3; 32];
+/// A day of validity, or half of the shortest a profile allows.
+const LIFE: u32 = if TICKET_TTL_MAX < 86_400 {
+    TICKET_TTL_MAX / 2
+} else {
+    86_400
+};
 const ORGANISER_ADDRESS: [u8; 32] = [0xa0; 32];
 const ORGANISER: Owner = Owner::Account(ORGANISER_ADDRESS);
 
@@ -162,7 +171,7 @@ fn bonded(device: &Owner, mint: [u8; 32], bond: u64, backing: u64) -> BondTicket
         bond,
         backing,
         lock_until: EXPIRY + GRACE + CHALLENGE + 1,
-        valid_until: NOW + 86_400,
+        valid_until: NOW + LIFE,
         attester: 1,
         signature: [0; 64],
     };
@@ -173,10 +182,14 @@ fn bonded(device: &Owner, mint: [u8; 32], bond: u64, backing: u64) -> BondTicket
 }
 
 fn attesters() -> [Attester; 1] {
-    [Attester {
-        id: 1,
-        key: attester().verifying_key().to_bytes(),
-    }]
+    [Attester::new(
+        1,
+        [13; 32],
+        USDC,
+        10_000_000,
+        attester().verifying_key().to_bytes(),
+        NOW,
+    )]
 }
 
 fn receiver<'a>(attesters: &'a [Attester], me: &Owner) -> Receiver<'a> {
@@ -188,6 +201,7 @@ fn receiver<'a>(attesters: &'a [Attester], me: &Owner) -> Receiver<'a> {
         me: *me,
         now: NOW,
         min_window: 86_400,
+        max_note_life: u32::MAX,
         accept_category: false,
         accept_authorities: &[],
     }
@@ -1115,6 +1129,7 @@ fn a_payment_names_every_lock_liable_for_it() {
         device: device.encode(),
         lock_seq: 0,
         bond,
+        attester: 1,
     };
     let attesters = attesters();
     for (last, amount) in [(delegated, 60), (from_change, 40)] {

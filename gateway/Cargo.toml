@@ -14,8 +14,17 @@ edition.workspace = true
 rust-version.workspace = true
 publish = false
 
+[[bin]]
+name = "buckspay-attester"
+path = "src/attester_main.rs"
+
+[[bin]]
+name = "buckspay-gateway"
+path = "src/main.rs"
+
 [dependencies]
 axum = "0.8.9"
+ed25519-dalek = { version = "2.2.0", default-features = false }
 base64 = "0.22.1"
 buckspay-client = { path = "client" }
 buckspay-protocol = { path = "../anchor/crates/protocol", features = ["verify"] }

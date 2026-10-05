@@ -204,7 +204,7 @@ impl Lock {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Landed {
     pub units: u64,
     pub size: usize,
@@ -1214,4 +1214,5 @@ pub fn migrate_ix(payer: &Pubkey, key: [u8; 33]) -> Instruction {
     }
 }
 
+pub mod attesters;
 pub mod claims;

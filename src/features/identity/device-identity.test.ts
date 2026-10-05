@@ -977,7 +977,7 @@ describe('device identity', () => {
 
   it('limits a registration to the most expensive one at the bump of its key, and to at least 40,000 CU', () => {
     expect([255, 239, 238, 235, 0].map((bump) => registerDeviceComputeUnitLimit(bump))).toEqual([
-      40_000, 40_000, 41_281, 45_781, 398_281,
+      40_000, 40_000, 41_283, 45_783, 398_283,
     ])
   })
 

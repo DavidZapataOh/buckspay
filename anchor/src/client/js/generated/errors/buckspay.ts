@@ -106,12 +106,33 @@ export const BUCKSPAY_ERROR__NO_RECORD = 0x179b // 6043
 export const BUCKSPAY_ERROR__ALREADY_CLAIMED = 0x179c // 6044
 /** OverCoverage: The output is larger than the lock's bond covers */
 export const BUCKSPAY_ERROR__OVER_COVERAGE = 0x179d // 6045
+/** StakeTooLow: The stake is below the minimum */
+export const BUCKSPAY_ERROR__STAKE_TOO_LOW = 0x179e // 6046
+/** AttesterKey: The key is not a canonical point of the prime-order subgroup */
+export const BUCKSPAY_ERROR__ATTESTER_KEY = 0x179f // 6047
+/** AttesterStatus: The attester's status does not allow this */
+export const BUCKSPAY_ERROR__ATTESTER_STATUS = 0x17a0 // 6048
+/** ExitNotReady: The attester cannot withdraw its stake yet */
+export const BUCKSPAY_ERROR__EXIT_NOT_READY = 0x17a1 // 6049
+/** RotationCooldown: The key was rotated too recently to rotate again */
+export const BUCKSPAY_ERROR__ROTATION_COOLDOWN = 0x17a2 // 6050
+/** TicketBinding: The instruction before this one is not the Ed25519 verification of this ticket */
+export const BUCKSPAY_ERROR__TICKET_BINDING = 0x17a3 // 6051
+/** TicketNotProvablyFalse: The chain does not contradict the ticket */
+export const BUCKSPAY_ERROR__TICKET_NOT_PROVABLY_FALSE = 0x17a4 // 6052
+/** AlreadySlashed: The attester was already slashed */
+export const BUCKSPAY_ERROR__ALREADY_SLASHED = 0x17a5 // 6053
+/** UnknownSigner: The key that signed the ticket is not one the attester answers for */
+export const BUCKSPAY_ERROR__UNKNOWN_SIGNER = 0x17a6 // 6054
 
 export type BuckspayError =
   | typeof BUCKSPAY_ERROR__ALREADY_CLAIMED
   | typeof BUCKSPAY_ERROR__ALREADY_SETTLED
+  | typeof BUCKSPAY_ERROR__ALREADY_SLASHED
   | typeof BUCKSPAY_ERROR__AMOUNT_OVERFLOW
   | typeof BUCKSPAY_ERROR__AMOUNT_ZERO
+  | typeof BUCKSPAY_ERROR__ATTESTER_KEY
+  | typeof BUCKSPAY_ERROR__ATTESTER_STATUS
   | typeof BUCKSPAY_ERROR__CHAIN_INVALID
   | typeof BUCKSPAY_ERROR__CHAIN_VERIFICATION
   | typeof BUCKSPAY_ERROR__CLAIM_TOO_LATE
@@ -122,6 +143,7 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__DEVICE_BINDING
   | typeof BUCKSPAY_ERROR__DEVICE_KEY
   | typeof BUCKSPAY_ERROR__ESCROW_OPEN
+  | typeof BUCKSPAY_ERROR__EXIT_NOT_READY
   | typeof BUCKSPAY_ERROR__FEE_NOT_ALLOWED
   | typeof BUCKSPAY_ERROR__FEE_TOO_HIGH
   | typeof BUCKSPAY_ERROR__INSUFFICIENT_ESCROW
@@ -144,11 +166,16 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__RECORD_NOT_CLOSABLE
   | typeof BUCKSPAY_ERROR__RELEASE_TOO_EARLY
   | typeof BUCKSPAY_ERROR__ROTATION_BINDING
+  | typeof BUCKSPAY_ERROR__ROTATION_COOLDOWN
   | typeof BUCKSPAY_ERROR__ROTATION_NOT_READY
   | typeof BUCKSPAY_ERROR__SAME_WALLET
   | typeof BUCKSPAY_ERROR__SETTLEMENT_CLOSED
   | typeof BUCKSPAY_ERROR__SLASH_PENDING
+  | typeof BUCKSPAY_ERROR__STAKE_TOO_LOW
+  | typeof BUCKSPAY_ERROR__TICKET_BINDING
+  | typeof BUCKSPAY_ERROR__TICKET_NOT_PROVABLY_FALSE
   | typeof BUCKSPAY_ERROR__TOO_MANY_SPENDS
+  | typeof BUCKSPAY_ERROR__UNKNOWN_SIGNER
   | typeof BUCKSPAY_ERROR__UNRECORDABLE_OUTPUT
   | typeof BUCKSPAY_ERROR__UNSUPPORTED_MINT_EXTENSION
   | typeof BUCKSPAY_ERROR__WITHDRAW_TOO_EARLY
@@ -160,8 +187,11 @@ if (process.env['NODE_ENV'] !== 'production') {
   buckspayErrorMessages = {
     [BUCKSPAY_ERROR__ALREADY_CLAIMED]: `The output was already claimed`,
     [BUCKSPAY_ERROR__ALREADY_SETTLED]: `This message was already paid`,
+    [BUCKSPAY_ERROR__ALREADY_SLASHED]: `The attester was already slashed`,
     [BUCKSPAY_ERROR__AMOUNT_OVERFLOW]: `Amount overflows`,
     [BUCKSPAY_ERROR__AMOUNT_ZERO]: `Amount must be greater than zero`,
+    [BUCKSPAY_ERROR__ATTESTER_KEY]: `The key is not a canonical point of the prime-order subgroup`,
+    [BUCKSPAY_ERROR__ATTESTER_STATUS]: `The attester's status does not allow this`,
     [BUCKSPAY_ERROR__CHAIN_INVALID]: `The messages are not a valid chain`,
     [BUCKSPAY_ERROR__CHAIN_VERIFICATION]: `The transaction does not carry the secp256r1 verification of exactly this chain`,
     [BUCKSPAY_ERROR__CLAIM_TOO_LATE]: `The claim deadline of the output has passed`,
@@ -172,6 +202,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__DEVICE_BINDING]: `Missing or malformed secp256r1 verification of the device binding`,
     [BUCKSPAY_ERROR__DEVICE_KEY]: `Device key is not a compressed P-256 point`,
     [BUCKSPAY_ERROR__ESCROW_OPEN]: `The escrow is still open`,
+    [BUCKSPAY_ERROR__EXIT_NOT_READY]: `The attester cannot withdraw its stake yet`,
     [BUCKSPAY_ERROR__FEE_NOT_ALLOWED]: `A sponsor fee is only allowed on a sponsored first lock`,
     [BUCKSPAY_ERROR__FEE_TOO_HIGH]: `The sponsor fee is above its cap`,
     [BUCKSPAY_ERROR__INSUFFICIENT_ESCROW]: `The escrow holds less than the ledger owes`,
@@ -194,11 +225,16 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__RECORD_NOT_CLOSABLE]: `The record cannot be closed yet`,
     [BUCKSPAY_ERROR__RELEASE_TOO_EARLY]: `The lock cannot be released yet`,
     [BUCKSPAY_ERROR__ROTATION_BINDING]: `Missing or malformed secp256r1 verification of the wallet rotation`,
+    [BUCKSPAY_ERROR__ROTATION_COOLDOWN]: `The key was rotated too recently to rotate again`,
     [BUCKSPAY_ERROR__ROTATION_NOT_READY]: `The wallet rotation cannot be applied yet`,
     [BUCKSPAY_ERROR__SAME_WALLET]: `The new wallet is the current wallet`,
     [BUCKSPAY_ERROR__SETTLEMENT_CLOSED]: `The settlement window of the output has closed`,
     [BUCKSPAY_ERROR__SLASH_PENDING]: `A slash is still pending in the lock`,
+    [BUCKSPAY_ERROR__STAKE_TOO_LOW]: `The stake is below the minimum`,
+    [BUCKSPAY_ERROR__TICKET_BINDING]: `The instruction before this one is not the Ed25519 verification of this ticket`,
+    [BUCKSPAY_ERROR__TICKET_NOT_PROVABLY_FALSE]: `The chain does not contradict the ticket`,
     [BUCKSPAY_ERROR__TOO_MANY_SPENDS]: `Too many spends for one instruction`,
+    [BUCKSPAY_ERROR__UNKNOWN_SIGNER]: `The key that signed the ticket is not one the attester answers for`,
     [BUCKSPAY_ERROR__UNRECORDABLE_OUTPUT]: `An output of the chain has no record address or no claim address`,
     [BUCKSPAY_ERROR__UNSUPPORTED_MINT_EXTENSION]: `The mint has an extension the program does not support`,
     [BUCKSPAY_ERROR__WITHDRAW_TOO_EARLY]: `The lock cannot be withdrawn yet`,

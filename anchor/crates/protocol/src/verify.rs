@@ -1,12 +1,11 @@
-use curve25519_dalek::edwards::CompressedEdwardsY;
 use p256::ecdsa::{signature::Verifier, RecoveryId, Signature, VerifyingKey};
 
 use crate::conflict::{IssueConflict, SpendConflict};
+use crate::ticket::{self, Need, TicketError};
 use crate::{
     flags, record, BondTicket, Caveats, Issue, Owner, ProtocolError, Result, ScopeKind, Signed,
-    Spend, CHALLENGE, GRACE, MAX_DEPTH, NO_LOCK,
+    Spend, GRACE, MAX_DEPTH, NO_LOCK,
 };
-use crate::{lock::TICKET_TTL_MAX, slash::covers};
 
 pub fn verify_signature(key: &[u8; 33], message: &[u8], signature: &[u8; 64]) -> Result<()> {
     let key = VerifyingKey::from_sec1_bytes(key).map_err(|_| ProtocolError::Signer)?;
@@ -95,11 +94,7 @@ pub fn verify_issue_conflict(
 pub use crate::chain::Output;
 use crate::chain::{self, Holding};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Attester {
-    pub id: u16,
-    pub key: [u8; 32],
-}
+pub use crate::ticket::Attester;
 
 /// What the receiving wallet trusts and requires.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -113,6 +108,9 @@ pub struct Receiver<'a> {
     pub me: Owner,
     pub now: u32,
     pub min_window: u32,
+    /// The longest note the receiver accepts, counted from now: a note that expires later than
+    /// `now + max_note_life` outlives what an attester's exit delay covers.
+    pub max_note_life: u32,
     /// Accepts category-scoped payments; only for a receiver that checks categories itself.
     pub accept_category: bool,
     /// Account addresses of the authorities whose `AUTHORITY_ONLY` notes a device accepts,
@@ -126,6 +124,8 @@ pub struct Liability {
     pub device: [u8; 33],
     pub lock_seq: u32,
     pub bond: u64,
+    /// The attester whose ticket vouched for the lock.
+    pub attester: u16,
 }
 
 /// The distinct locks liable for a payment, in chain order: the issuer's, then each lock a
@@ -143,6 +143,7 @@ impl Liabilities {
             device: [0; 33],
             lock_seq: 0,
             bond: 0,
+            attester: 0,
         };
         Liabilities {
             locks: [none; MAX_DEPTH as usize + 1],
@@ -291,12 +292,12 @@ fn spent_recordable(program: &[u8; 32], output: &[u8; 32]) -> Result<()> {
 
 /// Follows `spends` from the issue's output, each consuming either output of the previous
 /// message, and returns output 0 of the last one. `check` sees each consumed output and its spend.
-fn follow(
+fn follow<E: From<ProtocolError>>(
     domain: &[u8; 32],
     issued: Output,
     spends: &[Signed<Spend>],
-    mut check: impl FnMut(&Output, &Signed<Spend>) -> Result<()>,
-) -> Result<Output> {
+    mut check: impl FnMut(&Output, &Signed<Spend>) -> core::result::Result<(), E>,
+) -> core::result::Result<Output, E> {
     let mut holding = Holding {
         first: issued,
         second: None,
@@ -311,91 +312,6 @@ fn follow(
         check(&input, spend)?;
     }
     Ok(holding.first)
-}
-
-/// A canonical encoding of a point in the prime-order subgroup, other than the identity.
-fn prime_order(bytes: &[u8; 32]) -> bool {
-    CompressedEdwardsY(*bytes)
-        .decompress()
-        .is_some_and(|point| {
-            point.compress().to_bytes() == *bytes
-                && point.is_torsion_free()
-                && !point.is_small_order()
-        })
-}
-
-fn attested(receiver: &Receiver, ticket: &BondTicket) -> bool {
-    let Some(attester) = receiver.attesters.iter().find(|a| a.id == ticket.attester) else {
-        return false;
-    };
-    let Ok(key) = ed25519_dalek::VerifyingKey::from_bytes(&attester.key) else {
-        return false;
-    };
-    let signature = ed25519_dalek::Signature::from_bytes(&ticket.signature);
-    prime_order(&attester.key)
-        && prime_order(signature.r_bytes())
-        && key
-            .verify_strict(&ticket.signed_message(&receiver.ticket_domain), &signature)
-            .is_ok()
-}
-
-/// A payment carries at most one ticket per message and at most one per lock, so a sender
-/// cannot make the receiver check more signatures than the chain needs.
-fn check_bounds(spends: &[Signed<Spend>], tickets: &[BondTicket]) -> Result<()> {
-    if spends.len() > usize::from(MAX_DEPTH) {
-        return Err(ProtocolError::Depth);
-    }
-    if tickets.len() > spends.len() + 1 {
-        return Err(ProtocolError::Ticket);
-    }
-    for (i, a) in tickets.iter().enumerate() {
-        let duplicate = tickets[i + 1..]
-            .iter()
-            .any(|b| b.device == a.device && b.lock_seq == a.lock_seq);
-        if duplicate {
-            return Err(ProtocolError::Ticket);
-        }
-    }
-    Ok(())
-}
-
-/// Whether a ticket whose last second is `valid_until` can be used at `now`: it has not run out and is
-/// not valid for more than `TICKET_TTL_MAX` from now, whatever its attester signed.
-fn fresh(now: u32, valid_until: u32) -> bool {
-    now <= valid_until && valid_until - now <= TICKET_TTL_MAX
-}
-
-/// The ticket for `(device, lock_seq)`, which must be on `mint`, locked beyond the conflict window
-/// of `expiry` (a claim needs `now < lock_until`, so the last second of the window needs one more),
-/// fresh (valid now and no longer than `TICKET_TTL_MAX` from now), cover the liability and be
-/// signed by a trusted attester.
-fn ticket(
-    receiver: &Receiver,
-    tickets: &[BondTicket],
-    device: &Owner,
-    lock_seq: u32,
-    mint: &[u8; 32],
-    expiry: u32,
-    covers: impl Fn(&BondTicket) -> bool,
-) -> Result<Liability> {
-    let settled_by = u64::from(expiry) + u64::from(GRACE) + u64::from(CHALLENGE);
-    let ticket = tickets
-        .iter()
-        .find(|t| Owner::Device(t.device) == *device && t.lock_seq == lock_seq)
-        .ok_or(ProtocolError::Ticket)?;
-    let valid = ticket.mint == *mint
-        && u64::from(ticket.lock_until) > settled_by
-        && fresh(receiver.now, ticket.valid_until)
-        && covers(ticket)
-        && attested(receiver, ticket);
-    if !valid {
-        return Err(ProtocolError::Ticket);
-    }
-    Ok(Liability {
-        device: ticket.device,
-        lock_seq,
-        bond: ticket.bond,
-    })
 }
 
 /// Whether `receiver.me` can redeem an output with `caveats`: a merchant scope must name it, an
@@ -418,6 +334,34 @@ fn redeemable(receiver: &Receiver, caveats: &Caveats) -> bool {
     }
 }
 
+/// Why a payment was refused: a rule of the notes, or the reason a ticket did not cover a lock.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Refusal {
+    Protocol(ProtocolError),
+    Ticket(TicketError),
+}
+
+impl From<ProtocolError> for Refusal {
+    fn from(error: ProtocolError) -> Self {
+        Refusal::Protocol(error)
+    }
+}
+
+impl From<TicketError> for Refusal {
+    fn from(error: TicketError) -> Self {
+        Refusal::Ticket(error)
+    }
+}
+
+impl From<Refusal> for ProtocolError {
+    fn from(refusal: Refusal) -> Self {
+        match refusal {
+            Refusal::Protocol(error) => error,
+            Refusal::Ticket(_) => ProtocolError::Ticket,
+        }
+    }
+}
+
 /// Accepts a payment to `receiver.me`: output 0 of the last spend (or the issue's output when
 /// there are no spends), never change, and only if `me` can redeem it. Stateless: the caller
 /// rejects outputs and slots it has already accepted.
@@ -427,53 +371,82 @@ pub fn verify_payment(
     spends: &[Signed<Spend>],
     tickets: &[BondTicket],
 ) -> Result<Received> {
-    check_bounds(spends, tickets)?;
+    verify_payment_explained(receiver, issue, spends, tickets).map_err(ProtocolError::from)
+}
+
+/// [`verify_payment`] with the reason a ticket was refused, for the wallet to show.
+pub fn verify_payment_explained(
+    receiver: &Receiver,
+    issue: &Signed<Issue>,
+    spends: &[Signed<Spend>],
+    tickets: &[BondTicket],
+) -> core::result::Result<Received, Refusal> {
+    if spends.len() > usize::from(MAX_DEPTH) {
+        return Err(ProtocolError::Depth.into());
+    }
+    ticket::check_count(spends.len(), tickets)?;
     let note = &issue.message;
     let issued = verify_issue(&receiver.note_domain, issue)?;
     let mut liable = Liabilities::new();
-    liable.add(ticket(
-        receiver,
-        tickets,
+    let accept = |device: &Owner, lock_seq: u32, need: &Need| {
+        ticket::accept(
+            receiver.now,
+            &receiver.ticket_domain,
+            receiver.attesters,
+            tickets,
+            device,
+            lock_seq,
+            need,
+        )
+    };
+    liable.add(accept(
         &Owner::Device(note.issuer),
         note.lock_seq,
-        &note.mint,
-        note.caveats.expiry,
-        |t| covers(t.bond, note.amount) && t.backing >= note.cum_end,
+        &Need {
+            mint: &note.mint,
+            amount: note.amount,
+            backing: Some(note.cum_end),
+            expiry: note.caveats.expiry,
+        },
     )?)?;
     let output = follow(&receiver.note_domain, issued, spends, |input, spend| {
         recordable(&receiver.program, &input.id)?;
         if receiver.now > input.caveats.expiry {
-            return Err(ProtocolError::Expired);
+            return Err(ProtocolError::Expired.into());
         }
         let lock_seq = spend.message.lock_seq;
         if lock_seq == NO_LOCK {
             return if chain::unlocked(&input.caveats) {
                 Ok(())
             } else {
-                Err(ProtocolError::Lock)
+                Err(ProtocolError::Lock.into())
             };
         }
-        liable.add(ticket(
-            receiver,
-            tickets,
+        liable.add(accept(
             &input.owner,
             lock_seq,
-            &note.mint,
-            input.caveats.expiry,
-            |t| covers(t.bond, input.amount),
-        )?)
+            &Need {
+                mint: &note.mint,
+                amount: input.amount,
+                backing: None,
+                expiry: input.caveats.expiry,
+            },
+        )?)?;
+        Ok::<(), Refusal>(())
     })?;
     recordable(&receiver.program, &output.id)?;
     if output.owner != receiver.me {
-        return Err(ProtocolError::Payee);
+        return Err(ProtocolError::Payee.into());
     }
     if !redeemable(receiver, &output.caveats) {
-        return Err(ProtocolError::Scope);
+        return Err(ProtocolError::Scope.into());
     }
     let window = u64::from(receiver.now) + u64::from(receiver.min_window);
+    let latest = u64::from(receiver.now) + u64::from(receiver.max_note_life);
     let stranded = matches!(output.owner, Owner::Device(_)) && output.caveats.hops_left == 0;
-    if stranded || u64::from(output.caveats.expiry) < window {
-        return Err(ProtocolError::Window);
+    let expiry = u64::from(output.caveats.expiry);
+    if stranded || expiry < window || expiry > latest {
+        return Err(ProtocolError::Window.into());
     }
     Ok(Received {
         output,
@@ -513,8 +486,10 @@ mod tests {
     use crate::hash::envelope;
     use crate::message::issue_slot;
     use crate::slash::min_bond;
+    use crate::ticket::prime_order;
     use crate::Outputs;
     use crate::ScopeKind;
+    use crate::CHALLENGE;
     use ed25519_dalek::Signer as _;
     use p256::ecdsa::{signature::Signer, SigningKey};
 
@@ -648,7 +623,13 @@ mod tests {
     const TICKET_DOMAIN: [u8; 32] = [10; 32];
     const MINT: [u8; 32] = [3; 32];
     const PROGRAM: [u8; 32] = [7; 32];
-    use crate::lock::EXPIRY_STEP;
+    use crate::lock::{EXPIRY_STEP, TICKET_TTL_MAX};
+    /// A day of validity, or half of the shortest a profile allows.
+    const LIFE: u32 = if TICKET_TTL_MAX < 86_400 {
+        TICKET_TTL_MAX / 2
+    } else {
+        86_400
+    };
 
     fn recordable_id(id: &[u8; 32]) -> bool {
         record::recordable(&PROGRAM, id)
@@ -676,7 +657,7 @@ mod tests {
             bond,
             backing: 20_000,
             lock_until,
-            valid_until: NOW + 86_400,
+            valid_until: NOW + LIFE,
             attester: 1,
             signature: [0; 64],
         };
@@ -701,16 +682,21 @@ mod tests {
             me: Owner::Device(me),
             now: NOW,
             min_window: 86_400,
+            max_note_life: u32::MAX,
             accept_category: false,
             accept_authorities: &[],
         }
     }
 
     fn attesters() -> [Attester; 1] {
-        [Attester {
-            id: 1,
-            key: attester().verifying_key().to_bytes(),
-        }]
+        [Attester::new(
+            1,
+            [13; 32],
+            MINT,
+            10_000_000,
+            attester().verifying_key().to_bytes(),
+            NOW,
+        )]
     }
 
     /// The salt is changed until the issue's output is recordable, as an honest issuer does.
@@ -830,6 +816,7 @@ mod tests {
             device,
             lock_seq: 0,
             bond,
+            attester: 1,
         };
         assert_eq!(
             *received.liable,
@@ -998,14 +985,17 @@ mod tests {
         let tickets = [
             valid_until(
                 ticket(issuer_key, min_bond(20_000).unwrap(), lock_until),
-                EXPIRY + 86_400,
+                EXPIRY + LIFE,
             ),
             valid_until(
                 ticket(alice_key, min_bond(20_000).unwrap(), lock_until),
-                EXPIRY + 86_400,
+                EXPIRY + LIFE,
             ),
         ];
-        let attesters = attesters();
+        let attesters = attesters().map(|a| Attester {
+            synced_at: EXPIRY + 1,
+            ..a
+        });
         let late = Receiver {
             now: EXPIRY + 1,
             ..receiver(&attesters, bob_key)
@@ -1364,7 +1354,6 @@ mod tests {
 
     #[test]
     fn a_ticket_is_fresh_until_valid_until_and_never_for_longer_than_the_ttl_from_now() {
-        use crate::lock::TICKET_TTL_MAX;
         let (_, issuer_key) = key(1);
         let lock_until = EXPIRY + GRACE + CHALLENGE + 1;
         let bond = min_bond(20_000).unwrap();
@@ -1392,5 +1381,77 @@ mod tests {
             let result = pay_issue_with(ticket(issuer_key, bond, lock_until));
             assert_eq!(result.is_ok(), ok, "lock_until {lock_until}");
         }
+    }
+
+    fn one_note() -> (Signed<Issue>, [u8; 33], BondTicket) {
+        let (issuer, issuer_key) = key(1);
+        let (_, alice_key) = key(2);
+        let issue = signed_issue(&issuer, issuer_key, alice_key);
+        let lock_until = EXPIRY + GRACE + CHALLENGE + 1;
+        let ticket = ticket(issuer_key, min_bond(20_000).unwrap(), lock_until);
+        (issue, alice_key, ticket)
+    }
+
+    #[test]
+    fn a_note_that_outlives_the_receivers_note_life_is_refused() {
+        let (issue, alice_key, ticket) = one_note();
+        let attesters = attesters();
+        let life = EXPIRY - NOW;
+        for (max_note_life, ok) in [
+            (life, true),
+            (life - 1, false),
+            (crate::attest::MAX_NOTE_LIFE, false),
+        ] {
+            let receiver = Receiver {
+                max_note_life,
+                ..receiver(&attesters, alice_key)
+            };
+            let result = verify_payment(&receiver, &issue, &[], &[ticket]);
+            assert_eq!(result.is_ok(), ok, "max_note_life {max_note_life}");
+            if !ok {
+                assert_eq!(result, Err(ProtocolError::Window));
+            }
+        }
+    }
+
+    #[test]
+    fn the_wallet_is_told_why_a_ticket_was_refused_and_the_protocol_still_says_ticket() {
+        let (issue, alice_key, ticket) = one_note();
+        let stale = valid_until(ticket, NOW - 1);
+        let attesters = attesters();
+        let receiver = receiver(&attesters, alice_key);
+        assert_eq!(
+            verify_payment_explained(&receiver, &issue, &[], &[stale]).map(drop),
+            Err(Refusal::Ticket(TicketError::Stale))
+        );
+        assert_eq!(
+            verify_payment(&receiver, &issue, &[], &[stale]).map(drop),
+            Err(ProtocolError::Ticket)
+        );
+        let (_, other) = key(9);
+        let elsewhere = Receiver {
+            me: Owner::Device(other),
+            ..receiver
+        };
+        assert_eq!(
+            verify_payment_explained(&elsewhere, &issue, &[], &[ticket]).map(drop),
+            Err(Refusal::Protocol(ProtocolError::Payee))
+        );
+    }
+
+    #[test]
+    fn a_payment_names_the_attester_that_vouched_and_stops_at_the_cap() {
+        let (issue, alice_key, ticket) = one_note();
+        let mut attesters = attesters();
+        let received = verify_payment(&receiver(&attesters, alice_key), &issue, &[], &[ticket]);
+        assert_eq!(received.unwrap().liable[0].attester, 1);
+        attesters[0].relied = crate::slash::payment_limit(attesters[0].stake) - 19_999;
+        assert_eq!(
+            verify_payment_explained(&receiver(&attesters, alice_key), &issue, &[], &[ticket])
+                .map(drop),
+            Err(Refusal::Ticket(TicketError::AttesterCap))
+        );
+        attesters[0].relied -= 1;
+        assert!(verify_payment(&receiver(&attesters, alice_key), &issue, &[], &[ticket]).is_ok());
     }
 }

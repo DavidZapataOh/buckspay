@@ -6,6 +6,7 @@
 //!
 
 pub(crate) mod r#apply_wallet_rotation;
+pub(crate) mod r#cancel_attester_exit;
 pub(crate) mod r#cancel_wallet_rotation;
 pub(crate) mod r#claim_lost_spend;
 pub(crate) mod r#claim_unbacked;
@@ -16,13 +17,20 @@ pub(crate) mod r#create_lock;
 pub(crate) mod r#migrate_device;
 pub(crate) mod r#reclaim_output;
 pub(crate) mod r#record_prefix;
+pub(crate) mod r#register_attester;
 pub(crate) mod r#register_device;
 pub(crate) mod r#release_lock;
+pub(crate) mod r#report_false_ticket;
+pub(crate) mod r#request_attester_exit;
 pub(crate) mod r#request_wallet_rotation;
+pub(crate) mod r#rotate_attester_key;
 pub(crate) mod r#settle_note;
+pub(crate) mod r#top_up_attester;
+pub(crate) mod r#withdraw_attester_stake;
 pub(crate) mod r#withdraw_lock;
 
 pub use self::r#apply_wallet_rotation::*;
+pub use self::r#cancel_attester_exit::*;
 pub use self::r#cancel_wallet_rotation::*;
 pub use self::r#claim_lost_spend::*;
 pub use self::r#claim_unbacked::*;
@@ -33,8 +41,14 @@ pub use self::r#create_lock::*;
 pub use self::r#migrate_device::*;
 pub use self::r#reclaim_output::*;
 pub use self::r#record_prefix::*;
+pub use self::r#register_attester::*;
 pub use self::r#register_device::*;
 pub use self::r#release_lock::*;
+pub use self::r#report_false_ticket::*;
+pub use self::r#request_attester_exit::*;
 pub use self::r#request_wallet_rotation::*;
+pub use self::r#rotate_attester_key::*;
 pub use self::r#settle_note::*;
+pub use self::r#top_up_attester::*;
+pub use self::r#withdraw_attester_stake::*;
 pub use self::r#withdraw_lock::*;

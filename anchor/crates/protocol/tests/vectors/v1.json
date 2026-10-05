@@ -11,6 +11,10 @@
       "secret": ""
     }
   ],
+  "authority": {
+    "public": "be9a7e379e19f4cc4ac7ed687d0e64775667fecbbf9a8769a045fe2eecb507e1",
+    "secret": "a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8"
+  },
   "clusters": {
     "devnet": "ce59db5080fc2c6d3bcf7ca90712d3c2e5e6c28f27f0dfbb9953bdb0894c03ab",
     "mainnet": "45296998a6f8e2a784db5d9f95e18fc23f70441a1039446801089879b08c7ef0"
@@ -135,6 +139,7 @@
     "payword": "db441f1d920c96dc1304369fc47ffb95c88a559d6f9b42bccdca9c7e99d395e6",
     "program_id": "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0",
     "reclaim": "80825e9a87429da58e0258ec209e512227e595b513c734c41dde9e0cb24b7a47",
+    "revoke": "300ec2134b106b059378a857b9dd1dd0b4f2362be81b2f199a39a6b462cda6a7",
     "ticket": "1aa351af1ebba0b30792c4334451edfb936a969cd5247f932eecc359d8cc69e2",
     "voice": "b11aa2281c2ca52e2eb512cc06973fb0009e0144c9c8c55ec9a31191c30a3a0a",
     "witness": "383e0eb3d01d2370562858e704d354d7a2be478490f5936dfc0b51a2f577d322"
@@ -146,6 +151,7 @@
       "accept_category": false,
       "error": "Signature",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "high_s_issue",
@@ -161,6 +167,7 @@
       "accept_category": false,
       "error": "Signature",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "wrong_signer",
@@ -179,6 +186,7 @@
       "accept_category": false,
       "error": "Attenuation",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "widened_caveats",
@@ -197,6 +205,7 @@
       "accept_category": false,
       "error": "Expired",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "expired",
@@ -215,6 +224,7 @@
       "accept_category": false,
       "error": "Amount",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "payment_not_smaller",
@@ -233,6 +243,7 @@
       "accept_category": false,
       "error": "Linkage",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "0273103ec30b3ccf57daae08e93534aef144a35940cf6bbba12a0cf7cbd5d65a64",
       "min_window": 86400,
       "name": "broken_linkage",
@@ -251,6 +262,7 @@
       "accept_category": false,
       "error": "Owner",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "0273103ec30b3ccf57daae08e93534aef144a35940cf6bbba12a0cf7cbd5d65a64",
       "min_window": 86400,
       "name": "terminal_output_spent",
@@ -269,6 +281,7 @@
       "accept_category": false,
       "error": "Signature",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "foreign_domain",
@@ -284,6 +297,7 @@
       "accept_category": false,
       "error": "Flags",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "unknown_flag",
@@ -299,6 +313,7 @@
       "accept_category": false,
       "error": "Scope",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "non_canonical_scope",
@@ -314,6 +329,7 @@
       "accept_category": false,
       "error": "Owner",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "reserved_owner",
@@ -329,6 +345,7 @@
       "accept_category": false,
       "error": "Version",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "bad_version",
@@ -344,6 +361,7 @@
       "accept_category": false,
       "error": "Owner",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "off_curve_owner",
@@ -359,6 +377,7 @@
       "accept_category": false,
       "error": "Lock",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "no_lock_undelegated",
@@ -377,6 +396,7 @@
       "accept_category": false,
       "error": "Lock",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "redelegated_without_lock",
@@ -395,6 +415,7 @@
       "accept_category": false,
       "error": "Change",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "change_to_someone_else",
@@ -413,6 +434,7 @@
       "accept_category": false,
       "error": "Scope",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "0273103ec30b3ccf57daae08e93534aef144a35940cf6bbba12a0cf7cbd5d65a64",
       "min_window": 86400,
       "name": "scope_violation",
@@ -431,6 +453,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "missing_ticket",
@@ -444,6 +467,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "unbacked_issue",
@@ -459,6 +483,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "other_mint_lock",
@@ -474,6 +499,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "insufficient_bond",
@@ -492,6 +518,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "short_lock",
@@ -510,6 +537,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "stale_ticket",
@@ -528,6 +556,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "ticket_valid_too_long",
@@ -546,6 +575,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "forged_ticket",
@@ -564,6 +594,7 @@
       "accept_category": false,
       "error": "Payee",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "0273103ec30b3ccf57daae08e93534aef144a35940cf6bbba12a0cf7cbd5d65a64",
       "min_window": 86400,
       "name": "not_addressed_to_me",
@@ -582,6 +613,7 @@
       "accept_category": false,
       "error": "Window",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "expiring_output",
@@ -600,6 +632,7 @@
       "accept_category": false,
       "error": "Window",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "zero_hop_output",
@@ -618,6 +651,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "issuer_bond_too_small",
@@ -633,6 +667,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "delegated_issue_unbonded",
@@ -650,6 +685,7 @@
       "accept_category": false,
       "error": "Payee",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "own_change_is_not_a_payment",
@@ -668,6 +704,7 @@
       "accept_category": false,
       "error": "Depth",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "change_without_a_hop",
@@ -686,6 +723,7 @@
       "accept_category": false,
       "error": "Lock",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "issue_without_lock",
@@ -701,6 +739,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "mixed_order_attester",
@@ -716,6 +755,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "mixed_order_attester_cofactorless",
@@ -731,6 +771,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "small_order_nonce",
@@ -746,6 +787,7 @@
       "accept_category": false,
       "error": "Scope",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "foreign_merchant_scope",
@@ -764,6 +806,7 @@
       "accept_category": false,
       "error": "Scope",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "foreign_authority_scope",
@@ -782,6 +825,7 @@
       "accept_category": false,
       "error": "Scope",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "category_not_accepted",
@@ -800,6 +844,7 @@
       "accept_category": false,
       "error": "Scope",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "authority_note_to_a_device",
@@ -817,6 +862,7 @@
       "accept_category": false,
       "error": "Scope",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "authority_note_untrusted_authority",
@@ -834,6 +880,7 @@
       "accept_category": false,
       "error": "Scope",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "trusted_authority_scope_without_authority_only",
@@ -852,6 +899,7 @@
       "accept_category": false,
       "error": "Attenuation",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "authority_only_added_mid_chain",
@@ -870,6 +918,7 @@
       "accept_category": false,
       "error": "Scope",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "device_authority_issue",
@@ -885,6 +934,7 @@
       "accept_category": false,
       "error": "Scope",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "device_authority_escape",
@@ -902,6 +952,7 @@
       "accept_category": false,
       "error": "Lock",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "00b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5",
       "min_window": 86400,
       "name": "unbonded_terminal_payment",
@@ -921,6 +972,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "too_many_tickets",
@@ -937,6 +989,7 @@
       "accept_category": false,
       "error": "Ticket",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "duplicate_tickets",
@@ -955,6 +1008,7 @@
       "accept_category": false,
       "error": "Depth",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "chain_too_long",
@@ -986,6 +1040,7 @@
       "accept_category": false,
       "error": "Length",
       "kind": 3,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "truncated_spend",
@@ -999,6 +1054,7 @@
       "accept_category": false,
       "error": "Amount",
       "kind": 3,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "zero_payment",
@@ -1012,6 +1068,7 @@
       "accept_category": false,
       "error": "Unrecordable",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "0273103ec30b3ccf57daae08e93534aef144a35940cf6bbba12a0cf7cbd5d65a64",
       "min_window": 86400,
       "name": "consumed_output_without_a_claim_address",
@@ -1032,6 +1089,7 @@
       "accept_category": false,
       "error": "ExpiryStep",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "payment_to_a_device_with_the_inputs_expiry",
@@ -1050,6 +1108,7 @@
       "accept_category": false,
       "error": "ExpiryStep",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "payment_to_a_device_a_second_short_of_the_step",
@@ -1068,6 +1127,7 @@
       "accept_category": false,
       "error": "Unrecordable",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "issue_output_without_a_record_address",
@@ -1083,6 +1143,7 @@
       "accept_category": false,
       "error": "Unrecordable",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "issue_output_without_a_claim_address",
@@ -1098,6 +1159,7 @@
       "accept_category": false,
       "error": "Unrecordable",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "last_output_without_a_claim_address",
@@ -1116,6 +1178,7 @@
       "accept_category": false,
       "error": "Unrecordable",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "last_output_without_a_record_address",
@@ -1134,6 +1197,7 @@
       "accept_category": false,
       "error": "Unrecordable",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "0273103ec30b3ccf57daae08e93534aef144a35940cf6bbba12a0cf7cbd5d65a64",
       "min_window": 86400,
       "name": "consumed_output_without_a_record_address",
@@ -1154,6 +1218,7 @@
       "accept_category": false,
       "error": "Unrecordable",
       "kind": 1,
+      "max_note_life": 4294967295,
       "me": "00b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5",
       "min_window": 86400,
       "name": "account_output_without_a_claim_address",
@@ -1168,6 +1233,232 @@
         "011002591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf030303030303030303030303030303030303030303030303030303030303030300000000803801000000000000000000000000000128527180234b6b01005d553eb13a75b46309b97843633d6ad4312efa12d37ef02c90bbc0d9b3d4de01a54a7acc8476dd07b895c0d4a8d48d81a472924fb5dc4f8d62016c1712719c03"
       ],
       "wire": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f71040001590d9ac1eef14346bf97ff61c64f7c97e7f03e67eb22141c20ca7fa004ce477d25b3972e006e97438e129a7f639342560e84d87750dfcc63773a311774ddc003c606ecf4e89c35f69140231a4d6b66fb2066b7c3"
+    },
+    {
+      "accept_authorities": [],
+      "accept_category": false,
+      "attesters": [
+        {
+          "active": true,
+          "authority": "be9a7e379e19f4cc4ac7ed687d0e64775667fecbbf9a8769a045fe2eecb507e1",
+          "id": 1,
+          "key": "c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860",
+          "mint": "0303030303030303030303030303030303030303030303030303030303030303",
+          "prev_key": "0000000000000000000000000000000000000000000000000000000000000000",
+          "prev_trusted_until": 0,
+          "relied": "0",
+          "revoked": [
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          "stake": "1000000",
+          "synced_at": 1799395199
+        }
+      ],
+      "error": "Ticket",
+      "kind": 1,
+      "max_note_life": 4294967295,
+      "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
+      "min_window": 86400,
+      "name": "stale_registry",
+      "now": 1800000000,
+      "reason": "RegistryStale",
+      "spends": [],
+      "tickets": [
+        "0110026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1603030303030303030303030303030303030303030303030303030303030303030000000040420f0000000000409c0000000000000128527180234b6b0100cb0816547cc0b94538572b6ede213ff2cae9e6cbfb9c6bda836b115e3ee08d59a57b9ddc28781c7d9dc13cd87ce52b3d953d9768387a87384538563a879b8e00"
+      ],
+      "wire": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104000000000000000000000000000000000000000000006e7a2b2ff0bae8192559de60db8590af756cd2e38be8b957937854f0c5ea1d127d5dd7ac549344db8f942d680d2f4c914494d3f49f9f1a91aa9cdadf7d3c8323"
+    },
+    {
+      "accept_authorities": [],
+      "accept_category": false,
+      "attesters": [
+        {
+          "active": true,
+          "authority": "be9a7e379e19f4cc4ac7ed687d0e64775667fecbbf9a8769a045fe2eecb507e1",
+          "id": 1,
+          "key": "c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860",
+          "mint": "0303030303030303030303030303030303030303030303030303030303030303",
+          "prev_key": "0000000000000000000000000000000000000000000000000000000000000000",
+          "prev_trusted_until": 0,
+          "relied": "0",
+          "revoked": [
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          "stake": "79999",
+          "synced_at": 1931536000
+        }
+      ],
+      "error": "Ticket",
+      "kind": 1,
+      "max_note_life": 4294967295,
+      "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
+      "min_window": 86400,
+      "name": "attester_stake_too_small",
+      "now": 1800000000,
+      "reason": "AttesterStake",
+      "spends": [],
+      "tickets": [
+        "0110026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1603030303030303030303030303030303030303030303030303030303030303030000000040420f0000000000409c0000000000000128527180234b6b0100cb0816547cc0b94538572b6ede213ff2cae9e6cbfb9c6bda836b115e3ee08d59a57b9ddc28781c7d9dc13cd87ce52b3d953d9768387a87384538563a879b8e00"
+      ],
+      "wire": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104000000000000000000000000000000000000000000006e7a2b2ff0bae8192559de60db8590af756cd2e38be8b957937854f0c5ea1d127d5dd7ac549344db8f942d680d2f4c914494d3f49f9f1a91aa9cdadf7d3c8323"
+    },
+    {
+      "accept_authorities": [],
+      "accept_category": false,
+      "attesters": [
+        {
+          "active": true,
+          "authority": "be9a7e379e19f4cc4ac7ed687d0e64775667fecbbf9a8769a045fe2eecb507e1",
+          "id": 1,
+          "key": "c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860",
+          "mint": "0404040404040404040404040404040404040404040404040404040404040404",
+          "prev_key": "0000000000000000000000000000000000000000000000000000000000000000",
+          "prev_trusted_until": 0,
+          "relied": "0",
+          "revoked": [
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          "stake": "1000000",
+          "synced_at": 1931536000
+        }
+      ],
+      "error": "Ticket",
+      "kind": 1,
+      "max_note_life": 4294967295,
+      "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
+      "min_window": 86400,
+      "name": "attester_mint",
+      "now": 1800000000,
+      "reason": "AttesterMint",
+      "spends": [],
+      "tickets": [
+        "0110026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1603030303030303030303030303030303030303030303030303030303030303030000000040420f0000000000409c0000000000000128527180234b6b0100cb0816547cc0b94538572b6ede213ff2cae9e6cbfb9c6bda836b115e3ee08d59a57b9ddc28781c7d9dc13cd87ce52b3d953d9768387a87384538563a879b8e00"
+      ],
+      "wire": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104000000000000000000000000000000000000000000006e7a2b2ff0bae8192559de60db8590af756cd2e38be8b957937854f0c5ea1d127d5dd7ac549344db8f942d680d2f4c914494d3f49f9f1a91aa9cdadf7d3c8323"
+    },
+    {
+      "accept_authorities": [],
+      "accept_category": false,
+      "attesters": [
+        {
+          "active": true,
+          "authority": "be9a7e379e19f4cc4ac7ed687d0e64775667fecbbf9a8769a045fe2eecb507e1",
+          "id": 1,
+          "key": "c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860",
+          "mint": "0303030303030303030303030303030303030303030303030303030303030303",
+          "prev_key": "0000000000000000000000000000000000000000000000000000000000000000",
+          "prev_trusted_until": 0,
+          "relied": "0",
+          "revoked": [
+            "c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860",
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          "stake": "1000000",
+          "synced_at": 1931536000
+        }
+      ],
+      "error": "Ticket",
+      "kind": 1,
+      "max_note_life": 4294967295,
+      "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
+      "min_window": 86400,
+      "name": "revoked_key",
+      "now": 1800000000,
+      "reason": "UnknownKey",
+      "spends": [],
+      "tickets": [
+        "0110026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1603030303030303030303030303030303030303030303030303030303030303030000000040420f0000000000409c0000000000000128527180234b6b0100cb0816547cc0b94538572b6ede213ff2cae9e6cbfb9c6bda836b115e3ee08d59a57b9ddc28781c7d9dc13cd87ce52b3d953d9768387a87384538563a879b8e00"
+      ],
+      "wire": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104000000000000000000000000000000000000000000006e7a2b2ff0bae8192559de60db8590af756cd2e38be8b957937854f0c5ea1d127d5dd7ac549344db8f942d680d2f4c914494d3f49f9f1a91aa9cdadf7d3c8323"
+    },
+    {
+      "accept_authorities": [],
+      "accept_category": false,
+      "attesters": [
+        {
+          "active": false,
+          "authority": "be9a7e379e19f4cc4ac7ed687d0e64775667fecbbf9a8769a045fe2eecb507e1",
+          "id": 1,
+          "key": "c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860",
+          "mint": "0303030303030303030303030303030303030303030303030303030303030303",
+          "prev_key": "0000000000000000000000000000000000000000000000000000000000000000",
+          "prev_trusted_until": 0,
+          "relied": "0",
+          "revoked": [
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          "stake": "1000000",
+          "synced_at": 1931536000
+        }
+      ],
+      "error": "Ticket",
+      "kind": 1,
+      "max_note_life": 4294967295,
+      "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
+      "min_window": 86400,
+      "name": "attester_inactive",
+      "now": 1800000000,
+      "reason": "Inactive",
+      "spends": [],
+      "tickets": [
+        "0110026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1603030303030303030303030303030303030303030303030303030303030303030000000040420f0000000000409c0000000000000128527180234b6b0100cb0816547cc0b94538572b6ede213ff2cae9e6cbfb9c6bda836b115e3ee08d59a57b9ddc28781c7d9dc13cd87ce52b3d953d9768387a87384538563a879b8e00"
+      ],
+      "wire": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104000000000000000000000000000000000000000000006e7a2b2ff0bae8192559de60db8590af756cd2e38be8b957937854f0c5ea1d127d5dd7ac549344db8f942d680d2f4c914494d3f49f9f1a91aa9cdadf7d3c8323"
+    },
+    {
+      "accept_authorities": [],
+      "accept_category": false,
+      "attesters": [
+        {
+          "active": true,
+          "authority": "be9a7e379e19f4cc4ac7ed687d0e64775667fecbbf9a8769a045fe2eecb507e1",
+          "id": 1,
+          "key": "c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860",
+          "mint": "0303030303030303030303030303030303030303030303030303030303030303",
+          "prev_key": "0000000000000000000000000000000000000000000000000000000000000000",
+          "prev_trusted_until": 0,
+          "relied": "230001",
+          "revoked": [
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          "stake": "1000000",
+          "synced_at": 1931536000
+        }
+      ],
+      "error": "Ticket",
+      "kind": 1,
+      "max_note_life": 4294967295,
+      "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
+      "min_window": 86400,
+      "name": "attester_cap",
+      "now": 1800000000,
+      "reason": "AttesterCap",
+      "spends": [],
+      "tickets": [
+        "0110026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1603030303030303030303030303030303030303030303030303030303030303030000000040420f0000000000409c0000000000000128527180234b6b0100cb0816547cc0b94538572b6ede213ff2cae9e6cbfb9c6bda836b115e3ee08d59a57b9ddc28781c7d9dc13cd87ce52b3d953d9768387a87384538563a879b8e00"
+      ],
+      "wire": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104000000000000000000000000000000000000000000006e7a2b2ff0bae8192559de60db8590af756cd2e38be8b957937854f0c5ea1d127d5dd7ac549344db8f942d680d2f4c914494d3f49f9f1a91aa9cdadf7d3c8323"
+    },
+    {
+      "accept_authorities": [],
+      "accept_category": false,
+      "error": "Window",
+      "kind": 1,
+      "max_note_life": 99999999,
+      "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
+      "min_window": 86400,
+      "name": "note_too_long",
+      "now": 1800000000,
+      "spends": [],
+      "tickets": [
+        "0110026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1603030303030303030303030303030303030303030303030303030303030303030000000040420f0000000000409c0000000000000128527180234b6b0100cb0816547cc0b94538572b6ede213ff2cae9e6cbfb9c6bda836b115e3ee08d59a57b9ddc28781c7d9dc13cd87ce52b3d953d9768387a87384538563a879b8e00"
+      ],
+      "wire": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104000000000000000000000000000000000000000000006e7a2b2ff0bae8192559de60db8590af756cd2e38be8b957937854f0c5ea1d127d5dd7ac549344db8f942d680d2f4c914494d3f49f9f1a91aa9cdadf7d3c8323"
     }
   ],
   "keys": [
@@ -1241,6 +1532,7 @@
       "accept_authorities": [],
       "accept_category": false,
       "issue": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104000000000000000000000000000000000000000000006e7a2b2ff0bae8192559de60db8590af756cd2e38be8b957937854f0c5ea1d127d5dd7ac549344db8f942d680d2f4c914494d3f49f9f1a91aa9cdadf7d3c8323",
+      "max_note_life": 4294967295,
       "me": "0273103ec30b3ccf57daae08e93534aef144a35940cf6bbba12a0cf7cbd5d65a64",
       "min_window": 86400,
       "name": "three_hops_with_change",
@@ -1250,16 +1542,19 @@
         "issuer": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
         "liable": [
           {
+            "attester": 1,
             "bond": "1000000",
             "device": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
             "lock_seq": 0
           },
           {
+            "attester": 1,
             "bond": "80000",
             "device": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
             "lock_seq": 0
           },
           {
+            "attester": 1,
             "bond": "80000",
             "device": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
             "lock_seq": 0
@@ -1284,6 +1579,7 @@
       "accept_authorities": [],
       "accept_category": false,
       "issue": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104000000000000000000000000000000000000000000006e7a2b2ff0bae8192559de60db8590af756cd2e38be8b957937854f0c5ea1d127d5dd7ac549344db8f942d680d2f4c914494d3f49f9f1a91aa9cdadf7d3c8323",
+      "max_note_life": 4294967295,
       "me": "0273103ec30b3ccf57daae08e93534aef144a35940cf6bbba12a0cf7cbd5d65a64",
       "min_window": 86400,
       "name": "spend_change_output",
@@ -1293,11 +1589,13 @@
         "issuer": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
         "liable": [
           {
+            "attester": 1,
             "bond": "1000000",
             "device": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
             "lock_seq": 0
           },
           {
+            "attester": 1,
             "bond": "80000",
             "device": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
             "lock_seq": 0
@@ -1321,6 +1619,7 @@
       "accept_authorities": [],
       "accept_category": false,
       "issue": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104000000000000000000000000000000000000000000006e7a2b2ff0bae8192559de60db8590af756cd2e38be8b957937854f0c5ea1d127d5dd7ac549344db8f942d680d2f4c914494d3f49f9f1a91aa9cdadf7d3c8323",
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "direct_issue",
@@ -1330,6 +1629,7 @@
         "issuer": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
         "liable": [
           {
+            "attester": 1,
             "bond": "1000000",
             "device": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
             "lock_seq": 0
@@ -1349,6 +1649,7 @@
       "accept_authorities": [],
       "accept_category": false,
       "issue": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000606060606060606060606060606060602550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f710401000000000000000000000000000000000000000000e55150cddec4eff3afd1b274bf9dbfe457ade40aea035513ca957384aa2736000f0cffbfd18fcdbac32adf592cd3458cc439b04c12df87be669e2511a840f9f5",
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "delegated_without_lock",
@@ -1358,6 +1659,7 @@
         "issuer": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
         "liable": [
           {
+            "attester": 1,
             "bond": "1000000",
             "device": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
             "lock_seq": 0
@@ -1379,6 +1681,7 @@
       "accept_authorities": [],
       "accept_category": false,
       "issue": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104000000000000000000000000000000000000000000006e7a2b2ff0bae8192559de60db8590af756cd2e38be8b957937854f0c5ea1d127d5dd7ac549344db8f942d680d2f4c914494d3f49f9f1a91aa9cdadf7d3c8323",
+      "max_note_life": 4294967295,
       "me": "0273103ec30b3ccf57daae08e93534aef144a35940cf6bbba12a0cf7cbd5d65a64",
       "min_window": 86400,
       "name": "delegated_by_a_spender",
@@ -1388,11 +1691,13 @@
         "issuer": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
         "liable": [
           {
+            "attester": 1,
             "bond": "1000000",
             "device": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
             "lock_seq": 0
           },
           {
+            "attester": 1,
             "bond": "80000",
             "device": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
             "lock_seq": 0
@@ -1416,6 +1721,7 @@
       "accept_authorities": [],
       "accept_category": false,
       "issue": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104020374da10205d6a3f39826eaec0767e23be5a26c6abb1b54cc01de3f84801e777c3c0aeedc4c72bd46393700c1f7a90b943222e847b5ca172bb74978a8ada01739333fe64c60ce6d3679a37e394fd7c230e630582bf",
+      "max_note_life": 4294967295,
       "me": "00a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
       "min_window": 86400,
       "name": "authority_redemption",
@@ -1425,6 +1731,7 @@
         "issuer": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
         "liable": [
           {
+            "attester": 1,
             "bond": "1000000",
             "device": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
             "lock_seq": 0
@@ -1448,6 +1755,7 @@
       ],
       "accept_category": false,
       "issue": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104020374da10205d6a3f39826eaec0767e23be5a26c6abb1b54cc01de3f84801e777c3c0aeedc4c72bd46393700c1f7a90b943222e847b5ca172bb74978a8ada01739333fe64c60ce6d3679a37e394fd7c230e630582bf",
+      "max_note_life": 4294967295,
       "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
       "min_window": 86400,
       "name": "authority_note_to_trusted_attendee",
@@ -1457,6 +1765,7 @@
         "issuer": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
         "liable": [
           {
+            "attester": 1,
             "bond": "1000000",
             "device": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
             "lock_seq": 0
@@ -1476,6 +1785,7 @@
       "accept_authorities": [],
       "accept_category": false,
       "issue": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f71040001590d9ac1eef14346bf97ff61c64f7c97e7f03e67eb22141c20ca7fa004ce477d25b3972e006e97438e129a7f639342560e84d87750dfcc63773a311774ddc003c606ecf4e89c35f69140231a4d6b66fb2066b7c3",
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "merchant_scope",
@@ -1485,11 +1795,13 @@
         "issuer": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
         "liable": [
           {
+            "attester": 1,
             "bond": "1000000",
             "device": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
             "lock_seq": 0
           },
           {
+            "attester": 1,
             "bond": "80000",
             "device": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
             "lock_seq": 0
@@ -1512,6 +1824,7 @@
       "accept_authorities": [],
       "accept_category": false,
       "issue": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f71040001590d9ac1eef14346bf97ff61c64f7c97e7f03e67eb22141c20ca7fa004ce477d25b3972e006e97438e129a7f639342560e84d87750dfcc63773a311774ddc003c606ecf4e89c35f69140231a4d6b66fb2066b7c3",
+      "max_note_life": 4294967295,
       "me": "00b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5",
       "min_window": 86400,
       "name": "merchant_settles",
@@ -1521,16 +1834,19 @@
         "issuer": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
         "liable": [
           {
+            "attester": 1,
             "bond": "1000000",
             "device": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
             "lock_seq": 0
           },
           {
+            "attester": 1,
             "bond": "80000",
             "device": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
             "lock_seq": 0
           },
           {
+            "attester": 1,
             "bond": "80000",
             "device": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
             "lock_seq": 0
@@ -1555,6 +1871,7 @@
       "accept_authorities": [],
       "accept_category": true,
       "issue": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104000000000000000000000000000000000000000000006e7a2b2ff0bae8192559de60db8590af756cd2e38be8b957937854f0c5ea1d127d5dd7ac549344db8f942d680d2f4c914494d3f49f9f1a91aa9cdadf7d3c8323",
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "category_accepted",
@@ -1564,11 +1881,13 @@
         "issuer": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
         "liable": [
           {
+            "attester": 1,
             "bond": "1000000",
             "device": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
             "lock_seq": 0
           },
           {
+            "attester": 1,
             "bond": "80000",
             "device": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
             "lock_seq": 0
@@ -1591,6 +1910,7 @@
       "accept_authorities": [],
       "accept_category": false,
       "issue": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000606060606060606060606060606060602550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f710401000000000000000000000000000000000000000000e55150cddec4eff3afd1b274bf9dbfe457ade40aea035513ca957384aa2736000f0cffbfd18fcdbac32adf592cd3458cc439b04c12df87be669e2511a840f9f5",
+      "max_note_life": 4294967295,
       "me": "02591ab771ebbcfd6d9cb9094d106528add1a69d44c2c1f627f089ec58b9c61adf",
       "min_window": 86400,
       "name": "skips_a_ticket_for_another_lock",
@@ -1600,6 +1920,7 @@
         "issuer": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
         "liable": [
           {
+            "attester": 1,
             "bond": "1000000",
             "device": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
             "lock_seq": 0
@@ -1617,6 +1938,36 @@
         "011002550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24030303030303030303030303030303030303030303030303030303030303030300000000803801000000000000000000000000000128527180234b6b010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
         "0110026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1603030303030303030303030303030303030303030303030303030303030303030000000040420f0000000000409c0000000000000128527180234b6b0100cb0816547cc0b94538572b6ede213ff2cae9e6cbfb9c6bda836b115e3ee08d59a57b9ddc28781c7d9dc13cd87ce52b3d953d9768387a87384538563a879b8e00"
       ]
+    },
+    {
+      "accept_authorities": [],
+      "accept_category": false,
+      "issue": "0101026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16030303030303030303030303030303030303030303030303030303030303030300000000204e0000000000000505050505050505050505050505050502550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24204e00000000000000b33f7104000000000000000000000000000000000000000000006e7a2b2ff0bae8192559de60db8590af756cd2e38be8b957937854f0c5ea1d127d5dd7ac549344db8f942d680d2f4c914494d3f49f9f1a91aa9cdadf7d3c8323",
+      "max_note_life": 100000000,
+      "me": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24",
+      "min_window": 86400,
+      "name": "a_note_as_long_as_the_receiver_allows",
+      "now": 1800000000,
+      "result": {
+        "amount": "20000",
+        "issuer": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
+        "liable": [
+          {
+            "attester": 1,
+            "bond": "1000000",
+            "device": "026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16",
+            "lock_seq": 0
+          }
+        ],
+        "lock_seq": 0,
+        "mint": "0303030303030303030303030303030303030303030303030303030303030303",
+        "output_id": "9a6ed472b76eab20f043b2f7a8734794573930cabe8f029f0e026bf0ac973d5d",
+        "owner": "02550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24"
+      },
+      "spends": [],
+      "tickets": [
+        "0110026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1603030303030303030303030303030303030303030303030303030303030303030000000040420f0000000000409c0000000000000128527180234b6b0100cb0816547cc0b94538572b6ede213ff2cae9e6cbfb9c6bda836b115e3ee08d59a57b9ddc28781c7d9dc13cd87ce52b3d953d9768387a87384538563a879b8e00"
+      ]
     }
   ],
   "profiles": {
@@ -1630,9 +1981,11 @@
         "claimWindow": 604800,
         "expiryStep": 3600,
         "grace": 604800,
+        "maxRegistryAge": 604800,
         "minNoteLife": 86400,
         "releaseDelay": 1209600,
-        "rotationDelay": 604800
+        "rotationDelay": 604800,
+        "ticketTtlMax": 259200
       }
     },
     "short": {
@@ -1642,9 +1995,11 @@
         "claimWindow": 60,
         "expiryStep": 5,
         "grace": 60,
+        "maxRegistryAge": 60,
         "minNoteLife": 60,
         "releaseDelay": 60,
-        "rotationDelay": 60
+        "rotationDelay": 60,
+        "ticketTtlMax": 180
       }
     }
   },
@@ -1768,6 +2123,85 @@
     ],
     "program_id": "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0",
     "seed": "7370656e74"
+  },
+  "registry": [
+    {
+      "active": true,
+      "authority": "be9a7e379e19f4cc4ac7ed687d0e64775667fecbbf9a8769a045fe2eecb507e1",
+      "id": 1,
+      "key": "c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860",
+      "mint": "0303030303030303030303030303030303030303030303030303030303030303",
+      "prev_key": "0000000000000000000000000000000000000000000000000000000000000000",
+      "prev_trusted_until": 0,
+      "relied": "0",
+      "revoked": [
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "stake": "1000000",
+      "synced_at": 1931536000
+    },
+    {
+      "active": true,
+      "authority": "be9a7e379e19f4cc4ac7ed687d0e64775667fecbbf9a8769a045fe2eecb507e1",
+      "id": 2,
+      "key": "27fd9b6258ef19c3095ac3f2fed6edff2d90e8f27a1f864960960dee64837a3b",
+      "mint": "0303030303030303030303030303030303030303030303030303030303030303",
+      "prev_key": "0000000000000000000000000000000000000000000000000000000000000000",
+      "prev_trusted_until": 0,
+      "relied": "0",
+      "revoked": [
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "stake": "1000000",
+      "synced_at": 1931536000
+    }
+  ],
+  "revocations": {
+    "cases": [
+      {
+        "error": null,
+        "name": "the_authority_revokes_the_current_key",
+        "revoked": [
+          "c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860",
+          "0000000000000000000000000000000000000000000000000000000000000000"
+        ],
+        "signed_message": "300ec2134b106b059378a857b9dd1dd0b4f2362be81b2f199a39a6b462cda6a701110100c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860",
+        "wire": "01110100c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c688600f04a02f844cead95558161decb82a557a22c9c8852821ef72fe9a36b17fb2a84c110af413c0d94966b0a464148586b72e0b081902c173073a8f3da546356208"
+      },
+      {
+        "error": "Signer",
+        "name": "a_revocation_names_one_attester",
+        "revoked": [
+          "0000000000000000000000000000000000000000000000000000000000000000",
+          "0000000000000000000000000000000000000000000000000000000000000000"
+        ],
+        "signed_message": "300ec2134b106b059378a857b9dd1dd0b4f2362be81b2f199a39a6b462cda6a701110200c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860",
+        "wire": "01110200c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860283eb4c86c23eb2a70299e1aedbbfa084631a1145f0fb4c59cb55ed8f088297727194f16ecdfe3479141324240cfd861d3de86ac43e563da8b54c1dd9fc97104"
+      },
+      {
+        "error": "Signature",
+        "name": "another_cluster_cannot_revoke",
+        "revoked": [
+          "0000000000000000000000000000000000000000000000000000000000000000",
+          "0000000000000000000000000000000000000000000000000000000000000000"
+        ],
+        "signed_message": "300ec2134b106b059378a857b9dd1dd0b4f2362be81b2f199a39a6b462cda6a701110100c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860",
+        "wire": "01110100c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860240e2a4e207766f93fb6007a9a1920ef1e3b5ec1992b5acc2fa40582db80d261b5a4cf3994f0879a17e19fb719e726dd704a8bdb6c33a7a36f86aada3b589a02"
+      },
+      {
+        "error": "Signature",
+        "name": "another_signer_cannot_revoke",
+        "revoked": [
+          "0000000000000000000000000000000000000000000000000000000000000000",
+          "0000000000000000000000000000000000000000000000000000000000000000"
+        ],
+        "signed_message": "300ec2134b106b059378a857b9dd1dd0b4f2362be81b2f199a39a6b462cda6a701110100c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860",
+        "wire": "01110100c9571eeb4aa9de1159858bc6a3d4a626c4f4845e8eebd5f554b2ec0f50c68860853546bfe1cd85ff3e00537ecd8f24cabd16c0e440a27963f6f7c0623a77f3090a3d968ffd780a3ecc9d3afa5a4d1ba7b8c298b3c3798534680fb8df1496210b"
+      }
+    ],
+    "domain": "300ec2134b106b059378a857b9dd1dd0b4f2362be81b2f199a39a6b462cda6a7"
   },
   "secp256r1_layouts": [
     {

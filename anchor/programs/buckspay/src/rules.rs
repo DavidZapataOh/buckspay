@@ -1,12 +1,6 @@
 //! Pure rules shared by the instructions and by the programs that build on locks.
 
-/// `lock_until + RECORD_TTL` is the earliest second `close_lock` can succeed, so a lock that has
-/// been closed (its sequence number is below `Device.next_lock_seq` and its `Lock` account is gone)
-/// had a `lock_until` of at most `now - record_ttl`. A ticket that claims more is false without
-/// needing the record.
-pub fn closed_lock_ticket_is_false(ticket_lock_until: u32, now: u64, record_ttl: u64) -> bool {
-    u64::from(ticket_lock_until).saturating_add(record_ttl) > now
-}
+pub use buckspay_protocol::attest::closed_lock_ticket_is_false;
 
 /// `10^decimals`, or `u64::MAX` when it does not fit: a mint made by an attacker can declare up to
 /// 255 decimals.

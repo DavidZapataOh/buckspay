@@ -12,6 +12,10 @@ export type Windows = {
   rotationDelay: number
   /** A payment to a device expires at least this long before the output it spends. */
   expiryStep: number
+  /** A receiver refuses a ticket valid for longer than this from now. */
+  ticketTtlMax: number
+  /** A receiver stops believing a registry entry it read longer ago than this. */
+  maxRegistryAge: number
 }
 
 export type Profile = { name: ProfileName; programId: string; windows: Windows }

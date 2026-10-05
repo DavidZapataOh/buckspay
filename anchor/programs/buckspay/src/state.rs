@@ -106,3 +106,50 @@ pub struct Claim {
     /// claimed, which is what stops a second claim.
     pub closable_at: u32,
 }
+
+pub const ATTESTER_SEED: &[u8] = b"attester";
+
+/// First byte of the `key` field of an attester's ledger. A device key starts with 2 or 3, so a
+/// filter on this byte tells the two kinds of ledger apart.
+pub const ATTESTER_LEDGER_MARKER: u8 = 0;
+
+pub mod attester_status {
+    pub const ACTIVE: u8 = 1;
+    pub const EXITING: u8 = 2;
+    pub const SLASHED: u8 = 3;
+    pub const RETIRED: u8 = 4;
+}
+
+/// A registered attester: who answers for it, which mint its stake and tickets are in, and the key
+/// that signs its tickets. Its stake is in the `Ledger` and escrow at `["ledger", attester]` and
+/// `["escrow", attester]`. The record is never closed, so an id is never reused.
+#[account]
+#[derive(InitSpace, Debug, PartialEq, Eq)]
+pub struct Attester {
+    pub id: u16,
+    /// Signs every instruction that changes the attester, and its revocations.
+    pub authority: Pubkey,
+    pub mint: Pubkey,
+    /// Signs new tickets.
+    pub key: [u8; 32],
+    /// The key before the last rotation; all zeros if none. Accountable until `prev_until`.
+    pub prev_key: [u8; 32],
+    /// Receivers believe the previous key before this time; zero after a compromise.
+    pub prev_trusted_until: u32,
+    pub prev_until: u32,
+    pub registered_at: u32,
+    pub status: u8,
+    /// When the attester asked to leave or was slashed.
+    pub exit_at: u32,
+    pub bump: u8,
+}
+
+impl Attester {
+    /// The keys whose false tickets slash the attester at `now`.
+    pub fn accountable_keys(&self, now: u32) -> [Option<[u8; 32]>; 2] {
+        [
+            Some(self.key),
+            (self.prev_key != [0; 32] && now < self.prev_until).then_some(self.prev_key),
+        ]
+    }
+}

@@ -5,11 +5,13 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+pub(crate) mod r#attester;
 pub(crate) mod r#device;
 pub(crate) mod r#ledger;
 pub(crate) mod r#lock;
 pub(crate) mod r#rotation;
 
+pub use self::r#attester::*;
 pub use self::r#device::*;
 pub use self::r#ledger::*;
 pub use self::r#lock::*;

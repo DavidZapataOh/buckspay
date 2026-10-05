@@ -76,3 +76,22 @@ pub(crate) fn file(
         debit,
     )
 }
+
+/// Burns the whole free stake of an attester out of its escrow and returns what was burned. Nothing
+/// is paid to anybody: a false ticket costs its attester all it staked, as a deterrent and not as
+/// insurance for the receivers that relied on it.
+pub(crate) fn burn_stake<'info>(
+    ledger: &mut Account<'info, Ledger>,
+    attester: &Pubkey,
+    escrow: &mut InterfaceAccount<'info, TokenAccount>,
+    mint: &InterfaceAccount<'info, Mint>,
+    token_program: &Interface<'info, TokenInterface>,
+) -> Result<u64> {
+    let free = ledger.bond_free;
+    require!(free > 0, BuckspayError::NoBond);
+    // The penalty of a loss as large as the stake is the stake: `min(2 * free, free)`.
+    let debit = burn_for(ledger, free)?;
+    let burned = debit.amount();
+    burn_out(ledger, attester, escrow, mint, token_program, debit)?;
+    Ok(burned)
+}
