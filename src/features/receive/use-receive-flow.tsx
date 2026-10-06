@@ -33,7 +33,7 @@ export type ReceiveFlow = {
   /** Why a request cannot be made now, in words; empty when it can. */
   blocked: string
   /** Makes the request and shows it; `undefined` when it was made, else what is wrong. */
-  create: (amountText: string, memo: string) => 'connect' | 'amount' | undefined
+  create: (amountText: string, memo: string, passOn: boolean) => 'connect' | 'amount' | undefined
   scanPayment: () => void
   submitText: (text: string) => void
   cancel: () => void
@@ -70,7 +70,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const create = useCallback(
-    (amountText: string, memo: string) => {
+    (amountText: string, memo: string, passOn: boolean) => {
       if (stateRef.current.name !== 'composing' || !key || usable.length === 0) return 'connect'
       const amount = parseAmount(amountText, BUILD_TOKEN.decimals)
       if (amount === undefined || amount <= 0n) return 'amount'
@@ -82,6 +82,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
           mint: BUILD_MINT_BYTES,
           attesters: usable.map((attester) => attester.id).slice(0, 8),
           now: nowSeconds(),
+          minHops: passOn ? 2 : 1,
           limits: { maxPayment: PAY_LIMITS.maxPayment, minWindow: MIN_WINDOW },
         })
         void showRequest(request, session.transport)

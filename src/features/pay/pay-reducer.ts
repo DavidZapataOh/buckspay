@@ -1,14 +1,15 @@
 import type { PaymentRequest } from '../../payment/messages'
 import type { PayError, ReceiptResult, SentPayment } from '../../payment/pay'
 import type { Plan, Planned, PlanRefusal } from '../../payment/preflight'
+import type { RespendPlan } from '../../payment/respend'
 import type { Reason } from '../../payment/reasons'
 
 export type PayState =
   | { name: 'idle' }
   | { name: 'scanning'; wrongCode: boolean }
-  | { name: 'reviewing'; request: PaymentRequest; plan: Plan }
+  | { name: 'reviewing'; request: PaymentRequest; plan: Plan | RespendPlan }
   | { name: 'refused'; reason: PlanRefusal; lockSeq?: number; request: PaymentRequest }
-  | { name: 'confirming'; request: PaymentRequest; plan: Plan }
+  | { name: 'confirming'; request: PaymentRequest; plan: Plan | RespendPlan }
   | { name: 'presenting'; payment: SentPayment; otherReceipt?: boolean }
   | { name: 'awaiting-receipt'; payment: SentPayment }
   | { name: 'confirmed'; payment: SentPayment }
@@ -17,7 +18,7 @@ export type PayState =
 
 export type PayEvent =
   | { type: 'scan' }
-  | { type: 'planned'; request: PaymentRequest; planned: Planned }
+  | { type: 'planned'; request: PaymentRequest; planned: Planned | { ok: true; plan: RespendPlan } }
   | { type: 'wrong-code' }
   | { type: 'confirm' }
   | { type: 'sent'; payment: SentPayment }

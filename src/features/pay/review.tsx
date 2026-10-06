@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { Pressable, View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { StatusNote } from '../../components/status-note'
 import type { Plan } from '../../payment/preflight'
+import type { RespendPlan } from '../../payment/respend'
 import { formatMoney } from '../../utils/format-amount'
 import { copy, text } from '../payment/copy'
 import { useTouchGuard } from './use-touch-guard'
@@ -17,12 +19,14 @@ export function PayReview({
   onConfirm,
   onCancel,
 }: {
-  plan: Plan
+  plan: Plan | RespendPlan
   busy: boolean
   onConfirm: () => void
   onCancel: () => void
 }) {
-  const { review, issue } = plan
+  const { review } = plan
+  const passedOn = 'spend' in plan
+  const hops = 'issue' in plan ? plan.issue.caveats.hopsLeft : plan.review.hopsAfter
   const [pressed, setPressed] = useState(false)
   const [open, setOpen] = useState(false)
   useTouchGuard(true)
@@ -68,20 +72,41 @@ export function PayReview({
         <AppText variant="label" tone="muted">
           {copy.review.from}
         </AppText>
-        <AppText variant="title">{copy.review.source}</AppText>
-        <AppText variant="body" tone="muted">
-          {text(copy.review.left, {
-            amount: formatMoney(review.allowanceAfter, review.decimals),
-            symbol: review.symbol,
-          })}
-        </AppText>
+        <AppText variant="title">{passedOn ? copy.review.sourceReceived : copy.review.source}</AppText>
+        {'spend' in plan ? (
+          <>
+            <StatusNote tone="default" message={copy.review.fromReceived} />
+            {plan.review.change > 0n ? (
+              <StatusNote
+                tone="default"
+                message={text(copy.review.changeBack, {
+                  change: formatMoney(plan.review.change, review.decimals),
+                  symbol: review.symbol,
+                })}
+              />
+            ) : null}
+            <AppText variant="body" tone="muted">
+              {copy.review.bondAnswers}
+            </AppText>
+          </>
+        ) : (
+          <AppText variant="body" tone="muted">
+            {text(copy.review.left, {
+              amount: formatMoney(review.allowanceAfter, review.decimals),
+              symbol: review.symbol,
+            })}
+          </AppText>
+        )}
       </View>
 
       <View testID="pay-consequences" className="gap-2">
         <AppText variant="label" tone="muted">
           {copy.review.next}
         </AppText>
-        {[copy.review.finalForThem, copy.review.nothingLeaves, copy.review.ifRefused].map((line) => (
+        {(passedOn
+          ? [copy.review.finalForThem, copy.review.ifRefusedReceived]
+          : [copy.review.finalForThem, copy.review.nothingLeaves, copy.review.ifRefused]
+        ).map((line) => (
           <AppText key={line} variant="body">
             {line}
           </AppText>
@@ -105,7 +130,7 @@ export function PayReview({
             <AppText variant="body">
               {text(copy.review.expires, { date: new Date(review.expiry * 1000).toLocaleString() })}
             </AppText>
-            <AppText variant="body">{text(copy.review.hops, { hops: issue.caveats.hopsLeft })}</AppText>
+            <AppText variant="body">{text(copy.review.hops, { hops })}</AppText>
           </View>
         ) : null}
       </View>

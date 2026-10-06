@@ -3,7 +3,8 @@ import { create, type ReactTestInstance } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PaymentRequest } from '../../payment/messages'
 import { planPayment, type Plan } from '../../payment/preflight'
-import { makeTicket, MINT, NOTE_DOMAIN, party, PROGRAM } from '../../payment/testing/world'
+import type { RespendPlan } from '../../payment/respend'
+import { makeTicket, MINT, NOTE_DOMAIN, party, PROGRAM, respendPlan } from '../../payment/testing/world'
 import { PAY_LIMITS } from './limits'
 import { PayReview } from './review'
 import { BUILD_TOKENS } from './tokens'
@@ -82,7 +83,7 @@ function plan(over: Partial<PaymentRequest> = {}, paidToday = 0n): { request: Pa
   return { request, plan: planned.plan }
 }
 
-const mount = async (value: Plan, onConfirm = vi.fn(), busy = false) =>
+const mount = async (value: Plan | RespendPlan, onConfirm = vi.fn(), busy = false) =>
   act(async () => create(<PayReview plan={value} busy={busy} onConfirm={onConfirm} onCancel={() => {}} />))
 const texts = (root: ReactTestInstance) =>
   root.findAllByType('Text' as never).map((node) => [node.props.children].flat().join(''))
@@ -164,5 +165,22 @@ describe('PayReview', () => {
     expect(protect.mock.calls).toEqual([[true]])
     await act(async () => renderer.unmount())
     expect(protect.mock.calls).toEqual([[true], [false]])
+  })
+})
+
+describe('PayReview of a note passed on', () => {
+  it('says it pays from money received, shows the change and whose bond answers, and promises nothing', async () => {
+    const renderer = await mount(respendPlan({ kind: 'spend2', change: 3_000_000n }))
+    const shown = texts(renderer.root).join('\n')
+    expect(shown).toContain('Paying from money you received')
+    expect(shown).toMatch(/3\.00 USDC comes back to you/)
+    expect(shown).toContain('Your bond answers for this payment')
+    expect(shown).not.toMatch(/protected|insured|guarantee|allowance/i)
+  })
+
+  it('shows no change line for a payment of the whole note', async () => {
+    const shown = texts((await mount(respendPlan({ kind: 'spend1', change: 0n }))).root).join('\n')
+    expect(shown).toContain('Paying from money you received')
+    expect(shown).not.toContain('comes back to you')
   })
 })

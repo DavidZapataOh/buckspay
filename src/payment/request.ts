@@ -9,6 +9,8 @@ export type RequestInput = {
   mint: Uint8Array
   attesters: readonly number[]
   now: number
+  /** How many more times the note must be passable; 1 unless the receiver wants to pass it on. */
+  minHops?: number
   limits: { maxPayment: bigint; minWindow: number }
 }
 
@@ -23,7 +25,16 @@ function fitMemo(text: string): string {
 }
 
 /** Throws `PaymentError('Malformed')` for an amount of zero or above the maximum, or for no attester. */
-export function buildRequest({ amount, memo, owner, mint, attesters, now, limits }: RequestInput): PaymentRequest {
+export function buildRequest({
+  amount,
+  memo,
+  owner,
+  mint,
+  attesters,
+  now,
+  minHops = 1,
+  limits,
+}: RequestInput): PaymentRequest {
   if (amount <= 0n || amount > limits.maxPayment || attesters.length === 0) throw new PaymentError('Malformed')
   return {
     owner,
@@ -31,7 +42,7 @@ export function buildRequest({ amount, memo, owner, mint, attesters, now, limits
     amount,
     now,
     minWindow: limits.minWindow,
-    minHops: 1,
+    minHops,
     attesters: [...attesters],
     memo: fitMemo(memo),
   }

@@ -112,7 +112,10 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
     }
     let wire = note.settlementSpend
     const bundle = decodeBundle(note.bundle)
-    const output = walkChain(deps.noteDomain, bundle.issue, bundle.spends).last[0]
+    const output = walkChain(deps.noteDomain, bundle.issue, bundle.spends).last.find((o) =>
+      equalBytes(o.id, note.outputId),
+    )
+    if (!output) throw new Error('The stored chain does not end in the note')
     if (!wire) {
       let body = note.settlementBody
       if (!body) {

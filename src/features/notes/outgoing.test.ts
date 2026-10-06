@@ -88,7 +88,14 @@ describe('recovery after a restart', () => {
   it('lists a prepared payment with the exact body to sign again', async () => {
     await preparePayment(db, payment())
     expect(await unfinishedPayments(db)).toEqual([
-      { messageId: bytes(1), state: 'prepared', issueBody: bytes(4, 163), ticket: bytes(5, 161), bundle: null },
+      {
+        messageId: bytes(1),
+        input: null,
+        state: 'prepared',
+        issueBody: bytes(4, 163),
+        ticket: bytes(5, 161),
+        bundle: null,
+      },
     ])
   })
 

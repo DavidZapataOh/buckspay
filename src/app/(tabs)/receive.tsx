@@ -1,6 +1,6 @@
 import { router } from 'expo-router'
 import { useState } from 'react'
-import { View } from 'react-native'
+import { Switch, View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import { Screen } from '../../components/screen'
@@ -21,6 +21,7 @@ export default function Receive() {
   const flow = useReceiveFlow()
   const [amount, setAmount] = useState('')
   const [memo, setMemo] = useState('')
+  const [passOn, setPassOn] = useState(false)
   const [error, setError] = useState<string>()
   const units = parseAmount(amount, BUILD_TOKEN.decimals)
   const valid = units !== undefined && units > 0n && units <= PAY_LIMITS.maxPayment
@@ -28,7 +29,7 @@ export default function Receive() {
   const bytes = new TextEncoder().encode(memo).length
 
   function create() {
-    const failure = flow.create(amount, memo)
+    const failure = flow.create(amount, memo, passOn)
     if (failure === 'amount') setError(text(copy.receive.invalidAmount, { max }))
     else if (failure === 'connect') setError(copy.receive.connectOnce)
     else {
@@ -64,6 +65,15 @@ export default function Receive() {
             onChangeText={setAmount}
           />
           <TextField testID="receive-memo" label={copy.receive.memo} value={memo} onChangeText={setMemo} />
+          <View className="min-h-14 flex-row items-center justify-between gap-4">
+            <AppText variant="body">{copy.receive.passOn}</AppText>
+            <Switch
+              testID="receive-pass-on"
+              accessibilityLabel={copy.receive.passOn}
+              value={passOn}
+              onValueChange={setPassOn}
+            />
+          </View>
           <AppText variant="label" tone={bytes > MAX_MEMO_BYTES ? 'danger' : 'muted'}>
             {text(copy.receive.memoCount, { count: bytes })}
           </AppText>

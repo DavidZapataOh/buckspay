@@ -34,6 +34,11 @@ describe('buildRequest', () => {
     expect([request.minHops, request.minWindow]).toEqual([1, 900])
   })
 
+  it('asks for a note that can be passed on twice more only when told to', () => {
+    expect(buildRequest(input()).minHops).toBe(1)
+    expect(buildRequest(input({ minHops: 2 })).minHops).toBe(2)
+  })
+
   it('accepts exactly the maximum and refuses zero, one unit above it and no attester', () => {
     expect(buildRequest(input({ amount: 100_000_000n })).amount).toBe(100_000_000n)
     for (const bad of [input({ amount: 0n }), input({ amount: 100_000_001n }), input({ attesters: [] })]) {

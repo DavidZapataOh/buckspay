@@ -28,7 +28,7 @@ export async function listActivity(db: NoteDb, limit: number, before?: number): 
     `SELECT * FROM (
        SELECT message_id AS id, 'paid' AS kind, amount, state, created_at AS at, receiver AS counterparty, memo, reason FROM outgoing_payment
        UNION ALL
-       SELECT message_id, 'received', amount, state, received_at, issuer, memo, NULL FROM received_note
+       SELECT message_id, 'received', amount, CASE WHEN transport = 'change' AND state = 'held' THEN 'change' ELSE state END, received_at, issuer, memo, NULL FROM received_note
      ) WHERE at < ? ORDER BY at DESC, kind LIMIT ?`,
     [before ?? Number.MAX_SAFE_INTEGER, limit],
   )

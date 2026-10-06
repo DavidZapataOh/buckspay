@@ -33,7 +33,7 @@ export type Outcome =
 
 const REFUSAL = { DoubleSpend: Reason.DoubleSpend, OverLimit: Reason.OverLimit, AboveMax: Reason.AboveMax } as const
 
-function claimsOf({ issue, spends }: Bundle): Claim[] {
+export function claimsOf({ issue, spends }: Bundle): Claim[] {
   const [start, end] = interval(issue.message)
   return [
     {

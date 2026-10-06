@@ -1,7 +1,9 @@
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { decodeSpend, GRACE, verifySettlement } from '../../protocol'
-import { encodeBundle } from '../../payment/messages'
+import { decodeSpend, encodeSpendBody, GRACE, verifySettlement } from '../../protocol'
+import { encodeBundle, paymentId } from '../../payment/messages'
+import { chainOf, changeOf, planRespend } from '../../payment/respend'
+import { heldOutputs, markRespendSigned, prepareRespend } from '../notes/outgoing'
 import { acceptPayment } from '../../payment/receive'
 import { createSoftSpendSigner } from '../../payment/testing/soft-guard'
 import {
@@ -12,7 +14,9 @@ import {
   NOW,
   party,
   PROGRAM,
+  payCtx,
   receiverFor,
+  requestTo,
   signIssue,
 } from '../../payment/testing/world'
 import { GatewayError, type SettlementGateway } from '../lock/gateway'
@@ -237,6 +241,36 @@ describe('settleHeld', () => {
     await db.run("UPDATE received_note SET state = 'lost' WHERE output_id = ?", [outputId])
     expect(await settleHeld(deps())).toMatchObject({ settled: 0, waiting: 0, failed: 0 })
     expect(sent).toHaveLength(0)
+  })
+
+  it('settles the change of a note passed on by its own output, not the first output of the chain', async () => {
+    const { issue } = await receive()
+    const [held] = await heldOutputs(db, shop.key)
+    const planned = planRespend(requestTo(party(9), 2_000_000n), [held], payCtx(shop))
+    if (!planned.ok) throw new Error(planned.reason)
+    const { plan } = planned
+    const signed = await signer.signSpend(held.output, plan.spend)
+    const bundle = chainOf(held, signed, plan.lock.ticket)
+    const messageId = paymentId(NOTE_DOMAIN, bundle)
+    await prepareRespend(db, {
+      input: held.outputId,
+      messageId,
+      body: encodeSpendBody(plan.spend),
+      requestId: null,
+      now: clock,
+    })
+    await markRespendSigned(db, {
+      messageId,
+      signature: signed.signature,
+      bundle: encodeBundle(bundle),
+      change: changeOf(NOTE_DOMAIN, bundle, plan.lock.ticket, clock),
+      now: clock,
+    })
+    await settleHeld(deps())
+    const [request] = sent
+    const spends = request.spends.map((hex) => decodeSpend(Uint8Array.from(Buffer.from(hex, 'hex'))))
+    expect(spends).toHaveLength(2)
+    expect(verifySettlement(NOTE_DOMAIN, PROGRAM, issue, spends).output.amount).toBe(3_000_000n)
   })
 
   it('sends the chain that verifySettlement accepts, ending in the wallet account', async () => {

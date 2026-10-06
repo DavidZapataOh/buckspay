@@ -1,10 +1,10 @@
 import type { NoteDb } from './db'
-import { migrateWitness, WITNESS_SCHEMA_VERSION } from './witness-store'
+import { migrateWitness } from './witness-store'
 
 export const SCHEMA_VERSION = 1
+export const RESPEND_SCHEMA_VERSION = 3
 
-export const SCHEMA = `
-CREATE TABLE received_note (
+const receivedNote = (name: string, states: string) => `CREATE TABLE ${name} (
   output_id BLOB PRIMARY KEY CHECK (length(output_id) = 32),
   message_id BLOB NOT NULL UNIQUE CHECK (length(message_id) = 32),
   owner BLOB NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE received_note (
   issuer BLOB NOT NULL,
   lock_seq INTEGER NOT NULL,
   bundle BLOB NOT NULL,
-  state TEXT NOT NULL CHECK (state IN ('held', 'settling', 'settled', 'spent', 'expired', 'lost', 'conflicted')),
+  state TEXT NOT NULL CHECK (state IN (${states})),
   requested_amount INTEGER,
   memo TEXT,
   transport TEXT NOT NULL,
@@ -25,7 +25,12 @@ CREATE TABLE received_note (
   settlement_body BLOB,
   settlement_spend BLOB,
   witness BLOB
-);
+);`
+
+const STATES = "'held', 'settling', 'settled', 'spent', 'expired', 'lost', 'conflicted'"
+
+export const SCHEMA = `
+${receivedNote('received_note', STATES)}
 CREATE TABLE note_liability (
   output_id BLOB NOT NULL REFERENCES received_note (output_id),
   device BLOB NOT NULL,
@@ -95,9 +100,31 @@ CREATE TABLE lock_cursor (
 /** Creates the tables on a new database and applies the later migrations; refuses a database of a newer version. Versioned with `PRAGMA user_version`. */
 export async function migrate(db: NoteDb): Promise<void> {
   const [row] = await db.all<{ user_version: number }>('PRAGMA user_version')
-  if (row.user_version > WITNESS_SCHEMA_VERSION)
+  if (row.user_version > RESPEND_SCHEMA_VERSION)
     throw new Error(`The note store is version ${row.user_version}, newer than this app.`)
   if (row.user_version < SCHEMA_VERSION)
     await db.exec(`BEGIN; ${SCHEMA} PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;`)
   await migrateWitness(db)
+  await migrateRespend(db)
+}
+
+/**
+ * Moves the version from 2 to 3: a note being passed on is `spending`, and a payment can be the spend of a
+ * held note (`input`), at most one per note. SQLite cannot change a CHECK list, so the table is rebuilt.
+ */
+async function migrateRespend(db: NoteDb): Promise<void> {
+  const [row] = await db.all<{ user_version: number }>('PRAGMA user_version')
+  if (row.user_version >= RESPEND_SCHEMA_VERSION) return
+  if (row.user_version !== 2) throw new Error('The note store must be at version 2 before the re-spend migration')
+  await db.exec(`BEGIN;
+${receivedNote('received_note_next', `${STATES}, 'spending'`)}
+INSERT INTO received_note_next SELECT * FROM received_note;
+DROP TABLE received_note;
+ALTER TABLE received_note_next RENAME TO received_note;
+ALTER TABLE outgoing_payment ADD COLUMN input BLOB;
+DROP INDEX outgoing_interval;
+CREATE UNIQUE INDEX outgoing_interval ON outgoing_payment (device, lock_seq, cum_start) WHERE input IS NULL;
+CREATE UNIQUE INDEX outgoing_input ON outgoing_payment (input) WHERE input IS NOT NULL;
+PRAGMA user_version = ${RESPEND_SCHEMA_VERSION};
+COMMIT;`)
 }

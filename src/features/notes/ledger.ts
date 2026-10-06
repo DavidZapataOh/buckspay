@@ -75,6 +75,64 @@ export async function relianceByAttester(db: NoteDb): Promise<Record<string, str
   return Object.fromEntries(rows.map((row) => [String(row.attester), String(row.total)]))
 }
 
+/** The rows of an accepted note: the note, its liabilities and its claims. */
+export async function insertReceived(tx: Statements, note: ReceivedNote): Promise<void> {
+  await tx.run(
+    `INSERT INTO received_note (output_id, message_id, owner, mint, amount, expiry, hops_left, caveats, issuer, lock_seq, bundle, state,
+         requested_amount, memo, transport, received_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'held', ?, ?, ?, ?, ?)`,
+    [
+      note.outputId,
+      note.messageId,
+      note.owner,
+      note.mint,
+      Number(note.amount),
+      note.expiry,
+      note.hopsLeft,
+      note.caveats,
+      note.issuer,
+      note.lockSeq,
+      note.bundle,
+      note.requestedAmount === null ? null : Number(note.requestedAmount),
+      note.memo,
+      note.transport,
+      note.receivedAt,
+      note.receivedAt,
+    ],
+  )
+  for (const l of note.liable) {
+    await tx.run('INSERT INTO note_liability (output_id, device, lock_seq, bond, attester) VALUES (?, ?, ?, ?, ?)', [
+      note.outputId,
+      l.device,
+      l.lockSeq,
+      Number(l.bond),
+      l.attester,
+    ])
+  }
+  for (const claim of note.claims) {
+    if (claim.kind === 'issue') {
+      await tx.run(
+        'INSERT OR IGNORE INTO issue_claim (issuer, lock_seq, start, "end", content, wire, seen_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [
+          claim.issuer,
+          claim.lockSeq,
+          Number(claim.start),
+          Number(claim.end),
+          claim.content,
+          claim.wire,
+          note.receivedAt,
+        ],
+      )
+    } else {
+      await tx.run('INSERT OR IGNORE INTO spend_claim (input, content, wire, seen_at) VALUES (?, ?, ?, ?)', [
+        claim.input,
+        claim.content,
+        claim.wire,
+        note.receivedAt,
+      ])
+    }
+  }
+}
+
 /**
  * Applies the acceptance policy and stores the note, its liabilities and its claims in one
  * transaction. A refused double spend commits its evidence and nothing else.
@@ -113,60 +171,7 @@ export async function commitReceived(db: NoteDb, note: ReceivedNote, limits: Lim
       }
       return { status: 'refused', reason: verdict.reason } as const
     }
-    await tx.run(
-      `INSERT INTO received_note (output_id, message_id, owner, mint, amount, expiry, hops_left, caveats, issuer, lock_seq, bundle, state,
-         requested_amount, memo, transport, received_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'held', ?, ?, ?, ?, ?)`,
-      [
-        note.outputId,
-        note.messageId,
-        note.owner,
-        note.mint,
-        Number(note.amount),
-        note.expiry,
-        note.hopsLeft,
-        note.caveats,
-        note.issuer,
-        note.lockSeq,
-        note.bundle,
-        note.requestedAmount === null ? null : Number(note.requestedAmount),
-        note.memo,
-        note.transport,
-        note.receivedAt,
-        note.receivedAt,
-      ],
-    )
-    for (const l of note.liable) {
-      await tx.run('INSERT INTO note_liability (output_id, device, lock_seq, bond, attester) VALUES (?, ?, ?, ?, ?)', [
-        note.outputId,
-        l.device,
-        l.lockSeq,
-        Number(l.bond),
-        l.attester,
-      ])
-    }
-    for (const claim of note.claims) {
-      if (claim.kind === 'issue') {
-        await tx.run(
-          'INSERT OR IGNORE INTO issue_claim (issuer, lock_seq, start, "end", content, wire, seen_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [
-            claim.issuer,
-            claim.lockSeq,
-            Number(claim.start),
-            Number(claim.end),
-            claim.content,
-            claim.wire,
-            note.receivedAt,
-          ],
-        )
-      } else {
-        await tx.run('INSERT OR IGNORE INTO spend_claim (input, content, wire, seen_at) VALUES (?, ?, ?, ?)', [
-          claim.input,
-          claim.content,
-          claim.wire,
-          note.receivedAt,
-        ])
-      }
-    }
+    await insertReceived(tx, note)
     return { status: 'accepted' } as const
   })
 }

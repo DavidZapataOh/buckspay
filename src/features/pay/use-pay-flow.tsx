@@ -10,15 +10,23 @@ import {
   useState,
 } from 'react'
 import { authenticate } from '../../payment/authenticate'
-import { safetyCode } from '../../payment/messages'
 import { signStoredIssue } from '../../payment/native-sign'
-import { awaitReceipt, confirmAndSend, PayError, type PayDeps, resumePayments } from '../../payment/pay'
+import { signSpend } from '../../keys'
+import {
+  awaitReceipt,
+  confirmAndSend,
+  confirmAndSendRespend,
+  PayError,
+  type PayDeps,
+  resumePayments,
+} from '../../payment/pay'
 import { type PayContext, planPayment } from '../../payment/preflight'
+import { planRespend } from '../../payment/respend'
 import { awaitRequest } from '../../payment/scan'
 import { MessageKind } from '../../transport/types'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { useOfflineLocks } from '../attesters/use-offline-locks'
-import { type Unfinished, paymentContext, setOutgoingState, unfinishedPayments } from '../notes/outgoing'
+import { type Unfinished, heldOutputs, paymentContext, setOutgoingState, unfinishedPayments } from '../notes/outgoing'
 import { copy, text } from '../payment/copy'
 import { nowSeconds, usePayments } from '../payment/payments-provider'
 import { useQrSession } from '../payment/use-qr-session'
@@ -91,6 +99,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
       return {
         db,
         sign: signStoredIssue,
+        signSpend,
         transport: session.transport,
         authenticate: (amount) =>
           authenticate(
@@ -139,7 +148,8 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
           salt: () => crypto.getRandomValues(new Uint8Array(16)),
           ...(await paymentContext(store, startOfToday())),
         }
-        dispatch({ type: 'planned', request, planned: planPayment(request, context) })
+        const respent = planRespend(request, await heldOutputs(store, key, context.now), context)
+        dispatch({ type: 'planned', request, planned: respent.ok ? respent : planPayment(request, context) })
       } catch {
         // The screen was left: nothing is waiting.
       }
@@ -154,8 +164,12 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'confirm' })
     abort()
     try {
-      const code = safetyCode(current.plan.issue.owner)
-      const payment = await confirmAndSend(current.plan, current.request, 'qr', depsFor(code))
+      const { plan, request } = current
+      const deps = depsFor(plan.review.receiverCode)
+      const payment =
+        'spend' in plan
+          ? await confirmAndSendRespend(plan, request, 'qr', { ...deps, signSpend })
+          : await confirmAndSend(plan, request, 'qr', deps)
       dispatch({ type: 'sent', payment })
     } catch (error) {
       dispatch({ type: 'failed', error: error instanceof PayError ? error : new PayError('SignFailed', error) })

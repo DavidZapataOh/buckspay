@@ -4,21 +4,36 @@ import {
   content,
   decodeBondTicket,
   decodeIssue,
+  decodeSpend,
   encodeBondTicket,
   encodeIssueBody,
+  encodeSpendBody,
   envelope,
   type Issue,
   interval,
   issueSlot,
   messageId,
+  type Output,
+  type Signed,
+  type Spend,
 } from '../protocol'
 import type { NoteDb } from '../features/notes/db'
 import { mark, report } from '../features/pay/timing'
-import { markSigned, preparePayment, setOutgoingState, unfinishedPayments } from '../features/notes/outgoing'
+import {
+  heldOutput,
+  markRespendSigned,
+  markSigned,
+  OutputTaken,
+  preparePayment,
+  prepareRespend,
+  setOutgoingState,
+  unfinishedPayments,
+} from '../features/notes/outgoing'
 import { type Transport, MessageKind, TransportError } from '../transport/types'
 import { decodeReceipt, encodeBundle, type PaymentRequest, requestIdOf } from './messages'
 import type { Plan } from './preflight'
 import { Reason } from './reasons'
+import { chainOf, changeOf, type RespendPlan } from './respend'
 
 export type PayDeps = {
   db: NoteDb
@@ -29,6 +44,8 @@ export type PayDeps = {
   authenticate: (amount: bigint) => Promise<boolean>
   noteDomain: Uint8Array
   now: () => number
+  /** `signSpend` of `src/keys`: needed to pay from a note this phone holds. */
+  signSpend?: (input: Output, spend: Spend) => Promise<Signed<Spend>>
 }
 
 export class PayError extends Error {
@@ -118,6 +135,79 @@ async function signAndSend(
   return { messageId: id, bundle }
 }
 
+/**
+ * The payer's side of passing a received note on: the same steps as `confirmAndSend`, but the spend body
+ * is written, with the input taken out of `held`, before it is signed. Recoverable by `resumePayments`.
+ */
+export async function confirmAndSendRespend(
+  plan: RespendPlan,
+  request: PaymentRequest,
+  transport: string,
+  deps: PayDeps & { signSpend: NonNullable<PayDeps['signSpend']> },
+): Promise<SentPayment> {
+  if (plan.review.biometric && !(await deps.authenticate(plan.review.amount))) throw new PayError('Declined')
+  mark('tap')
+  const body = encodeSpendBody(plan.spend)
+  const input = plan.input.output.id
+  const id = messageId(envelope(deps.noteDomain, input, content(body)))
+  try {
+    await prepareRespend(deps.db, {
+      input,
+      messageId: id,
+      body,
+      requestId: requestIdOf(request),
+      now: deps.now(),
+      receiver: request.owner.type === 'device' ? request.owner.key : request.owner.address,
+      amount: plan.review.amount,
+      lockSeq: plan.spend.lockSeq,
+      expiry: plan.review.expiry,
+      ticket: encodeBondTicket(plan.lock.ticket),
+      memo: request.memo || null,
+      transport,
+    })
+  } catch (error) {
+    if (error instanceof OutputTaken) throw new PayError('IntervalTaken')
+    throw error
+  }
+  mark('prepared')
+  const sent = await signAndSendRespend(id, input, body, encodeBondTicket(plan.lock.ticket), deps)
+  mark('presented')
+  report()
+  return sent
+}
+
+async function signAndSendRespend(
+  id: Uint8Array,
+  inputId: Uint8Array,
+  body: Uint8Array,
+  ticket: Uint8Array,
+  deps: PayDeps,
+): Promise<SentPayment> {
+  const input = await heldOutput(deps.db, inputId)
+  if (!input || !deps.signSpend) throw new PayError('Mismatch')
+  if (!equalBytes(messageId(envelope(deps.noteDomain, inputId, content(body))), id)) throw new PayError('Mismatch')
+  const spend = decodeSpend(concatBytes(inputId, body, new Uint8Array(64))).message
+  let signed: Signed<Spend>
+  try {
+    signed = await deps.signSpend(input.output, spend)
+  } catch (error) {
+    throw error instanceof PayError ? error : new PayError('SignFailed', error)
+  }
+  if (!equalBytes(encodeSpendBody(signed.message), body)) throw new PayError('Mismatch')
+  const bundle = chainOf(input, signed, decodeBondTicket(ticket))
+  const wire = encodeBundle(bundle)
+  await markRespendSigned(deps.db, {
+    messageId: id,
+    signature: signed.signature,
+    bundle: wire,
+    change: changeOf(deps.noteDomain, bundle, decodeBondTicket(ticket), deps.now()),
+    now: deps.now(),
+  })
+  mark('signed')
+  await send(wire, deps)
+  return { messageId: id, bundle: wire }
+}
+
 async function send(bundle: Uint8Array, deps: PayDeps) {
   try {
     await deps.transport.send({ kind: MessageKind.Payment, payload: bundle })
@@ -140,7 +230,11 @@ export async function resumePayments(deps: PayDeps, only?: Uint8Array): Promise<
       resumed.push({ messageId: row.messageId, bundle: row.bundle })
       continue
     }
-    resumed.push(await signAndSend(row.messageId, storedIssue(row.issueBody), decodeBondTicket(row.ticket), deps))
+    resumed.push(
+      row.input
+        ? await signAndSendRespend(row.messageId, row.input, row.issueBody, row.ticket, deps)
+        : await signAndSend(row.messageId, storedIssue(row.issueBody), decodeBondTicket(row.ticket), deps),
+    )
   }
   return resumed
 }

@@ -116,6 +116,13 @@ describe('activityDetail', () => {
     )
   })
 
+  it('lists the change of a re-spend as change and the note it came from as passed on', async () => {
+    await commitReceived(db, { ...received(1, 100), transport: 'change' }, { maxPayment: 10n ** 12n })
+    await commitReceived(db, received(2, 200), { maxPayment: 10n ** 12n })
+    await db.run("UPDATE received_note SET state = 'spent' WHERE output_id = ?", [bytes(102)])
+    expect((await listActivity(db, 10)).map((row) => row.state)).toEqual(['spent', 'change'])
+  })
+
   it('is nothing for a row that does not exist, or one from the other table', async () => {
     await paid(1, 100, 0n)
     expect(await activityDetail(db, 'paid', bytes(9))).toBeUndefined()

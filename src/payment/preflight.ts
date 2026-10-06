@@ -117,20 +117,56 @@ function lockRefusal(
   return -1
 }
 
+/** What the payer checks about a request before it looks for a way to pay it: the same for an issue and a re-spend. */
+export function checkRequest(request: PaymentRequest, ctx: PayContext): { token: Token } | { reason: PlanRefusal } {
+  const { limits } = ctx
+  const token = ctx.tokens.get(bytesToHex(request.mint))
+  if (!token) return { reason: 'UnknownMint' }
+  if (request.owner.type === 'device' && equalBytes(request.owner.key, ctx.me)) return { reason: 'SelfPayment' }
+  if (!isDeviceKeyOnCurve(request.owner)) return { reason: 'Malformed' }
+  if (request.amount > limits.maxPayment) return { reason: 'AboveYourLimit' }
+  const age = ctx.now - request.now
+  if (age < -limits.skewTolerance || age > limits.requestTtl + limits.skewTolerance) return { reason: 'ClockOrExpired' }
+  if (ctx.paidRequests.has(bytesToHex(requestIdOf(request)))) return { reason: 'AlreadyPaid' }
+  return { token }
+}
+
+/** What the review screen shows of a payment, whichever way it is made. */
+export function reviewOf(
+  request: PaymentRequest,
+  ctx: PayContext,
+  token: Token,
+  lock: OfflineLock,
+  amount: bigint,
+  allowanceAfter: bigint,
+  expiry: number,
+): Plan['review'] {
+  const { limits } = ctx
+  return {
+    amount,
+    symbol: token.symbol,
+    decimals: token.decimals,
+    receiverCode: safetyCode(request.owner),
+    receiverIsNew: !ctx.knownReceivers.has(
+      bytesToHex(request.owner.type === 'device' ? request.owner.key : request.owner.address),
+    ),
+    lockSeq: lock.lockSeq,
+    allowanceAfter,
+    expiry,
+    memo: sanitizeMemo(request.memo),
+    biometric: amount >= limits.biometricFrom || ctx.paidToday + amount >= limits.biometricDaily,
+  }
+}
+
 /**
  * Everything the payer can check before it signs: what the receiver's `verifyPayment` will check about
  * the issue and its ticket, except the signature. Pure: the same inputs give the same plan.
  */
 export function planPayment(request: PaymentRequest, ctx: PayContext): Planned {
   const { limits } = ctx
-  const token = ctx.tokens.get(bytesToHex(request.mint))
-  if (!token) return refuse('UnknownMint')
-  if (request.owner.type === 'device' && equalBytes(request.owner.key, ctx.me)) return refuse('SelfPayment')
-  if (!isDeviceKeyOnCurve(request.owner)) return refuse('Malformed')
-  if (request.amount > limits.maxPayment) return refuse('AboveYourLimit')
-  const age = ctx.now - request.now
-  if (age < -limits.skewTolerance || age > limits.requestTtl + limits.skewTolerance) return refuse('ClockOrExpired')
-  if (ctx.paidRequests.has(bytesToHex(requestIdOf(request)))) return refuse('AlreadyPaid')
+  const checked = checkRequest(request, ctx)
+  if ('reason' in checked) return refuse(checked.reason)
+  const { token } = checked
   const hopsLeft = Math.min(MAX_DEPTH, Math.max(request.minHops, limits.noteHops))
   const lastArrival = request.now + limits.requestTtl + limits.transferMargin
   const minExpiry = lastArrival + request.minWindow
@@ -178,20 +214,7 @@ export function planPayment(request: PaymentRequest, ctx: PayContext): Planned {
       lock,
       issue,
       token,
-      review: {
-        amount: issue.amount,
-        symbol: token.symbol,
-        decimals: token.decimals,
-        receiverCode: safetyCode(issue.owner),
-        receiverIsNew: !ctx.knownReceivers.has(
-          bytesToHex(request.owner.type === 'device' ? request.owner.key : request.owner.address),
-        ),
-        lockSeq: lock.lockSeq,
-        allowanceAfter: lock.backing - issue.cumEnd,
-        expiry,
-        memo: sanitizeMemo(request.memo),
-        biometric: issue.amount >= limits.biometricFrom || ctx.paidToday + issue.amount >= limits.biometricDaily,
-      },
+      review: reviewOf(request, ctx, token, lock, issue.amount, lock.backing - issue.cumEnd, expiry),
     },
   }
 }

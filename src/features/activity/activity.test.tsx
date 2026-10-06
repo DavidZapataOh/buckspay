@@ -58,6 +58,19 @@ describe('ActivityList', () => {
     expect(shown).toContain('Today')
   })
 
+  it('says what became of a note: passed on, being sent, change', async () => {
+    const rows = [
+      row({ kind: 'received', state: 'spent', id: new Uint8Array(32).fill(2), at: NOW - 10 }),
+      row({ kind: 'received', state: 'spending', id: new Uint8Array(32).fill(3), at: NOW - 20 }),
+      row({ kind: 'received', state: 'change', id: new Uint8Array(32).fill(4), at: NOW - 30 }),
+    ]
+    const renderer = await act(async () =>
+      create(<ActivityList rows={rows} symbol="USDC" decimals={6} now={NOW} onOpen={() => {}} />),
+    )
+    const lines = texts(renderer.root).filter((line) => line.includes('USDC'))
+    expect(lines.map((line) => line.split(' · ').pop())).toEqual(['Passed on', 'Sending…', 'Change'])
+  })
+
   it('says there is nothing yet when there are no rows', async () => {
     const renderer = await act(async () =>
       create(<ActivityList rows={[]} symbol="USDC" decimals={6} now={NOW} onOpen={() => {}} />),
