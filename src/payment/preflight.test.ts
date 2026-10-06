@@ -2,7 +2,17 @@ import { p256 } from '@noble/curves/nist.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { describe, expect, it } from 'vitest'
-import { CHALLENGE, checkIssueStep, GRACE, minBond, ProtocolError, verifyPayment } from '../protocol'
+import {
+  CHALLENGE,
+  checkIssueStep,
+  Flags,
+  GRACE,
+  minBond,
+  ProtocolError,
+  ScopeKind,
+  scopeHash,
+  verifyPayment,
+} from '../protocol'
 import { encodeBundle, type PaymentRequest, requestIdOf } from './messages'
 import { type OfflineLock, type PayContext, type PayLimits, planPayment } from './preflight'
 import { ATTESTER, MINT, makeTicket, NOTE_DOMAIN, party, PROGRAM, receiverFor, signIssue } from './testing/world'
@@ -398,5 +408,32 @@ describe('what the payer checks is what the receiver checks', () => {
         verifyPayment(receiverFor(shop, { now: NOW + 720, minWindow }), signed, [], [l.ticket]),
       ).not.toThrow()
     }
+  })
+})
+
+describe('planPayment of event credit', () => {
+  const authority = new Uint8Array(32).fill(0xa0)
+
+  it('sets the flag and the scope of the authority', () => {
+    const planned = planPayment(request(), context(), { authorityOnly: authority })
+    if (!planned.ok) throw new Error(planned.reason)
+    const { caveats } = planned.plan.issue
+    expect(caveats.flags).toBe(Flags.AuthorityOnly)
+    expect(caveats.scopeKind).toBe(ScopeKind.Authority)
+    expect(caveats.scope).toEqual(scopeHash({ type: 'account', address: authority }))
+  })
+
+  it('refuses a request whose owner is an account: credit is sold to people', () => {
+    const owner = { type: 'account', address: new Uint8Array(32).fill(5) } as const
+    expect(planPayment(request({ owner }), context(), { authorityOnly: authority })).toMatchObject({
+      ok: false,
+      reason: 'Malformed',
+    })
+  })
+
+  it('leaves an ordinary payment unscoped', () => {
+    const planned = planPayment(request(), context())
+    if (!planned.ok) throw new Error(planned.reason)
+    expect(planned.plan.issue.caveats).toMatchObject({ flags: 0, scopeKind: ScopeKind.Any })
   })
 })

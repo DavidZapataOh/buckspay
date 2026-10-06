@@ -23,6 +23,8 @@ export type AcceptanceOptions = {
   maxNoteLife?: number
   /** How long a received note must stay valid, seconds; `MIN_WINDOW` unless the wallet chooses less. */
   minWindow?: number
+  /** The account addresses of the events the wallet joined: it accepts their credit. */
+  acceptAuthorities?: Uint8Array[]
 }
 
 /**
@@ -32,6 +34,7 @@ export type AcceptanceOptions = {
 export function acceptancePolicy({
   maxNoteLife = MAX_NOTE_LIFE,
   minWindow = MIN_WINDOW,
+  acceptAuthorities = [],
   ...options
 }: AcceptanceOptions): Receiver {
   checkU32(maxNoteLife)
@@ -42,7 +45,7 @@ export function acceptancePolicy({
     minWindow,
     maxNoteLife,
     acceptCategory: false,
-    acceptAuthorities: [],
+    acceptAuthorities,
   }
 }
 

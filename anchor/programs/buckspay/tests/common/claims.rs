@@ -71,6 +71,11 @@ impl Env {
     }
 }
 
+/// Whether the spend `link` carries names no lock: its number sits at bytes 2..6 of the body.
+fn names_no_lock(link: &Link) -> bool {
+    link.body[2..6] == NO_LOCK.to_le_bytes()
+}
+
 /// Builds `claim_lost_spend` for the loser's `chain`, filed by `payer`, against `lock`. The only
 /// signature it carries is the culprit's, on the last spend of the chain.
 pub fn claim_lost_ixs(
@@ -95,6 +100,7 @@ pub fn claim_lost_ixs(
                 ledger: ledger_address(lock),
                 escrow: escrow_address(lock),
                 mint: *mint,
+                device: (names_no_lock(&chain.links[n - 1])).then(|| device_address(&lock_key)),
                 claim: claim_account(&payment.id),
                 record: record_account(&contested),
                 instructions: solana_instructions_sysvar::ID,

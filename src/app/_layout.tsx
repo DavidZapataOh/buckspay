@@ -12,6 +12,7 @@ import { BUILD_NETWORK } from '../features/network/build-network'
 import { NetworkProvider } from '../features/network/network-provider'
 import { PayFlowProvider } from '../features/pay/use-pay-flow'
 import { PaymentsProvider } from '../features/payment/payments-provider'
+import { PointModeProvider } from '../features/event/use-point-mode'
 import { ReceiveFlowProvider } from '../features/receive/use-receive-flow'
 import { SettlementProvider } from '../features/settlement/use-settlement-runner'
 import { createAuthorizationCache } from '../features/wallet/authorization-cache'
@@ -39,9 +40,11 @@ export default function Layout() {
           <PaymentsProvider>
             <SettlementProvider>
               <PayFlowProvider>
-                <ReceiveFlowProvider>
-                  <Routes />
-                </ReceiveFlowProvider>
+                <PointModeProvider>
+                  <ReceiveFlowProvider>
+                    <Routes />
+                  </ReceiveFlowProvider>
+                </PointModeProvider>
               </PayFlowProvider>
             </SettlementProvider>
           </PaymentsProvider>
@@ -81,6 +84,8 @@ function Routes() {
           <Stack.Screen name="pay" />
           <Stack.Screen name="nearby" />
           <Stack.Screen name="receive/session" />
+          <Stack.Screen name="receive/point" />
+          <Stack.Screen name="events" />
           <Stack.Screen name="activity/[id]" />
         </Stack.Protected>
         <Stack.Screen name="reset-identity" />

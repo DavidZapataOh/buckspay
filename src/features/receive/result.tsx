@@ -66,15 +66,18 @@ export function AcceptedResult({
 export function RejectedResult({
   reason,
   limits,
+  why: worded,
   onRetry,
   onDone,
 }: {
   reason: Reason
+  /** The sentence to show instead of the reason's usual one. */
+  why?: string
   limits: { window: number; max: bigint; symbol: string; decimals: number }
   onRetry: () => void
   onDone: () => void
 }) {
-  const why = reasonText(reason, limits)
+  const why = worded ?? reasonText(reason, limits)
   useEffect(() => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
     AccessibilityInfo.announceForAccessibility(`${copy.receive.notReceived} ${why}`)

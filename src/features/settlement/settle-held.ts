@@ -132,13 +132,14 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
       equalBytes(o.id, note.outputId),
     )
     if (!output) throw new Error('The stored chain does not end in the note')
-    const notice = wire ? null : needsClearNotice(bundle, deps.me)
+    const terminal = output.owner.type === 'account'
+    const notice = wire || terminal ? null : needsClearNotice(bundle, deps.me)
     if (notice && !(await deps.noticeShown(key))) {
       report.waiting++
       report.notices.push({ outputId: note.outputId, holders: notice.holders })
       continue
     }
-    if (!wire) {
+    if (!wire && !terminal) {
       let body = note.settlementBody
       if (!body) {
         try {
@@ -170,7 +171,10 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
       wire = encodeSpend(signed)
       await markSettlementSigned(db, note.outputId, wire, deps.now())
     }
-    const request = settlementRequest({ issue: bundle.issue, spends: [...bundle.spends, decodeSpend(wire)] })
+    const request = settlementRequest({
+      issue: bundle.issue,
+      spends: wire ? [...bundle.spends, decodeSpend(wire)] : bundle.spends,
+    })
     const outcome = await settle(deps.gateway, request)
     if (outcome.kind === 'sent' || outcome.kind === 'settled') {
       await setNoteState(db, note.outputId, 'settled', deps.now())
@@ -181,7 +185,13 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
     } else {
       const { refusal } = outcome
       if (refusal.kind === 'conflict') {
-        await recordConflict(db, note.outputId, wire, hexToBytes(refusal.recorded), deps.now())
+        await recordConflict(
+          db,
+          note.outputId,
+          wire ?? encodeSpend(bundle.spends[bundle.spends.length - 1]),
+          hexToBytes(refusal.recorded),
+          deps.now(),
+        )
         const claim = await fileClaim(deps.gateway, request)
         report.lost.push({ outputId: note.outputId, claim, steps: request.spends.length + 1 })
         report.failed++

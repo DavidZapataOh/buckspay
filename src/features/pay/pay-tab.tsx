@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { View } from 'react-native'
+import { Switch, View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import { Screen } from '../../components/screen'
 import { formatMoney } from '../../utils/format-amount'
+import { eventCopy } from '../event/copy'
+import type { StoredEvent } from '../event/store'
 import { copy, text } from '../payment/copy'
 import type { UnfinishedView } from './unfinished'
 
@@ -14,6 +16,7 @@ export function PayTab({
   symbol,
   decimals,
   unfinished,
+  credit,
   onSetup,
   onScan,
   onPaste,
@@ -26,6 +29,12 @@ export function PayTab({
   symbol: string
   decimals: number
   unfinished: readonly UnfinishedView[]
+  /** The events this phone runs: a switch sells their credit instead of ordinary payments. */
+  credit?: {
+    events: readonly StoredEvent[]
+    selected: StoredEvent | null
+    onSelect: (event: StoredEvent | null) => void
+  }
   onSetup: () => void
   onScan: () => void
   onPaste: () => void
@@ -58,6 +67,17 @@ export function PayTab({
               </>
             )}
           </View>
+          {credit?.events.map((event) => (
+            <View key={event.name + event.endsAt} className="min-h-14 flex-row items-center justify-between gap-4">
+              <AppText variant="body">{text(eventCopy.creditFor, { event: event.name })}</AppText>
+              <Switch
+                testID="pay-event-credit"
+                accessibilityLabel={text(eventCopy.creditFor, { event: event.name })}
+                value={credit.selected === event}
+                onValueChange={(on) => credit.onSelect(on ? event : null)}
+              />
+            </View>
+          ))}
           <View className="gap-3">
             <Button testID="pay-scan" variant="filled" label={copy.pay.scan} onPress={onScan} />
             <Button testID="pay-paste" variant="text" label={copy.pay.paste} onPress={onPaste} />

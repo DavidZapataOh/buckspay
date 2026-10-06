@@ -1,8 +1,18 @@
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { decodeSpend, encodeSpendBody, GRACE, type Spend, verifySettlement, walkChain } from '../../protocol'
+import {
+  decodeSpend,
+  encodeSpend,
+  encodeSpendBody,
+  GRACE,
+  type Spend,
+  verifySettlement,
+  walkChain,
+} from '../../protocol'
+import { eventWorld } from '../event/testing'
 import { encodeBundle, paymentId } from '../../payment/messages'
 import { chainOf, changeOf, planRespend } from '../../payment/respend'
+import { reconcileIdentity } from '../notes/ledger'
 import { heldOutputs, markRespendSigned, prepareRespend } from '../notes/outgoing'
 import { acceptPayment } from '../../payment/receive'
 import { createSoftSpendSigner } from '../../payment/testing/soft-guard'
@@ -351,7 +361,7 @@ describe('settleHeld', () => {
     if (!planned.ok) throw new Error(planned.reason)
     const { plan } = planned
     const signed = await signer.signSpend(held.output, plan.spend)
-    const bundle = chainOf(held, signed, plan.lock.ticket)
+    const bundle = chainOf(held, signed, plan.lock?.ticket ?? null)
     const messageId = paymentId(NOTE_DOMAIN, bundle)
     await prepareRespend(db, {
       input: held.outputId,
@@ -364,7 +374,7 @@ describe('settleHeld', () => {
       messageId,
       signature: signed.signature,
       bundle: encodeBundle(bundle),
-      change: changeOf(NOTE_DOMAIN, bundle, plan.lock.ticket, clock),
+      change: changeOf(NOTE_DOMAIN, bundle, plan.lock?.ticket ?? null, clock),
       now: clock,
     })
     await settleHeld(deps())
@@ -383,5 +393,36 @@ describe('settleHeld', () => {
     const settled = verifySettlement(NOTE_DOMAIN, PROGRAM, issue, [spend])
     expect(settled.output.owner).toEqual({ type: 'account', address: WALLET })
     expect(settled.output.amount).toBe(5_000_000n)
+  })
+})
+
+const pointReceive = async (world: ReturnType<typeof eventWorld>, wire: Uint8Array) =>
+  acceptPayment(wire, {
+    receiver: receiverFor(world.organiser, { me: world.authority, now: NOW + 100, attesters: [ATTESTER] }),
+    db,
+    limits: { maxPayment: 100_000_000n },
+    transport: 'nearby',
+    request: null,
+  })
+
+describe('a point', () => {
+  it('settles a chain that pays the organiser account as it was received, signing nothing', async () => {
+    const world = eventWorld()
+    const paid = world.payPoint(world.issueCredit(10_000_000n), 4_000_000n)
+    const outcome = await pointReceive(world, paid.wire)
+    if (!outcome.accepted) throw new Error(String(outcome.reason))
+    const report = await settleHeld(deps({ me: party(7).key, wallet: world.pairing.authority }))
+    expect(report).toMatchObject({ settled: 1, failed: 0 })
+    expect(sent).toHaveLength(1)
+    expect(sent[0].spends).toEqual(paid.bundle.spends.map((spend) => bytesToHex(encodeSpend(spend))))
+  })
+
+  it('keeps a note that pays the organiser account out of the lost notes of another key', async () => {
+    const world = eventWorld()
+    const paid = world.payPoint(world.issueCredit(10_000_000n), 4_000_000n)
+    await pointReceive(world, paid.wire)
+    await reconcileIdentity(db, party(8).key, NOW + 200)
+    const [row] = await db.all<{ state: string }>('SELECT state FROM received_note')
+    expect(row.state).toBe('held')
   })
 })

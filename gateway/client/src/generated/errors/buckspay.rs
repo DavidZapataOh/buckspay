@@ -175,6 +175,9 @@ pub enum BuckspayError {
     /// 6054 - The key that signed the ticket is not one the attester answers for
     #[error("The key that signed the ticket is not one the attester answers for")]
     UnknownSigner = 0x17A6,
+    /// 6055 - A claim on a spend that named no lock needs the device of the lock owner
+    #[error("A claim on a spend that named no lock needs the device of the lock owner")]
+    DeviceRequired = 0x17A7,
 }
 
 impl From<BuckspayError> for solana_program_error::ProgramError {

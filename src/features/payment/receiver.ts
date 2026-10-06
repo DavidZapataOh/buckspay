@@ -1,5 +1,6 @@
 import { type Attester, type Receiver } from '../../protocol'
 import { acceptancePolicy, AttesterLedger } from '../attesters'
+import { joinedAuthorities } from '../event/store'
 import { relianceByAttester } from '../notes/ledger'
 import type { NoteDb } from '../notes/db'
 import { MIN_WINDOW } from '../pay/limits'
@@ -8,7 +9,8 @@ export type PaymentDomains = { noteDomain: Uint8Array; ticketDomain: Uint8Array;
 
 /**
  * The receiver `verifyPayment` runs for this wallet at `now`: the attesters it believes, each with what
- * its unsettled notes already rely on it for, and the window and note life it requires.
+ * its unsettled notes already rely on it for, the window and note life it requires, and the authorities
+ * of the events it joined that are still running.
  */
 export async function receiverOf(
   db: NoteDb,
@@ -24,5 +26,6 @@ export async function receiverOf(
     now,
     attesters: ledger.apply([...attesters]),
     minWindow: MIN_WINDOW,
+    acceptAuthorities: await joinedAuthorities(db, now),
   })
 }

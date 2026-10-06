@@ -18,6 +18,9 @@ import { parseAmount } from '../../utils/format-amount'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { copy } from '../payment/copy'
 import { nowSeconds, usePayments } from '../payment/payments-provider'
+import { entriesSince } from '../event/consumed'
+import { pointGate, pointReceiverOf } from '../event/point'
+import { usePointMode } from '../event/use-point-mode'
 import { receiverOf } from '../payment/receiver'
 import { useQrSession } from '../payment/use-qr-session'
 import { MIN_WINDOW, PAY_LIMITS } from '../pay/limits'
@@ -55,6 +58,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
   const { db, domains, attesters, hasTrustedAttesters } = usePayments()
   const { deviceKey } = useDeviceIdentity()
   const session = useQrSession()
+  const { mode: point } = usePointMode()
   const pending = useRef<AbortController>(undefined)
   const key = deviceKey?.publicKey
 
@@ -78,7 +82,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
         const request = buildRequest({
           amount,
           memo,
-          owner: { type: 'device', key },
+          owner: point ? { type: 'account', address: point.pairing.authority } : { type: 'device', key },
           mint: BUILD_MINT_BYTES,
           attesters: usable.map((attester) => attester.id).slice(0, 8),
           now: nowSeconds(),
@@ -93,7 +97,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
       }
       return undefined
     },
-    [key, session.transport, usable],
+    [key, point, session.transport, usable],
   )
 
   const scanPayment = useCallback(() => {
@@ -105,26 +109,35 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
     abort()
     const controller = new AbortController()
     pending.current = controller
+    const startedAt = nowSeconds()
     const context = async (): Promise<ReceiveContext> => {
       dispatch({ type: 'payment' })
       const now = nowSeconds()
       if (!db || !key) throw new Error('The payments store is not open')
       return {
-        receiver: await receiverOf(db, domains, key, attesters, now),
+        receiver: point
+          ? await pointReceiverOf(db, domains, point.pairing, attesters, now)
+          : await receiverOf(db, domains, key, attesters, now),
         db,
         limits: { maxPayment: PAY_LIMITS.maxPayment },
         transport: 'qr',
         request: { amount: request.amount, memo: request.memo },
+        gate: point ? pointGate(db, point.pairing, domains.noteDomain, nowSeconds) : undefined,
       }
     }
     void receivePayment(context, session.transport, {
       signal: controller.signal,
       onWrongCode: () => setWrongCode(true),
     }).then(
-      (outcome) => dispatch({ type: 'outcome', outcome }),
+      (outcome) => {
+        dispatch({ type: 'outcome', outcome })
+        if (point && db && outcome.accepted) {
+          void entriesSince(db, point.pairing.eventId, startedAt - 1).then((entries) => point.sync.push(entries))
+        }
+      },
       () => undefined,
     )
-  }, [abort, attesters, db, domains, key, session.transport])
+  }, [abort, attesters, db, domains, key, point, session.transport])
 
   const submitText = useCallback((text: string) => session.push(text), [session])
 

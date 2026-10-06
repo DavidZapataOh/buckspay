@@ -115,7 +115,9 @@ export function heldNote(o: {
   scope?: Owner
 }): HeldOutput {
   const authority: Owner | undefined =
-    ((o.flags ?? 0) & Flags.AuthorityOnly) !== 0 ? { type: 'account', address: new Uint8Array(32).fill(9) } : undefined
+    ((o.flags ?? 0) & Flags.AuthorityOnly) !== 0
+      ? (o.scope ?? { type: 'account', address: new Uint8Array(32).fill(9) })
+      : undefined
   const issue = signIssue(o.from, {
     issuer: o.from.key,
     mint: MINT,

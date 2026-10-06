@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { CHALLENGE, EXPIRY_STEP, Flags, GRACE, NO_LOCK, verifyPayment } from '../protocol'
 import { encodeBundle } from './messages'
-import { planRespend, respendBundle } from './respend'
-import { heldNote, NOW, party, payCtx, receiverFor, requestTo, signSpendWith } from './testing/world'
+import { changeOf, planRespend, respendBundle } from './respend'
+import { heldNote, NOTE_DOMAIN, NOW, party, payCtx, receiverFor, requestTo, signSpendWith } from './testing/world'
 
 const issuer = party(1)
 const me = party(2)
@@ -35,7 +35,7 @@ describe('planRespend', () => {
     const held = [heldNote({ from: issuer, to: me, amount: 1_000_000n })]
     const plan = ok(planRespend(requestTo(bob, 1_000_000n), held, payCtx(me)))
     expect(plan.spend.lockSeq).not.toBe(NO_LOCK)
-    expect(plan.spend.lockSeq).toBe(plan.lock.lockSeq)
+    expect(plan.spend.lockSeq).toBe(plan.lock?.lockSeq)
   })
 
   it('refuses when my bond does not cover four times the amount', () => {
@@ -168,5 +168,65 @@ describe('bundle size', () => {
       sizes.push(encodeBundle(bundle).length)
     }
     expect(sizes.map((n) => n - 3)).toEqual([388, 768, 1148, 1528])
+  })
+})
+
+describe('planRespend of event credit', () => {
+  const org = party(7)
+  const authority = { type: 'account', address: new Uint8Array(32).fill(9) } as const
+  const credit = (amount: bigint) =>
+    heldNote({ from: org, to: me, amount, flags: Flags.AuthorityOnly, scope: authority })
+  const withoutLocks = (bond = 0n) => ({ ...payCtx(me, { bond }), locks: [] })
+
+  it('pays an authority-only note to its authority without a lock or a bond', () => {
+    const plan = ok(planRespend(requestTo(authority, 1_000_000n), [credit(2_000_000n)], payCtx(me, { bond: 0n })))
+    expect(plan.spend.lockSeq).toBe(NO_LOCK)
+    expect(plan.lock).toBeNull()
+  })
+
+  it('needs no lock at all and adds no ticket of its own', () => {
+    const held = credit(2_000_000n)
+    const plan = ok(planRespend(requestTo(authority, 2_000_000n), [held], withoutLocks()))
+    expect(plan.tickets).toEqual(held.bundle.tickets)
+    expect(plan.review.kind).toBe('spend1')
+  })
+
+  it('keeps the change authority-only and in my hands', () => {
+    const plan = ok(planRespend(requestTo(authority, 500_000n), [credit(2_000_000n)], withoutLocks()))
+    const outputs = plan.spend.outputs
+    if (outputs.type !== 'two') throw new Error('expected two outputs')
+    expect(outputs.caveats0.flags & Flags.AuthorityOnly).toBe(Flags.AuthorityOnly)
+    expect(outputs.owner1).toEqual({ type: 'device', key: me.key })
+    const bundle = respendBundle(plan, signSpendWith(me, plan.input.output, plan.spend))
+    const change = changeOf(NOTE_DOMAIN, bundle, null, NOW)
+    expect(change).toMatchObject({ amount: 1_500_000n, liable: [] })
+    expect(change?.owner).toEqual(me.key)
+  })
+
+  it('is accepted by the authority and by nobody else', () => {
+    const plan = ok(planRespend(requestTo(authority, 2_000_000n), [credit(2_000_000n)], withoutLocks()))
+    const bundle = respendBundle(plan, signSpendWith(me, plan.input.output, plan.spend))
+    const point = receiverFor(me, { me: authority })
+    expect(verifyPayment(point, bundle.issue, bundle.spends, bundle.tickets).output.amount).toBe(2_000_000n)
+    expect(() => verifyPayment(receiverFor(bob), bundle.issue, bundle.spends, bundle.tickets)).toThrow()
+  })
+
+  it('refuses credit whose ticket the receiver does not trust', () => {
+    const r = planRespend(requestTo(authority, 1_000_000n, { attesters: [99] }), [credit(2_000_000n)], withoutLocks())
+    expect(r).toEqual({ ok: false, reason: 'AttesterNotTrusted' })
+  })
+
+  it('refuses to pay it to anyone but its authority', () => {
+    const r = planRespend(requestTo(bob, 1_000_000n), [credit(2_000_000n)], withoutLocks())
+    expect(r).toEqual({ ok: false, reason: 'NoPassableNote' })
+  })
+
+  it('still needs a lock for an ordinary note', () => {
+    const r = planRespend(
+      requestTo(bob, 1_000_000n),
+      [heldNote({ from: issuer, to: me, amount: 1_000_000n })],
+      withoutLocks(),
+    )
+    expect(r).toEqual({ ok: false, reason: 'NoLock' })
   })
 })

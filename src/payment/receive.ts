@@ -9,6 +9,7 @@ import {
   encodeSpendBody,
   interval,
   type Receiver,
+  type Received,
   verifyPayment,
 } from '../protocol'
 import type { NoteDb } from '../features/notes/db'
@@ -18,6 +19,9 @@ import { mark } from '../features/pay/timing'
 import { type Bundle, decodeBundle, paymentId } from './messages'
 import { Reason, reasonOf } from './reasons'
 
+/** A check a receiver runs on a verified payment before it stores it: why to refuse it, or null. */
+export type ReceiveGate = { admit: (received: Received, bundle: Bundle) => Promise<Reason | null> }
+
 export type ReceiveContext = {
   receiver: Receiver
   db: NoteDb
@@ -25,6 +29,7 @@ export type ReceiveContext = {
   transport: string
   /** The request this phone is showing, if any: only for display, never a condition. */
   request: { amount: bigint; memo: string } | null
+  gate?: ReceiveGate
 }
 
 export type Outcome =
@@ -73,6 +78,8 @@ export async function acceptPayment(payload: Uint8Array, ctx: ReceiveContext): P
     return { accepted: false, reason: reasonOf(error), messageId }
   }
   mark('verified')
+  const refused = await ctx.gate?.admit(received, bundle)
+  if (refused !== undefined && refused !== null) return { accepted: false, reason: refused, messageId }
   const note: ReceivedNote = {
     outputId: received.output.id,
     messageId,

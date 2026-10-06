@@ -241,7 +241,7 @@ export async function settleable(db: NoteDb, now: number, graceSeconds: number):
 export async function reconcileIdentity(db: NoteDb, currentKey: Uint8Array, now: number): Promise<void> {
   await db.transaction(async (tx) => {
     await tx.run(
-      "UPDATE received_note SET state = 'lost', updated_at = ? WHERE owner != ? AND state IN ('held', 'settling')",
+      "UPDATE received_note SET state = 'lost', updated_at = ? WHERE owner != ? AND substr(owner, 1, 1) != x'00' AND state IN ('held', 'settling')",
       [now, currentKey],
     )
     await tx.run(

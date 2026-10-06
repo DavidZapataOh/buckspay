@@ -58,6 +58,7 @@ export type ClaimLostSpendInstruction<
   TAccountLedger extends string | AccountMeta<string> = string,
   TAccountEscrow extends string | AccountMeta<string> = string,
   TAccountMint extends string | AccountMeta<string> = string,
+  TAccountDevice extends string | AccountMeta<string> = string,
   TAccountClaim extends string | AccountMeta<string> = string,
   TAccountRecord extends string | AccountMeta<string> = string,
   TAccountInstructions extends string | AccountMeta<string> = 'Sysvar1nstructions1111111111111111111111111',
@@ -75,6 +76,7 @@ export type ClaimLostSpendInstruction<
       TAccountLedger extends string ? WritableAccount<TAccountLedger> : TAccountLedger,
       TAccountEscrow extends string ? WritableAccount<TAccountEscrow> : TAccountEscrow,
       TAccountMint extends string ? WritableAccount<TAccountMint> : TAccountMint,
+      TAccountDevice extends string ? ReadonlyAccount<TAccountDevice> : TAccountDevice,
       TAccountClaim extends string ? WritableAccount<TAccountClaim> : TAccountClaim,
       TAccountRecord extends string ? ReadonlyAccount<TAccountRecord> : TAccountRecord,
       TAccountInstructions extends string ? ReadonlyAccount<TAccountInstructions> : TAccountInstructions,
@@ -135,6 +137,7 @@ export type ClaimLostSpendAsyncInput<
   TAccountLedger extends string = string,
   TAccountEscrow extends string = string,
   TAccountMint extends string = string,
+  TAccountDevice extends string = string,
   TAccountClaim extends string = string,
   TAccountRecord extends string = string,
   TAccountInstructions extends string = string,
@@ -148,6 +151,11 @@ export type ClaimLostSpendAsyncInput<
   escrow?: Address<TAccountEscrow>
   /** Writable because the burn lowers its supply. */
   mint: Address<TAccountMint>
+  /**
+   * The device that owns the liable lock, read only when the culprit's spend named no lock: its
+   * current wallet is the one a loss paid to itself cannot burn the bond of.
+   */
+  device?: Address<TAccountDevice>
   /** which creates it. */
   claim: Address<TAccountClaim>
   record: Address<TAccountRecord>
@@ -166,6 +174,7 @@ export async function getClaimLostSpendInstructionAsync<
   TAccountLedger extends string,
   TAccountEscrow extends string,
   TAccountMint extends string,
+  TAccountDevice extends string,
   TAccountClaim extends string,
   TAccountRecord extends string,
   TAccountInstructions extends string,
@@ -179,6 +188,7 @@ export async function getClaimLostSpendInstructionAsync<
     TAccountLedger,
     TAccountEscrow,
     TAccountMint,
+    TAccountDevice,
     TAccountClaim,
     TAccountRecord,
     TAccountInstructions,
@@ -194,6 +204,7 @@ export async function getClaimLostSpendInstructionAsync<
     TAccountLedger,
     TAccountEscrow,
     TAccountMint,
+    TAccountDevice,
     TAccountClaim,
     TAccountRecord,
     TAccountInstructions,
@@ -211,6 +222,7 @@ export async function getClaimLostSpendInstructionAsync<
     ledger: { value: input.ledger ?? null, isWritable: true },
     escrow: { value: input.escrow ?? null, isWritable: true },
     mint: { value: input.mint ?? null, isWritable: true },
+    device: { value: input.device ?? null, isWritable: false },
     claim: { value: input.claim ?? null, isWritable: true },
     record: { value: input.record ?? null, isWritable: false },
     instructions: { value: input.instructions ?? null, isWritable: false },
@@ -255,6 +267,7 @@ export async function getClaimLostSpendInstructionAsync<
       getAccountMeta('ledger', accounts.ledger),
       getAccountMeta('escrow', accounts.escrow),
       getAccountMeta('mint', accounts.mint),
+      getAccountMeta('device', accounts.device),
       getAccountMeta('claim', accounts.claim),
       getAccountMeta('record', accounts.record),
       getAccountMeta('instructions', accounts.instructions),
@@ -270,6 +283,7 @@ export async function getClaimLostSpendInstructionAsync<
     TAccountLedger,
     TAccountEscrow,
     TAccountMint,
+    TAccountDevice,
     TAccountClaim,
     TAccountRecord,
     TAccountInstructions,
@@ -284,6 +298,7 @@ export type ClaimLostSpendInput<
   TAccountLedger extends string = string,
   TAccountEscrow extends string = string,
   TAccountMint extends string = string,
+  TAccountDevice extends string = string,
   TAccountClaim extends string = string,
   TAccountRecord extends string = string,
   TAccountInstructions extends string = string,
@@ -297,6 +312,11 @@ export type ClaimLostSpendInput<
   escrow: Address<TAccountEscrow>
   /** Writable because the burn lowers its supply. */
   mint: Address<TAccountMint>
+  /**
+   * The device that owns the liable lock, read only when the culprit's spend named no lock: its
+   * current wallet is the one a loss paid to itself cannot burn the bond of.
+   */
+  device?: Address<TAccountDevice>
   /** which creates it. */
   claim: Address<TAccountClaim>
   record: Address<TAccountRecord>
@@ -315,6 +335,7 @@ export function getClaimLostSpendInstruction<
   TAccountLedger extends string,
   TAccountEscrow extends string,
   TAccountMint extends string,
+  TAccountDevice extends string,
   TAccountClaim extends string,
   TAccountRecord extends string,
   TAccountInstructions extends string,
@@ -328,6 +349,7 @@ export function getClaimLostSpendInstruction<
     TAccountLedger,
     TAccountEscrow,
     TAccountMint,
+    TAccountDevice,
     TAccountClaim,
     TAccountRecord,
     TAccountInstructions,
@@ -342,6 +364,7 @@ export function getClaimLostSpendInstruction<
   TAccountLedger,
   TAccountEscrow,
   TAccountMint,
+  TAccountDevice,
   TAccountClaim,
   TAccountRecord,
   TAccountInstructions,
@@ -358,6 +381,7 @@ export function getClaimLostSpendInstruction<
     ledger: { value: input.ledger ?? null, isWritable: true },
     escrow: { value: input.escrow ?? null, isWritable: true },
     mint: { value: input.mint ?? null, isWritable: true },
+    device: { value: input.device ?? null, isWritable: false },
     claim: { value: input.claim ?? null, isWritable: true },
     record: { value: input.record ?? null, isWritable: false },
     instructions: { value: input.instructions ?? null, isWritable: false },
@@ -390,6 +414,7 @@ export function getClaimLostSpendInstruction<
       getAccountMeta('ledger', accounts.ledger),
       getAccountMeta('escrow', accounts.escrow),
       getAccountMeta('mint', accounts.mint),
+      getAccountMeta('device', accounts.device),
       getAccountMeta('claim', accounts.claim),
       getAccountMeta('record', accounts.record),
       getAccountMeta('instructions', accounts.instructions),
@@ -405,6 +430,7 @@ export function getClaimLostSpendInstruction<
     TAccountLedger,
     TAccountEscrow,
     TAccountMint,
+    TAccountDevice,
     TAccountClaim,
     TAccountRecord,
     TAccountInstructions,
@@ -426,12 +452,17 @@ export type ParsedClaimLostSpendInstruction<
     escrow: TAccountMetas[3]
     /** Writable because the burn lowers its supply. */
     mint: TAccountMetas[4]
+    /**
+     * The device that owns the liable lock, read only when the culprit's spend named no lock: its
+     * current wallet is the one a loss paid to itself cannot burn the bond of.
+     */
+    device?: TAccountMetas[5] | undefined
     /** which creates it. */
-    claim: TAccountMetas[5]
-    record: TAccountMetas[6]
-    instructions: TAccountMetas[7]
-    tokenProgram: TAccountMetas[8]
-    systemProgram: TAccountMetas[9]
+    claim: TAccountMetas[6]
+    record: TAccountMetas[7]
+    instructions: TAccountMetas[8]
+    tokenProgram: TAccountMetas[9]
+    systemProgram: TAccountMetas[10]
   }
   data: ClaimLostSpendInstructionData
 }
@@ -439,10 +470,10 @@ export type ParsedClaimLostSpendInstruction<
 export function parseClaimLostSpendInstruction<TProgram extends string, TAccountMetas extends readonly AccountMeta[]>(
   instruction: Instruction<TProgram> & InstructionWithAccounts<TAccountMetas> & InstructionWithData<ReadonlyUint8Array>,
 ): ParsedClaimLostSpendInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 10) {
+  if (instruction.accounts.length < 11) {
     throw new SolanaError(SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS, {
       actualAccountMetas: instruction.accounts.length,
-      expectedAccountMetas: 10,
+      expectedAccountMetas: 11,
     })
   }
   let accountIndex = 0
@@ -450,6 +481,10 @@ export function parseClaimLostSpendInstruction<TProgram extends string, TAccount
     const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
     accountIndex += 1
     return accountMeta
+  }
+  const getNextOptionalAccount = () => {
+    const accountMeta = getNextAccount()
+    return accountMeta.address === BUCKSPAY_PROGRAM_ADDRESS ? undefined : accountMeta
   }
   return {
     programAddress: instruction.programAddress,
@@ -459,6 +494,7 @@ export function parseClaimLostSpendInstruction<TProgram extends string, TAccount
       ledger: getNextAccount(),
       escrow: getNextAccount(),
       mint: getNextAccount(),
+      device: getNextOptionalAccount(),
       claim: getNextAccount(),
       record: getNextAccount(),
       instructions: getNextAccount(),

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-use buckspay_protocol::{chain, slash, window, Owner as NoteOwner};
+use buckspay_protocol::{chain, slash, window, Owner as NoteOwner, NO_LOCK};
 
 use crate::{
     clock::now,
@@ -9,7 +9,7 @@ use crate::{
     records::RECLAIMED,
     settlement::{walk, Link, ISSUE_BODY_LEN, MAX_CHAIN_SPENDS},
     spent,
-    state::{Ledger, Lock, ESCROW_SEED, LEDGER_SEED, LOCK_SEED},
+    state::{Device, Ledger, Lock, DEVICE_SEED, ESCROW_SEED, LEDGER_SEED, LOCK_SEED},
     verification::require_chain,
 };
 
@@ -49,6 +49,13 @@ pub struct ClaimLostSpend<'info> {
     /// Writable because the burn lowers its supply.
     #[account(mut, address = lock.mint, mint::token_program = token_program)]
     pub mint: Box<InterfaceAccount<'info, Mint>>,
+    /// The device that owns the liable lock, read only when the culprit's spend named no lock: its
+    /// current wallet is the one a loss paid to itself cannot burn the bond of.
+    #[account(
+        seeds = [DEVICE_SEED, &lost.lock_key[..1], &lost.lock_key[1..]],
+        bump = device.bump,
+    )]
+    pub device: Option<Box<Account<'info, Device>>>,
     /// CHECK: the claim of the lost output; its address is derived and checked by the handler,
     /// which creates it.
     #[account(mut)]
@@ -118,6 +125,19 @@ impl<'info> ClaimLostSpend<'info> {
             liable == (lost.lock_key, lost.lock_seq),
             BuckspayError::ConflictProof
         );
+        // A culprit that named no lock was backed by the chain's lock. When the payee of the lost
+        // output is the wallet that owns that lock, the only party that lost is the lock's owner:
+        // a burn would deter nobody on anyone else's behalf.
+        if w.spends[n - 1].lock_seq == NO_LOCK {
+            let device = self
+                .device
+                .as_ref()
+                .ok_or_else(|| error!(BuckspayError::DeviceRequired))?;
+            require!(
+                payment.owner != NoteOwner::Account(device.wallet.to_bytes()),
+                BuckspayError::NotClaimable
+            );
+        }
         // Only what a receiver could have accepted on the strength of this lock is a loss of it.
         require!(
             slash::covers(self.lock.bond, input.amount),

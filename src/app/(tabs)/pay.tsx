@@ -24,6 +24,7 @@ export default function Pay() {
       symbol={BUILD_TOKEN.symbol}
       decimals={BUILD_TOKEN.decimals}
       unfinished={flow.unfinished.map(unfinishedView)}
+      credit={{ events: flow.events, selected: flow.creditEvent, onSelect: flow.setCreditEvent }}
       onSetup={() => router.push('/onboarding')}
       onScan={() => {
         flow.scan()

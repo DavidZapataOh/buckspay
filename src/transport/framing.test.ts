@@ -143,7 +143,7 @@ describe('Reassembler', () => {
   })
 
   it('reads the kind from the header', () => {
-    for (const kind of [MessageKind.Request, MessageKind.Payment, MessageKind.Receipt]) {
+    for (const kind of Object.values(MessageKind)) {
       const result = assemble(encodeFrames({ kind, payload: payload(5) }, limits))
       expect(result).toMatchObject({ status: 'complete', message: { kind } })
     }

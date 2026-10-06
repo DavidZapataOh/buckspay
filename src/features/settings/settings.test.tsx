@@ -89,6 +89,7 @@ describe('Settings', () => {
       {
         unsettled: 3,
         onReset,
+        onEvents: vi.fn(),
         limits: {
           perPayment: '100.00 USDC',
           biometricFrom: '20.00 USDC',

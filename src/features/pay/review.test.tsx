@@ -184,3 +184,14 @@ describe('PayReview of a note passed on', () => {
     expect(shown).not.toContain('comes back to you')
   })
 })
+
+describe('PayReview of event credit', () => {
+  it('says where the credit can be used', async () => {
+    const { plan: sold } = plan()
+    const renderer = await act(async () =>
+      create(<PayReview plan={sold} event="Feria" busy={false} onConfirm={() => {}} onCancel={() => {}} />),
+    )
+    expect(texts(renderer.root)).toContain('Only usable at Feria')
+    expect(texts((await mount(sold)).root).join('')).not.toContain('Only usable at')
+  })
+})

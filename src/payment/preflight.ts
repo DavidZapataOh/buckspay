@@ -5,12 +5,14 @@ import {
   CHALLENGE,
   checkIssueStep,
   covers,
+  Flags,
   type Issue,
   GRACE,
   MAX_DEPTH,
   MAX_NOTE_LIFE,
   ProtocolError,
   ScopeKind,
+  scopeHash,
 } from '../protocol'
 import { withRecordableOutputs } from '../keys/salt'
 import { isDeviceKeyOnCurve, type PaymentRequest, requestIdOf, safetyCode, sanitizeMemo } from './messages'
@@ -86,8 +88,8 @@ export type Plan = {
     decimals: number
     receiverCode: string
     receiverIsNew: boolean
-    lockSeq: number
-    allowanceAfter: bigint
+    lockSeq: number | null
+    allowanceAfter: bigint | null
     expiry: number
     memo: string
     biometric: boolean
@@ -136,9 +138,9 @@ export function reviewOf(
   request: PaymentRequest,
   ctx: PayContext,
   token: Token,
-  lock: OfflineLock,
+  lock: OfflineLock | null,
   amount: bigint,
-  allowanceAfter: bigint,
+  allowanceAfter: bigint | null,
   expiry: number,
 ): Plan['review'] {
   const { limits } = ctx
@@ -150,7 +152,7 @@ export function reviewOf(
     receiverIsNew: !ctx.knownReceivers.has(
       bytesToHex(request.owner.type === 'device' ? request.owner.key : request.owner.address),
     ),
-    lockSeq: lock.lockSeq,
+    lockSeq: lock?.lockSeq ?? null,
     allowanceAfter,
     expiry,
     memo: sanitizeMemo(request.memo),
@@ -160,12 +162,18 @@ export function reviewOf(
 
 /**
  * Everything the payer can check before it signs: what the receiver's `verifyPayment` will check about
- * the issue and its ticket, except the signature. Pure: the same inputs give the same plan.
+ * the issue and its ticket, except the signature. Pure: the same inputs give the same plan. With
+ * `authorityOnly` (an account address) the issue is event credit: redeemable only by paying that account.
  */
-export function planPayment(request: PaymentRequest, ctx: PayContext): Planned {
+export function planPayment(
+  request: PaymentRequest,
+  ctx: PayContext,
+  opts: { authorityOnly?: Uint8Array } = {},
+): Planned {
   const { limits } = ctx
   const checked = checkRequest(request, ctx)
   if ('reason' in checked) return refuse(checked.reason)
+  if (opts.authorityOnly && request.owner.type !== 'device') return refuse('Malformed')
   const { token } = checked
   const hopsLeft = Math.min(MAX_DEPTH, Math.max(request.minHops, limits.noteHops))
   const lastArrival = request.now + limits.requestTtl + limits.transferMargin
@@ -194,7 +202,15 @@ export function planPayment(request: PaymentRequest, ctx: PayContext): Planned {
     salt: ctx.salt(),
     owner: request.owner,
     amount: request.amount,
-    caveats: { expiry, hopsLeft, flags: 0, scopeKind: ScopeKind.Any, scope: new Uint8Array(20) },
+    caveats: opts.authorityOnly
+      ? {
+          expiry,
+          hopsLeft,
+          flags: Flags.AuthorityOnly,
+          scopeKind: ScopeKind.Authority,
+          scope: scopeHash({ type: 'account', address: opts.authorityOnly }),
+        }
+      : { expiry, hopsLeft, flags: 0, scopeKind: ScopeKind.Any, scope: new Uint8Array(20) },
   }
   let issue: Issue
   try {

@@ -8,6 +8,7 @@ import { ListRow } from '../../components/list-row'
 import { Screen } from '../../components/screen'
 import { StatusNote } from '../../components/status-note'
 import { keyProtection, SOFTWARE_KEY_WARNING } from '../identity/identity-copy'
+import { eventCopy } from '../event/copy'
 import { copy, text } from '../payment/copy'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { BUILD_NETWORK } from '../network/build-network'
@@ -17,6 +18,7 @@ export type PaymentsSettings = {
   unsettled: number
   limits: { perPayment: string; biometricFrom: string; biometricDaily: string; window: string }
   onReset: () => void
+  onEvents: () => void
 }
 
 export function Settings({ payments }: { payments?: PaymentsSettings }) {
@@ -66,6 +68,7 @@ export function Settings({ payments }: { payments?: PaymentsSettings }) {
           <AppText variant="title" accessibilityRole="header" className="mt-4">
             {copy.settings.limits}
           </AppText>
+          <Button testID="events" variant="tonal" label={eventCopy.settings} onPress={payments.onEvents} />
           <ListRow testID="limit-per-payment" title={copy.settings.perPayment} value={payments.limits.perPayment} />
           <ListRow testID="limit-biometric" title={copy.settings.biometricFrom} value={payments.limits.biometricFrom} />
           <ListRow

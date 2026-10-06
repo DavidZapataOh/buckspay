@@ -226,6 +226,14 @@ export type Buckspay = {
           "writable": true
         },
         {
+          "name": "device",
+          "docs": [
+            "The device that owns the liable lock, read only when the culprit's spend named no lock: its",
+            "current wallet is the one a loss paid to itself cannot burn the bond of."
+          ],
+          "optional": true
+        },
+        {
           "name": "claim",
           "docs": [
             "which creates it."
@@ -2209,6 +2217,11 @@ export type Buckspay = {
       "code": 6054,
       "name": "unknownSigner",
       "msg": "The key that signed the ticket is not one the attester answers for"
+    },
+    {
+      "code": 6055,
+      "name": "deviceRequired",
+      "msg": "A claim on a spend that named no lock needs the device of the lock owner"
     }
   ],
   "types": [

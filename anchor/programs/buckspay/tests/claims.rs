@@ -442,3 +442,146 @@ fn a_claim_is_refused_for_an_output_that_cannot_be_claimed_whoever_signed_it() {
     assert_eq!(landed, code(1, E::UnrecordableOutput));
     assert_eq!(w.env.ledger(&w.culprit.lock).bond_free, BOND);
 }
+
+/// An issuer's lock backs credit that only its own wallet (the authority) can take: the holder
+/// pays it at two points that had not synced, so the organiser itself is the payee of both.
+mod authority_credit {
+    use super::*;
+    use buckspay_protocol::{flags, Caveats, Owner, ScopeKind, NO_LOCK};
+
+    fn credit(w: &World, holder: &Key, authority: &Pubkey) -> Chain {
+        Chain::issue(
+            &w.issuer.key,
+            &w.env.mint,
+            0,
+            0,
+            AMOUNT,
+            holder.owner(),
+            Caveats {
+                flags: flags::AUTHORITY_ONLY,
+                scope_kind: ScopeKind::Authority,
+                scope: Owner::Account(authority.to_bytes()).scope_hash(),
+                ..caveats(w.expiry, 4)
+            },
+        )
+    }
+
+    fn at_a_point(w: &World, holder: &Key, authority: &Pubkey, salt: u8) -> Chain {
+        credit(w, holder, authority).spend1_to_account(holder, 0, authority, NO_LOCK, salt)
+    }
+
+    fn settle_to(w: &mut World, chain: &Chain, destination: &Pubkey) {
+        let ixs = settle_ixs(&w.env, &w.payer(), &w.issuer, chain, destination);
+        w.env.submit(&ixs).unwrap();
+    }
+
+    fn file(w: &mut World, chain: &Chain) -> Result<Landed, solana_transaction::TransactionError> {
+        let ixs = claim_lost_ixs(
+            &w.payer(),
+            &w.issuer.lock,
+            w.issuer.key.sec1(),
+            0,
+            &w.env.mint,
+            chain,
+        );
+        w.env.submit(&ixs)
+    }
+
+    #[test]
+    fn a_loss_paid_to_the_lock_owners_own_wallet_burns_nothing() {
+        let mut w = world();
+        let (holder, org) = (Key::new(40), w.issuer.wallet.pubkey());
+        let (first, second) = (
+            at_a_point(&w, &holder, &org, 1),
+            at_a_point(&w, &holder, &org, 2),
+        );
+        let token = w.issuer.wallet_token;
+        settle_to(&mut w, &first, &token);
+        let (before, supply) = (w.balances(), w.env.supply());
+        assert_eq!(file(&mut w, &second).unwrap_err(), code(1, E::NotClaimable));
+        assert_eq!(w.env.supply(), supply);
+        assert_eq!(w.balances(), before);
+        assert_eq!(w.env.ledger(&w.issuer.lock).bond_free, BOND);
+    }
+
+    #[test]
+    fn a_loss_paid_to_another_account_still_burns() {
+        let mut w = world();
+        let (holder, other) = (Key::new(40), w.winner);
+        let (first, second) = (
+            at_a_point(&w, &holder, &other, 1),
+            at_a_point(&w, &holder, &other, 2),
+        );
+        w.settle(&first).unwrap();
+        let (before, supply) = (w.balances(), w.env.supply());
+        file(&mut w, &second).unwrap();
+        w.assert_only_a_burn(&before, supply, &w.issuer.lock, 2 * AMOUNT);
+        assert_eq!(w.env.ledger(&w.issuer.lock).bond_free, BOND - 2 * AMOUNT);
+    }
+
+    #[test]
+    fn a_rotated_wallet_is_read_at_claim_time() {
+        let mut w = world_expiring(30);
+        let (holder, old) = (Key::new(40), w.issuer.wallet.pubkey());
+        let new = w.env.funded_keypair();
+        let new_token = w.env.token_account_of(&new.pubkey(), 0);
+        let (to_old, to_old_again) = (
+            at_a_point(&w, &holder, &old, 1),
+            at_a_point(&w, &holder, &old, 2),
+        );
+        let (to_new, to_new_again) = (
+            at_a_point(&w, &holder, &new.pubkey(), 3),
+            at_a_point(&w, &holder, &new.pubkey(), 4),
+        );
+        let old_token = w.issuer.wallet_token;
+        settle_to(&mut w, &to_old, &old_token);
+
+        let key = w.issuer.key.sec1();
+        let t = w.env.now() as i64;
+        let ixs = vec![
+            w.issuer.key.rotation(&old, &new.pubkey(), 0),
+            request_only_ix(&key, &new.pubkey(), &old),
+        ];
+        w.env
+            .send_signed(&old, &ixs, &[&w.issuer.wallet, &new])
+            .unwrap();
+        w.env.warp(t + ROTATION_DELAY as i64);
+        w.env
+            .send_signed(&new.pubkey(), &[apply_ix(&key, &old)], &[&new])
+            .unwrap();
+
+        // The wallet that was the organiser's when the loss happened is no longer its wallet.
+        let (before, supply) = (w.balances(), w.env.supply());
+        file(&mut w, &to_old_again).unwrap();
+        w.assert_only_a_burn(&before, supply, &w.issuer.lock, 2 * AMOUNT);
+
+        // The current wallet is, and its losses burn nothing.
+        settle_to(&mut w, &to_new, &new_token);
+        let supply = w.env.supply();
+        assert_eq!(
+            file(&mut w, &to_new_again).unwrap_err(),
+            code(1, E::NotClaimable)
+        );
+        assert_eq!(w.env.supply(), supply);
+    }
+
+    #[test]
+    fn a_claim_that_names_no_lock_needs_the_owners_device() {
+        let mut w = world();
+        let (holder, other) = (Key::new(40), w.winner);
+        let (first, second) = (
+            at_a_point(&w, &holder, &other, 1),
+            at_a_point(&w, &holder, &other, 2),
+        );
+        w.settle(&first).unwrap();
+        let key = w.issuer.key.sec1();
+        let mut ixs = claim_lost_ixs(&w.payer(), &w.issuer.lock, key, 0, &w.env.mint, &second);
+        let device = device_address(&key);
+        for meta in &mut ixs[1].accounts {
+            if meta.pubkey == device {
+                meta.pubkey = buckspay::ID;
+            }
+        }
+        assert_eq!(w.env.submit(&ixs).unwrap_err(), code(1, E::DeviceRequired));
+    }
+}

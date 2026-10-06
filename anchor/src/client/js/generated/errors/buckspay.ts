@@ -124,6 +124,8 @@ export const BUCKSPAY_ERROR__TICKET_NOT_PROVABLY_FALSE = 0x17a4 // 6052
 export const BUCKSPAY_ERROR__ALREADY_SLASHED = 0x17a5 // 6053
 /** UnknownSigner: The key that signed the ticket is not one the attester answers for */
 export const BUCKSPAY_ERROR__UNKNOWN_SIGNER = 0x17a6 // 6054
+/** DeviceRequired: A claim on a spend that named no lock needs the device of the lock owner */
+export const BUCKSPAY_ERROR__DEVICE_REQUIRED = 0x17a7 // 6055
 
 export type BuckspayError =
   | typeof BUCKSPAY_ERROR__ALREADY_CLAIMED
@@ -142,6 +144,7 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__CONFLICT_PROOF
   | typeof BUCKSPAY_ERROR__DEVICE_BINDING
   | typeof BUCKSPAY_ERROR__DEVICE_KEY
+  | typeof BUCKSPAY_ERROR__DEVICE_REQUIRED
   | typeof BUCKSPAY_ERROR__ESCROW_OPEN
   | typeof BUCKSPAY_ERROR__EXIT_NOT_READY
   | typeof BUCKSPAY_ERROR__FEE_NOT_ALLOWED
@@ -201,6 +204,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__CONFLICT_PROOF]: `The proof does not match its body, signer or lock`,
     [BUCKSPAY_ERROR__DEVICE_BINDING]: `Missing or malformed secp256r1 verification of the device binding`,
     [BUCKSPAY_ERROR__DEVICE_KEY]: `Device key is not a compressed P-256 point`,
+    [BUCKSPAY_ERROR__DEVICE_REQUIRED]: `A claim on a spend that named no lock needs the device of the lock owner`,
     [BUCKSPAY_ERROR__ESCROW_OPEN]: `The escrow is still open`,
     [BUCKSPAY_ERROR__EXIT_NOT_READY]: `The attester cannot withdraw its stake yet`,
     [BUCKSPAY_ERROR__FEE_NOT_ALLOWED]: `A sponsor fee is only allowed on a sponsored first lock`,

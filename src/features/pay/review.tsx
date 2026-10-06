@@ -6,6 +6,7 @@ import { StatusNote } from '../../components/status-note'
 import type { Plan } from '../../payment/preflight'
 import type { RespendPlan } from '../../payment/respend'
 import { formatMoney } from '../../utils/format-amount'
+import { eventCopy } from '../event/copy'
 import { copy, text } from '../payment/copy'
 import { useTouchGuard } from './use-touch-guard'
 
@@ -16,11 +17,14 @@ import { useTouchGuard } from './use-touch-guard'
 export function PayReview({
   plan,
   busy,
+  event,
   onConfirm,
   onCancel,
 }: {
   plan: Plan | RespendPlan
   busy: boolean
+  /** The event whose credit this is, when the payment sells event credit. */
+  event?: string
   onConfirm: () => void
   onCancel: () => void
 }) {
@@ -92,11 +96,12 @@ export function PayReview({
         ) : (
           <AppText variant="body" tone="muted">
             {text(copy.review.left, {
-              amount: formatMoney(review.allowanceAfter, review.decimals),
+              amount: formatMoney(review.allowanceAfter ?? 0n, review.decimals),
               symbol: review.symbol,
             })}
           </AppText>
         )}
+        {event ? <StatusNote tone="default" message={text(eventCopy.onlyAt, { event })} /> : null}
       </View>
 
       <View testID="pay-consequences" className="gap-2">
@@ -126,7 +131,9 @@ export function PayReview({
         </Pressable>
         {open ? (
           <View className="gap-1">
-            <AppText variant="body">{text(copy.review.lock, { number: review.lockSeq })}</AppText>
+            {review.lockSeq === null ? null : (
+              <AppText variant="body">{text(copy.review.lock, { number: review.lockSeq })}</AppText>
+            )}
             <AppText variant="body">
               {text(copy.review.expires, { date: new Date(review.expiry * 1000).toLocaleString() })}
             </AppText>

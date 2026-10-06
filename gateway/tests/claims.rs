@@ -6,7 +6,9 @@ mod support;
 use axum::http::StatusCode;
 use buckspay_client::accounts::Ledger;
 use buckspay_gateway::{janitor, server::Settings, sponsor::SponsorLimits};
-use buckspay_protocol::{Caveats, Outputs, lock::Windows, record};
+use buckspay_protocol::{
+    Caveats, NO_LOCK, Outputs, Owner, ScopeKind, flags, lock::Windows, record,
+};
 use serde_json::Value;
 use solana_pubkey::Pubkey;
 use solana_signer::Signer;
@@ -337,4 +339,88 @@ async fn claim_unbacked_fits_its_budget_on_the_validator() {
     let units = units_of(body["signature"].as_str().unwrap()).await;
     eprintln!("claim_unbacked on the validator: {units} CU");
     assert!(units <= 60_000, "{units} CU");
+}
+
+/// An attendee pays the credit of `org` at two points that had not synced: the second payment is
+/// a loss of `LOSS / 2` to `authority`, claimed against the organiser's lock.
+async fn credit_paid_at_two_points(org: &Issuer, authority: &Pubkey) -> (Note, Note) {
+    let attendee = Device::random();
+    let expiry = chain_now().await + W.min_note_life + 60;
+    let credit = || {
+        issue(
+            &org.device,
+            &cluster().mint,
+            0,
+            0,
+            LOSS,
+            attendee.owner(),
+            Caveats {
+                flags: flags::AUTHORITY_ONLY,
+                scope_kind: ScopeKind::Authority,
+                scope: Owner::Account(authority.to_bytes()).scope_hash(),
+                ..caveats(expiry, 6)
+            },
+        )
+    };
+    let winner = credit().settle_to(&attendee, 0, authority);
+    let paid = credit();
+    let consumed = paid.last.first;
+    let loser = paid.spend(
+        &attendee,
+        0,
+        Outputs::Two {
+            owner0: Owner::Account(authority.to_bytes()),
+            amount0: LOSS / 2,
+            caveats0: Caveats {
+                hops_left: consumed.caveats.hops_left - 1,
+                ..consumed.caveats
+            },
+            owner1: attendee.owner(),
+        },
+        NO_LOCK,
+    );
+    (winner, loser)
+}
+
+#[tokio::test]
+async fn a_loss_paid_to_another_account_is_claimed_from_the_credits_lock() {
+    let sponsor = Sponsor::new(caps()).await;
+    let org = Issuer::new(&sponsor, BOND, BACKING, W.min_lock() + 120).await;
+    let foreign = associated_wallet(0).await;
+    let (winner, loser) = credit_paid_at_two_points(&org, &foreign.keypair.pubkey()).await;
+    let (status, body) = post(&sponsor, "/v1/settlements", &winner).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, body) = post(&sponsor, "/v1/fraud/claim", &loser).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let ledger = Ledger::from_bytes(
+        &account(&program().find_ledger_pda(&org.lock()).0)
+            .await
+            .unwrap()
+            .data,
+    )
+    .unwrap();
+    assert_eq!(ledger.bond_free, BOND - LOSS);
+}
+
+#[tokio::test]
+async fn a_loss_paid_to_the_organisers_own_wallet_is_not_claimed() {
+    let sponsor = Sponsor::new(caps()).await;
+    let org = Issuer::new(&sponsor, BOND, BACKING, W.min_lock() + 120).await;
+    let (winner, loser) = credit_paid_at_two_points(&org, &org.wallet.keypair.pubkey()).await;
+    let (status, body) = post(&sponsor, "/v1/settlements", &winner).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, body) = post(&sponsor, "/v1/fraud/claim", &loser).await;
+    assert_eq!(
+        (status, body["error"].as_str()),
+        (StatusCode::CONFLICT, Some("not_claimable")),
+        "{body}"
+    );
+    let ledger = Ledger::from_bytes(
+        &account(&program().find_ledger_pda(&org.lock()).0)
+            .await
+            .unwrap()
+            .data,
+    )
+    .unwrap();
+    assert_eq!(ledger.bond_free, BOND);
 }

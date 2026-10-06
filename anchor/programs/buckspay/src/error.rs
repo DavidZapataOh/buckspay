@@ -115,4 +115,6 @@ pub enum BuckspayError {
     AlreadySlashed,
     #[msg("The key that signed the ticket is not one the attester answers for")]
     UnknownSigner,
+    #[msg("A claim on a spend that named no lock needs the device of the lock owner")]
+    DeviceRequired,
 }

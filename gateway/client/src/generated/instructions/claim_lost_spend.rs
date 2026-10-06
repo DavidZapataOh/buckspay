@@ -24,6 +24,9 @@ pub struct ClaimLostSpend {
     pub escrow: solana_address::Address,
     /// Writable because the burn lowers its supply.
     pub mint: solana_address::Address,
+    /// The device that owns the liable lock, read only when the culprit's spend named no lock: its
+    /// current wallet is the one a loss paid to itself cannot burn the bond of.
+    pub device: Option<solana_address::Address>,
     /// which creates it.
     pub claim: solana_address::Address,
 
@@ -50,7 +53,7 @@ impl ClaimLostSpend {
         args: ClaimLostSpendInstructionArgs,
         remaining_accounts: &[solana_instruction::AccountMeta],
     ) -> solana_instruction::Instruction {
-        let mut accounts = Vec::with_capacity(10 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(11 + remaining_accounts.len());
         accounts.push(solana_instruction::AccountMeta::new(self.payer, true));
         accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.lock, false,
@@ -58,6 +61,14 @@ impl ClaimLostSpend {
         accounts.push(solana_instruction::AccountMeta::new(self.ledger, false));
         accounts.push(solana_instruction::AccountMeta::new(self.escrow, false));
         accounts.push(solana_instruction::AccountMeta::new(self.mint, false));
+        if let Some(device) = self.device {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(device, false));
+        } else {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+                crate::BUCKSPAY_ID,
+                false,
+            ));
+        }
         accounts.push(solana_instruction::AccountMeta::new(self.claim, false));
         accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.record,
@@ -134,11 +145,12 @@ impl ClaimLostSpendInstructionArgs {
 ///   2. `[writable]` ledger
 ///   3. `[writable]` escrow
 ///   4. `[writable]` mint
-///   5. `[writable]` claim
-///   6. `[]` record
-///   7. `[optional]` instructions (default to `Sysvar1nstructions1111111111111111111111111`)
-///   8. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
-///   9. `[optional]` system_program (default to `11111111111111111111111111111111`)
+///   5. `[optional]` device
+///   6. `[writable]` claim
+///   7. `[]` record
+///   8. `[optional]` instructions (default to `Sysvar1nstructions1111111111111111111111111`)
+///   9. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+///   10. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct ClaimLostSpendBuilder {
     payer: Option<solana_address::Address>,
@@ -146,6 +158,7 @@ pub struct ClaimLostSpendBuilder {
     ledger: Option<solana_address::Address>,
     escrow: Option<solana_address::Address>,
     mint: Option<solana_address::Address>,
+    device: Option<solana_address::Address>,
     claim: Option<solana_address::Address>,
     record: Option<solana_address::Address>,
     instructions: Option<solana_address::Address>,
@@ -187,6 +200,14 @@ impl ClaimLostSpendBuilder {
     #[inline(always)]
     pub fn mint(&mut self, mint: solana_address::Address) -> &mut Self {
         self.mint = Some(mint);
+        self
+    }
+    /// `[optional account]`
+    /// The device that owns the liable lock, read only when the culprit's spend named no lock: its
+    /// current wallet is the one a loss paid to itself cannot burn the bond of.
+    #[inline(always)]
+    pub fn device(&mut self, device: Option<solana_address::Address>) -> &mut Self {
+        self.device = device;
         self
     }
     /// which creates it.
@@ -261,6 +282,7 @@ impl ClaimLostSpendBuilder {
             ledger: self.ledger.expect("ledger is not set"),
             escrow: self.escrow.expect("escrow is not set"),
             mint: self.mint.expect("mint is not set"),
+            device: self.device,
             claim: self.claim.expect("claim is not set"),
             record: self.record.expect("record is not set"),
             instructions: self.instructions.unwrap_or(solana_address::address!(
@@ -296,6 +318,9 @@ pub struct ClaimLostSpendCpiAccounts<'a, 'b> {
     pub escrow: &'b solana_account_info::AccountInfo<'a>,
     /// Writable because the burn lowers its supply.
     pub mint: &'b solana_account_info::AccountInfo<'a>,
+    /// The device that owns the liable lock, read only when the culprit's spend named no lock: its
+    /// current wallet is the one a loss paid to itself cannot burn the bond of.
+    pub device: Option<&'b solana_account_info::AccountInfo<'a>>,
     /// which creates it.
     pub claim: &'b solana_account_info::AccountInfo<'a>,
 
@@ -322,6 +347,9 @@ pub struct ClaimLostSpendCpi<'a, 'b> {
     pub escrow: &'b solana_account_info::AccountInfo<'a>,
     /// Writable because the burn lowers its supply.
     pub mint: &'b solana_account_info::AccountInfo<'a>,
+    /// The device that owns the liable lock, read only when the culprit's spend named no lock: its
+    /// current wallet is the one a loss paid to itself cannot burn the bond of.
+    pub device: Option<&'b solana_account_info::AccountInfo<'a>>,
     /// which creates it.
     pub claim: &'b solana_account_info::AccountInfo<'a>,
 
@@ -349,6 +377,7 @@ impl<'a, 'b> ClaimLostSpendCpi<'a, 'b> {
             ledger: accounts.ledger,
             escrow: accounts.escrow,
             mint: accounts.mint,
+            device: accounts.device,
             claim: accounts.claim,
             record: accounts.record,
             instructions: accounts.instructions,
@@ -380,7 +409,7 @@ impl<'a, 'b> ClaimLostSpendCpi<'a, 'b> {
         signers_seeds: &[&[&[u8]]],
         remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
     ) -> solana_program_error::ProgramResult {
-        let mut accounts = Vec::with_capacity(10 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(11 + remaining_accounts.len());
         accounts.push(solana_instruction::AccountMeta::new(*self.payer.key, true));
         accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.lock.key,
@@ -395,6 +424,17 @@ impl<'a, 'b> ClaimLostSpendCpi<'a, 'b> {
             false,
         ));
         accounts.push(solana_instruction::AccountMeta::new(*self.mint.key, false));
+        if let Some(device) = self.device {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+                *device.key,
+                false,
+            ));
+        } else {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+                crate::BUCKSPAY_ID,
+                false,
+            ));
+        }
         accounts.push(solana_instruction::AccountMeta::new(*self.claim.key, false));
         accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.record.key,
@@ -428,13 +468,16 @@ impl<'a, 'b> ClaimLostSpendCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(11 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(12 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.payer.clone());
         account_infos.push(self.lock.clone());
         account_infos.push(self.ledger.clone());
         account_infos.push(self.escrow.clone());
         account_infos.push(self.mint.clone());
+        if let Some(device) = self.device {
+            account_infos.push(device.clone());
+        }
         account_infos.push(self.claim.clone());
         account_infos.push(self.record.clone());
         account_infos.push(self.instructions.clone());
@@ -461,11 +504,12 @@ impl<'a, 'b> ClaimLostSpendCpi<'a, 'b> {
 ///   2. `[writable]` ledger
 ///   3. `[writable]` escrow
 ///   4. `[writable]` mint
-///   5. `[writable]` claim
-///   6. `[]` record
-///   7. `[]` instructions
-///   8. `[]` token_program
-///   9. `[]` system_program
+///   5. `[optional]` device
+///   6. `[writable]` claim
+///   7. `[]` record
+///   8. `[]` instructions
+///   9. `[]` token_program
+///   10. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct ClaimLostSpendCpiBuilder<'a, 'b> {
     instruction: Box<ClaimLostSpendCpiBuilderInstruction<'a, 'b>>,
@@ -480,6 +524,7 @@ impl<'a, 'b> ClaimLostSpendCpiBuilder<'a, 'b> {
             ledger: None,
             escrow: None,
             mint: None,
+            device: None,
             claim: None,
             record: None,
             instructions: None,
@@ -518,6 +563,17 @@ impl<'a, 'b> ClaimLostSpendCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn mint(&mut self, mint: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.mint = Some(mint);
+        self
+    }
+    /// `[optional account]`
+    /// The device that owns the liable lock, read only when the culprit's spend named no lock: its
+    /// current wallet is the one a loss paid to itself cannot burn the bond of.
+    #[inline(always)]
+    pub fn device(
+        &mut self,
+        device: Option<&'b solana_account_info::AccountInfo<'a>>,
+    ) -> &mut Self {
+        self.instruction.device = device;
         self
     }
     /// which creates it.
@@ -636,6 +692,8 @@ impl<'a, 'b> ClaimLostSpendCpiBuilder<'a, 'b> {
 
             mint: self.instruction.mint.expect("mint is not set"),
 
+            device: self.instruction.device,
+
             claim: self.instruction.claim.expect("claim is not set"),
 
             record: self.instruction.record.expect("record is not set"),
@@ -671,6 +729,7 @@ struct ClaimLostSpendCpiBuilderInstruction<'a, 'b> {
     ledger: Option<&'b solana_account_info::AccountInfo<'a>>,
     escrow: Option<&'b solana_account_info::AccountInfo<'a>>,
     mint: Option<&'b solana_account_info::AccountInfo<'a>>,
+    device: Option<&'b solana_account_info::AccountInfo<'a>>,
     claim: Option<&'b solana_account_info::AccountInfo<'a>>,
     record: Option<&'b solana_account_info::AccountInfo<'a>>,
     instructions: Option<&'b solana_account_info::AccountInfo<'a>>,

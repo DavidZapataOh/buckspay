@@ -1,4 +1,11 @@
-export const MessageKind = { Request: 0, Payment: 1, Receipt: 2 } as const
+export const MessageKind = {
+  Request: 0,
+  Payment: 1,
+  Receipt: 2,
+  EventInvite: 3,
+  PointPairing: 4,
+  EventSync: 5,
+} as const
 // A value and its type share the name, as an enum does.
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export type MessageKind = (typeof MessageKind)[keyof typeof MessageKind]

@@ -161,7 +161,7 @@ export async function confirmAndSendRespend(
       amount: plan.review.amount,
       lockSeq: plan.spend.lockSeq,
       expiry: plan.review.expiry,
-      ticket: encodeBondTicket(plan.lock.ticket),
+      ticket: plan.lock ? encodeBondTicket(plan.lock.ticket) : undefined,
       memo: request.memo || null,
       transport,
     })
@@ -170,7 +170,7 @@ export async function confirmAndSendRespend(
     throw error
   }
   mark('prepared')
-  const sent = await signAndSendRespend(id, input, body, encodeBondTicket(plan.lock.ticket), deps)
+  const sent = await signAndSendRespend(id, input, body, plan.lock ? encodeBondTicket(plan.lock.ticket) : null, deps)
   mark('presented')
   report()
   return sent
@@ -180,9 +180,10 @@ async function signAndSendRespend(
   id: Uint8Array,
   inputId: Uint8Array,
   body: Uint8Array,
-  ticket: Uint8Array,
+  ticketBytes: Uint8Array | null,
   deps: PayDeps,
 ): Promise<SentPayment> {
+  const ticket = ticketBytes?.length ? decodeBondTicket(ticketBytes) : null
   const input = await heldOutput(deps.db, inputId)
   if (!input || !deps.signSpend) throw new PayError('Mismatch')
   if (!equalBytes(messageId(envelope(deps.noteDomain, inputId, content(body))), id)) throw new PayError('Mismatch')
@@ -194,13 +195,13 @@ async function signAndSendRespend(
     throw error instanceof PayError ? error : new PayError('SignFailed', error)
   }
   if (!equalBytes(encodeSpendBody(signed.message), body)) throw new PayError('Mismatch')
-  const bundle = chainOf(input, signed, decodeBondTicket(ticket))
+  const bundle = chainOf(input, signed, ticket)
   const wire = encodeBundle(bundle)
   await markRespendSigned(deps.db, {
     messageId: id,
     signature: signed.signature,
     bundle: wire,
-    change: changeOf(deps.noteDomain, bundle, decodeBondTicket(ticket), deps.now()),
+    change: changeOf(deps.noteDomain, bundle, ticket, deps.now()),
     now: deps.now(),
   })
   mark('signed')

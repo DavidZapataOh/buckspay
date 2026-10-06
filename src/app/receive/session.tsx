@@ -11,6 +11,8 @@ import { QrPresenter } from '../../features/qr/qr-presenter'
 import { ScanScreen } from '../../features/qr/scan-screen'
 import { AcceptedResult, RejectedResult } from '../../features/receive/result'
 import { useSecondsLeft } from '../../features/receive/use-seconds-left'
+import { pointReasonText } from '../../features/event/copy'
+import { usePointMode } from '../../features/event/use-point-mode'
 import { useReceiveFlow } from '../../features/receive/use-receive-flow'
 import { useSettlementRunner } from '../../features/settlement/use-settlement-runner'
 import { safetyCode } from '../../payment/messages'
@@ -19,6 +21,7 @@ import { formatCountdown } from '../../utils/format-duration'
 
 export default function ReceiveSession() {
   const flow = useReceiveFlow()
+  const { mode: point } = usePointMode()
   const settlement = useSettlementRunner()
   const { state } = flow
   const expiresAt = state.name === 'requesting' ? state.expiresAt : undefined
@@ -77,6 +80,7 @@ export default function ReceiveSession() {
       <Screen testID="receive-rejected">
         <RejectedResult
           reason={state.reason}
+          why={point ? (pointReasonText(state.reason) ?? undefined) : undefined}
           limits={{
             window: MIN_WINDOW,
             max: PAY_LIMITS.maxPayment,

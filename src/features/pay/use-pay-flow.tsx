@@ -26,6 +26,7 @@ import { awaitRequest } from '../../payment/scan'
 import { MessageKind } from '../../transport/types'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { useOfflineLocks } from '../attesters/use-offline-locks'
+import { listEvents, type StoredEvent } from '../event/store'
 import { type Unfinished, heldOutputs, paymentContext, setOutgoingState, unfinishedPayments } from '../notes/outgoing'
 import { copy, text } from '../payment/copy'
 import { nowSeconds, usePayments } from '../payment/payments-provider'
@@ -44,6 +45,12 @@ export type PayFlow = {
   texts: ReturnType<typeof useQrSession>['texts']
   progress: ReturnType<typeof useQrSession>['progress']
   offline: Offline
+  /** The events this phone runs that have not ended: the credit it can sell. */
+  events: readonly StoredEvent[]
+  /** The event whose credit the next payment sells, or null for an ordinary payment. */
+  creditEvent: StoredEvent | null
+  setCreditEvent: (event: StoredEvent | null) => void
+  reloadEvents: () => Promise<void>
   /** The payments this phone started and did not finish. */
   unfinished: readonly Unfinished[]
   scan: () => void
@@ -73,13 +80,31 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
   const offline = useOfflineLocks()
   const session = useQrSession()
   const [unfinished, setUnfinished] = useState<readonly Unfinished[]>([])
+  const [events, setEvents] = useState<readonly StoredEvent[]>([])
+  const [creditEvent, setCreditEvent] = useState<StoredEvent | null>(null)
   const pending = useRef<AbortController>(undefined)
   const key = deviceKey?.publicKey
-  const latest = useRef({ offline, db, key })
+  const latest = useRef({ offline, db, key, creditEvent })
   useEffect(() => {
     stateRef.current = state
-    latest.current = { offline, db, key }
+    latest.current = { offline, db, key, creditEvent }
   })
+
+  const reloadEvents = useCallback(async () => {
+    if (!db) return
+    const running = await listEvents(db, 'organiser')
+    setEvents(running.filter((event) => event.endsAt > nowSeconds()))
+  }, [db])
+  useEffect(() => {
+    if (!db) return
+    let current = true
+    void listEvents(db, 'organiser').then(
+      (running) => current && setEvents(running.filter((event) => event.endsAt > nowSeconds())),
+    )
+    return () => {
+      current = false
+    }
+  }, [db])
 
   const reloadUnfinished = useCallback(async () => {
     if (db) setUnfinished(await unfinishedPayments(db))
@@ -135,7 +160,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
           signal: controller.signal,
           onWrongCode: () => dispatch({ type: 'wrong-code' }),
         })
-        const { offline: current, db: store, key } = latest.current
+        const { offline: current, db: store, key, creditEvent: credit } = latest.current
         if (!store || !key) return
         const context: PayContext = {
           now: nowSeconds(),
@@ -148,8 +173,14 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
           salt: () => crypto.getRandomValues(new Uint8Array(16)),
           ...(await paymentContext(store, startOfToday())),
         }
-        const respent = planRespend(request, await heldOutputs(store, key, context.now), context)
-        dispatch({ type: 'planned', request, planned: respent.ok ? respent : planPayment(request, context) })
+        const respent = credit ? null : planRespend(request, await heldOutputs(store, key, context.now), context)
+        dispatch({
+          type: 'planned',
+          request,
+          planned: respent?.ok
+            ? respent
+            : planPayment(request, context, credit ? { authorityOnly: credit.authority } : undefined),
+        })
       } catch {
         // The screen was left: nothing is waiting.
       }
@@ -251,6 +282,10 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
       texts: session.texts,
       progress: session.progress,
       offline,
+      events,
+      creditEvent,
+      setCreditEvent,
+      reloadEvents,
       unfinished,
       scan,
       submitText,
@@ -268,6 +303,9 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
       session.texts,
       session.progress,
       offline,
+      events,
+      creditEvent,
+      reloadEvents,
       unfinished,
       scan,
       submitText,

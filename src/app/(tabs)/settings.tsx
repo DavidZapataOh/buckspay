@@ -21,6 +21,7 @@ export default function SettingsTab() {
           window: formatDuration(MIN_WINDOW),
         },
         onReset: () => router.push('/reset-identity'),
+        onEvents: () => router.push('/events'),
       }}
     />
   )

@@ -88,12 +88,12 @@ describe('migrateWitness', () => {
       'SELECT witness, witness_signed FROM outgoing_payment',
     )
     expect(row).toEqual({ witness: null, witness_signed: 0 })
-    expect((await fresh.all<{ user_version: number }>('PRAGMA user_version'))[0].user_version).toBe(3)
+    expect((await fresh.all<{ user_version: number }>('PRAGMA user_version'))[0].user_version).toBe(4)
   })
 
   it('runs twice without harm', async () => {
     await migrateWitness(db)
-    expect(await version()).toBe(3)
+    expect(await version()).toBe(4)
   })
 
   it('refuses a database that is not at version 1', async () => {

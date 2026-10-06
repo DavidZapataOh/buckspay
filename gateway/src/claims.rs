@@ -23,7 +23,7 @@ use crate::{
 use axum::{Json, extract::State};
 use buckspay_client::errors::BuckspayError;
 use buckspay_protocol::{
-    Issue, Owner, Signed, Spend, chain as rules,
+    Issue, NO_LOCK, Owner, Signed, Spend, chain as rules,
     hash::{domain, purpose},
     record::{self, RecordRef, first_conflict},
     secp256r1::MAX_SIGNATURES,
@@ -215,6 +215,7 @@ fn lost_spend(
                 prefix.links,
                 lock_key,
                 lock_seq,
+                spends[i].message.lock_seq == NO_LOCK,
             ),
         ],
         claim,

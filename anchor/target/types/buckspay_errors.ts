@@ -54,7 +54,8 @@ export const BuckspayErrorCode = {
   TicketBinding: 6051,
   TicketNotProvablyFalse: 6052,
   AlreadySlashed: 6053,
-  UnknownSigner: 6054
+  UnknownSigner: 6054,
+  DeviceRequired: 6055
 };
 
 export type BuckspayErrorName = keyof typeof BuckspayErrorCode;

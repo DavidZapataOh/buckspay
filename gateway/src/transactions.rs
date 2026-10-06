@@ -365,7 +365,8 @@ pub struct Filing {
 }
 
 /// `claim_lost_spend`: burns twice the payment of the spend that lost, out of the lock `lock_key`
-/// and `lock_seq` name.
+/// and `lock_seq` name. The device of `lock_key` is passed when the culprit's spend named no lock:
+/// the program refuses to burn a bond for a loss paid to the wallet that owns it.
 pub fn claim_lost_spend(
     program: &Program,
     filing: &Filing,
@@ -373,6 +374,7 @@ pub fn claim_lost_spend(
     spends: Vec<Link>,
     lock_key: [u8; 33],
     lock_seq: u32,
+    names_no_lock: bool,
 ) -> Instruction {
     let mut builder = ClaimLostSpendBuilder::new();
     builder
@@ -381,6 +383,7 @@ pub fn claim_lost_spend(
         .ledger(program.find_ledger_pda(&filing.lock).0)
         .escrow(program.find_escrow_pda(&filing.lock).0)
         .mint(filing.mint)
+        .device(names_no_lock.then(|| program.find_device_pda(&lock_key).0))
         .claim(filing.claim)
         .record(filing.record)
         .token_program(filing.token_program)
