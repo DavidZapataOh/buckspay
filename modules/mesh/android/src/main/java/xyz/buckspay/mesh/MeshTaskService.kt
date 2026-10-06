@@ -5,7 +5,10 @@ import com.facebook.react.HeadlessJsTaskService
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.jstasks.HeadlessJsTaskConfig
 
-/** Runs the JavaScript task `mesh` with a batch of scanned frames, or with `unlocked` when the person unlocked the phone. */
+/**
+ * Runs the JavaScript task `mesh` with a batch of scanned frames and where each came from, with the channels other
+ * phones opened to this one, or with `unlocked` when the person unlocked the phone.
+ */
 class MeshTaskService : HeadlessJsTaskService() {
   override fun getTaskConfig(intent: Intent?): HeadlessJsTaskConfig? {
     if (intent == null) return null
@@ -13,6 +16,9 @@ class MeshTaskService : HeadlessJsTaskService() {
       Arguments.createMap().apply {
         putArray("frames", Arguments.fromArray(intent.getStringArrayExtra(FRAMES) ?: emptyArray<String>()))
         putArray("rssi", Arguments.fromArray(intent.getIntArrayExtra(RSSI) ?: IntArray(0)))
+        putArray("addresses", Arguments.fromArray(intent.getStringArrayExtra(ADDRESSES) ?: emptyArray<String>()))
+        putArray("channels", Arguments.fromArray(intent.getIntArrayExtra(CHANNELS) ?: IntArray(0)))
+        putArray("peers", Arguments.fromArray(intent.getStringArrayExtra(PEERS) ?: emptyArray<String>()))
         putBoolean("unlocked", intent.getBooleanExtra(UNLOCKED, false))
       }
     return HeadlessJsTaskConfig(TASK, data, TIMEOUT_MS, true)
@@ -21,6 +27,9 @@ class MeshTaskService : HeadlessJsTaskService() {
   companion object {
     const val FRAMES = "frames"
     const val RSSI = "rssi"
+    const val ADDRESSES = "addresses"
+    const val CHANNELS = "channels"
+    const val PEERS = "peers"
     const val UNLOCKED = "unlocked"
     private const val TASK = "mesh"
     private const val TIMEOUT_MS = 30_000L

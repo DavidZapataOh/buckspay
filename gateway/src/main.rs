@@ -7,6 +7,7 @@ use buckspay_gateway::{
     janitor,
     jobs::Jobs,
     limits::RequestLimits,
+    relay::{self, Relay},
     server::{ClientAddress, Gateway, Limits, RPC_TIMEOUT, Settings, bind_unix, router},
     settlements,
     sponsor::SponsorLimits,
@@ -110,6 +111,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         FloatCaps {
             float_cap: config.settlement_float_cap,
             bond_per_record: config.settlement_bond_per_record,
+            relay_per_day: config.relay_daily_cap,
             ..FloatCaps::pilot(windows.record_ttl())
         },
         &config.state_directory.join("settlements.json"),
@@ -148,8 +150,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
             config.hpke,
         )
-        .with_jobs(jobs),
+        .with_jobs(jobs)
+        .with_relay(Relay::with_delay(config.relay_delay_max_secs)),
     );
+    relay::resume_pending(&gateway);
     janitor::spawn(Arc::clone(&gateway), JANITOR_INTERVAL);
     let shutdown = async {
         signal(SignalKind::terminate())

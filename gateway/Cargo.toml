@@ -24,15 +24,20 @@ path = "src/main.rs"
 
 [dependencies]
 axum = "0.8.9"
+chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["alloc"] }
 ed25519-dalek = { version = "2.2.0", default-features = false }
 base64 = "0.22.1"
 buckspay-client = { path = "client" }
 buckspay-protocol = { path = "../anchor/crates/protocol", features = ["verify"] }
 governor = "0.10.4"
 hpke = { version = "0.14.1", default-features = false, features = ["alloc", "chacha", "x25519"] }
+getrandom = "0.3.4"
 hex = "0.4.3"
+hkdf = "0.13.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
+# The digest generation hkdf 0.13 and chacha20poly1305 0.11 are built on.
+sha2_v11 = { package = "sha2", version = "0.11.0" }
 sha2 = "0.10.9"
 solana-account = "4.5.0"
 solana-account-decoder-client-types = "4.3.0"

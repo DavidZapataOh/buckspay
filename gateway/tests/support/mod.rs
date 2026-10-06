@@ -17,6 +17,7 @@ use buckspay_gateway::{
     hpke::HpkeKeys,
     jobs::Jobs,
     limits::RequestLimits,
+    relay::Relay,
     server::{ClientAddress, Gateway, Limits, Settings, router},
     sponsor::{Caps, Escalation, FeeMode, SponsorLimits},
     sponsored::{CONFIRM_TIMEOUT, PENDING_TTL},
@@ -622,6 +623,34 @@ impl Sponsor {
         per_minute: u32,
         jobs: Jobs,
     ) -> Self {
+        Self::on_relay(
+            rpc,
+            fee_payer,
+            limits,
+            float,
+            settings,
+            client,
+            rents,
+            per_minute,
+            jobs,
+            Relay::default(),
+        )
+    }
+
+    /// A gateway that keeps its jobs in `jobs` and relays under `relay`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn on_relay(
+        rpc: RpcClient,
+        fee_payer: Keypair,
+        limits: Arc<SponsorLimits>,
+        float: Arc<SettlementLimits>,
+        settings: Settings,
+        client: ClientAddress,
+        rents: Rents,
+        per_minute: u32,
+        jobs: Jobs,
+        relay: Relay,
+    ) -> Self {
         let fee_payer_address = fee_payer.pubkey();
         let gateway = Arc::new(
             Gateway::new(
@@ -636,7 +665,8 @@ impl Sponsor {
                 },
                 hpke(),
             )
-            .with_jobs(jobs),
+            .with_jobs(jobs)
+            .with_relay(relay),
         );
         Self {
             fee_payer: fee_payer_address,

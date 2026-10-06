@@ -23,6 +23,7 @@ const render = async (props: Partial<Props>) => {
     enabled: false,
     problem: undefined,
     warnings: 0,
+    passedOn: 0,
     onToggle: vi.fn(),
     onOpenSettings: vi.fn(),
     ...props,
@@ -45,6 +46,7 @@ describe('mesh settings', () => {
   it('counts the warnings this phone received, and says so when there are none', async () => {
     expect(texts((await render({ warnings: 0 })).root)).toContain(meshCopy.warnings(0))
     expect(texts((await render({ warnings: 3 })).root)).toContain('Warnings received: 3')
+    expect(texts((await render({ passedOn: 4 })).root)).toContain('Payments passed on: 4')
   })
 
   it('offers the way out of each problem', async () => {

@@ -16,6 +16,10 @@ pub enum Prefix {
     V6([u8; 8]),
 }
 
+/// The one network every relayed settlement is charged to, in the reserved block 240.0.0.0/4: no
+/// client address has it, so it never shares a bucket with a subscriber.
+pub const RELAY_PREFIX: Prefix = Prefix::V4([240, 0, 0]);
+
 impl From<IpAddr> for Prefix {
     fn from(ip: IpAddr) -> Self {
         match ip.to_canonical() {

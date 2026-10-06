@@ -181,7 +181,8 @@ export function createGateway(url: string): Gateway & SettlementGateway {
   }
 }
 
-/** The gateway of this build, fixed when its bundle is made; builds without one pay from the wallet. */
-export const BUILD_GATEWAY = process.env.EXPO_PUBLIC_GATEWAY_URL
-  ? createGateway(process.env.EXPO_PUBLIC_GATEWAY_URL)
-  : undefined
+/** The address of the gateway of this build, fixed when its bundle is made. */
+export const BUILD_GATEWAY_URL = process.env.EXPO_PUBLIC_GATEWAY_URL
+
+/** The gateway of this build; builds without one pay from the wallet. */
+export const BUILD_GATEWAY = BUILD_GATEWAY_URL ? createGateway(BUILD_GATEWAY_URL) : undefined

@@ -29,40 +29,83 @@ export function hpkeInfo(purpose: string, genesisHash: Uint8Array): Uint8Array {
   return info
 }
 
-/** The gateway public keys this build trusts, base64, fixed when its bundle is made. */
-export const PINNED_GATEWAY_KEYS: readonly string[] = (process.env.EXPO_PUBLIC_GATEWAY_HPKE_KEYS ?? '')
-  .split(',')
-  .filter(Boolean)
+/** A gateway key the build trusts, with the slot of the schedule it is valid for, in seconds since the epoch. */
+export type PinnedKey = { keyId: number; publicKey: Uint8Array; notBefore: number; notAfter: number }
+
+/** The keys `/v1/hpke-config` listed when it was last fetched, and when. */
+export type GatewayConfig = { keys: readonly Pick<PinnedKey, 'keyId' | 'publicKey'>[]; fetchedAt: number }
+
+/** Seconds a sealed message can still be opened after its key's slot ends: the longest a note can wait. */
+export const RETIRED_GRACE = 72 * 3_600
+/** Seconds after the next slot begins during which the older key is still preferred: the gateway's clock may lag. */
+export const PREFER_OLDER = 3_600
+/** Seconds a fetched configuration can be used to revoke a pinned key. */
+export const CONFIG_FRESH = 86_400
+
+const fromBase64 = (value: string) => Uint8Array.from(atob(value), (char) => char.charCodeAt(0))
 
 /**
- * The first key of the gateway's configuration that `pinned` holds, in the one suite the app
- * speaks. A key the build does not pin is never used, whatever the gateway publishes: during a
- * rotation the gateway publishes the new key first and keeps the old one, and an app that pins
- * only the old one keeps sealing to it.
+ * The gateway keys this build trusts, fixed when its bundle is made: the current slot and the next twelve
+ * (`[{ keyId, publicKey, notBefore, notAfter }]`, public keys in base64).
  */
-export function pinnedKey(published: readonly GatewayKey[], pinned: readonly string[]): GatewayKey {
-  const key = published.find(
-    (key) =>
-      pinned.includes(key.publicKey) &&
-      key.kemId === HPKE_SUITE.kemId &&
-      key.kdfId === HPKE_SUITE.kdfId &&
-      key.aeadId === HPKE_SUITE.aeadId,
-  )
-  if (!key) throw new Error('The gateway publishes no key this app trusts.')
-  return key
-}
+export const PINNED_GATEWAY_KEYS: readonly PinnedKey[] = (
+  JSON.parse(process.env.EXPO_PUBLIC_GATEWAY_HPKE_KEYS || '[]') as (Omit<PinnedKey, 'publicKey'> & {
+    publicKey: string
+  })[]
+).map((key) => ({ ...key, publicKey: fromBase64(key.publicKey) }))
 
-const base64 = (value: string) => Uint8Array.from(atob(value), (char) => char.charCodeAt(0))
+const sameKey = (a: Pick<PinnedKey, 'keyId' | 'publicKey'>, b: Pick<PinnedKey, 'keyId' | 'publicKey'>) =>
+  a.keyId === b.keyId &&
+  a.publicKey.length === b.publicKey.length &&
+  a.publicKey.every((byte, i) => byte === b.publicKey[i])
+
+/**
+ * The pinned key to seal to at `now`: the oldest key whose slot began and ended less than an hour ago, else the
+ * newest whose slot holds `now`. A key the build does not pin is never used, whatever the gateway lists; a pinned
+ * key a fresh configuration no longer lists is revoked; a key more than `RETIRED_GRACE` past its slot is dead.
+ */
+export function pinnedKey(
+  config: GatewayConfig | null,
+  now: number,
+  pinned: readonly PinnedKey[] = PINNED_GATEWAY_KEYS,
+): PinnedKey | null {
+  const fresh = config !== null && now - config.fetchedAt <= CONFIG_FRESH
+  const usable = pinned
+    .filter(
+      (key) =>
+        key.notBefore <= now &&
+        now < key.notAfter + RETIRED_GRACE &&
+        (!fresh || config.keys.some((listed) => sameKey(listed, key))),
+    )
+    .sort((a, b) => a.notBefore - b.notBefore)
+  return usable.find((key) => now < key.notAfter + PREFER_OLDER) ?? usable.at(-1) ?? null
+}
 
 /** Seals `plaintext` to a pinned gateway key for `purpose` on the cluster with `genesisHash`. */
 export async function sealToGateway(
-  key: GatewayKey,
+  key: { keyId: number; publicKey: string | Uint8Array },
   purpose: string,
   genesisHash: Uint8Array,
   plaintext: Uint8Array,
   aad: Uint8Array,
 ): Promise<Sealed> {
-  const recipientPublicKey = await suite.kem.deserializePublicKey(base64(key.publicKey))
-  const { enc, ct } = await suite.seal({ recipientPublicKey, info: hpkeInfo(purpose, genesisHash) }, plaintext, aad)
-  return { keyId: key.keyId, enc: new Uint8Array(enc), ciphertext: new Uint8Array(ct) }
+  const sealed = await sealWithExport(key, purpose, genesisHash, plaintext, aad, new Uint8Array(0))
+  return { keyId: sealed.keyId, enc: sealed.enc, ciphertext: sealed.ciphertext }
+}
+
+/** As `sealToGateway`, and exports 32 bytes of secret under `label` that only the gateway can also derive (RFC 9180 section 5.3). */
+export async function sealWithExport(
+  key: { keyId: number; publicKey: string | Uint8Array },
+  purpose: string,
+  genesisHash: Uint8Array,
+  plaintext: Uint8Array,
+  aad: Uint8Array,
+  label: Uint8Array,
+): Promise<Sealed & { secret: Uint8Array }> {
+  const publicKey = typeof key.publicKey === 'string' ? fromBase64(key.publicKey) : key.publicKey
+  const recipientPublicKey = await suite.kem.deserializePublicKey(publicKey.slice().buffer as ArrayBuffer)
+  const sender = await suite.createSenderContext({ recipientPublicKey, info: hpkeInfo(purpose, genesisHash) })
+  const ct = await sender.seal(plaintext.slice().buffer as ArrayBuffer, aad.slice().buffer as ArrayBuffer)
+  const secret = new Uint8Array(await sender.export(label.slice().buffer as ArrayBuffer, 32))
+  return { keyId: key.keyId, enc: new Uint8Array(sender.enc), ciphertext: new Uint8Array(ct), secret }
 }

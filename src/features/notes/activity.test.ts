@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { activityDetail, listActivity } from './activity'
 import type { NoteDb } from './db'
+import { bytesToHex } from '@noble/hashes/utils.js'
 import { commitReceived, type ReceivedNote } from './ledger'
+import { queueSealed } from '../relay/outbox'
+import { sealedFixture } from '../relay/testing'
 import { preparePayment, setOutgoingState } from './outgoing'
 import { migrate } from './schema'
 import { createNodeDb } from './testing/node-db'
@@ -83,7 +86,17 @@ describe('listActivity', () => {
   it("carries nothing about anyone's bond or balance", async () => {
     await commitReceived(db, received(2, 200), { maxPayment: 10n ** 12n })
     const [row] = await listActivity(db, 1)
-    expect(Object.keys(row).sort()).toEqual(['amount', 'at', 'counterparty', 'id', 'kind', 'memo', 'reason', 'state'])
+    expect(Object.keys(row).sort()).toEqual([
+      'amount',
+      'at',
+      'counterparty',
+      'handedTo',
+      'id',
+      'kind',
+      'memo',
+      'reason',
+      'state',
+    ])
   })
 })
 
@@ -127,5 +140,30 @@ describe('activityDetail', () => {
     await paid(1, 100, 0n)
     expect(await activityDetail(db, 'paid', bytes(9))).toBeUndefined()
     expect(await activityDetail(db, 'received', bytes(1))).toBeUndefined()
+  })
+
+  it('says where a held note is on its way through a phone nearby', async () => {
+    await commitReceived(db, received(2, 200), { maxPayment: 10n ** 12n })
+    const stage = async () => {
+      const [row] = await listActivity(db, 10)
+      return [row.state, row.handedTo]
+    }
+    expect(await stage()).toEqual(['held', null])
+    await queueSealed(db, {
+      id: bytes(9),
+      ref: bytesToHex(bytes(102)),
+      sealed: sealedFixture(1),
+      now: 5,
+      expiresAt: 9_000,
+    })
+    expect(await stage()).toEqual(['relay-waiting', 0])
+    await db.run('UPDATE relay_outbox SET stored_by = 2')
+    expect(await stage()).toEqual(['relay-handed', 2])
+    await db.run("UPDATE relay_outbox SET answer = 'retry'")
+    expect((await stage())[0]).toBe('relay-waiting')
+    await db.run("UPDATE relay_outbox SET answer = 'submitted'")
+    expect((await stage())[0]).toBe('relay-sent')
+    await db.run("UPDATE received_note SET state = 'settled'")
+    expect((await stage())[0]).toBe('settled')
   })
 })

@@ -19,7 +19,7 @@ internal class Scanner(
   private val adapter: BluetoothAdapter,
   private val limiter: StartLimiter,
   private val executor: ScheduledExecutorService,
-  private val onFrame: (ByteArray, Int) -> Unit,
+  private val onFrame: (ByteArray, Int, String) -> Unit,
 ) {
   private var running = false
   private var screenOn = true
@@ -35,7 +35,8 @@ internal class Scanner(
       ) {
         val frame = result.scanRecord?.getServiceData(uuid) ?: return
         val rssi = result.rssi
-        executor.execute { onFrame(frame, rssi) }
+        val address = result.device.address
+        executor.execute { onFrame(frame, rssi, address) }
       }
 
       override fun onScanFailed(errorCode: Int) {

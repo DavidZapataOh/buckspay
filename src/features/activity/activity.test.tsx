@@ -123,4 +123,12 @@ describe('activity ids', () => {
     expect(sentence(row({}), 'USDC', 6)).toMatch(/^Paid 5\.00 USDC · phone [A-Z2-9]{4}-[A-Z2-9]{4} · Confirmed$/)
     expect(sentence(row({ kind: 'received', state: 'conflicted' }), 'USDC', 6)).toContain('Not paid')
   })
+
+  it('says how far a held note went through phones nearby', () => {
+    const words = (state: string, handedTo?: number) => sentence(row({ kind: 'received', state, handedTo }), 'USDC', 6)
+    expect(words('relay-waiting')).toContain('Waiting for a phone with internet')
+    expect(words('relay-handed', 1)).toContain('Handed to 1 phone nearby')
+    expect(words('relay-handed', 3)).toContain('Handed to 3 phones nearby')
+    expect(words('relay-sent')).toContain('Sent')
+  })
 })

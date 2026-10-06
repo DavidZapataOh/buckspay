@@ -128,6 +128,10 @@ pub struct Config {
     pub state_directory: PathBuf,
     pub max_priority_fee: u64,
     pub requests_per_minute: NonZeroU32,
+    /// The longest random wait, in seconds, before a relayed settlement is sent.
+    pub relay_delay_max_secs: u32,
+    /// Relayed settlements sponsored in one day, all relayers together.
+    pub relay_daily_cap: u32,
     pub caps: Caps,
     /// Lamports of rent the gateway may have out in settlement records.
     pub settlement_float_cap: u64,
@@ -150,6 +154,31 @@ pub struct Config {
     pub held_keys: Vec<Pubkey>,
 }
 
+/// The slots of the HPKE keys from a JSON file `[{ "path", "notBefore", "notAfter" }]`, current
+/// first. Only the keys whose slot has begun are read: the files of later slots stay off the
+/// gateway until an hour before their time.
+fn read_schedule(file: &Path) -> Result<HpkeKeys, String> {
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
+    struct Slot {
+        path: PathBuf,
+        not_before: u64,
+        not_after: u64,
+    }
+    let slots: Vec<Slot> = serde_json::from_slice(
+        &std::fs::read(file).map_err(|error| format!("{}: {error}", file.display()))?,
+    )
+    .map_err(|error| format!("{}: {error}", file.display()))?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs());
+    let slots: Vec<_> = slots
+        .iter()
+        .map(|slot| (slot.path.as_path(), slot.not_before, slot.not_after))
+        .collect();
+    HpkeKeys::read_schedule(&slots, now)
+}
+
 fn var<T: std::str::FromStr>(name: &str, default: &str) -> Result<T, String> {
     env::var(name)
         .unwrap_or_else(|_| default.to_owned())
@@ -166,11 +195,17 @@ impl Config {
         let rpc_url = env::var("RPC_URL").map_err(|_| "RPC_URL is not set")?;
         let fee_payer =
             env::var("FEE_PAYER_KEYPAIR").map_err(|_| "FEE_PAYER_KEYPAIR is not set")?;
-        let hpke_key = env::var("HPKE_KEY").map_err(|_| "HPKE_KEY is not set")?;
-        // During a rotation, the key it replaces, until no app pins it alone.
-        let hpke_previous_key = env::var("HPKE_PREVIOUS_KEY").ok();
-        let mut hpke_keys = vec![Path::new(&hpke_key)];
-        hpke_keys.extend(hpke_previous_key.as_deref().map(Path::new));
+        let hpke = match env::var("HPKE_SCHEDULE") {
+            Ok(schedule) => read_schedule(Path::new(&schedule))?,
+            Err(_) => {
+                let hpke_key = env::var("HPKE_KEY").map_err(|_| "HPKE_KEY is not set")?;
+                // During a rotation, the key it replaces, until no app pins it alone.
+                let hpke_previous_key = env::var("HPKE_PREVIOUS_KEY").ok();
+                let mut hpke_keys = vec![Path::new(&hpke_key)];
+                hpke_keys.extend(hpke_previous_key.as_deref().map(Path::new));
+                HpkeKeys::read(&hpke_keys)?
+            }
+        };
         let max_priority_fee = var("MAX_PRIORITY_FEE", "100000")?;
         if max_priority_fee > APP_MAX_PRIORITY_FEE {
             return Err(format!(
@@ -202,12 +237,14 @@ impl Config {
             rpc_url,
             listen: var("BIND", "127.0.0.1:8080")?,
             fee_payer: read_keypair(Path::new(&fee_payer))?,
-            hpke: HpkeKeys::read(&hpke_keys)?,
+            hpke,
             state_directory: env::var("STATE_DIRECTORY")
                 .map_err(|_| "STATE_DIRECTORY is not set")?
                 .into(),
             max_priority_fee,
             requests_per_minute: var("REQUESTS_PER_MINUTE", "30")?,
+            relay_delay_max_secs: var("RELAY_DELAY_MAX_SECS", "30")?,
+            relay_daily_cap: var("RELAY_DAILY_CAP", "1000")?,
             caps: Caps {
                 cac_budget: var("CAC_BUDGET_LAMPORTS", "500000000")?,
                 open_rent_cap: var("OPEN_RENT_CAP_LAMPORTS", "600000000")?,

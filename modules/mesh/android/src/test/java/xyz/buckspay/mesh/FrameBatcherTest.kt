@@ -15,7 +15,7 @@ class FrameBatcherTest {
       }
     batcher.add(byteArrayOf(2, 1), -50)
     batcher.add(byteArrayOf(2, 1), -40)
-    repeat(15) { i -> batcher.add(byteArrayOf(1, i.toByte()), -60) }
+    repeat(15) { i -> batcher.add(byteArrayOf(3, i.toByte()), -60) }
     assertEquals(1, out.size)
     assertEquals(16, out[0].size)
     now = 61_000
@@ -29,7 +29,7 @@ class FrameBatcherTest {
     var now = 0L
     val out = mutableListOf<List<ScannedFrame>>()
     val batcher = FrameBatcher(16, 2_000, 60_000, { now }) { out += it }
-    batcher.add(byteArrayOf(1), -70)
+    batcher.add(byteArrayOf(3), -70)
     batcher.add(byteArrayOf(2), -55)
     now = 2_000
     batcher.tick(now)
@@ -43,7 +43,7 @@ class FrameBatcherTest {
     var flushes = 0
     val batcher = FrameBatcher(16, 2_000, 60_000, { now }) { flushes++ }
     batcher.tick(5_000)
-    batcher.add(byteArrayOf(1), 0)
+    batcher.add(byteArrayOf(3), 0)
     batcher.tick(1_999)
     assertEquals(0, flushes)
     batcher.tick(2_000)
@@ -55,12 +55,12 @@ class FrameBatcherTest {
     var now = 0L
     var flushes = 0
     val batcher = FrameBatcher(1, 2_000, 60_000, { now }) { flushes++ }
-    batcher.add(byteArrayOf(1), 0)
+    batcher.add(byteArrayOf(3), 0)
     now = 59_999
-    batcher.add(byteArrayOf(1), 0)
+    batcher.add(byteArrayOf(3), 0)
     assertEquals(1, flushes)
     now = 60_000
-    batcher.add(byteArrayOf(1), 0)
+    batcher.add(byteArrayOf(3), 0)
     assertEquals(2, flushes)
   }
 
@@ -69,7 +69,7 @@ class FrameBatcherTest {
     var now = 0L
     var flushes = 0
     val batcher = FrameBatcher(16, 2_000, 60_000, { now }) { flushes++ }
-    batcher.add(byteArrayOf(1), 0)
+    batcher.add(byteArrayOf(3), 0)
     now = 1_500
     batcher.add(byteArrayOf(2), 0)
     batcher.tick(2_000)
@@ -81,9 +81,24 @@ class FrameBatcherTest {
     var now = 10_000L
     var flushes = 0
     val batcher = FrameBatcher(1, 2_000, 60_000, { now }) { flushes++ }
-    batcher.add(byteArrayOf(1), 0)
+    batcher.add(byteArrayOf(3), 0)
     now = 69_999
-    batcher.add(byteArrayOf(1), 0)
+    batcher.add(byteArrayOf(3), 0)
     assertEquals(1, flushes)
+  }
+
+  @Test
+  fun repeatsABeaconSoonerThanOtherFrames() {
+    var now = 0L
+    val out = mutableListOf<List<ScannedFrame>>()
+    val batcher = FrameBatcher(16, 2_000, 60_000, { now }) { out += it }
+    batcher.add(byteArrayOf(1, 9), -50, "a")
+    batcher.add(byteArrayOf(2, 9), -50, "a")
+    now = 21_000
+    batcher.add(byteArrayOf(1, 9), -50, "a")
+    batcher.add(byteArrayOf(2, 9), -50, "a")
+    batcher.tick(now + 2_000)
+    assertEquals(listOf(1, 2, 1), out.flatten().map { it.bytes[0].toInt() })
+    assertEquals("a", out[0][0].address)
   }
 }

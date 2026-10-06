@@ -100,6 +100,7 @@ fn job_of(note: &Note) -> SettlementJob {
         state: JobState::Pending,
         last_signature: None,
         last_valid_block_height: None,
+        not_before: None,
     }
 }
 

@@ -6,6 +6,7 @@ use crate::{
     jobs::Jobs,
     limits::{Prefix, RateLimited, RequestLimits},
     onboard, operations,
+    relay::{self, MAX_RELAY_BYTES, Relay},
     settlements::{self, Problem},
     sponsor::{FeeMode, Refusal, SponsorLimits},
     sponsored::{self, Pending},
@@ -91,6 +92,7 @@ pub struct Gateway {
     /// The settlements that take several transactions, until each ends.
     pub jobs: Jobs,
     pub hpke: HpkeKeys,
+    pub relay: Relay,
     /// What the program's accounts cost, as last read from the cluster.
     pub(crate) rents: Mutex<Rents>,
     /// Prepared transactions by device key.
@@ -113,6 +115,11 @@ pub struct Limits {
 }
 
 impl Gateway {
+    pub fn with_relay(mut self, relay: Relay) -> Self {
+        self.relay = relay;
+        self
+    }
+
     /// Keeps the jobs in `jobs`, which survives a restart, in place of the ones in memory.
     pub fn with_jobs(mut self, jobs: Jobs) -> Self {
         self.jobs = jobs;
@@ -136,6 +143,7 @@ impl Gateway {
             settlements: limits.settlements,
             jobs: Jobs::default(),
             hpke,
+            relay: Relay::default(),
             rents: Mutex::new(rents),
             pending: Mutex::default(),
             rotation_keys: Mutex::default(),
@@ -195,6 +203,11 @@ pub fn router(state: Arc<Gateway>, client: ClientAddress) -> Router {
                 .route("/v1/fraud/claim", post(claims::claim))
                 .layer(DefaultBodyLimit::max(settlements::BODY_LIMIT)),
         )
+        .merge(
+            Router::new()
+                .route("/v1/relay", post(relay::relay))
+                .layer(DefaultBodyLimit::max(MAX_RELAY_BYTES)),
+        )
         .layer(RequestBodyDeadlineLayer::new(BODY_DEADLINE))
         .layer(
             ServiceBuilder::new()
@@ -250,6 +263,10 @@ async fn rate_limit(
     request: Request,
     next: Next,
 ) -> Response {
+    // The relay counts in its own buckets, not in the per-network quota of the other routes.
+    if request.uri().path() == "/v1/relay" {
+        return relay::limit(&state, ip, request, next).await;
+    }
     match state.requests.check(Prefix::from(ip)) {
         Ok(()) => next.run(request).await,
         Err(RateLimited) => Error::RateLimited.into_response(),

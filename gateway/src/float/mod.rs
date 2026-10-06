@@ -13,6 +13,7 @@ use std::{
 
 mod ledger;
 mod types;
+use crate::limits::RELAY_PREFIX;
 pub use ledger::{Found, Read, Reconciled};
 use ledger::{Intent, Ledger, Open, Store};
 pub use types::*;
@@ -181,14 +182,27 @@ impl SettlementLimits {
             .iter()
             .filter(|p| p.request.prefix == request.prefix)
             .count() as u32;
-        if mine >= c.preparing_per_prefix {
+        let (preparing, per_day, per_month) = if request.prefix == RELAY_PREFIX {
+            (
+                c.relay_preparing,
+                c.relay_per_day,
+                c.relay_per_day.saturating_mul(30),
+            )
+        } else {
+            (
+                c.preparing_per_prefix,
+                c.per_prefix_per_day,
+                c.per_prefix_per_30_days,
+            )
+        };
+        if mine >= preparing {
             return Err(Refusal::PrefixBusy);
         }
         let (today, month) = counts(s.ledger.networks.get(&request.prefix.to_string()), day);
-        if today + mine >= c.per_prefix_per_day {
+        if today + mine >= per_day {
             return Err(Refusal::PrefixSpentToday);
         }
-        if month + mine >= c.per_prefix_per_30_days {
+        if month + mine >= per_month {
             return Err(Refusal::PrefixSpentThisMonth);
         }
         let key = key_id(&request.key);

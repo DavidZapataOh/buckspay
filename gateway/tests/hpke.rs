@@ -5,6 +5,7 @@ use hpke::{
     Kem as _, OpModeS, Serializable, aead::ChaCha20Poly1305, kdf::HkdfSha256, kem::X25519HkdfSha256,
 };
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use std::{env, fs, os::unix::fs::PermissionsExt};
 
 type Kem = X25519HkdfSha256;
@@ -234,4 +235,75 @@ fn app_fixture_opens_here() {
             "{size} bytes"
         );
     }
+}
+
+const NOT_BEFORE: u64 = 1_800_000_000;
+const SLOT: u64 = 30 * 86_400;
+
+fn opens_at(keys: &HpkeKeys, public: &<Kem as hpke::Kem>::PublicKey, id: u8, now: u64) -> bool {
+    let context = info("relay", &DEVNET_GENESIS_HASH);
+    let (encapsulated, ciphertext) = seal(public, &context, b"x", b"aad");
+    keys.open_with_export_at(
+        now,
+        id,
+        &encapsulated,
+        &ciphertext,
+        &context,
+        b"aad",
+        b"label",
+    )
+    .is_ok()
+}
+
+#[test]
+fn a_key_opens_from_an_hour_before_its_slot_and_is_published_from_its_start() {
+    let (secret, public) = test_key([3; 32]);
+    let keys = HpkeKeys::from_schedule(&[(secret, NOT_BEFORE, NOT_BEFORE + SLOT)]).unwrap();
+    let id = Sha256::digest(public.to_bytes())[0];
+    assert!(!opens_at(&keys, &public, id, NOT_BEFORE - 3_601));
+    assert!(opens_at(&keys, &public, id, NOT_BEFORE - 1_800));
+    assert!(keys.published_at(NOT_BEFORE - 1_800).is_empty());
+    let [published] = keys.published_at(NOT_BEFORE).try_into().unwrap();
+    assert_eq!(
+        (published.not_before, published.not_after),
+        (NOT_BEFORE, NOT_BEFORE + SLOT)
+    );
+}
+
+#[test]
+fn a_retired_key_stays_published_an_hour_and_opens_until_the_longest_note_window() {
+    let (secret, public) = test_key([4; 32]);
+    let keys = HpkeKeys::from_schedule(&[(secret, NOT_BEFORE, NOT_BEFORE + SLOT)]).unwrap();
+    let id = Sha256::digest(public.to_bytes())[0];
+    let end = NOT_BEFORE + SLOT;
+    assert_eq!(keys.published_at(end + 3_599).len(), 1);
+    assert!(keys.published_at(end + 3_600).is_empty());
+    assert!(opens_at(&keys, &public, id, end + 72 * 3_600 - 1));
+    assert!(!opens_at(&keys, &public, id, end + 72 * 3_600));
+}
+
+#[test]
+fn only_the_slots_that_have_begun_are_read_and_a_retired_file_is_deleted() {
+    let dir = env::temp_dir().join(format!("buckspay-hpke-schedule-{}", std::process::id()));
+    fs::create_dir_all(&dir).unwrap();
+    let write = |name: &str, ikm: u8| {
+        let path = dir.join(name);
+        fs::write(&path, test_key([ikm; 32]).0).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        path
+    };
+    let (past, current, absent) = (write("past", 5), write("current", 6), dir.join("later"));
+    let slots = [
+        (current.as_path(), NOT_BEFORE, NOT_BEFORE + SLOT),
+        (past.as_path(), NOT_BEFORE - SLOT, NOT_BEFORE),
+        (absent.as_path(), NOT_BEFORE + SLOT, NOT_BEFORE + 2 * SLOT),
+    ];
+    let keys = HpkeKeys::read_schedule(&slots, NOT_BEFORE + 10).unwrap();
+    assert_eq!(keys.published_at(NOT_BEFORE + 10).len(), 2);
+    assert_eq!(keys.sweep_retired(NOT_BEFORE + 72 * 3_600 - 1), 0);
+    assert!(past.exists());
+    assert_eq!(keys.sweep_retired(NOT_BEFORE + 72 * 3_600), 1);
+    assert!(!past.exists() && current.exists());
+    assert_eq!(keys.published_at(NOT_BEFORE + 10).len(), 1);
+    fs::remove_dir_all(&dir).unwrap();
 }

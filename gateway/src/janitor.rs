@@ -175,6 +175,7 @@ pub async fn run_once(state: &Gateway, rotation_grace: Duration) -> Result<Repor
     let now = u64::from(chain_now(
         &read(state, &[chain::CLOCK_SYSVAR]).await?.remove(0),
     )?);
+    state.hpke.sweep_retired(now);
     let mut report = Report::default();
     let mut sent = 0;
     let mut open = ledgers.len() as u64;

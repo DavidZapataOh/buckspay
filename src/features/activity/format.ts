@@ -13,8 +13,12 @@ export function parseActivityId(id: string): { kind: ActivityRow['kind']; id: Ui
 }
 
 /** The word for a row's state. */
-export const statusWord = (row: Pick<ActivityRow, 'state'>) =>
-  copy.activity.status[row.state as keyof typeof copy.activity.status] ?? row.state
+export const statusWord = (row: Pick<ActivityRow, 'state' | 'handedTo'>) =>
+  row.state === 'relay-handed'
+    ? row.handedTo === 1
+      ? copy.activity.relayHandedOne
+      : text(copy.activity.relayHanded, { count: String(row.handedTo ?? 0) })
+    : (copy.activity.status[row.state as keyof typeof copy.activity.status] ?? row.state)
 
 /** "Paid 5.00 USDC · phone ABCD-EF23 · Confirmed" or "Received 5.00 USDC · Settled". */
 export function sentence(row: ActivityRow, symbol: string, decimals: number): string {

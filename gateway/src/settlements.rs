@@ -374,7 +374,7 @@ async fn read_chain(state: &Gateway, issue: &Issue, records: &[Pubkey]) -> Resul
     })
 }
 
-const UNREADABLE: &str = "Solana could not be read";
+pub(crate) const UNREADABLE: &str = "Solana could not be read";
 
 fn upstream(_: Error) -> Problem {
     Problem::Invalid(UNREADABLE)
@@ -1119,7 +1119,7 @@ async fn resolve(
     }
 }
 
-fn limits(state: &Gateway, refusal: Refusal, now: u32) -> Error {
+pub(crate) fn limits(state: &Gateway, refusal: Refusal, now: u32) -> Error {
     let retry_after = match refusal {
         Refusal::Horizon { .. } | Refusal::BelowMinimum(_) => None,
         _ => state
@@ -1131,7 +1131,7 @@ fn limits(state: &Gateway, refusal: Refusal, now: u32) -> Error {
 }
 
 /// The key of a settlement job: what the request names, so that the same chain is the same job.
-fn job_key(request: &SettlementRequest) -> String {
+pub(crate) fn job_key(request: &SettlementRequest) -> String {
     use sha2::{Digest, Sha256};
     let mut hash = Sha256::new();
     hash.update(request.issue.as_bytes());
@@ -1143,7 +1143,7 @@ fn job_key(request: &SettlementRequest) -> String {
 }
 
 /// The state a refusal of a settlement puts its job in, when it is for good.
-fn ended(error: &Error) -> Option<JobState> {
+pub(crate) fn ended(error: &Error) -> Option<JobState> {
     match error {
         Error::Settlement(Problem::Window(_)) => Some(JobState::Expired),
         Error::Settlement(Problem::Conflict(_) | Problem::Lock("insufficient_backing")) => {
@@ -1212,6 +1212,7 @@ pub(crate) async fn drive(
                 state: JobState::Pending,
                 last_signature: None,
                 last_valid_block_height: None,
+                not_before: None,
             });
             if written.is_err() {
                 warn!("a settlement job could not be written; nothing was sent");
@@ -1242,6 +1243,12 @@ pub(crate) async fn drive(
 /// Continues a job the gateway started and did not finish. Nothing is sent before the last
 /// transaction sent has landed or can no longer land: what is sent is what the records say.
 pub(crate) async fn resume(state: &Gateway, job: &SettlementJob) {
+    if job
+        .not_before
+        .is_some_and(|at| crate::onboard::local_now() < at)
+    {
+        return;
+    }
     if crate::onboard::local_now() > job.deadline {
         finish(state.jobs.end(&job.key, JobState::Expired));
         return;

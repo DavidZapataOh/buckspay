@@ -37,6 +37,11 @@ pub struct Caps {
     pub per_prefix_per_day: u32,
     pub per_prefix_per_30_days: u32,
     pub preparing_per_prefix: u32,
+    /// Sponsored settlements of notes relayed by other phones in one day: they all share the one
+    /// bucket of `RELAY_PREFIX`, which stays under `daily_cap`.
+    pub relay_per_day: u32,
+    /// Relayed settlements being prepared at once.
+    pub relay_preparing: u32,
     /// Sponsored requests of all kinds in one day; bounds every table of the ledger.
     pub daily_cap: u32,
     /// Seconds a reservation lives before it is swept.
@@ -77,6 +82,8 @@ impl Caps {
             per_prefix_per_day: 400,
             per_prefix_per_30_days: 4_000,
             preparing_per_prefix: 8,
+            relay_per_day: 1_000,
+            relay_preparing: 64,
             daily_cap: 5_000,
             reservation_ttl: 90,
             unknown_grace: 120,

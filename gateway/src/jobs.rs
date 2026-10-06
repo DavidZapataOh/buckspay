@@ -46,6 +46,9 @@ pub struct SettlementJob {
     /// before it has landed or can no longer land.
     pub last_signature: Option<String>,
     pub last_valid_block_height: Option<u64>,
+    /// The second before which a relayed job is not sent: the gateway's random delay.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_before: Option<u32>,
 }
 
 /// The state a failed simulation of a batch puts a job in, when it is not transient.
@@ -134,15 +137,20 @@ impl Jobs {
             .collect()
     }
 
-    /// Writes a job down before its first send; a job that exists is left as it is.
-    pub fn begin(&self, job: SettlementJob) -> io::Result<()> {
+    /// Writes a job down before its first send, atomically: a job that exists is left as it is and
+    /// `false` says this call did not write it.
+    pub fn begin(&self, job: SettlementJob) -> io::Result<bool> {
         let mut rows = self.rows.lock().unwrap();
         let now = job.created_at;
         rows.retain(|_, row| {
             row.state == JobState::Pending || row.deadline.saturating_add(KEEP_ENDED) > now
         });
-        rows.entry(job.key.clone()).or_insert(job);
-        self.save(&rows)
+        if rows.contains_key(&job.key) {
+            return Ok(false);
+        }
+        rows.insert(job.key.clone(), job);
+        self.save(&rows)?;
+        Ok(true)
     }
 
     /// The transaction about to be sent, written before the send.
@@ -210,6 +218,7 @@ mod tests {
             state: JobState::Pending,
             last_signature: None,
             last_valid_block_height: None,
+            not_before: None,
         }
     }
 

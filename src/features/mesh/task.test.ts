@@ -18,9 +18,10 @@ describe('the headless task', () => {
         b64(encodeFrame({ kind: FrameKind.Beacon, payload: beacon })),
       ],
       rssi: [-60, -70, -80],
+      addresses: ['a', 'b', 'c'],
     })
-    expect(onConflict).toHaveBeenCalledWith(conflict, -60)
-    expect(onBeacon).toHaveBeenCalledWith(beacon, -80)
+    expect(onConflict).toHaveBeenCalledWith(conflict, -60, 'a')
+    expect(onBeacon).toHaveBeenCalledWith(beacon, -80, 'c')
     expect(onConflict).toHaveBeenCalledTimes(1)
   })
 
@@ -46,10 +47,25 @@ describe('the headless task', () => {
     const onUnlock = vi.fn(async () => {
       throw new Error('locked again')
     })
-    const task = meshTask({}, onUnlock)
+    const task = meshTask({}, { onUnlock })
     await task({ frames: [], rssi: [] })
     expect(onUnlock).not.toHaveBeenCalled()
     await expect(task({ frames: [], rssi: [], unlocked: true })).resolves.toBeUndefined()
     expect(onUnlock).toHaveBeenCalledOnce()
+  })
+
+  it('hands each phone that connected to the channel handler with its address', async () => {
+    const onChannel = vi.fn(async () => {})
+    await meshTask({}, { onChannel })({ frames: [], rssi: [], channels: [4, 5], peers: ['a', 'b'] })
+    expect(onChannel.mock.calls).toEqual([
+      [4, 'a'],
+      [5, 'b'],
+    ])
+  })
+
+  it('does not take a connection for an unlock', async () => {
+    const onUnlock = vi.fn(async () => {})
+    await meshTask({}, { onUnlock })({ frames: [], rssi: [], channels: [4] })
+    expect(onUnlock).not.toHaveBeenCalled()
   })
 })

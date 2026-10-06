@@ -4,6 +4,9 @@ import { ACTIVE_PROFILE } from '../protocol/active-profile'
 
 const GENESIS_HASH = { devnet: DEVNET_GENESIS_HASH, mainnet: MAINNET_GENESIS_HASH }
 
+/** The genesis hash of `cluster`, which tells it apart from the others on the air. */
+export const genesisHashOf = (cluster: keyof typeof GENESIS_HASH) => GENESIS_HASH[cluster]
+
 /** The program of this build and the domains its notes and tickets are signed under on `cluster`. */
 export function paymentDomains(cluster: keyof typeof GENESIS_HASH) {
   const program = Uint8Array.from(getAddressEncoder().encode(address(ACTIVE_PROFILE.programId)))

@@ -2,11 +2,13 @@ import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Linking } from 'react-native'
 import { countFlagged } from '../../features/mesh/gossip'
+import { syncRelay } from '../../features/mesh/headless'
 import { meshNative } from '../../features/mesh/native'
 import { useMesh } from '../../features/mesh/use-mesh'
 import { Settings } from '../../features/settings/settings'
 import { MIN_WINDOW, PAY_LIMITS } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
+import { carried } from '../../features/relay/inbox'
 import { useSettlementRunner } from '../../features/settlement/use-settlement-runner'
 import { usePayments } from '../../features/payment/payments-provider'
 import { formatMoney, parseAmount } from '../../utils/format-amount'
@@ -18,10 +20,15 @@ export default function SettingsTab() {
   const { unsettled } = useSettlementRunner()
   const { db, witnessSettings, setWitnessSettings } = usePayments()
   const [warnings, setWarnings] = useState(0)
+  const [passedOn, setPassedOn] = useState(0)
   useEffect(() => {
     if (db) void countFlagged(db).then(setWarnings)
+    if (db) void carried(db).then(setPassedOn)
   }, [db])
   const mesh = useMesh(meshNative)
+  useEffect(() => {
+    if (mesh.enabled) void syncRelay()
+  }, [mesh.enabled])
   const [requireFrom, setRequireFrom] = useState(
     witnessSettings.requireFrom === null ? '' : formatMoney(witnessSettings.requireFrom, BUILD_TOKEN.decimals),
   )
@@ -31,6 +38,7 @@ export default function SettingsTab() {
         enabled: mesh.enabled,
         problem: mesh.problem,
         warnings,
+        passedOn,
         onToggle: (on) => void mesh.setEnabled(on),
         onOpenSettings: () => void Linking.openSettings(),
       }}

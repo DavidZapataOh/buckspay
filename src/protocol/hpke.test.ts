@@ -6,7 +6,7 @@ import { hexToBytes } from '@noble/hashes/utils.js'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { DEVNET_GENESIS_HASH, MAINNET_GENESIS_HASH } from '.'
-import { type GatewayKey, hpkeInfo, pinnedKey, sealToGateway } from './hpke'
+import { type GatewayKey, hpkeInfo, sealToGateway } from './hpke'
 
 const GATEWAY_FIXTURE = new URL('../../gateway/tests/fixtures/hpke-gateway.json', import.meta.url)
 const APP_FIXTURE = new URL('../../gateway/tests/fixtures/hpke-app.json', import.meta.url)
@@ -43,23 +43,6 @@ async function open(keyPair: CryptoKeyPair, enc: Uint8Array, info: Uint8Array, c
 }
 
 describe('HPKE to the gateway', () => {
-  it('uses only a key this build pins, in the gateway suite', () => {
-    const key = (publicKey: string, keyId: number): GatewayKey => ({
-      keyId,
-      kemId: 0x20,
-      kdfId: 1,
-      aeadId: 3,
-      publicKey,
-    })
-    const [current, previous] = [key('bmV3', 1), key('b2xk', 2)]
-    expect(pinnedKey([current, previous], ['bmV3', 'b2xk'])).toBe(current)
-    // An app that pins only the previous key keeps sealing to it during a rotation.
-    expect(pinnedKey([current, previous], ['b2xk'])).toBe(previous)
-    expect(() => pinnedKey([current], ['b2xk'])).toThrow('The gateway publishes no key this app trusts.')
-    expect(() => pinnedKey([{ ...current, aeadId: 1 }], ['bmV3'])).toThrow('no key this app trusts')
-    expect(() => pinnedKey([current], [])).toThrow('no key this app trusts')
-  })
-
   it('separates purposes and clusters in the info', () => {
     const info = hpkeInfo('relay', DEVNET_GENESIS_HASH)
     expect(new TextDecoder().decode(info.subarray(0, 23))).toBe('buckspay/hpke/v1\0relay\0')

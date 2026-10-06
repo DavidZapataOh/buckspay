@@ -11,6 +11,8 @@ export type ActivityRow = {
   memo: string | null
   /** The receiver's reason for a payment that was refused. */
   reason: number | null
+  /** Phones nearby that took a held note to settle it for this phone, when it was handed over. */
+  handedTo?: number | null
 }
 
 /** Payments made and notes received in one list, newest first. Nothing about anyone's bond or balance. */
@@ -24,15 +26,24 @@ export async function listActivity(db: NoteDb, limit: number, before?: number): 
     counterparty: Uint8Array
     memo: string | null
     reason: number | null
+    handed_to: number | null
   }>(
     `SELECT * FROM (
-       SELECT message_id AS id, 'paid' AS kind, amount, state, created_at AS at, receiver AS counterparty, memo, reason FROM outgoing_payment
+       SELECT message_id AS id, 'paid' AS kind, amount, state, created_at AS at, receiver AS counterparty, memo, reason, NULL AS handed_to FROM outgoing_payment
        UNION ALL
-       SELECT message_id, 'received', amount, CASE WHEN transport = 'change' AND state = 'held' THEN 'change' ELSE state END, received_at, issuer, memo, NULL FROM received_note
+       SELECT message_id, 'received', amount,
+         CASE WHEN transport = 'change' AND state = 'held' THEN 'change'
+              WHEN state = 'held' AND o.ref IS NOT NULL THEN
+                CASE WHEN o.answer IN ('submitted', 'duplicate') THEN 'relay-sent'
+                     WHEN o.answer IS NULL AND o.stored_by > 0 THEN 'relay-handed'
+                     ELSE 'relay-waiting' END
+              ELSE state END,
+         received_at, issuer, memo, NULL, o.stored_by
+       FROM received_note LEFT JOIN relay_outbox o ON o.ref = lower(hex(received_note.output_id))
      ) WHERE at < ? ORDER BY at DESC, kind LIMIT ?`,
     [before ?? Number.MAX_SAFE_INTEGER, limit],
   )
-  return rows.map((row) => ({ ...row, amount: BigInt(row.amount) }))
+  return rows.map(({ handed_to: handedTo, ...row }) => ({ ...row, amount: BigInt(row.amount), handedTo }))
 }
 
 export type ActivityDetail = ActivityRow & {

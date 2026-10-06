@@ -26,7 +26,7 @@ import {
   settleable,
 } from '../notes/ledger'
 import type { NoteDb } from '../notes/db'
-import { settlementRequest } from './chain'
+import { type NoteChain, settlementRequest } from './chain'
 import { needsClearNotice } from './clear-notice'
 import { type ClaimOutcome, fileClaim, settle } from './settle'
 
@@ -58,6 +58,8 @@ export type SettlementDeps = {
   random: () => number
   /** Failures so far per note (hex of its output id); the runner keeps it between runs. */
   attempts: Map<string, number>
+  /** Seals a note this phone cannot settle for lack of a connection and queues it for a phone nearby that has one. */
+  queueRelay?: (note: { outputId: Uint8Array; chain: NoteChain; expiry: number }) => Promise<void>
 }
 
 export type Refused = { outputId: Uint8Array; kind: string; selfPay: boolean; retryAt?: number }
@@ -171,16 +173,18 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
       wire = encodeSpend(signed)
       await markSettlementSigned(db, note.outputId, wire, deps.now())
     }
-    const request = settlementRequest({
+    const chain: NoteChain = {
       issue: bundle.issue,
       spends: wire ? [...bundle.spends, decodeSpend(wire)] : bundle.spends,
-    })
+    }
+    const request = settlementRequest(chain)
     const outcome = await settle(deps.gateway, request)
     if (outcome.kind === 'sent' || outcome.kind === 'settled') {
       await setNoteState(db, note.outputId, 'settled', deps.now())
       deps.attempts.delete(key)
       report.settled++
     } else if (outcome.kind === 'unknown') {
+      await deps.queueRelay?.({ outputId: note.outputId, chain, expiry: note.expiry }).catch(() => undefined)
       wait()
     } else {
       const { refusal } = outcome

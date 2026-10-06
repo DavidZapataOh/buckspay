@@ -1,6 +1,7 @@
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  DEVNET_GENESIS_HASH,
   decodeSpend,
   encodeSpend,
   encodeSpendBody,
@@ -31,6 +32,9 @@ import {
   signSpendWith,
 } from '../../payment/testing/world'
 import { GatewayError, type SettlementGateway } from '../lock/gateway'
+import { outboxFor } from '../relay/outbox'
+import { relayQueue } from '../relay/queue'
+import { openAsGateway, parseInner } from '../relay/testing'
 import type { NoteDb } from '../notes/db'
 import { migrate } from '../notes/schema'
 import { createNodeDb } from '../notes/testing/node-db'
@@ -424,5 +428,40 @@ describe('a point', () => {
     await reconcileIdentity(db, party(8).key, NOW + 200)
     const [row] = await db.all<{ state: string }>('SELECT state FROM received_note')
     expect(row.state).toBe('held')
+  })
+})
+
+describe('a phone without a connection', () => {
+  const offline = () => Promise.reject(new Error('network down'))
+
+  it('seals the note for a phone nearby once, and still tries again later', async () => {
+    const { outputId } = await receive()
+    answers = [offline, offline]
+    const queueRelay = relayQueue(db, DEVNET_GENESIS_HASH, () => clock)
+    const first = await settleHeld(deps({ queueRelay }))
+    expect(first).toMatchObject({ settled: 0, waiting: 1 })
+    const row = await outboxFor(db, bytesToHex(outputId))
+    expect(row).toMatchObject({ kind: 'settle', storedBy: 0, answer: null, expiresAt: NOW + 72 * 3600 + GRACE })
+    const inner = parseInner(await openAsGateway(row!.blob, 'relay'))
+    expect(inner.issue.length).toBeGreaterThan(0)
+    expect(inner.spends.length).toBeGreaterThanOrEqual(1)
+    await settleHeld(deps({ queueRelay }))
+    expect(await db.all('SELECT id FROM relay_outbox')).toHaveLength(1)
+  })
+
+  it('queues nothing when the gateway answered, and settles as before', async () => {
+    await receive()
+    const report = await settleHeld(deps({ queueRelay: relayQueue(db, DEVNET_GENESIS_HASH, () => clock) }))
+    expect(report.settled).toBe(1)
+    expect(await db.all('SELECT id FROM relay_outbox')).toEqual([])
+  })
+
+  it('goes on waiting when no key is left to seal to', async () => {
+    await receive()
+    answers = [offline]
+    clock = NOW + 400 * 86_400
+    const report = await settleHeld(deps({ queueRelay: relayQueue(db, DEVNET_GENESIS_HASH, () => clock) }))
+    expect(report.settled).toBe(0)
+    expect(await db.all('SELECT id FROM relay_outbox')).toEqual([])
   })
 })

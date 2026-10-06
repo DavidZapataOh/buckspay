@@ -25,6 +25,8 @@ export function fakeMeshNative(options: { startError?: MeshStartError } = {}): M
     },
     advertise: async () => {},
     withdraw: async () => {},
-    status: async () => ({ enabled, running, paused, scanStartsLast30s: 0, frames: 0 }),
+    setBeacon: async () => {},
+    clearBeacon: async () => {},
+    status: async () => ({ enabled, running, paused, scanStartsLast30s: 0, frames: 0, validated: false, psm: 0 }),
   }
 }

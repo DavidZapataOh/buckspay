@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
 
 private const val TAG = "MeshAdvertiser"
 private const val ROTATION_MS = 2_000L
-internal const val MAX_FRAMES = 4
+internal const val MAX_FRAMES = 5
 
 /** Advertises the active frames one at a time from a single advertising set, rotating every two seconds. */
 internal class Advertiser(
@@ -68,6 +68,13 @@ internal class Advertiser(
   @Synchronized
   fun withdraw(id: String) {
     frames.remove(id)
+    sync()
+  }
+
+  /** Starts the advertising set again, which takes a new random address. */
+  @Synchronized
+  fun restart() {
+    stopSet()
     sync()
   }
 

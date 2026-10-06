@@ -13,6 +13,7 @@ export const meshCopy = {
     unsupported: 'Not available on this phone',
   },
   warnings: (count: number) => `Warnings received: ${count}`,
+  passedOn: (count: number) => `Payments passed on: ${count}`,
   turnOn: 'Turn on',
   openSettings: 'Open settings',
 } as const

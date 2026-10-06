@@ -13,6 +13,8 @@ class MeshModule : Module() {
 
   private fun service(): MeshService = MeshService.instance ?: throw MeshException("not-running")
 
+  private fun hub(): L2capHub = service().hub ?: throw MeshException("not-running")
+
   override fun definition() =
     ModuleDefinition {
       Name("Mesh")
@@ -52,6 +54,20 @@ class MeshModule : Module() {
 
       AsyncFunction("withdraw") { frameId: String -> MeshService.instance?.advertiser?.withdraw(frameId) }
 
+      AsyncFunction("setBeacon") { online: Boolean, clusterTag: ByteArray, keyId: Int ->
+        service().setBeacon(online, clusterTag, keyId)
+      }
+
+      AsyncFunction("clearBeacon") { MeshService.instance?.clearBeacon() }
+
+      AsyncFunction("l2capConnect") { address: String, psm: Int -> hub().connect(address, psm) }
+
+      AsyncFunction("l2capRead") { channel: Int, length: Int, timeoutMs: Double -> hub().read(channel, length, timeoutMs.toLong()) }
+
+      AsyncFunction("l2capWrite") { channel: Int, bytes: ByteArray -> hub().write(channel, bytes) }
+
+      AsyncFunction("l2capClose") { channel: Int -> MeshService.instance?.hub?.close(channel) }
+
       AsyncFunction("status") {
         MeshService.instance?.status()
           ?: mapOf(
@@ -60,6 +76,8 @@ class MeshModule : Module() {
             "paused" to false,
             "scanStartsLast30s" to 0,
             "frames" to 0,
+            "validated" to false,
+            "psm" to 0,
           )
       }
     }

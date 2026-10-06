@@ -3,7 +3,9 @@ import { getAddressEncoder } from '@solana/kit'
 import { addNetworkStateListener } from 'expo-network'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { AppState } from 'react-native'
-import { signSpend } from '../../keys'
+import { deviceKeyCluster, signSpend } from '../../keys'
+import { genesisHashOf } from '../../payment/domains'
+import { relayQueue } from '../relay/queue'
 import { registerSettler } from '../mesh/settle-flagged'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { BUILD_GATEWAY } from '../lock/gateway'
@@ -53,6 +55,7 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
     running.current = true
     clearTimeout(timer.current)
     try {
+      const cluster = deviceKeyCluster()
       const result = await settleHeld({
         db,
         wallet: Uint8Array.from(getAddressEncoder().encode(wallet)),
@@ -67,6 +70,7 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
         noticeShown: isNoticeShown,
         random: Math.random,
         attempts: attempts.current,
+        queueRelay: cluster ? relayQueue(db, genesisHashOf(cluster), nowSeconds) : undefined,
       })
       setReport(result)
       setLabelPending(result.blocked === 'label')
