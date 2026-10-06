@@ -23,6 +23,7 @@ mod settlement;
 mod spent;
 pub mod state;
 mod verification;
+pub mod zk;
 
 pub use error::BuckspayError;
 pub use instructions::*;
@@ -31,11 +32,18 @@ pub use state::{
     Attester, Claim, Device, Ledger, Lock, Rotation, Spent, ATTESTER_SEED, CLAIM_SEED, DEVICE_SEED,
     ESCROW_SEED, LEDGER_SEED, LOCK_SEED, ROTATION_SEED, SPENT_SEED,
 };
+pub use zk::{
+    KeyHashes, ProofBuffer, Window, WireMessage, ZkConfig, ZkLockDraws, ZkMint, STALE_BUFFER_SECS,
+    ZK_CAP_WINDOW_SECS,
+};
 
 #[cfg(not(any(feature = "devnet", feature = "mainnet")))]
 compile_error!("build for one cluster: `--features devnet` or `--features mainnet`");
 #[cfg(all(feature = "devnet", feature = "mainnet"))]
 compile_error!("enable exactly one of the `devnet` and `mainnet` features");
+
+#[cfg(all(feature = "zk-test-keys", feature = "mainnet"))]
+compile_error!("verifying keys of a throwaway ceremony cannot be built into a mainnet program");
 
 #[cfg(all(feature = "short-windows", feature = "mainnet"))]
 compile_error!("the short-windows profile exists on devnet only");
@@ -113,6 +121,89 @@ pub mod buckspay {
     ) -> Result<()> {
         ctx.accounts
             .process(&issue, &spends, ctx.remaining_accounts)
+    }
+
+    /// Settles a chain by one batch of proofs: pays the account the last message names and
+    /// records every consumed output, with no key or signature of the chain on chain.
+    #[allow(clippy::too_many_arguments)]
+    pub fn settle_chain_proof<'info>(
+        ctx: Context<'info, SettleChainProof<'info>>,
+        vk_sha256: [u8; 32],
+        issuer_key: [u8; 33],
+        lock_seq: u32,
+        amount: u64,
+        cum_end: u64,
+        pay_amount: u64,
+        expiry: u32,
+        messages: Vec<WireMessage>,
+    ) -> Result<()> {
+        ctx.accounts.process(
+            vk_sha256,
+            issuer_key,
+            lock_seq,
+            amount,
+            cum_end,
+            pay_amount,
+            expiry,
+            messages,
+            ctx.remaining_accounts,
+        )
+    }
+
+    /// Opens a buffer for the messages of a chain too long for one transaction.
+    pub fn open_proof_buffer(ctx: Context<OpenProofBuffer>, nonce: u64, len: u32) -> Result<()> {
+        ctx.accounts.process(&ctx.bumps, nonce, len)
+    }
+
+    pub fn write_proof_buffer(
+        ctx: Context<WriteProofBuffer>,
+        offset: u32,
+        data: Vec<u8>,
+    ) -> Result<()> {
+        ctx.accounts.process(offset, &data)
+    }
+
+    /// Closes a buffer nobody settled within `STALE_BUFFER_SECS` and returns its rent.
+    pub fn close_proof_buffer(ctx: Context<CloseProofBuffer>) -> Result<()> {
+        ctx.accounts.process()
+    }
+
+    pub fn init_zk_config(
+        ctx: Context<InitZkConfig>,
+        admin: Pubkey,
+        pauser: Pubkey,
+        current: KeyHashes,
+    ) -> Result<()> {
+        ctx.accounts.process(&ctx.bumps, admin, pauser, current)
+    }
+
+    /// The pauser may only pause; the admin may do either.
+    pub fn set_zk_paused(ctx: Context<ZkAdmin>, paused: bool) -> Result<()> {
+        ctx.accounts.set_paused(paused)
+    }
+
+    pub fn set_zk_mint(
+        ctx: Context<SetZkMint>,
+        global_cap: u64,
+        lock_cap: u64,
+        record_fee: u64,
+        fee_account: Pubkey,
+    ) -> Result<()> {
+        ctx.accounts
+            .process(global_cap, lock_cap, record_fee, fee_account)
+    }
+
+    pub fn rotate_vk(ctx: Context<ZkAdmin>, next: KeyHashes, keep_previous: bool) -> Result<()> {
+        ctx.accounts.rotate_vk(next, keep_previous)
+    }
+
+    /// Ends the acceptance of the previous verifying key; the pauser or the admin may call it.
+    pub fn revoke_previous_vk(ctx: Context<ZkAdmin>) -> Result<()> {
+        ctx.accounts.revoke_previous_vk()
+    }
+
+    pub fn set_zk_authorities(ctx: Context<ZkAdmin>, admin: Pubkey, pauser: Pubkey) -> Result<()> {
+        ctx.accounts.set_authorities(admin, pauser)
     }
 
     /// Takes back an output nobody settled in time, for the wallet its owner's key is bound to.

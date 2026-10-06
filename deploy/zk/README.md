@@ -56,3 +56,11 @@ in a release build.
    `vk.rs` together with the manifest.
 
 Phase files, `pk.*`, `ccs.bin` and any contributor randomness are never committed.
+
+## Keys of the tests
+
+`buckspay-zk test-setup --out DIR` runs the single-party setup of gnark in about a minute and
+stores the keys as test keys. `manifest.test.json` is the manifest of the keys the verifier crate
+carries under its `test-keys` feature; the tests of the program use fixtures proved under them
+(`anchor/scripts/prove-zk-fixtures.sh`). `anchor/scripts/check-program.mjs` refuses a binary that
+carries these keys on mainnet.

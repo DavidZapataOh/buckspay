@@ -9,15 +9,18 @@ mod close_spent;
 mod create_lock;
 #[cfg(feature = "devnet")]
 mod migrate_device;
+mod proof_buffer;
 mod reclaim_output;
 mod record_prefix;
 mod register_device;
 mod release_lock;
 mod report_false_ticket;
 mod request_wallet_rotation;
+mod settle_chain_proof;
 mod settle_note;
 mod withdraw_lock;
 mod withdrawal;
+mod zk_admin;
 
 pub use apply_wallet_rotation::*;
 pub use attester::*;
@@ -30,11 +33,14 @@ pub use close_spent::*;
 pub use create_lock::*;
 #[cfg(feature = "devnet")]
 pub use migrate_device::*;
+pub use proof_buffer::*;
 pub use reclaim_output::*;
 pub use record_prefix::*;
 pub use register_device::*;
 pub use release_lock::*;
 pub use report_false_ticket::*;
 pub use request_wallet_rotation::*;
+pub use settle_chain_proof::*;
 pub use settle_note::*;
 pub use withdraw_lock::*;
+pub use zk_admin::*;

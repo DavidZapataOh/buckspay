@@ -117,4 +117,34 @@ pub enum BuckspayError {
     UnknownSigner,
     #[msg("A claim on a spend that named no lock needs the device of the lock owner")]
     DeviceRequired,
+    #[msg("The verifying key is not the one this program accepts")]
+    StaleVerifyingKey,
+    #[msg("The batch of proofs does not verify")]
+    ProofRejected,
+    #[msg("A value of the proof's public inputs is not a canonical field element")]
+    NonCanonicalPublic,
+    #[msg("The proof buffer does not hold every message yet")]
+    BufferIncomplete,
+    #[msg("The proof buffer cannot be closed yet")]
+    BufferNotStale,
+    #[msg("The proof buffer has a length that holds no whole number of messages")]
+    BufferLength,
+    #[msg("The write does not fit the buffer or leaves a gap")]
+    BufferWrite,
+    #[msg("Private settlement is paused")]
+    ZkPaused,
+    #[msg("The mint's private settlement cap for this window is exhausted")]
+    ZkCapExceeded,
+    #[msg("The payment does not exceed the fee for the records it creates")]
+    BelowRecordFee,
+    #[msg("The mint is not enabled for private settlement")]
+    MintNotEnabled,
+    #[msg("The signer is not allowed to change the private settlement configuration")]
+    NotZkAdmin,
+    #[msg("A lock's cap may not exceed a tenth of the mint's cap")]
+    LockCapTooHigh,
+    #[msg("The keys of a throwaway ceremony cannot be used on mainnet")]
+    TestKeysOnMainnet,
+    #[msg("The fee account is not the one configured for the mint")]
+    WrongFeeAccount,
 }

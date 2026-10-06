@@ -178,6 +178,51 @@ pub enum BuckspayError {
     /// 6055 - A claim on a spend that named no lock needs the device of the lock owner
     #[error("A claim on a spend that named no lock needs the device of the lock owner")]
     DeviceRequired = 0x17A7,
+    /// 6056 - The verifying key is not the one this program accepts
+    #[error("The verifying key is not the one this program accepts")]
+    StaleVerifyingKey = 0x17A8,
+    /// 6057 - The batch of proofs does not verify
+    #[error("The batch of proofs does not verify")]
+    ProofRejected = 0x17A9,
+    /// 6058 - A value of the proof's public inputs is not a canonical field element
+    #[error("A value of the proof's public inputs is not a canonical field element")]
+    NonCanonicalPublic = 0x17AA,
+    /// 6059 - The proof buffer does not hold every message yet
+    #[error("The proof buffer does not hold every message yet")]
+    BufferIncomplete = 0x17AB,
+    /// 6060 - The proof buffer cannot be closed yet
+    #[error("The proof buffer cannot be closed yet")]
+    BufferNotStale = 0x17AC,
+    /// 6061 - The proof buffer has a length that holds no whole number of messages
+    #[error("The proof buffer has a length that holds no whole number of messages")]
+    BufferLength = 0x17AD,
+    /// 6062 - The write does not fit the buffer or leaves a gap
+    #[error("The write does not fit the buffer or leaves a gap")]
+    BufferWrite = 0x17AE,
+    /// 6063 - Private settlement is paused
+    #[error("Private settlement is paused")]
+    ZkPaused = 0x17AF,
+    /// 6064 - The mint's private settlement cap for this window is exhausted
+    #[error("The mint's private settlement cap for this window is exhausted")]
+    ZkCapExceeded = 0x17B0,
+    /// 6065 - The payment does not exceed the fee for the records it creates
+    #[error("The payment does not exceed the fee for the records it creates")]
+    BelowRecordFee = 0x17B1,
+    /// 6066 - The mint is not enabled for private settlement
+    #[error("The mint is not enabled for private settlement")]
+    MintNotEnabled = 0x17B2,
+    /// 6067 - The signer is not allowed to change the private settlement configuration
+    #[error("The signer is not allowed to change the private settlement configuration")]
+    NotZkAdmin = 0x17B3,
+    /// 6068 - A lock's cap may not exceed a tenth of the mint's cap
+    #[error("A lock's cap may not exceed a tenth of the mint's cap")]
+    LockCapTooHigh = 0x17B4,
+    /// 6069 - The keys of a throwaway ceremony cannot be used on mainnet
+    #[error("The keys of a throwaway ceremony cannot be used on mainnet")]
+    TestKeysOnMainnet = 0x17B5,
+    /// 6070 - The fee account is not the one configured for the mint
+    #[error("The fee account is not the one configured for the mint")]
+    WrongFeeAccount = 0x17B6,
 }
 
 impl From<BuckspayError> for solana_program_error::ProgramError {

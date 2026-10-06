@@ -1,0 +1,11 @@
+{
+  "VKSHA256": "3cbced58a535a5e5b770df2c1e193d453579e874bd5a21f8bd8878659d3bd18b",
+  "PKBinSHA256": "640aca741a193d40ae248c66b6905c7963bd7bd8ed85abfc4f2f0dd6070744d9",
+  "PKDumpSHA256": "cdda19700c5f644ba7cb34862b6476435389f13fcc1b65ff234b0168ff280d03",
+  "CCSSHA256": "0e6c2e5d58de6acb94ad3492115968970bf65d07207fda213889bc2423eab272",
+  "Beacon": "",
+  "Phase1": null,
+  "Phase2": null,
+  "Constraints": 526478,
+  "Test": true
+}

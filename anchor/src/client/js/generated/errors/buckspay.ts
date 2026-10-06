@@ -126,6 +126,36 @@ export const BUCKSPAY_ERROR__ALREADY_SLASHED = 0x17a5 // 6053
 export const BUCKSPAY_ERROR__UNKNOWN_SIGNER = 0x17a6 // 6054
 /** DeviceRequired: A claim on a spend that named no lock needs the device of the lock owner */
 export const BUCKSPAY_ERROR__DEVICE_REQUIRED = 0x17a7 // 6055
+/** StaleVerifyingKey: The verifying key is not the one this program accepts */
+export const BUCKSPAY_ERROR__STALE_VERIFYING_KEY = 0x17a8 // 6056
+/** ProofRejected: The batch of proofs does not verify */
+export const BUCKSPAY_ERROR__PROOF_REJECTED = 0x17a9 // 6057
+/** NonCanonicalPublic: A value of the proof's public inputs is not a canonical field element */
+export const BUCKSPAY_ERROR__NON_CANONICAL_PUBLIC = 0x17aa // 6058
+/** BufferIncomplete: The proof buffer does not hold every message yet */
+export const BUCKSPAY_ERROR__BUFFER_INCOMPLETE = 0x17ab // 6059
+/** BufferNotStale: The proof buffer cannot be closed yet */
+export const BUCKSPAY_ERROR__BUFFER_NOT_STALE = 0x17ac // 6060
+/** BufferLength: The proof buffer has a length that holds no whole number of messages */
+export const BUCKSPAY_ERROR__BUFFER_LENGTH = 0x17ad // 6061
+/** BufferWrite: The write does not fit the buffer or leaves a gap */
+export const BUCKSPAY_ERROR__BUFFER_WRITE = 0x17ae // 6062
+/** ZkPaused: Private settlement is paused */
+export const BUCKSPAY_ERROR__ZK_PAUSED = 0x17af // 6063
+/** ZkCapExceeded: The mint's private settlement cap for this window is exhausted */
+export const BUCKSPAY_ERROR__ZK_CAP_EXCEEDED = 0x17b0 // 6064
+/** BelowRecordFee: The payment does not exceed the fee for the records it creates */
+export const BUCKSPAY_ERROR__BELOW_RECORD_FEE = 0x17b1 // 6065
+/** MintNotEnabled: The mint is not enabled for private settlement */
+export const BUCKSPAY_ERROR__MINT_NOT_ENABLED = 0x17b2 // 6066
+/** NotZkAdmin: The signer is not allowed to change the private settlement configuration */
+export const BUCKSPAY_ERROR__NOT_ZK_ADMIN = 0x17b3 // 6067
+/** LockCapTooHigh: A lock's cap may not exceed a tenth of the mint's cap */
+export const BUCKSPAY_ERROR__LOCK_CAP_TOO_HIGH = 0x17b4 // 6068
+/** TestKeysOnMainnet: The keys of a throwaway ceremony cannot be used on mainnet */
+export const BUCKSPAY_ERROR__TEST_KEYS_ON_MAINNET = 0x17b5 // 6069
+/** WrongFeeAccount: The fee account is not the one configured for the mint */
+export const BUCKSPAY_ERROR__WRONG_FEE_ACCOUNT = 0x17b6 // 6070
 
 export type BuckspayError =
   | typeof BUCKSPAY_ERROR__ALREADY_CLAIMED
@@ -135,6 +165,11 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__AMOUNT_ZERO
   | typeof BUCKSPAY_ERROR__ATTESTER_KEY
   | typeof BUCKSPAY_ERROR__ATTESTER_STATUS
+  | typeof BUCKSPAY_ERROR__BELOW_RECORD_FEE
+  | typeof BUCKSPAY_ERROR__BUFFER_INCOMPLETE
+  | typeof BUCKSPAY_ERROR__BUFFER_LENGTH
+  | typeof BUCKSPAY_ERROR__BUFFER_NOT_STALE
+  | typeof BUCKSPAY_ERROR__BUFFER_WRITE
   | typeof BUCKSPAY_ERROR__CHAIN_INVALID
   | typeof BUCKSPAY_ERROR__CHAIN_VERIFICATION
   | typeof BUCKSPAY_ERROR__CLAIM_TOO_LATE
@@ -150,18 +185,23 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__FEE_NOT_ALLOWED
   | typeof BUCKSPAY_ERROR__FEE_TOO_HIGH
   | typeof BUCKSPAY_ERROR__INSUFFICIENT_ESCROW
+  | typeof BUCKSPAY_ERROR__LOCK_CAP_TOO_HIGH
   | typeof BUCKSPAY_ERROR__LOCK_ENDED
   | typeof BUCKSPAY_ERROR__LOCK_SEQ_EXHAUSTED
   | typeof BUCKSPAY_ERROR__LOCK_SEQ_MISMATCH
   | typeof BUCKSPAY_ERROR__LOCK_TOO_LONG
   | typeof BUCKSPAY_ERROR__LOCK_TOO_SHORT
+  | typeof BUCKSPAY_ERROR__MINT_NOT_ENABLED
   | typeof BUCKSPAY_ERROR__NO_BOND
+  | typeof BUCKSPAY_ERROR__NON_CANONICAL_PUBLIC
   | typeof BUCKSPAY_ERROR__NO_RECORD
   | typeof BUCKSPAY_ERROR__NOT_CLAIMABLE
   | typeof BUCKSPAY_ERROR__NOT_CONFLICTING
   | typeof BUCKSPAY_ERROR__NOT_MIGRATABLE
   | typeof BUCKSPAY_ERROR__NOT_WITHDRAWN
+  | typeof BUCKSPAY_ERROR__NOT_ZK_ADMIN
   | typeof BUCKSPAY_ERROR__OVER_COVERAGE
+  | typeof BUCKSPAY_ERROR__PROOF_REJECTED
   | typeof BUCKSPAY_ERROR__RECLAIM_CLOSED
   | typeof BUCKSPAY_ERROR__RECLAIM_EXPIRED
   | typeof BUCKSPAY_ERROR__RECLAIM_TOO_EARLY
@@ -175,6 +215,8 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__SETTLEMENT_CLOSED
   | typeof BUCKSPAY_ERROR__SLASH_PENDING
   | typeof BUCKSPAY_ERROR__STAKE_TOO_LOW
+  | typeof BUCKSPAY_ERROR__STALE_VERIFYING_KEY
+  | typeof BUCKSPAY_ERROR__TEST_KEYS_ON_MAINNET
   | typeof BUCKSPAY_ERROR__TICKET_BINDING
   | typeof BUCKSPAY_ERROR__TICKET_NOT_PROVABLY_FALSE
   | typeof BUCKSPAY_ERROR__TOO_MANY_SPENDS
@@ -182,8 +224,11 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__UNRECORDABLE_OUTPUT
   | typeof BUCKSPAY_ERROR__UNSUPPORTED_MINT_EXTENSION
   | typeof BUCKSPAY_ERROR__WITHDRAW_TOO_EARLY
+  | typeof BUCKSPAY_ERROR__WRONG_FEE_ACCOUNT
   | typeof BUCKSPAY_ERROR__WRONG_LOCK
   | typeof BUCKSPAY_ERROR__WRONG_PAYEE
+  | typeof BUCKSPAY_ERROR__ZK_CAP_EXCEEDED
+  | typeof BUCKSPAY_ERROR__ZK_PAUSED
 
 let buckspayErrorMessages: Record<BuckspayError, string> | undefined
 if (process.env['NODE_ENV'] !== 'production') {
@@ -195,6 +240,11 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__AMOUNT_ZERO]: `Amount must be greater than zero`,
     [BUCKSPAY_ERROR__ATTESTER_KEY]: `The key is not a canonical point of the prime-order subgroup`,
     [BUCKSPAY_ERROR__ATTESTER_STATUS]: `The attester's status does not allow this`,
+    [BUCKSPAY_ERROR__BELOW_RECORD_FEE]: `The payment does not exceed the fee for the records it creates`,
+    [BUCKSPAY_ERROR__BUFFER_INCOMPLETE]: `The proof buffer does not hold every message yet`,
+    [BUCKSPAY_ERROR__BUFFER_LENGTH]: `The proof buffer has a length that holds no whole number of messages`,
+    [BUCKSPAY_ERROR__BUFFER_NOT_STALE]: `The proof buffer cannot be closed yet`,
+    [BUCKSPAY_ERROR__BUFFER_WRITE]: `The write does not fit the buffer or leaves a gap`,
     [BUCKSPAY_ERROR__CHAIN_INVALID]: `The messages are not a valid chain`,
     [BUCKSPAY_ERROR__CHAIN_VERIFICATION]: `The transaction does not carry the secp256r1 verification of exactly this chain`,
     [BUCKSPAY_ERROR__CLAIM_TOO_LATE]: `The claim deadline of the output has passed`,
@@ -210,18 +260,23 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__FEE_NOT_ALLOWED]: `A sponsor fee is only allowed on a sponsored first lock`,
     [BUCKSPAY_ERROR__FEE_TOO_HIGH]: `The sponsor fee is above its cap`,
     [BUCKSPAY_ERROR__INSUFFICIENT_ESCROW]: `The escrow holds less than the ledger owes`,
+    [BUCKSPAY_ERROR__LOCK_CAP_TOO_HIGH]: `A lock's cap may not exceed a tenth of the mint's cap`,
     [BUCKSPAY_ERROR__LOCK_ENDED]: `The lock has ended`,
     [BUCKSPAY_ERROR__LOCK_SEQ_EXHAUSTED]: `The device has used every lock sequence number`,
     [BUCKSPAY_ERROR__LOCK_SEQ_MISMATCH]: `lock_seq is not the device's next lock sequence number`,
     [BUCKSPAY_ERROR__LOCK_TOO_LONG]: `lock_until is too far`,
     [BUCKSPAY_ERROR__LOCK_TOO_SHORT]: `lock_until is too close`,
+    [BUCKSPAY_ERROR__MINT_NOT_ENABLED]: `The mint is not enabled for private settlement`,
     [BUCKSPAY_ERROR__NO_BOND]: `The lock has no free bond to slash`,
+    [BUCKSPAY_ERROR__NON_CANONICAL_PUBLIC]: `A value of the proof's public inputs is not a canonical field element`,
     [BUCKSPAY_ERROR__NO_RECORD]: `The output has no record`,
     [BUCKSPAY_ERROR__NOT_CLAIMABLE]: `The loss cannot be claimed from this lock`,
     [BUCKSPAY_ERROR__NOT_CONFLICTING]: `The two messages do not conflict`,
     [BUCKSPAY_ERROR__NOT_MIGRATABLE]: `The account is not a device account to migrate`,
     [BUCKSPAY_ERROR__NOT_WITHDRAWN]: `The lock has not been withdrawn`,
+    [BUCKSPAY_ERROR__NOT_ZK_ADMIN]: `The signer is not allowed to change the private settlement configuration`,
     [BUCKSPAY_ERROR__OVER_COVERAGE]: `The output is larger than the lock's bond covers`,
+    [BUCKSPAY_ERROR__PROOF_REJECTED]: `The batch of proofs does not verify`,
     [BUCKSPAY_ERROR__RECLAIM_CLOSED]: `The reclaim window of the output has closed`,
     [BUCKSPAY_ERROR__RECLAIM_EXPIRED]: `The reclaim signature is past its deadline`,
     [BUCKSPAY_ERROR__RECLAIM_TOO_EARLY]: `The output cannot be reclaimed yet`,
@@ -235,6 +290,8 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__SETTLEMENT_CLOSED]: `The settlement window of the output has closed`,
     [BUCKSPAY_ERROR__SLASH_PENDING]: `A slash is still pending in the lock`,
     [BUCKSPAY_ERROR__STAKE_TOO_LOW]: `The stake is below the minimum`,
+    [BUCKSPAY_ERROR__STALE_VERIFYING_KEY]: `The verifying key is not the one this program accepts`,
+    [BUCKSPAY_ERROR__TEST_KEYS_ON_MAINNET]: `The keys of a throwaway ceremony cannot be used on mainnet`,
     [BUCKSPAY_ERROR__TICKET_BINDING]: `The instruction before this one is not the Ed25519 verification of this ticket`,
     [BUCKSPAY_ERROR__TICKET_NOT_PROVABLY_FALSE]: `The chain does not contradict the ticket`,
     [BUCKSPAY_ERROR__TOO_MANY_SPENDS]: `Too many spends for one instruction`,
@@ -242,8 +299,11 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__UNRECORDABLE_OUTPUT]: `An output of the chain has no record address or no claim address`,
     [BUCKSPAY_ERROR__UNSUPPORTED_MINT_EXTENSION]: `The mint has an extension the program does not support`,
     [BUCKSPAY_ERROR__WITHDRAW_TOO_EARLY]: `The lock cannot be withdrawn yet`,
+    [BUCKSPAY_ERROR__WRONG_FEE_ACCOUNT]: `The fee account is not the one configured for the mint`,
     [BUCKSPAY_ERROR__WRONG_LOCK]: `The issue does not match the lock it names`,
     [BUCKSPAY_ERROR__WRONG_PAYEE]: `The destination does not belong to the account the note pays`,
+    [BUCKSPAY_ERROR__ZK_CAP_EXCEEDED]: `The mint's private settlement cap for this window is exhausted`,
+    [BUCKSPAY_ERROR__ZK_PAUSED]: `Private settlement is paused`,
   }
 }
 

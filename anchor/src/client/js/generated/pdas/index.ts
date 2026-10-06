@@ -6,6 +6,8 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from './buffer'
+export * from './config'
 export * from './escrow'
 export * from './ledger'
 export * from './registerAttesterEscrow'

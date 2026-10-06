@@ -1,0 +1,33 @@
+[package]
+name = "buckspay-zk-verify"
+version = "0.1.0"
+description = "Batch verifier of the per-message Groth16 proofs of a bearer note chain"
+edition.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["test-keys"]
+# Selects the verifying keys of a throwaway ceremony, whose trapdoor is known. A release build
+# replaces them with the keys of the real ceremony.
+test-keys = []
+
+[dependencies]
+buckspay-protocol = { path = "../protocol" }
+solana-bn254 = "3.2.1"
+solana-sha256-hasher = { version = "3.1.0", features = ["sha2"] }
+
+[target.'cfg(target_os = "solana")'.dependencies]
+solana-define-syscall = "5"
+
+[dev-dependencies]
+ark-bn254 = { version = "0.5", default-features = false, features = ["curve"] }
+ark-ec = "0.5"
+ark-ff = "0.5"
+groth16-solana = { git = "https://github.com/Lightprotocol/groth16-solana", rev = "ac9d959f9b14479c20c9d4f8168fa4cc47c13071", features = ["bsb22", "bsb22-test"] }
+hex = "0.4"
+proptest = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

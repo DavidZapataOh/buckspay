@@ -209,6 +209,9 @@ func (c *Chain) state(j int, k uint8) (*big.Int, error) {
 	return commit(in.Owner, change, caveats, scopeHash(in.Owner), salt.Add(salt, two128)), nil
 }
 
+// Public10 holds the public inputs of one message.
+type Public10 = [circuit.NumPublic]*big.Int
+
 // Public returns the public inputs the program derives for message i, in the order of circuit.NumPublic.
 func Public(c *Chain, i int) ([circuit.NumPublic]*big.Int, error) {
 	var out [circuit.NumPublic]*big.Int

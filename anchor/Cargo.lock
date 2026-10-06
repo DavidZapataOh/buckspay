@@ -811,15 +811,19 @@ dependencies = [
 name = "buckspay"
 version = "0.1.0"
 dependencies = [
+ "agave-feature-set",
  "anchor-lang",
  "anchor-spl",
  "base64 0.22.1",
  "buckspay-protocol",
+ "buckspay-zk-verify",
  "curve25519-dalek 4.1.3",
  "ed25519-dalek 2.2.0",
+ "hex",
  "litesvm",
  "p256",
  "proptest",
+ "serde",
  "serde_json",
  "solana-account",
  "solana-compute-budget-interface",
@@ -846,6 +850,24 @@ dependencies = [
  "sha2 0.10.9",
  "solana-hash",
  "solana-secp256r1-program",
+ "solana-sha256-hasher",
+]
+
+[[package]]
+name = "buckspay-zk-verify"
+version = "0.1.0"
+dependencies = [
+ "ark-bn254 0.5.0",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "buckspay-protocol",
+ "groth16-solana",
+ "hex",
+ "proptest",
+ "serde",
+ "serde_json",
+ "solana-bn254",
+ "solana-define-syscall 5.2.0",
  "solana-sha256-hasher",
 ]
 
@@ -1677,6 +1699,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
+name = "groth16-solana"
+version = "0.2.0"
+source = "git+https://github.com/Lightprotocol/groth16-solana?rev=ac9d959f9b14479c20c9d4f8168fa4cc47c13071#ac9d959f9b14479c20c9d4f8168fa4cc47c13071"
+dependencies = [
+ "ark-bn254 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "pinocchio",
+ "sha2 0.10.9",
+ "solana-bn254",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "group"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1749,6 +1785,12 @@ name = "hermit-abi"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e17592d60ebacc7d5e169f4663c5f84f9161cc90328abcfe8456f41e4dfcb284"
+
+[[package]]
+name = "hex"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hkdf"
@@ -2321,6 +2363,19 @@ name = "pin-project-lite"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
+
+[[package]]
+name = "pinocchio"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c06810dac15a4ef83d3dabdb4f2f22fb39c9adff669cd2781da4f716510a647c"
+dependencies = [
+ "solana-account-view",
+ "solana-address 2.7.0",
+ "solana-define-syscall 4.0.1",
+ "solana-instruction-view",
+ "solana-program-error",
+]
 
 [[package]]
 name = "pkcs8"
@@ -2972,6 +3027,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "solana-account-view"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f37ca34c37f92ee341b73d5ce7c8ef5bb38e9a87955b4bd343c63fa18b149215"
+dependencies = [
+ "solana-address 2.7.0",
+ "solana-program-error",
+]
+
+[[package]]
 name = "solana-address"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3491,6 +3556,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8e7db78c122d02189619490b1fef04a2a042c389662920617c0e6381fdf8fdd"
 dependencies = [
  "num-traits",
+ "solana-program-error",
+]
+
+[[package]]
+name = "solana-instruction-view"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60147e4d0a4620013df40bf30a86dd299203ff12fcb8b593cd51014fce0875d8"
+dependencies = [
+ "solana-account-view",
+ "solana-address 2.7.0",
+ "solana-define-syscall 4.0.1",
  "solana-program-error",
 ]
 

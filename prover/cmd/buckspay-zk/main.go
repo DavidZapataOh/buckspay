@@ -20,6 +20,9 @@ const usage = `usage:
   buckspay-zk ceremony phase2-contribute --in FILE --out FILE
   buckspay-zk ceremony phase2-seal --ccs ccs.bin --srs SRS --beacon HEX --out DIR FILE...
   buckspay-zk ceremony local-test --out DIR
+  buckspay-zk test-setup --out DIR
+  buckspay-zk prove-batch --keys DIR --in chains.json --out proofs.json
+  buckspay-zk fixtures --keys DIR --vectors vectors.json --out DIR
   buckspay-zk export-vk --rust [--test-keys] vk.bin
   buckspay-zk prove --keys DIR --vectors vectors.json --chain NAME --message I`
 
@@ -48,6 +51,12 @@ func run(args []string) error {
 		return vectorsCheck(args[1:])
 	case "ceremony":
 		return ceremonyCmd(args[1:])
+	case "test-setup":
+		return testSetup(args[1:])
+	case "prove-batch":
+		return proveBatch(args[1:])
+	case "fixtures":
+		return fixtures(args[1:])
 	case "export-vk":
 		return exportVK(args[1:])
 	case "prove":

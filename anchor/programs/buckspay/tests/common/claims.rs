@@ -288,11 +288,14 @@ pub fn world() -> World {
 /// A world whose notes expire in `days`: more than 46 days make the end of the lock close the
 /// claims of a double spend before its challenge does.
 pub fn world_expiring(days: u32) -> World {
-    let mut env = Env::new(TokenKind::Classic);
+    world_in(Env::new(TokenKind::Classic), days)
+}
+
+pub fn world_in(mut env: Env, days: u32) -> World {
     let issuer = env.issuer(1, BOND, 1_000_000_000, 60);
     let culprit = env.issuer(2, BOND, 10_000_000, 60);
     let victim = env.actor(3);
-    let winner = Pubkey::new_unique();
+    let winner = Pubkey::new_from_array([0x77; 32]);
     let winner_token = env.token_account_of(&winner, 0);
     let expiry = expiry_of(&env, days);
     World {

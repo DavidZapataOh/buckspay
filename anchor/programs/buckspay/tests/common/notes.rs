@@ -278,7 +278,7 @@ impl Chain {
     }
 
     /// What the chain holds just before link `index` is spent.
-    fn holding_before(&self, index: usize) -> Holding {
+    pub fn holding_before(&self, index: usize) -> Holding {
         let domain = buckspay::note_domain();
         let mut holding = Holding {
             first: chain::issue_signing(&domain, &self.issue).unwrap().1,

@@ -55,7 +55,22 @@ export const BuckspayErrorCode = {
   TicketNotProvablyFalse: 6052,
   AlreadySlashed: 6053,
   UnknownSigner: 6054,
-  DeviceRequired: 6055
+  DeviceRequired: 6055,
+  StaleVerifyingKey: 6056,
+  ProofRejected: 6057,
+  NonCanonicalPublic: 6058,
+  BufferIncomplete: 6059,
+  BufferNotStale: 6060,
+  BufferLength: 6061,
+  BufferWrite: 6062,
+  ZkPaused: 6063,
+  ZkCapExceeded: 6064,
+  BelowRecordFee: 6065,
+  MintNotEnabled: 6066,
+  NotZkAdmin: 6067,
+  LockCapTooHigh: 6068,
+  TestKeysOnMainnet: 6069,
+  WrongFeeAccount: 6070
 };
 
 export type BuckspayErrorName = keyof typeof BuckspayErrorCode;

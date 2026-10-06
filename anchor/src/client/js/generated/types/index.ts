@@ -6,4 +6,6 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from './keyHashes'
 export * from './link'
+export * from './wireMessage'

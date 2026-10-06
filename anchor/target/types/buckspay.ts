@@ -482,6 +482,67 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "closeProofBuffer",
+      "docs": [
+        "Closes a buffer nobody settled within `STALE_BUFFER_SECS` and returns its rent."
+      ],
+      "discriminator": [
+        130,
+        150,
+        6,
+        35,
+        193,
+        34,
+        243,
+        87
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "buffer"
+          ]
+        },
+        {
+          "name": "buffer",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  111,
+                  102,
+                  45,
+                  98,
+                  117,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payer"
+              },
+              {
+                "kind": "account",
+                "path": "buffer.nonce",
+                "account": "proofBuffer"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "closeRecords",
       "docs": [
         "Closes claims whose retention has passed."
@@ -631,6 +692,77 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "initZkConfig",
+      "discriminator": [
+        151,
+        226,
+        82,
+        118,
+        28,
+        221,
+        246,
+        225
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  122,
+                  107,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "address": "zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM"
+        },
+        {
+          "name": "programData"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "admin",
+          "type": "pubkey"
+        },
+        {
+          "name": "pauser",
+          "type": "pubkey"
+        },
+        {
+          "name": "current",
+          "type": {
+            "defined": {
+              "name": "keyHashes"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "migrateDevice",
       "docs": [
         "Grows a `Device` that predates the counters to the current layout. Devnet builds only."
@@ -669,6 +801,76 @@ export type Buckspay = {
               33
             ]
           }
+        }
+      ]
+    },
+    {
+      "name": "openProofBuffer",
+      "docs": [
+        "Opens a buffer for the messages of a chain too long for one transaction."
+      ],
+      "discriminator": [
+        87,
+        164,
+        242,
+        233,
+        185,
+        97,
+        175,
+        148
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "buffer",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  111,
+                  102,
+                  45,
+                  98,
+                  117,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payer"
+              },
+              {
+                "kind": "arg",
+                "path": "nonce"
+              }
+            ]
+          }
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "nonce",
+          "type": "u64"
+        },
+        {
+          "name": "len",
+          "type": "u32"
         }
       ]
     },
@@ -1358,6 +1560,51 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "revokePreviousVk",
+      "docs": [
+        "Ends the acceptance of the previous verifying key; the pauser or the admin may call it."
+      ],
+      "discriminator": [
+        77,
+        141,
+        243,
+        251,
+        222,
+        1,
+        200,
+        194
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  122,
+                  107,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "rotateAttesterKey",
       "docs": [
         "Replaces the key that signs tickets; the old one stays accountable for `EXIT_DELAY`."
@@ -1420,6 +1667,423 @@ export type Buckspay = {
         {
           "name": "trustPrevious",
           "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "rotateVk",
+      "discriminator": [
+        154,
+        158,
+        209,
+        96,
+        215,
+        74,
+        232,
+        58
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  122,
+                  107,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "next",
+          "type": {
+            "defined": {
+              "name": "keyHashes"
+            }
+          }
+        },
+        {
+          "name": "keepPrevious",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "setZkAuthorities",
+      "discriminator": [
+        131,
+        14,
+        8,
+        186,
+        212,
+        216,
+        133,
+        220
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  122,
+                  107,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "admin",
+          "type": "pubkey"
+        },
+        {
+          "name": "pauser",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "setZkMint",
+      "discriminator": [
+        171,
+        150,
+        41,
+        56,
+        64,
+        237,
+        98,
+        132
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  122,
+                  107,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "zkMint",
+          "writable": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "globalCap",
+          "type": "u64"
+        },
+        {
+          "name": "lockCap",
+          "type": "u64"
+        },
+        {
+          "name": "recordFee",
+          "type": "u64"
+        },
+        {
+          "name": "feeAccount",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "setZkPaused",
+      "docs": [
+        "The pauser may only pause; the admin may do either."
+      ],
+      "discriminator": [
+        178,
+        250,
+        189,
+        144,
+        155,
+        130,
+        18,
+        100
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  122,
+                  107,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "paused",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "settleChainProof",
+      "docs": [
+        "Settles a chain by one batch of proofs: pays the account the last message names and",
+        "records every consumed output, with no key or signature of the chain on chain."
+      ],
+      "discriminator": [
+        129,
+        215,
+        45,
+        86,
+        29,
+        56,
+        27,
+        65
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Pays the rent of the records and of the draws account; the fee payer in the usual case."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  122,
+                  107,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "zkMint",
+          "docs": [
+            "reported as `MintNotEnabled`."
+          ],
+          "writable": true
+        },
+        {
+          "name": "lock"
+        },
+        {
+          "name": "ledger",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lock"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lock"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "destination",
+          "docs": [
+            "Any token account of the mint; the handler requires its owner to be the account the note",
+            "pays, which the proofs bind."
+          ],
+          "writable": true
+        },
+        {
+          "name": "feeAccount",
+          "writable": true
+        },
+        {
+          "name": "draws",
+          "writable": true
+        },
+        {
+          "name": "buffer",
+          "docs": [
+            "The messages, when they did not fit the transaction; closed to its payer, who is the signer."
+          ],
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "vkSha256",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "issuerKey",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        },
+        {
+          "name": "lockSeq",
+          "type": "u32"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "cumEnd",
+          "type": "u64"
+        },
+        {
+          "name": "payAmount",
+          "type": "u64"
+        },
+        {
+          "name": "expiry",
+          "type": "u32"
+        },
+        {
+          "name": "messages",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "wireMessage"
+              }
+            }
+          }
         }
       ]
     },
@@ -1873,6 +2537,72 @@ export type Buckspay = {
           "type": "u32"
         }
       ]
+    },
+    {
+      "name": "writeProofBuffer",
+      "discriminator": [
+        3,
+        226,
+        158,
+        231,
+        122,
+        154,
+        12,
+        49
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "signer": true,
+          "relations": [
+            "buffer"
+          ]
+        },
+        {
+          "name": "buffer",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  111,
+                  102,
+                  45,
+                  98,
+                  117,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payer"
+              },
+              {
+                "kind": "account",
+                "path": "buffer.nonce",
+                "account": "proofBuffer"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "offset",
+          "type": "u32"
+        },
+        {
+          "name": "data",
+          "type": "bytes"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -1929,6 +2659,19 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "proofBuffer",
+      "discriminator": [
+        71,
+        133,
+        225,
+        94,
+        9,
+        130,
+        40,
+        161
+      ]
+    },
+    {
       "name": "rotation",
       "discriminator": [
         185,
@@ -1939,6 +2682,19 @@ export type Buckspay = {
         11,
         94,
         53
+      ]
+    },
+    {
+      "name": "zkConfig",
+      "discriminator": [
+        181,
+        176,
+        242,
+        167,
+        108,
+        219,
+        13,
+        202
       ]
     }
   ],
@@ -2222,6 +2978,81 @@ export type Buckspay = {
       "code": 6055,
       "name": "deviceRequired",
       "msg": "A claim on a spend that named no lock needs the device of the lock owner"
+    },
+    {
+      "code": 6056,
+      "name": "staleVerifyingKey",
+      "msg": "The verifying key is not the one this program accepts"
+    },
+    {
+      "code": 6057,
+      "name": "proofRejected",
+      "msg": "The batch of proofs does not verify"
+    },
+    {
+      "code": 6058,
+      "name": "nonCanonicalPublic",
+      "msg": "A value of the proof's public inputs is not a canonical field element"
+    },
+    {
+      "code": 6059,
+      "name": "bufferIncomplete",
+      "msg": "The proof buffer does not hold every message yet"
+    },
+    {
+      "code": 6060,
+      "name": "bufferNotStale",
+      "msg": "The proof buffer cannot be closed yet"
+    },
+    {
+      "code": 6061,
+      "name": "bufferLength",
+      "msg": "The proof buffer has a length that holds no whole number of messages"
+    },
+    {
+      "code": 6062,
+      "name": "bufferWrite",
+      "msg": "The write does not fit the buffer or leaves a gap"
+    },
+    {
+      "code": 6063,
+      "name": "zkPaused",
+      "msg": "Private settlement is paused"
+    },
+    {
+      "code": 6064,
+      "name": "zkCapExceeded",
+      "msg": "The mint's private settlement cap for this window is exhausted"
+    },
+    {
+      "code": 6065,
+      "name": "belowRecordFee",
+      "msg": "The payment does not exceed the fee for the records it creates"
+    },
+    {
+      "code": 6066,
+      "name": "mintNotEnabled",
+      "msg": "The mint is not enabled for private settlement"
+    },
+    {
+      "code": 6067,
+      "name": "notZkAdmin",
+      "msg": "The signer is not allowed to change the private settlement configuration"
+    },
+    {
+      "code": 6068,
+      "name": "lockCapTooHigh",
+      "msg": "A lock's cap may not exceed a tenth of the mint's cap"
+    },
+    {
+      "code": 6069,
+      "name": "testKeysOnMainnet",
+      "msg": "The keys of a throwaway ceremony cannot be used on mainnet"
+    },
+    {
+      "code": 6070,
+      "name": "wrongFeeAccount",
+      "msg": "The fee account is not the one configured for the mint"
     }
   ],
   "types": [
@@ -2379,6 +3210,54 @@ export type Buckspay = {
               "Replay counter of wallet rotations."
             ],
             "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "keyHashes",
+      "docs": [
+        "The hashes of the key files the app trusts: verifying key, proving key (binary and dump) and",
+        "constraint system."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vk",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "pk",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "dump",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "ccs",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           }
         ]
       }
@@ -2553,6 +3432,45 @@ export type Buckspay = {
       }
     },
     {
+      "name": "proofBuffer",
+      "docs": [
+        "Messages written by a settler ahead of the settlement transaction that reads them. The",
+        "messages follow this header in the account, `len` bytes of them."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payer",
+            "type": "pubkey"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "len",
+            "type": "u32"
+          },
+          {
+            "name": "written",
+            "docs": [
+              "The bytes written so far; writes may not leave a gap."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "createdAt",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
       "name": "registerAttesterArgs",
       "type": {
         "kind": "struct",
@@ -2596,6 +3514,92 @@ export type Buckspay = {
           {
             "name": "effectiveAt",
             "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "wireMessage",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "content",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "nextBit",
+            "type": "u8"
+          },
+          {
+            "name": "sOut",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "proof",
+            "type": {
+              "array": [
+                "u8",
+                192
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "zkConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "pauser",
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "current",
+            "type": {
+              "defined": {
+                "name": "keyHashes"
+              }
+            }
+          },
+          {
+            "name": "previous",
+            "type": {
+              "defined": {
+                "name": "keyHashes"
+              }
+            }
+          },
+          {
+            "name": "rotatedAt",
+            "docs": [
+              "When the key before `current` was replaced; zero when no previous key is accepted."
+            ],
+            "type": "i64"
           },
           {
             "name": "bump",

@@ -59,12 +59,15 @@ const PROGRAM: &[u8] = include_bytes!(concat!(
 
 mod notes;
 mod settle;
+pub mod zk;
 pub use notes::*;
 pub use settle::*;
 
 /// The clock every environment starts at: far from both ends of the `u32` range.
 const START: i64 = 1_800_000_000;
 const SOL: u64 = 1_000_000_000;
+/// The address of every environment's mint: proofs name the mint, so it cannot be random.
+pub const MINT: Pubkey = Pubkey::new_from_array([0x4d; 32]);
 /// The SPL Memo program, which LiteSVM loads: executable, and nothing a lock should ever call.
 const MEMO_PROGRAM: Pubkey = Pubkey::from_str_const("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
 
@@ -412,13 +415,18 @@ impl Env {
     }
 
     pub fn new_with_mint(setup: MintSetup) -> Self {
-        let mut svm = LiteSVM::new();
+        Self::new_on(LiteSVM::new(), setup)
+    }
+
+    /// The environment on a given machine: the tests of private settlement load the feature set
+    /// of a cluster.
+    pub fn new_on(mut svm: LiteSVM, setup: MintSetup) -> Self {
         svm.add_program(buckspay::ID, PROGRAM).unwrap();
         let mut clock = svm.get_sysvar::<Clock>();
         clock.unix_timestamp = START;
         svm.set_sysvar(&clock);
 
-        let mint = Keypair::new().pubkey();
+        let mint = MINT;
         let (mint_authority, freeze_authority) = (Keypair::new(), Keypair::new());
         const DONATIONS: u64 = 1_000_000;
         let (data, token_program) = mint_account(

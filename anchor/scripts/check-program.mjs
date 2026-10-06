@@ -4,7 +4,7 @@
 // profile and none of the other profile's. Program ids and genesis hashes are 32-byte constants, which
 // survive compilation (stored whole, or as four 64-bit immediates). The short-windows profile has its
 // own program id, so a build with shortened windows cannot be mistaken for the pilot's program.
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 const [cluster, profile = 'production'] = process.argv.slice(2)
 const here = (path) => new URL(path, import.meta.url)
@@ -56,5 +56,23 @@ for (const [name, id] of Object.entries(ids)) {
       `buckspay.so is not a ${profile} build: it ${name === profile ? 'lacks' : 'carries'} the ${name} program id`,
     )
   }
+}
+// The verifying key the program carries must be the one of the published manifest. The keys of a
+// throwaway ceremony (deploy/zk/manifest.test.json) have a known trapdoor: never on mainnet, and a
+// mainnet build needs the manifest of a real ceremony.
+const zkDir = process.env.BUCKSPAY_ZK_DIR ?? here('../../deploy/zk/').pathname
+const vkOf = (file) => {
+  const path = `${zkDir}/${file}`
+  return existsSync(path) ? Buffer.from(JSON.parse(readFileSync(path)).VKSHA256, 'hex') : undefined
+}
+const [releaseVk, testVk] = [vkOf('manifest.json'), vkOf('manifest.test.json')]
+if (cluster === 'mainnet') {
+  if (!releaseVk) throw new Error('no mainnet build without the manifest of a finished ceremony')
+  if (testVk && carries(testVk)) throw new Error('buckspay.so carries the verifying key of a throwaway ceremony')
+}
+if (
+  releaseVk ? !carries(releaseVk) && !(cluster === 'devnet' && testVk && carries(testVk)) : !(testVk && carries(testVk))
+) {
+  throw new Error('buckspay.so does not carry the verifying key of the manifest')
 }
 console.log(`buckspay.so is a ${cluster} ${profile} build`)

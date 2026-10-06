@@ -3,7 +3,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -37,8 +37,15 @@ writeFileSync(
   }),
 )
 
+const [prodVk, testVk] = [randomBytes(32), randomBytes(32)]
+const zkDir = join(dir, 'zk')
+mkdirSync(zkDir)
+writeFileSync(join(zkDir, 'manifest.json'), JSON.stringify({ VKSHA256: prodVk.toString('hex') }))
+writeFileSync(join(zkDir, 'manifest.test.json'), JSON.stringify({ VKSHA256: testVk.toString('hex') }))
+
 /** A binary: filler, then the constants given; one of them split into four immediates to cover that encoding. */
-function binary(constants, { split = [] } = {}) {
+function binary(constants, { split = [], vk = prodVk } = {}) {
+  constants = vk ? [...constants, vk] : constants
   const parts = [randomBytes(2048)]
   for (const c of constants) {
     if (split.includes(c)) {
@@ -51,7 +58,7 @@ function binary(constants, { split = [] } = {}) {
 const run = (cluster, profile) => {
   try {
     execFileSync('node', [new URL('./check-program.mjs', import.meta.url).pathname, cluster, profile], {
-      env: { ...process.env, BUCKSPAY_DEPLOY_DIR: dir, BUCKSPAY_VECTORS: vectors },
+      env: { ...process.env, BUCKSPAY_DEPLOY_DIR: dir, BUCKSPAY_VECTORS: vectors, BUCKSPAY_ZK_DIR: zkDir },
       stdio: 'pipe',
     })
     return 'ok'
@@ -100,4 +107,15 @@ test('an unknown profile and a missing id fail loudly', () => {
   binary([devnetGenesis])
   assert.match(run('devnet', 'staging'), /unknown profile/)
   assert.match(run('devnet', 'production'), /lacks the production program id/)
+})
+
+test('the verifying key of a throwaway ceremony is refused on mainnet and a missing key everywhere', () => {
+  binary([mainnetGenesis, pilotMainnet], { vk: prodVk })
+  assert.equal(run('mainnet', 'production'), 'ok')
+  binary([mainnetGenesis, pilotMainnet, testVk])
+  assert.match(run('mainnet', 'production'), /throwaway ceremony/)
+  binary([mainnetGenesis, pilotMainnet], { vk: null })
+  assert.match(run('mainnet', 'production'), /does not carry the verifying key/)
+  binary([devnetGenesis, pilotDevnet], { vk: testVk })
+  assert.equal(run('devnet', 'production'), 'ok')
 })
