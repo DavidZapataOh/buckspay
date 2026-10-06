@@ -133,6 +133,48 @@ jobs:
       - run: pnpm codama:check
         working-directory: .
 
+  prover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: prover/go.mod
+          cache-dependency-path: prover/go.sum
+      - run: test -z "$(gofmt -l .)"
+        working-directory: prover
+      - run: go vet ./...
+        working-directory: prover
+      # The solver tests (every vector against the constraint system) and the ceremony tests; the
+      # full single-party setups run weekly.
+      - run: go test -short ./...
+        working-directory: prover
+      - run: rustup toolchain install
+        working-directory: anchor
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: anchor/tools/zk-vectors
+      - run: cargo fmt --check
+        working-directory: anchor/tools/zk-vectors
+      - run: cargo clippy --all-targets -- -D warnings
+        working-directory: anchor/tools/zk-vectors
+      - run: cargo test
+        working-directory: anchor/tools/zk-vectors
+      - run: cargo run -q -- ../../../prover/testdata/vectors.json && git diff --exit-code ../../../prover/testdata/vectors.json
+        working-directory: anchor/tools/zk-vectors
+
+  prover-full:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: prover/go.mod
+          cache-dependency-path: prover/go.sum
+      - run: go test -timeout 30m ./...
+        working-directory: prover
+
   expo-sdk:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest

@@ -71,3 +71,12 @@ id.json
 # Local native modules
 /modules/*/android/build
 /modules/*/android/.cxx
+
+# Trusted setup artifacts and ceremony transcripts are published to the key host, never committed
+/anchor/tools/zk-vectors/target
+pk.bin
+pk.dump
+ccs.bin
+*.srs
+p1-*
+p2-*

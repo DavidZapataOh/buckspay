@@ -15,6 +15,7 @@ path = '''(^|/)(fee-payer\.json|hpke(\.previous)?\.key|hpke\.pem)$'''
 description = "Committed protocol test vectors: public keys, signatures and messages of fixed test identities"
 paths = [
   '''anchor/crates/protocol/tests/vectors/[a-z0-9_]+\.json''',
+  '''prover/testdata/vectors\.json''',
 ]
 
 [[rules]]
