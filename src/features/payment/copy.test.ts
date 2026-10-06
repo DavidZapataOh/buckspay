@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PayError } from '../../payment/pay'
+import { howCopy } from '../transport/copy'
 import { copy, payErrorKey, text } from './copy'
 
 const strings = (value: unknown): string[] =>
@@ -23,6 +24,20 @@ describe('copy', () => {
     for (const sentence of strings(copy)) {
       expect(sentence.toLowerCase()).not.toMatch(/protect|insur|bounded|guarantee/)
     }
+  })
+
+  it('names the medium on the request screen and never asks to scan when there is nothing to scan', () => {
+    expect(copy.receive.requestTitle.qr).toBe('Ask the payer to scan this code')
+    expect(copy.receive.requestTitle.nfc).toBe('Hold the phones together')
+    expect(copy.receive.requestTitle.nearby).toBe('Keep the phones close and wait for the payer')
+    for (const medium of ['nfc', 'nearby'] as const) {
+      expect(copy.receive.requestTitle[medium].toLowerCase()).not.toMatch(/scan|camera|code/)
+    }
+  })
+
+  it('does not tell anyone to use the camera while waiting on Tap or Nearby', () => {
+    expect(howCopy.waitingForRequest.toLowerCase()).not.toMatch(/scan|camera|code/)
+    expect(copy.receive.waitingForPayment.toLowerCase()).not.toMatch(/scan|camera|code/)
   })
 
   it('says only what the bond does: it is destroyed if the same money is signed twice', () => {

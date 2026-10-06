@@ -83,3 +83,43 @@ class RequiredPermissionsTest {
     assertFalse(requiredPermissions(33).any { it.contains("LOCATION") })
   }
 }
+
+class ManifestPermissionsTest {
+  private val android = "http://schemas.android.com/apk/res/android"
+
+  private val declared: Map<String, List<String?>> by lazy {
+    val document =
+      javax.xml.parsers.DocumentBuilderFactory
+        .newInstance()
+        .apply { isNamespaceAware = true }
+        .newDocumentBuilder()
+        .parse(java.io.File("src/main/AndroidManifest.xml"))
+    val nodes = document.getElementsByTagName("uses-permission")
+    (0 until nodes.getLength())
+      .map { nodes.item(it) as org.w3c.dom.Element }
+      .associate { element ->
+        element.getAttributeNS(android, "name").removePrefix("android.permission.") to
+          listOf("minSdkVersion", "maxSdkVersion", "usesPermissionFlags").map {
+            element.getAttributeNS(android, it).ifEmpty { null }
+          }
+      }
+  }
+
+  @Test
+  fun declaresEveryPermissionNearbyConnectionsDocumentsForItsStrategy() {
+    val expected =
+      mapOf(
+        "ACCESS_WIFI_STATE" to listOf(null, null, null),
+        "CHANGE_WIFI_STATE" to listOf(null, null, null),
+        "BLUETOOTH" to listOf(null, "30", null),
+        "BLUETOOTH_ADMIN" to listOf(null, "30", null),
+        "ACCESS_COARSE_LOCATION" to listOf(null, "28", null),
+        "ACCESS_FINE_LOCATION" to listOf("29", "31", null),
+        "BLUETOOTH_ADVERTISE" to listOf("31", null, null),
+        "BLUETOOTH_CONNECT" to listOf("31", null, null),
+        "BLUETOOTH_SCAN" to listOf("31", null, "neverForLocation"),
+        "NEARBY_WIFI_DEVICES" to listOf("32", null, "neverForLocation"),
+      )
+    assertEquals(expected, declared)
+  }
+}

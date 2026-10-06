@@ -59,7 +59,7 @@ export default function ReceiveSession() {
     return state.name === 'scanning' && flow.how.chosen !== 'qr' ? (
       <WaitingScreen
         medium={flow.how.chosen}
-        title={copy.receive.scanning}
+        title={copy.receive.waitingForPayment}
         notice={flow.wrongCode ? copy.scan.wrongPayment : undefined}
         onCancel={flow.back}
         cancelLabel={copy.review.cancel}
@@ -138,7 +138,7 @@ export default function ReceiveSession() {
     const amount = formatMoney(request.amount, BUILD_TOKEN.decimals)
     return (
       <Screen testID="receive-request">
-        <AppText variant="headline">{copy.receive.requestTitle}</AppText>
+        <AppText variant="headline">{copy.receive.requestTitle[flow.how.chosen]}</AppText>
         {flow.texts ? (
           <QrPresenter
             texts={flow.texts}
