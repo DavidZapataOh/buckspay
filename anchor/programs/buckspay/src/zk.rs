@@ -90,7 +90,7 @@ impl Window {
     /// still overlaps the last `len` seconds stay within `cap`.
     pub fn admit(&mut self, now: i64, amount: u64, cap: u64, len: i64) -> Result<()> {
         let mut elapsed = now.saturating_sub(self.start).max(0);
-        if elapsed >= 2 * len {
+        if elapsed >= len.saturating_mul(2) {
             *self = Window {
                 start: now,
                 ..Window::default()
@@ -99,14 +99,20 @@ impl Window {
         } else if elapsed >= len {
             self.prev = self.cur;
             self.cur = 0;
-            self.start += len;
+            self.start = self.start.saturating_add(len);
             elapsed -= len;
         }
         let carried = u128::from(self.prev) * u128::try_from(len - elapsed).unwrap_or(0)
             / u128::try_from(len).unwrap_or(1);
-        let total = u128::from(self.cur) + carried + u128::from(amount);
+        let total = u128::from(self.cur)
+            .checked_add(carried)
+            .and_then(|sum| sum.checked_add(u128::from(amount)))
+            .ok_or_else(|| error!(BuckspayError::AmountOverflow))?;
         require!(total <= u128::from(cap), BuckspayError::ZkCapExceeded);
-        self.cur += amount;
+        self.cur = self
+            .cur
+            .checked_add(amount)
+            .ok_or_else(|| error!(BuckspayError::AmountOverflow))?;
         Ok(())
     }
 }
@@ -186,6 +192,68 @@ mod tests {
         assert!(keys_permitted(true, &DEVNET_GENESIS_HASH));
         assert!(keys_permitted(false, &MAINNET_GENESIS_HASH));
         assert!(keys_permitted(false, &DEVNET_GENESIS_HASH));
+    }
+
+    const EXTREME: [u64; 6] = [0, 1, u64::MAX / 2, u64::MAX - 1, u64::MAX, 86_400];
+
+    #[test]
+    fn a_window_is_total_over_extreme_inputs_and_never_exceeds_its_cap() {
+        let times = [
+            0i64,
+            1,
+            86_399,
+            86_400,
+            172_799,
+            172_800,
+            i64::from(u32::MAX),
+            i64::MAX,
+        ];
+        for len in [1i64, 2, 86_400, i64::MAX / 2 + 1, i64::MAX] {
+            for start in [i64::MIN, 0, 1, i64::from(u32::MAX), i64::MAX - 1, i64::MAX] {
+                for now in times {
+                    for (cur, prev) in EXTREME
+                        .iter()
+                        .flat_map(|c| EXTREME.iter().map(move |p| (*c, *p)))
+                    {
+                        for (amount, cap) in [
+                            (0, 0),
+                            (1, u64::MAX),
+                            (u64::MAX, u64::MAX),
+                            (u64::MAX, 0),
+                            (u64::MAX - 1, u64::MAX),
+                        ] {
+                            let before = Window { start, cur, prev };
+                            let mut window = before;
+                            let admitted = window.admit(now, amount, cap, len).is_ok();
+                            if admitted {
+                                assert!(window.cur <= cap, "{before:?} {now} {amount} {cap} {len}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_buckets_at_the_edges_of_the_day_are_weighed_exactly() {
+        let len = 86_400i64;
+        for (elapsed, weight) in [(0i64, len), (1, len - 1), (len - 1, 1)] {
+            let window = Window {
+                start: 0,
+                cur: u64::MAX,
+                prev: 0,
+            };
+            let cap = u64::try_from(
+                u128::from(u64::MAX) * u128::try_from(weight).unwrap()
+                    / u128::try_from(len).unwrap(),
+            )
+            .unwrap();
+            let mut at_cap = window;
+            assert!(at_cap.admit(len + elapsed, 0, cap, len).is_ok());
+            let mut over = window;
+            assert!(over.admit(len + elapsed, 1, cap, len).is_err());
+        }
     }
 
     proptest! {
