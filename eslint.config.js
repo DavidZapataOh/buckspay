@@ -19,6 +19,10 @@ module.exports = defineConfig([
               message: 'Sign through src/keys, which checks every message before the device key signs it.',
             },
             { group: ['**/transport/testing/**'], message: 'Test doubles live under testing/ and are for tests only.' },
+            {
+              group: ['**/modules/nearby/**'],
+              message: 'Reach Nearby through src/transport/nearby/native.ts, the only file that binds the module.',
+            },
           ],
         },
       ],
@@ -36,9 +40,17 @@ module.exports = defineConfig([
               group: ['**/modules/hardware-keys/**', '**/keys/device-key'],
               message: 'Sign through src/keys, which checks every message before the device key signs it.',
             },
+            {
+              group: ['**/modules/nearby/**'],
+              message: 'Reach Nearby through src/transport/nearby/native.ts, the only file that binds the module.',
+            },
           ],
         },
       ],
     },
+  },
+  {
+    files: ['src/transport/nearby/native.ts'],
+    rules: { 'no-restricted-imports': 'off' },
   },
 ])

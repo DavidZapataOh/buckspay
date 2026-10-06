@@ -1,0 +1,28 @@
+plugins {
+  id "com.android.library"
+  id "expo-module-gradle-plugin"
+}
+
+group = "xyz.buckspay.nearby"
+version = "0.1.0"
+
+android {
+  namespace = "xyz.buckspay.nearby"
+  defaultConfig {
+    versionCode = 1
+    versionName = "0.1.0"
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  }
+}
+
+dependencies {
+  implementation "com.google.android.gms:play-services-nearby:19.5.1"
+  testImplementation "junit:junit:4.13.2"
+  androidTestImplementation "androidx.test:runner:1.7.0"
+  androidTestImplementation "androidx.test.ext:junit:1.3.0"
+}
+
+// play-services-nearby 19.5.1 ships Kotlin 2.4 metadata for internal files; its public API is Java.
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+  compilerOptions.freeCompilerArgs.add("-Xskip-metadata-version-check")
+}

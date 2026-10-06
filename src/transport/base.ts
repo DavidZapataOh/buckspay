@@ -1,5 +1,5 @@
 import { type Message, type ReceiveOptions, type TransportEvent, TransportError, type TransportState } from './types'
-import { waitForMessage } from './wait'
+import { type Deliver, type Fail, waitForMessage } from './wait'
 
 /** What every transport shares: events, the state rules, pending receives and an idempotent close. */
 export abstract class TransportBase {
@@ -8,6 +8,10 @@ export abstract class TransportBase {
   private closed = false
   private shown = false
   private last: TransportState = 'idle'
+
+  protected get isClosed() {
+    return this.closed
+  }
 
   get state(): TransportState {
     return this.pending.size > 0 ? 'receiving' : this.shown ? 'sending' : 'idle'
@@ -45,7 +49,7 @@ export abstract class TransportBase {
 
   protected receiveWith(
     options: ReceiveOptions | undefined,
-    start: (deliver: (message: Message) => void) => () => void,
+    start: (deliver: Deliver, fail: Fail) => () => void,
   ): Promise<Message> {
     if (this.closed || options?.signal?.aborted) return Promise.reject(new TransportError('Cancelled'))
     const controller = new AbortController()

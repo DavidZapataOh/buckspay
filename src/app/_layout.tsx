@@ -79,6 +79,7 @@ function Routes() {
           <Stack.Screen name="add-funds" options={{ presentation: 'modal' }} />
           <Stack.Screen name="withdraw" options={{ presentation: 'modal' }} />
           <Stack.Screen name="pay" />
+          <Stack.Screen name="nearby" />
           <Stack.Screen name="receive/session" />
           <Stack.Screen name="activity/[id]" />
         </Stack.Protected>
