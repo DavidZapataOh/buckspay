@@ -13,7 +13,7 @@
     "android": "expo run:android",
     "android:build": "expo prebuild -p android --clean",
     "build": "tsc --noEmit && pnpm run android:build",
-    "ci": "EXPO_OFFLINE=1 expo install --check && tsc --noEmit && pnpm run lint:check && pnpm run lint:kotlin && pnpm run format:check && pnpm run android:build && pnpm run test",
+    "ci": "EXPO_OFFLINE=1 expo install --check && tsc --noEmit && pnpm run lint:check && pnpm run lint:kotlin && pnpm run format:check && pnpm run android:build && pnpm run test && pnpm run check:bundle",
     "codama:js": "codama run js -c ./anchor/codama.mjs",
     "codama:check": "pnpm run codama:js && pnpm run codama:rust && git diff --exit-code -- anchor/target anchor/src/client/js/generated gateway/client/src/generated && test -z \"$(git status --porcelain -- anchor/target anchor/src/client/js/generated gateway/client/src/generated)\"",
     "dev": "expo start --clear --dev-client --reset-cache",
@@ -28,6 +28,7 @@
     "prepare": "husky",
     "secrets:check": "gitleaks git --redact --no-banner --verbose .",
     "test": "vitest run",
+    "check:bundle": "scripts/check-production-bundle.sh",
     "codama:rust": "codama run rust -c ./anchor/codama.mjs && node -e \"const fs=require('fs');for(const n of ['close_spent','close_records']){const f='gateway/client/src/generated/instructions/'+n+'.rs';fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace('NaN + ','1 + '))}\" && cargo fmt --all --manifest-path gateway/Cargo.toml"
   },
   "description": "Offline bearer payments on Solana for Android",
