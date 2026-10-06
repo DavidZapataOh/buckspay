@@ -283,7 +283,7 @@ fn parse_steps(value: &str) -> Result<Vec<Step>, String> {
 /// root that "only the UID associated with the unit via `User=` (and the superuser)" can read,
 /// through an ACL (systemd.exec(5), "Credentials"). Their group bits only mirror that ACL, so
 /// inside that directory a key file is refused for its world bits alone.
-pub(crate) fn check_key_file(path: &Path) -> Result<(), String> {
+pub fn check_key_file(path: &Path) -> Result<(), String> {
     let credentials = env::var_os("CREDENTIALS_DIRECTORY").map(PathBuf::from);
     check_key_file_in(path, credentials.as_deref())
 }

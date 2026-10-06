@@ -6,7 +6,7 @@ use buckspay_gateway::{
         reader::Providers,
         server::{Service, router},
     },
-    config::Cluster,
+    config::{Cluster, check_key_file},
     server::{ClientAddress, bind_unix},
 };
 use buckspay_protocol::{
@@ -14,9 +14,7 @@ use buckspay_protocol::{
     profile::{PRODUCTION_DEVNET_PROGRAM_ID, SHORT_PROGRAM_ID},
 };
 use solana_pubkey::Pubkey;
-use std::{
-    env, fs, net::SocketAddr, os::unix::fs::PermissionsExt, path::Path, str::FromStr, sync::Arc,
-};
+use std::{env, fs, net::SocketAddr, path::Path, str::FromStr, sync::Arc};
 use tokio::signal::unix::{SignalKind, signal};
 use tracing::info;
 
@@ -24,15 +22,9 @@ fn required(name: &str) -> Result<String, String> {
     env::var(name).map_err(|_| format!("{name} is required"))
 }
 
-/// The 32-byte signing seed, in a file only its owner can read.
+/// The 32-byte signing seed, in a file only its owner (or the unit's systemd credential) can read.
 fn read_seed(path: &Path) -> Result<[u8; 32], String> {
-    let mode = fs::metadata(path)
-        .map_err(|_| "ATTESTER_KEY_FILE cannot be read".to_string())?
-        .permissions()
-        .mode();
-    if mode & 0o077 != 0 {
-        return Err("ATTESTER_KEY_FILE must be readable by its owner only".into());
-    }
+    check_key_file(path)?;
     fs::read(path)
         .ok()
         .and_then(|bytes| bytes.try_into().ok())
