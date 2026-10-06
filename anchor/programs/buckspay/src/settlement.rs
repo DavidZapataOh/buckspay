@@ -4,8 +4,9 @@ use anchor_lang::prelude::*;
 use buckspay_protocol::{
     chain::{self, Holding, Output},
     hash::content,
-    secp256r1::Expected,
-    window, Issue, ProtocolError, Spend,
+    record::vouched_prefix,
+    secp256r1::{Expected, MAX_SIGNATURES},
+    window, Issue, ProtocolError, Spend, MAX_DEPTH,
 };
 
 use crate::{
@@ -159,15 +160,25 @@ pub fn load_slots(presented: &[Presented], records: &[AccountInfo]) -> Result<Ve
 /// created it, which holds the hash of its body and the id of its own input. A chain whose record
 /// is there, with the same content, therefore needs the signatures of the later messages only.
 pub fn first_unverified(presented: &[Presented], slots: &[Slot]) -> usize {
-    presented
-        .iter()
-        .zip(slots)
-        .filter_map(|(p, slot)| match (p.message, slot.record) {
-            (Some(message), Some(record)) if record.content == p.content => Some(message + 1),
-            _ => None,
-        })
-        .max()
-        .unwrap_or(0)
+    vouched_prefix(presented.iter().zip(slots).map(|(p, slot)| {
+        (
+            p.message,
+            slot.record
+                .is_some_and(|record| record.content == p.content),
+        )
+    }))
+}
+
+/// The most spends a chain has: one per hop a note can have.
+pub const MAX_CHAIN_SPENDS: usize = MAX_DEPTH as usize;
+
+/// Fails with `TooManySpends` when more messages are left to verify than one precompile
+/// instruction carries.
+pub(crate) fn check_signature_budget(entries: usize, start: usize) -> Result<()> {
+    match entries.checked_sub(start) {
+        Some(left) if left <= MAX_SIGNATURES => Ok(()),
+        _ => Err(error!(BuckspayError::TooManySpends)),
+    }
 }
 
 /// Presents every message to its record. Returns whether the last one is to be paid.
@@ -244,6 +255,14 @@ mod tests {
             flags: PAID | RECLAIMED,
         }));
         assert_eq!(first_unverified(&items, &[reclaimed]), 0);
+    }
+
+    #[test]
+    fn the_signature_budget_is_eight_messages_and_never_underflows() {
+        assert!(check_signature_budget(17, 9).is_ok());
+        assert!(check_signature_budget(17, 8).is_err());
+        assert!(check_signature_budget(1, 1).is_ok());
+        assert!(check_signature_budget(1, 2).is_err());
     }
 
     #[test]

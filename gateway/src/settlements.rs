@@ -3,10 +3,12 @@
 //! limits, sends the transaction as its fee payer and signs nothing but that transaction. No
 //! wallet signs: the device signatures inside the chain are the only authority.
 use crate::{
+    batches::{Batch, PlanError, RecordView, Step, plan_batches, recorded_prefix},
     chain::{self, SIGNATURE_FEE, TokenAccount, associated_token_address},
     claims,
     fees::priority_fee,
-    float::{Kind, NewRecord, Refusal, Request as FloatRequest, Sending},
+    float::{Kind, NewRecord, Prefix, Refusal, Request as FloatRequest, Sending},
+    jobs::{JobState, SettlementJob, verdict},
     onboard::{chain_now, read},
     server::{Client, Error, Gateway},
     sponsored::{Outcome, confirm, hex_array, unreachable},
@@ -23,7 +25,7 @@ use buckspay_client::{
     types::Link,
 };
 use buckspay_protocol::{
-    Issue, Owner, Signed, Spend,
+    Issue, MAX_DEPTH, Owner, Signed, Spend,
     chain::{self as rules, Holding, Output},
     hash::{content, domain, purpose},
     lock::Windows,
@@ -44,7 +46,8 @@ use solana_rpc_client_api::{config::RpcSimulateTransactionConfig, request::Token
 use solana_signature::Signature;
 use solana_signer::Signer;
 use solana_transaction::versioned::VersionedTransaction;
-use std::{net::IpAddr, sync::Arc};
+use solana_transaction_error::TransactionError;
+use std::{net::IpAddr, sync::Arc, time::Duration};
 use tracing::{error, info, warn};
 
 /// The least compute unit limit a settlement asks for.
@@ -54,8 +57,22 @@ pub(crate) const MIN_COMPUTE_UNIT_LIMIT: u32 = 10_000;
 pub const MAX_SPENDS: usize = MAX_SIGNATURES - 1;
 /// A chain of seven spends is about 3.6 KiB of hex; the endpoints take this much.
 pub const BODY_LIMIT: usize = 16 * 1024;
-/// The most compute units a settlement may be given: seven spends need 67,000.
-pub const COMPUTE_UNIT_CEILING: u32 = 100_000;
+/// The most spends a chain has: one per hop a note can have. A chain above `MAX_SPENDS` settles in
+/// several transactions.
+pub const MAX_CHAIN_SPENDS: usize = MAX_DEPTH as usize;
+/// The most transactions the gateway sends to settle one chain: three carry sixteen spends.
+pub const MAX_BATCHES_PER_CHAIN: usize = 3;
+/// The size of a transaction v1.
+const TRANSACTION_LIMIT: usize = 4_096;
+/// Bytes a signature adds to the message of a transaction.
+const SIGNATURE_BYTES: usize = 64;
+/// How often the gateway looks again for the records of a batch that landed, and how long it waits
+/// between looks.
+const LAG_ATTEMPTS: u32 = 20;
+const LAG_WAIT: Duration = Duration::from_millis(500);
+/// The most compute units a transaction may be given: the heaviest batch of a sixteen-spend chain
+/// takes 100,378.
+pub const COMPUTE_UNIT_CEILING: u32 = 200_000;
 /// The share of the sizes the runtime counts that the loaded accounts limit adds.
 const LOADED_ACCOUNTS_MARGIN_PERCENT: u64 = 10;
 /// Bytes the runtime counts for an account besides its data.
@@ -197,8 +214,8 @@ pub(crate) fn parse_issue(value: &str) -> Result<Signed<Issue>, Problem> {
 }
 
 pub(crate) fn parse_spends(values: &[String]) -> Result<Vec<Signed<Spend>>, Problem> {
-    if values.len() > MAX_SPENDS {
-        return Err(Problem::Invalid("too many spends for one instruction"));
+    if values.len() > MAX_CHAIN_SPENDS {
+        return Err(Problem::Invalid("too many spends for a note"));
     }
     values
         .iter()
@@ -304,13 +321,7 @@ struct Reads {
     now: u32,
     token_program: Pubkey,
     /// The record each presented output has, if any.
-    records: Vec<Option<RecordState>>,
-}
-
-#[derive(Clone, Copy, Debug)]
-struct RecordState {
-    content: [u8; 32],
-    flags: u8,
+    records: Vec<Option<RecordView>>,
 }
 
 const PAID: u8 = 1;
@@ -347,7 +358,7 @@ async fn read_chain(state: &Gateway, issue: &Issue, records: &[Pubkey]) -> Resul
                 .filter(|account| {
                     account.owner == program.id() && account.data.len() as u64 == RECORD_LEN
                 })
-                .map(|account| RecordState {
+                .map(|account| RecordView {
                     content: account.data[8..40].try_into().unwrap(),
                     flags: account.data[80],
                 })
@@ -362,8 +373,10 @@ async fn read_chain(state: &Gateway, issue: &Issue, records: &[Pubkey]) -> Resul
     })
 }
 
+const UNREADABLE: &str = "Solana could not be read";
+
 fn upstream(_: Error) -> Problem {
-    Problem::Invalid("Solana could not be read")
+    Problem::Invalid(UNREADABLE)
 }
 
 /// A token account of the mint `owner` holds and can be paid to: its associated account when that
@@ -417,6 +430,18 @@ pub struct Job {
     pub request: FloatRequest,
     /// The lock's address, to read its bond again before the send.
     pub lock: Pubkey,
+    /// Transactions left to send, this one included: one for a reclaim, and for a settlement the
+    /// batches of the chain as the records on chain stand now.
+    pub remaining: usize,
+    /// The records the whole of what is left creates, which the smallest amount is priced on.
+    pub priced: u32,
+    /// The spends and the first signed message of this batch, to tell a batch that landed from
+    /// the next one.
+    pub batch: (usize, usize),
+    /// The second after which this settlement can no longer land.
+    pub deadline: u32,
+    /// The job this send is written down in, when the settlement takes several transactions.
+    pub tracked: Option<String>,
 }
 
 /// What inspecting a request found.
@@ -431,7 +456,7 @@ fn float_records(
     windows: &Windows,
     lock_until: u32,
     presented: &[(Pubkey, u32)],
-    existing: &[Option<RecordState>],
+    existing: &[Option<RecordView>],
 ) -> Vec<NewRecord> {
     let _ = program;
     presented
@@ -451,7 +476,7 @@ fn float_records(
 /// payee has a token account to be paid to.
 pub async fn inspect_settlement(
     state: &Gateway,
-    ip: IpAddr,
+    prefix: Prefix,
     request: &SettlementRequest,
 ) -> Result<Planned, Error> {
     let program = state.settings.program;
@@ -526,26 +551,11 @@ pub async fn inspect_settlement(
 
     let destination =
         token_account_of(state, &Pubkey::new_from_array(payee), &reads.token_program).await?;
-    let new = float_records(
-        &program.id(),
-        &windows,
-        reads.lock.lock_until,
-        &presented
-            .iter()
-            .zip(&addresses)
-            .map(|((_, _, expiry), address)| (*address, *expiry))
-            .collect::<Vec<_>>(),
-        &reads.records,
-    );
-    let signatures: Vec<[u8; 64]> = chain.entries.iter().map(|entry| entry.2).collect();
-    let verified: Vec<_> = chain
-        .entries
+    let wanted: Vec<(Pubkey, u32)> = presented
         .iter()
-        .map(|entry| (entry.0, entry.1))
+        .zip(&addresses)
+        .map(|((_, _, expiry), address)| (*address, *expiry))
         .collect();
-    let verification = transactions::chain_verification(&verified, &signatures).ok_or(
-        Problem::Invalid("the chain is too long for one verification"),
-    )?;
     let lock_address = program
         .find_lock_pda(&chain.issue.issuer, chain.issue.lock_seq)
         .0;
@@ -556,15 +566,98 @@ pub async fn inspect_settlement(
         token_program: reads.token_program,
         destination,
     };
-    let settle =
-        transactions::settle_note(&program, &payout, chain.issue_body, chain.links, &addresses);
+
+    // Each batch carries the issue and every body from the issue, and the signatures of the
+    // messages from `covered` to its last: the records vouch for the ones before.
+    let carried = |batch: &Batch| -> Option<Vec<Instruction>> {
+        let end = batch.spends + 1;
+        let entries = &chain.entries[batch.covered.min(end)..end];
+        let mut instructions = Vec::with_capacity(2);
+        if !entries.is_empty() {
+            let verified: Vec<_> = entries.iter().map(|entry| (entry.0, entry.1)).collect();
+            let signatures: Vec<[u8; 64]> = entries.iter().map(|entry| entry.2).collect();
+            instructions.push(transactions::chain_verification(&verified, &signatures)?);
+        }
+        instructions.push(match batch.step {
+            Step::Settle => transactions::settle_note(
+                &program,
+                &payout,
+                chain.issue_body,
+                chain.links.clone(),
+                &addresses,
+            ),
+            Step::RecordPrefix => transactions::record_prefix(
+                &program,
+                payout.payer,
+                lock_address,
+                chain.issue_body,
+                chain.links[..batch.spends].to_vec(),
+                &addresses[..batch.spends],
+            ),
+        });
+        Some(instructions)
+    };
+    let fits = |batch: &Batch| {
+        carried(batch).is_some_and(|instructions| {
+            compose(
+                state,
+                &instructions,
+                Hash::default(),
+                COMPUTE_UNIT_CEILING,
+                u32::MAX,
+                u64::MAX,
+            )
+            .is_ok_and(|message| message.serialize().len() + SIGNATURE_BYTES <= TRANSACTION_LIMIT)
+        })
+    };
+    let recorded = recorded_prefix(&chain.consumed, &reads.records);
+    let plan = plan_batches(chain.links.len(), recorded, fits).map_err(|error| match error {
+        PlanError::TooLong => Problem::Invalid("too many spends for a note"),
+        PlanError::DoesNotFit { .. } => {
+            Problem::Invalid("a batch of the chain does not fit a transaction")
+        }
+    })?;
+    if plan.len() > MAX_BATCHES_PER_CHAIN {
+        error!(
+            batches = plan.len(),
+            "a chain needs more transactions than the gateway sends"
+        );
+        return Err(
+            Problem::Invalid("the chain needs more transactions than the gateway sends").into(),
+        );
+    }
+    let batch = plan[0];
+    let instructions = carried(&batch).ok_or(Problem::Invalid(
+        "a batch of the chain does not fit a transaction",
+    ))?;
+    let priced = float_records(
+        &program.id(),
+        &windows,
+        reads.lock.lock_until,
+        &wanted,
+        &reads.records,
+    )
+    .len();
+    let in_batch = match batch.step {
+        Step::Settle => wanted.len(),
+        Step::RecordPrefix => batch.spends,
+    };
+    let new = float_records(
+        &program.id(),
+        &windows,
+        reads.lock.lock_until,
+        &wanted[..in_batch],
+        &reads.records[..in_batch],
+    );
+    let deadline =
+        window::settle_deadline_in(&windows, expiry).min(u64::from(reads.lock.lock_until));
     Ok(Planned::Send(Box::new(Job {
         kind: Kind::Settlement,
-        instructions: vec![verification, settle],
-        verified: signatures.len() as u64,
+        instructions,
+        verified: batch.signatures() as u64,
         request: FloatRequest {
             kind: Kind::Settlement,
-            prefix: ip.into(),
+            prefix,
             key: chain.entries.last().map(|entry| entry.0).unwrap(),
             issuer: chain.issue.issuer,
             lock: lock_address.to_bytes(),
@@ -575,6 +668,11 @@ pub async fn inspect_settlement(
             now: reads.now,
         },
         lock: lock_address,
+        remaining: plan.len(),
+        priced: priced as u32,
+        batch: (batch.spends, batch.covered),
+        deadline: u32::try_from(deadline).unwrap_or(u32::MAX),
+        tracked: None,
     })))
 }
 
@@ -731,6 +829,7 @@ pub async fn inspect_reclaim(
         request.deadline,
         &addresses,
     );
+    let new_records = new.len();
     Ok(Planned::Send(Box::new(Job {
         kind: Kind::Reclaim,
         instructions: vec![verification, reclaim],
@@ -748,6 +847,11 @@ pub async fn inspect_reclaim(
             now: reads.now,
         },
         lock: lock_address,
+        remaining: 1,
+        priced: new_records as u32,
+        batch: (0, 0),
+        deadline: u32::MAX,
+        tracked: None,
     })))
 }
 
@@ -852,16 +956,22 @@ pub async fn simulated_loaded_accounts_size(
     simulation.loaded_accounts_data_size.ok_or(Error::Upstream)
 }
 
-/// Sponsors a job: holds its place in the limits, builds and simulates the transaction, writes the
-/// send down, sends it as the fee payer and waits for the outcome. Every limit is checked twice,
-/// once here and once immediately before the send.
+/// Sponsors a reclaim: one transaction, and its signature.
 async fn sponsor(state: &Gateway, job: Job) -> Result<Json<serde_json::Value>, Error> {
+    let signature = sponsor_send(state, job).await?;
+    Ok(Json(json!({ "signature": signature.to_string() })))
+}
+
+/// Sponsors a transaction of a job: holds its place in the limits, builds and simulates it, writes
+/// the send down, sends it as the fee payer and waits for the outcome. Every limit is checked
+/// twice, once here and once immediately before the send.
+async fn sponsor_send(state: &Gateway, job: Job) -> Result<Signature, Error> {
     let reservation = state
         .settlements
-        .reserve(job.request.clone())
+        .reserve_priced(job.request.clone(), job.priced)
         .map_err(|refusal| limits(state, refusal, job.request.now))?;
     let fee_payer = state.fee_payer.pubkey();
-    let (blockhash, _) = state
+    let (blockhash, last_valid_block_height) = state
         .rpc
         .get_latest_blockhash_with_commitment(state.rpc.commitment())
         .await
@@ -905,6 +1015,12 @@ async fn sponsor(state: &Gateway, job: Job) -> Result<Json<serde_json::Value>, E
         .value;
     if let Some(failure) = simulation.err {
         warn!(%failure, "a settlement would fail");
+        if let (Some(key), Some(ended)) = (
+            &job.tracked,
+            verdict(&TransactionError::from(failure.clone())),
+        ) {
+            finish(state.jobs.end(key, ended));
+        }
         return Err(Error::Rejected);
     }
     let used = simulation.units_consumed.unwrap_or(0);
@@ -937,6 +1053,20 @@ async fn sponsor(state: &Gateway, job: Job) -> Result<Json<serde_json::Value>, E
     let sending = reservation
         .begin(now, slot, bond)
         .map_err(|refusal| limits(state, refusal, now))?;
+    if let Some(key) = &job.tracked
+        && state
+            .jobs
+            .sent(
+                key,
+                &transaction.signatures[0].to_string(),
+                last_valid_block_height,
+            )
+            .is_err()
+    {
+        warn!("a settlement job could not be written; nothing was sent");
+        finish(sending.failed(0));
+        return Err(Error::Upstream);
+    }
 
     let signature = match state.rpc.send_transaction(&transaction).await {
         Ok(signature) => signature,
@@ -955,7 +1085,7 @@ async fn sponsor(state: &Gateway, job: Job) -> Result<Json<serde_json::Value>, E
     };
     info!(%signature, "settlement sent");
     resolve(state, sending, &signature, fee).await?;
-    Ok(Json(json!({ "signature": signature.to_string() })))
+    Ok(signature)
 }
 
 fn finish(result: std::io::Result<()>) {
@@ -999,14 +1129,159 @@ fn limits(state: &Gateway, refusal: Refusal, now: u32) -> Error {
     Problem::Limits(refusal, retry_after).into()
 }
 
+/// The key of a settlement job: what the request names, so that the same chain is the same job.
+fn job_key(request: &SettlementRequest) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hash = Sha256::new();
+    hash.update(request.issue.as_bytes());
+    for spend in &request.spends {
+        hash.update([0]);
+        hash.update(spend.as_bytes());
+    }
+    hex::encode(&hash.finalize()[..16])
+}
+
+/// The state a refusal of a settlement puts its job in, when it is for good.
+fn ended(error: &Error) -> Option<JobState> {
+    match error {
+        Error::Settlement(Problem::Window(_)) => Some(JobState::Expired),
+        Error::Settlement(Problem::Conflict(_) | Problem::Lock("insufficient_backing")) => {
+            Some(JobState::Conflict)
+        }
+        Error::Settlement(Problem::Lock(_)) => Some(JobState::Refused),
+        Error::Settlement(Problem::Invalid(reason)) if *reason != UNREADABLE => {
+            Some(JobState::Refused)
+        }
+        _ => None,
+    }
+}
+
+/// Settles a chain: sends the transactions it takes, one after the other, each planned from what
+/// the records on chain say when it is sent. A chain that takes several is written down before
+/// the first send, so that the janitor finishes it if this task does not.
+pub(crate) async fn drive(
+    state: &Gateway,
+    prefix: Prefix,
+    request: &SettlementRequest,
+    key: &str,
+) -> Result<serde_json::Value, Error> {
+    let Some(_driving) = state.jobs.drive(key) else {
+        return Err(Error::Busy);
+    };
+    let (mut done, mut previous, mut lag) = (0usize, None, 0);
+    loop {
+        let job = match inspect_settlement(state, prefix, request).await {
+            Ok(Planned::Settled) => {
+                finish(state.jobs.end(key, JobState::Done));
+                return Ok(if done == 0 {
+                    json!({ "status": "settled" })
+                } else {
+                    json!({ "status": "settled", "batches": { "done": done, "total": done } })
+                });
+            }
+            Ok(Planned::Send(job)) => *job,
+            Err(error) => {
+                if let Some(state_of_job) = ended(&error) {
+                    finish(state.jobs.end(key, state_of_job));
+                }
+                return Err(error);
+            }
+        };
+        // The batch that landed is still what the records say: the read is behind.
+        if previous == Some(job.batch) {
+            lag += 1;
+            if lag > LAG_ATTEMPTS {
+                return Err(Error::Upstream);
+            }
+            tokio::time::sleep(LAG_WAIT).await;
+            continue;
+        }
+        lag = 0;
+        let (batch, last) = (job.batch, job.remaining == 1);
+        let tracked = state.jobs.get(key).is_some() || !last;
+        if tracked && state.jobs.get(key).is_none() {
+            let written = state.jobs.begin(SettlementJob {
+                key: key.to_owned(),
+                issue: request.issue.clone(),
+                spends: request.spends.clone(),
+                prefix,
+                created_at: job.request.now,
+                deadline: job.deadline,
+                batches_done: 0,
+                state: JobState::Pending,
+                last_signature: None,
+                last_valid_block_height: None,
+            });
+            if written.is_err() {
+                warn!("a settlement job could not be written; nothing was sent");
+                return Err(Error::Upstream);
+            }
+        }
+        let signature = sponsor_send(
+            state,
+            Job {
+                tracked: tracked.then(|| key.to_owned()),
+                ..job
+            },
+        )
+        .await?;
+        done += 1;
+        if last {
+            finish(state.jobs.end(key, JobState::Done));
+            return Ok(json!({
+                "signature": signature.to_string(),
+                "batches": { "done": done, "total": done },
+            }));
+        }
+        finish(state.jobs.landed(key));
+        previous = Some(batch);
+    }
+}
+
+/// Continues a job the gateway started and did not finish. Nothing is sent before the last
+/// transaction sent has landed or can no longer land: what is sent is what the records say.
+pub(crate) async fn resume(state: &Gateway, job: &SettlementJob) {
+    if crate::onboard::local_now() > job.deadline {
+        finish(state.jobs.end(&job.key, JobState::Expired));
+        return;
+    }
+    if let (Some(signature), Some(last_valid)) = (&job.last_signature, job.last_valid_block_height)
+        && let Ok(signature) = signature.parse::<Signature>()
+    {
+        let known = match state.rpc.get_signature_statuses(&[signature]).await {
+            Ok(statuses) => statuses.value.into_iter().next().flatten().is_some(),
+            Err(_) => return,
+        };
+        if !known {
+            match state.rpc.get_block_height().await {
+                Ok(height) if height > last_valid => {}
+                _ => return,
+            }
+        }
+    }
+    let request = SettlementRequest {
+        issue: job.issue.clone(),
+        spends: job.spends.clone(),
+    };
+    match drive(state, job.prefix, &request, &job.key).await {
+        Ok(answer) => info!(%answer, "a settlement job moved on"),
+        Err(error) => {
+            warn!("a settlement job could not move on");
+            if matches!(ended(&error), Some(JobState::Conflict)) {
+                // What made the settlement fail is the evidence of a loss.
+                let _ = claims::file(state, &request).await;
+            }
+        }
+    }
+}
+
 pub(crate) async fn settle(
     State(state): State<Arc<Gateway>>,
     Extension(Client(ip)): Extension<Client>,
     Json(request): Json<SettlementRequest>,
 ) -> Result<Json<serde_json::Value>, Error> {
-    match inspect_settlement(&state, ip, &request).await {
-        Ok(Planned::Settled) => Ok(Json(json!({ "status": "settled" }))),
-        Ok(Planned::Send(job)) => sponsor(&state, *job).await,
+    match drive(&state, ip.into(), &request, &job_key(&request)).await {
+        Ok(answer) => Ok(Json(answer)),
         Err(error) => {
             // What made the settlement fail is the evidence of a loss: nobody has to ask for it.
             if matches!(

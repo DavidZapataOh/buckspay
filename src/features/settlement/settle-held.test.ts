@@ -1,6 +1,6 @@
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { decodeSpend, encodeSpendBody, GRACE, verifySettlement } from '../../protocol'
+import { decodeSpend, encodeSpendBody, GRACE, type Spend, verifySettlement, walkChain } from '../../protocol'
 import { encodeBundle, paymentId } from '../../payment/messages'
 import { chainOf, changeOf, planRespend } from '../../payment/respend'
 import { heldOutputs, markRespendSigned, prepareRespend } from '../notes/outgoing'
@@ -18,6 +18,7 @@ import {
   receiverFor,
   requestTo,
   signIssue,
+  signSpendWith,
 } from '../../payment/testing/world'
 import { GatewayError, type SettlementGateway } from '../lock/gateway'
 import type { NoteDb } from '../notes/db'
@@ -54,6 +55,7 @@ const deps = (over: Partial<SettlementDeps> = {}): SettlementDeps => ({
   now: () => clock,
   salt: () => crypto.getRandomValues(new Uint8Array(16)),
   labelAcknowledged: async () => acknowledged,
+  noticeShown: async () => true,
   random: () => 0.5,
   attempts: new Map(),
   ...over,
@@ -89,6 +91,62 @@ async function receive(cumEnd = 5_000_000n, expiry = NOW + 72 * 3600) {
   return { issue, outputId: outcome.note.outputId }
 }
 
+/** A note the payer issued to `middle`, who passed it on to the shop. */
+async function receiveThroughAnotherHolder() {
+  const middle = party(5)
+  const issue = signIssue(payer, {
+    issuer: payer.key,
+    mint: MINT,
+    lockSeq: 3,
+    cumEnd: 5_000_000n,
+    salt: new Uint8Array(16).fill(9),
+    owner: { type: 'device', key: middle.key },
+    amount: 5_000_000n,
+    caveats: { expiry: NOW + 72 * 3600, hopsLeft: 3, flags: 0, scopeKind: 0, scope: new Uint8Array(20) },
+  })
+  const [input] = walkChain(NOTE_DOMAIN, issue, []).last
+  const spend: Spend = {
+    input: input.id,
+    lockSeq: 4,
+    salt: new Uint8Array(16).fill(3),
+    outputs: {
+      type: 'one',
+      owner: { type: 'device', key: shop.key },
+      caveats: { ...input.caveats, expiry: input.caveats.expiry - 3600, hopsLeft: 2 },
+    },
+  }
+  const tickets = [
+    makeTicket({
+      device: payer.key,
+      mint: MINT,
+      lockSeq: 3,
+      bond: 200_000_000n,
+      backing: 100_000_000n,
+      lockUntil: NOW + 30 * 86400,
+    }),
+    makeTicket({
+      device: middle.key,
+      mint: MINT,
+      lockSeq: 4,
+      bond: 200_000_000n,
+      backing: 100_000_000n,
+      lockUntil: NOW + 30 * 86400,
+    }),
+  ]
+  const outcome = await acceptPayment(
+    encodeBundle({ issue, spends: [{ message: spend, signature: signSpendWith(middle, input, spend) }], tickets }),
+    {
+      receiver: receiverFor(shop, { now: NOW + 100, attesters: [ATTESTER] }),
+      db,
+      limits: { maxPayment: 100_000_000n },
+      transport: 'qr',
+      request: null,
+    },
+  )
+  if (!outcome.accepted) throw new Error(String(outcome.reason))
+  return outcome.note.outputId
+}
+
 const stateOf = async (outputId: Uint8Array) =>
   (await db.all<{ state: string }>('SELECT state FROM received_note WHERE output_id = ?', [outputId]))[0].state
 
@@ -119,6 +177,24 @@ describe('settleHeld', () => {
     expect(new Set(sent.map((request) => request.spends.at(-1))).size).toBe(1)
     expect(signer.signatures).toBe(1)
     expect(await stateOf(outputId)).toBe('settled')
+  })
+
+  it('waits for the person to read who settling a note publishes, then settles it', async () => {
+    const outputId = await receiveThroughAnotherHolder()
+    let shown = false
+    const report = await settleHeld(deps({ noticeShown: async () => shown }))
+    expect(report).toMatchObject({ settled: 0, waiting: 1, notices: [{ holders: 1 }] })
+    expect(report.notices[0].outputId).toEqual(outputId)
+    expect(sent).toHaveLength(0)
+    expect(signer.signatures).toBe(0)
+    shown = true
+    expect(await settleHeld(deps({ noticeShown: async () => shown }))).toMatchObject({ settled: 1, notices: [] })
+    expect(await stateOf(outputId)).toBe('settled')
+  })
+
+  it('asks for no notice of a note paid straight from its issuer', async () => {
+    await receive()
+    expect(await settleHeld(deps({ noticeShown: async () => false }))).toMatchObject({ settled: 1, notices: [] })
   })
 
   it('leaves a note held when the device is locked and settles it after unlock', async () => {

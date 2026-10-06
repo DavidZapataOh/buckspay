@@ -1,4 +1,5 @@
 use governor::{DefaultKeyedRateLimiter, Quota, RateLimiter};
+use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
@@ -9,7 +10,7 @@ use std::{
 
 /// The network a request comes from: its /24 for IPv4 and its /64 for IPv6, the blocks one
 /// subscriber usually holds, so that rotating addresses inside them does not reset a limit.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Prefix {
     V4([u8; 3]),
     V6([u8; 8]),

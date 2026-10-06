@@ -11,7 +11,7 @@ use crate::{
     float::{Found, Read},
     onboard::{chain_now, read},
     server::{Error, Gateway},
-    settlements::{RECORD_LEN, RECORD_PAYER_OFFSET, spent_discriminator},
+    settlements::{RECORD_LEN, RECORD_PAYER_OFFSET, resume, spent_discriminator},
     sponsored::{Outcome, confirm, unreachable},
     transactions::{self, Withdrawal},
 };
@@ -41,6 +41,8 @@ pub const ROTATION_GRACE: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 /// Transactions one run sends at most.
 const TRANSACTIONS_PER_RUN: usize = 10;
 const COMPUTE_UNIT_LIMIT: u32 = 60_000;
+/// Settlement jobs one run takes up at most.
+const JOBS_PER_RUN: usize = 10;
 /// Settlement records one `close_spent` closes, and the compute units it is given: a pair costs
 /// a few thousand.
 const CLOSE_BATCH: usize = 20;
@@ -62,6 +64,8 @@ pub struct Report {
     pub settlements_adopted: u32,
     /// Claims closed: the rent the gateway fronted for them is back.
     pub claims_closed: u32,
+    /// Settlements of several transactions that were looked at again.
+    pub jobs_resumed: u32,
 }
 
 /// The accounts of the program of `size` bytes whose payer, at `offset`, is the gateway.
@@ -312,6 +316,10 @@ pub async fn run_once(state: &Gateway, rotation_grace: Duration) -> Result<Repor
     }
     if let Err(error) = close_claims(state, now, &mut report).await {
         warn!(?error, "the claims could not be tended");
+    }
+    for job in state.jobs.pending().iter().take(JOBS_PER_RUN) {
+        resume(state, job).await;
+        report.jobs_resumed += 1;
     }
     state
         .stuck

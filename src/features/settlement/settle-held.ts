@@ -27,6 +27,7 @@ import {
 } from '../notes/ledger'
 import type { NoteDb } from '../notes/db'
 import { settlementRequest } from './chain'
+import { needsClearNotice } from './clear-notice'
 import { settle } from './settle'
 
 /** Seconds before the window closes at which a settlement is no longer started: it could not land. */
@@ -52,6 +53,8 @@ export type SettlementDeps = {
   salt: () => Uint8Array
   /** Whether the person has read what settling in clear publishes. */
   labelAcknowledged: () => Promise<boolean>
+  /** Whether the person has read what settling this note in clear publishes of who held it. */
+  noticeShown: (outputId: string) => Promise<boolean>
   random: () => number
   /** Failures so far per note (hex of its output id); the runner keeps it between runs. */
   attempts: Map<string, number>
@@ -59,12 +62,16 @@ export type SettlementDeps = {
 
 export type Refused = { outputId: Uint8Array; kind: string; selfPay: boolean; retryAt?: number }
 
+/** A note that waits for the person to read who settling it publishes. */
+export type PendingNotice = { outputId: Uint8Array; holders: number }
+
 export type SettlementReport = {
   settled: number
   waiting: number
   failed: number
   blocked?: 'label'
   refused: Refused[]
+  notices: PendingNotice[]
   /** Seconds until the next run is worth making, when something waits. */
   retryIn?: number
 }
@@ -95,7 +102,7 @@ function settlementSpend(output: Output, me: Uint8Array, wallet: Uint8Array, sal
 export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport> {
   const { db } = deps
   const window = GRACE - SETTLEMENT_MARGIN
-  const report: SettlementReport = { settled: 0, waiting: 0, failed: 0, refused: [] }
+  const report: SettlementReport = { settled: 0, waiting: 0, failed: 0, refused: [], notices: [] }
   await expireUnsettled(db, deps.now(), window)
   const notes = await settleable(db, deps.now(), window)
   if (notes.length > 0 && !(await deps.labelAcknowledged())) {
@@ -116,6 +123,12 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
       equalBytes(o.id, note.outputId),
     )
     if (!output) throw new Error('The stored chain does not end in the note')
+    const notice = wire ? null : needsClearNotice(bundle, deps.me)
+    if (notice && !(await deps.noticeShown(key))) {
+      report.waiting++
+      report.notices.push({ outputId: note.outputId, holders: notice.holders })
+      continue
+    }
     if (!wire) {
       let body = note.settlementBody
       if (!body) {

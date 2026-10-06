@@ -1,10 +1,10 @@
-use super::Key;
+use super::{Issuer, Key};
 use anchor_lang::{prelude::Pubkey, solana_program::instruction::Instruction};
 use buckspay::{Link, SPENT_SEED};
 use buckspay_protocol::{
     chain::{self, Holding, Output},
     lock::EXPIRY_STEP,
-    record, secp256r1, Caveats, Issue, Outputs, Owner, ScopeKind, Spend,
+    record, secp256r1, Caveats, Issue, Outputs, Owner, ScopeKind, Spend, NO_LOCK,
 };
 
 /// One signed message of a chain: who must have signed which envelope.
@@ -44,6 +44,18 @@ pub fn caveats(expiry: u32, hops: u8) -> Caveats {
         scope_kind: ScopeKind::Any,
         scope: [0; 20],
     }
+}
+
+/// How a long test chain passes the note on: all of it, or half with the change kept.
+#[derive(Clone, Copy)]
+pub enum Hop {
+    One,
+    Two,
+}
+
+/// The output the last message of the chain created for its payee.
+pub fn chain_last_output(chain: &Chain) -> Output {
+    chain.last.first
 }
 
 impl Chain {
@@ -214,6 +226,84 @@ impl Chain {
                 owner1: c.owner,
             },
         })
+    }
+
+    /// An issue to `holders[0]`, a spend by each holder to the next, then a `Spend1` of the last
+    /// holder to `payee`: `holders.len()` spends (panics above 16). `Hop::Two` pays half onward
+    /// and keeps the change. Every spend names its signer's lock 0.
+    pub fn long(
+        issuer: &Issuer,
+        mint: &Pubkey,
+        amount: u64,
+        holders: &[&Issuer],
+        payee: &Pubkey,
+        hop: Hop,
+        expiry: u32,
+    ) -> Chain {
+        assert!(holders.len() <= 16);
+        let mut chain = Chain::issue(
+            &issuer.key,
+            mint,
+            0,
+            0,
+            amount,
+            holders[0].key.owner(),
+            caveats(expiry, holders.len() as u8),
+        );
+        for (i, holder) in holders.iter().enumerate() {
+            let salt = i as u8 + 1;
+            chain = match holders.get(i + 1) {
+                None => chain.spend1_to_account(&holder.key, 0, payee, NO_LOCK, salt),
+                Some(next) => match hop {
+                    Hop::One => chain.spend(&holder.key, 0, |c| Spend {
+                        input: c.id,
+                        lock_seq: 0,
+                        salt: [salt; 16],
+                        outputs: Outputs::One {
+                            owner: next.key.owner(),
+                            caveats: Caveats {
+                                hops_left: c.caveats.hops_left - 1,
+                                ..c.caveats
+                            },
+                        },
+                    }),
+                    Hop::Two => {
+                        let half = chain.last.first.amount / 2;
+                        chain.spend2(&holder.key, 0, next.key.owner(), half, 0, salt)
+                    }
+                },
+            };
+        }
+        chain
+    }
+
+    /// Replaces link `index` by a re-salted body signed by `signer` and drops the later links.
+    pub fn resign_link(&mut self, signer: &Key, index: usize, salt: u8) {
+        let domain = buckspay::note_domain();
+        let mut holding = Holding {
+            first: chain::issue_signing(&domain, &self.issue).unwrap().1,
+            second: None,
+        };
+        let input_of = |holding: &Holding, link: &Link| {
+            if link.input == 0 {
+                holding.first
+            } else {
+                holding.second.unwrap()
+            }
+        };
+        for link in &self.links[..index] {
+            let input = input_of(&holding, link);
+            let spend = Spend::decode(input.id, &link.body).unwrap();
+            let (_, envelope) = chain::spend_signing(&domain, &input, &spend).unwrap();
+            holding = chain::spend_outputs(&envelope, &input, &spend).unwrap().0;
+        }
+        let link = self.links[index].clone();
+        let input = input_of(&holding, &link);
+        let mut spend = Spend::decode(input.id, &link.body).unwrap();
+        spend.salt = [salt; 16];
+        let mut base = self.prefix(index);
+        base.last = holding;
+        *self = base.spend_raw(signer, link.input, |_| spend);
     }
 
     pub fn entries(&self) -> Vec<secp256r1::Expected> {

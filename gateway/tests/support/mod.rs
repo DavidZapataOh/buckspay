@@ -15,6 +15,7 @@ use buckspay_gateway::{
     chain::{self, Rents},
     float::{Caps as FloatCaps, SettlementLimits},
     hpke::HpkeKeys,
+    jobs::Jobs,
     limits::RequestLimits,
     server::{ClientAddress, Gateway, Limits, Settings, router},
     sponsor::{Caps, Escalation, FeeMode, SponsorLimits},
@@ -595,19 +596,48 @@ impl Sponsor {
         rents: Rents,
         per_minute: u32,
     ) -> Self {
-        let fee_payer_address = fee_payer.pubkey();
-        let gateway = Arc::new(Gateway::new(
+        Self::on_jobs(
             rpc,
             fee_payer,
+            limits,
+            float,
             settings,
+            client,
             rents,
-            Limits {
-                requests: RequestLimits::new(NonZeroU32::new(per_minute).unwrap()),
-                sponsor: limits,
-                settlements: float,
-            },
-            hpke(),
-        ));
+            per_minute,
+            Jobs::default(),
+        )
+    }
+
+    /// A gateway that keeps its settlement jobs in `jobs`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn on_jobs(
+        rpc: RpcClient,
+        fee_payer: Keypair,
+        limits: Arc<SponsorLimits>,
+        float: Arc<SettlementLimits>,
+        settings: Settings,
+        client: ClientAddress,
+        rents: Rents,
+        per_minute: u32,
+        jobs: Jobs,
+    ) -> Self {
+        let fee_payer_address = fee_payer.pubkey();
+        let gateway = Arc::new(
+            Gateway::new(
+                rpc,
+                fee_payer,
+                settings,
+                rents,
+                Limits {
+                    requests: RequestLimits::new(NonZeroU32::new(per_minute).unwrap()),
+                    sponsor: limits,
+                    settlements: float,
+                },
+                hpke(),
+            )
+            .with_jobs(jobs),
+        );
         Self {
             fee_payer: fee_payer_address,
             app: router(Arc::clone(&gateway), client),

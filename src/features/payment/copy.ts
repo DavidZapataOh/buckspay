@@ -221,6 +221,12 @@ export const copy = {
     labelContinue: 'Continue',
     labelNotNow: 'Not now',
     waiting: '{count} payments are waiting for you to settle them, by {date}',
+    noticeTitle: 'Settling in the open',
+    noticeOne: 'Settling this note in the open publishes the key and amounts of the person who held it before you.',
+    noticeMany:
+      'Settling this note in the open publishes the keys and amounts of the {count} people who held it before you.',
+    noticeSettle: 'Settle',
+    noticeWait: 'Wait',
   },
   reset: {
     title: "Reset this phone's identity?",

@@ -7,8 +7,8 @@ use buckspay_client::{
     instructions::{
         ApplyWalletRotationBuilder, CancelWalletRotationBuilder, ClaimLostSpendBuilder,
         ClaimUnbackedBuilder, CloseLockBuilder, CloseRecordsBuilder, CloseSpentBuilder,
-        CreateLockBuilder, ReclaimOutputBuilder, RegisterDeviceBuilder, ReleaseLockBuilder,
-        RequestWalletRotationBuilder, SettleNoteBuilder, WithdrawLockBuilder,
+        CreateLockBuilder, ReclaimOutputBuilder, RecordPrefixBuilder, RegisterDeviceBuilder,
+        ReleaseLockBuilder, RequestWalletRotationBuilder, SettleNoteBuilder, WithdrawLockBuilder,
     },
     types::Link,
 };
@@ -280,6 +280,25 @@ pub fn settle_note(
         .mint(payout.mint)
         .destination(payout.destination)
         .token_program(payout.token_program)
+        .issue(issue)
+        .spends(spends)
+        .add_remaining_accounts(&records(consumed));
+    program.target(builder.instruction())
+}
+
+/// `record_prefix`: records the consumed outputs of a chain without paying anyone.
+pub fn record_prefix(
+    program: &Program,
+    payer: Pubkey,
+    lock: Pubkey,
+    issue: [u8; 163],
+    spends: Vec<Link>,
+    consumed: &[Pubkey],
+) -> Instruction {
+    let mut builder = RecordPrefixBuilder::new();
+    builder
+        .payer(payer)
+        .lock(lock)
         .issue(issue)
         .spends(spends)
         .add_remaining_accounts(&records(consumed));

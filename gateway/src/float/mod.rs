@@ -40,6 +40,7 @@ pub struct Reservation {
     limits: Arc<SettlementLimits>,
     id: u64,
     request: Request,
+    priced: u32,
 }
 
 impl fmt::Debug for Reservation {
@@ -101,9 +102,21 @@ impl SettlementLimits {
 
     /// Reserves what `request` needs, or says why not. Nothing is kept for a refusal.
     pub fn reserve(self: &Arc<Self>, request: Request) -> Result<Reservation, Refusal> {
+        let priced = request.records.len() as u32;
+        self.reserve_priced(request, priced)
+    }
+
+    /// Reserves one batch of a job that creates `priced` records in all: the smallest amount is
+    /// the one for every record the job still has to create, not only this batch's.
+    pub fn reserve_priced(
+        self: &Arc<Self>,
+        request: Request,
+        priced: u32,
+    ) -> Result<Reservation, Refusal> {
         let mut s = self.state.lock().unwrap();
         self.sweep(&mut s, request.now);
-        self.admit(&s, &request, request.bond, None)?;
+        let priced = priced.max(request.records.len() as u32);
+        self.admit(&s, &request, request.bond, None, priced)?;
         let id = s.next_id;
         s.next_id += 1;
         let expires_at = request.now.saturating_add(self.caps.reservation_ttl);
@@ -118,6 +131,7 @@ impl SettlementLimits {
             limits: Arc::clone(self),
             id,
             request,
+            priced,
         })
     }
 
@@ -129,6 +143,7 @@ impl SettlementLimits {
         request: &Request,
         bond: u64,
         own: Option<u64>,
+        priced: u32,
     ) -> Result<(), Refusal> {
         let c = &self.caps;
         if s.unwritable {
@@ -149,7 +164,7 @@ impl SettlementLimits {
         let required = if new == 0 {
             c.base_min_amount
         } else {
-            per_record.saturating_mul(u64::from(new))
+            per_record.saturating_mul(u64::from(priced))
         };
         if request.amount < required {
             return Err(Refusal::BelowMinimum(required));
@@ -471,7 +486,7 @@ impl Reservation {
         if !s.pending.contains_key(&self.id) {
             return Err(Refusal::Expired);
         }
-        limits.admit(&s, &self.request, bond, Some(self.id))?;
+        limits.admit(&s, &self.request, bond, Some(self.id), self.priced)?;
         s.pending.remove(&self.id);
         let backup = s.ledger.clone();
         let r = &self.request;

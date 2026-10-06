@@ -1,13 +1,13 @@
 use anchor_lang::prelude::*;
-use buckspay_protocol::{
-    secp256r1::MAX_SIGNATURES,
-    window::{self, Settle},
-};
+use buckspay_protocol::window::{self, Settle};
 
 use crate::{
     clock::now,
     error::BuckspayError,
-    settlement::{first_unverified, load_slots, present, walk, Link, ISSUE_BODY_LEN},
+    settlement::{
+        check_signature_budget, first_unverified, load_slots, present, walk, Link, ISSUE_BODY_LEN,
+        MAX_CHAIN_SPENDS,
+    },
     state::{Lock, LOCK_SEED},
     verification::require_chain,
 };
@@ -39,7 +39,7 @@ impl<'info> RecordPrefix<'info> {
         records: &[AccountInfo<'info>],
     ) -> Result<()> {
         require!(
-            !spends.is_empty() && spends.len() < MAX_SIGNATURES,
+            !spends.is_empty() && spends.len() <= MAX_CHAIN_SPENDS,
             BuckspayError::TooManySpends
         );
         let w = walk(&crate::note_domain(), issue, spends)?;
@@ -59,6 +59,7 @@ impl<'info> RecordPrefix<'info> {
 
         let slots = load_slots(&presented, records)?;
         let start = first_unverified(&presented, &slots);
+        check_signature_budget(w.entries.len(), start)?;
         require_chain(
             &self.instructions,
             &w.entries,

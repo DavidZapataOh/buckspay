@@ -55,6 +55,8 @@ pub enum BuckspayError {
     ChainInvalid,
     #[msg("The issue does not match the lock it names")]
     WrongLock,
+    /// More spends than a note can have, or more messages to verify than one precompile
+    /// instruction carries.
     #[msg("Too many spends for one instruction")]
     TooManySpends,
     #[msg("The settlement window of the output has closed")]

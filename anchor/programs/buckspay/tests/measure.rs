@@ -397,3 +397,57 @@ fn the_loaded_accounts_limit_that_the_harness_runtime_needs() {
         named.len()
     );
 }
+
+/// The batches of chains above seven spends, in v1: `record_prefix` of 7 spends, of 13, then the
+/// settlement, each carrying only the signatures the records before it do not vouch for. The
+/// minimum over 20 fresh chains.
+#[test]
+fn batches_of_long_chains_in_v1() {
+    // (spends, [(batch spends, covered, is the settlement)])
+    type Plan<'a> = (usize, &'a [(usize, usize, bool)]);
+    let plans: [Plan; 4] = [
+        (7, &[(7, 0, true)]),
+        (10, &[(7, 0, false), (10, 8, true)]),
+        (13, &[(7, 0, false), (13, 8, true)]),
+        (16, &[(7, 0, false), (13, 8, false), (16, 14, true)]),
+    ];
+    for hop in [Hop::One, Hop::Two] {
+        for (total, batches) in plans {
+            let mut best = vec![(u64::MAX, usize::MAX); batches.len()];
+            for _ in 0..20 {
+                let mut env = Env::new(TokenKind::Classic);
+                let issuer = env.issuer(1, 400_000_000, 1_000_000_000, 60);
+                let holder = env.issuer(2, 1_000_000, 10_000_000, 60);
+                let payee = Pubkey::new_unique();
+                let dest = env.token_account_of(&payee, 0);
+                let expiry = expiry_of(&env, 10);
+                let holders = vec![&holder; total];
+                let chain = Chain::long(
+                    &issuer, &env.mint, 64_000_000, &holders, &payee, hop, expiry,
+                );
+                let payer = env.payer.pubkey();
+                for (i, (spends, covered, settles)) in batches.iter().enumerate() {
+                    let ixs = if *settles {
+                        settle_ixs_resumed(&env, &payer, &issuer, &chain, &dest, *covered)
+                    } else {
+                        record_prefix_ixs(&payer, &issuer, &chain.prefix(*spends), *covered)
+                    };
+                    let landed = env.send_v1(&ixs).unwrap();
+                    assert!(landed.size <= 4_096 && landed.units <= 200_000);
+                    best[i] = (best[i].0.min(landed.units), best[i].1.min(landed.size));
+                }
+            }
+            let name = match hop {
+                Hop::One => "Spend1",
+                Hop::Two => "Spend2",
+            };
+            for ((spends, covered, settles), (units, size)) in batches.iter().zip(&best) {
+                let step = if *settles { "settle" } else { "prefix" };
+                eprintln!(
+                    "v1 {name} chain {total}: {step} {spends} ({} signatures): {units} CU, {size} B",
+                    spends + 1 - covered
+                );
+            }
+        }
+    }
+}

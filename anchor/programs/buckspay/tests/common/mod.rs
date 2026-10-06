@@ -670,6 +670,30 @@ impl Env {
             .compute_units_consumed
     }
 
+    /// The error and the compute units of a transaction v1 that fails.
+    pub fn failed_v1(&mut self, ixs: &[Instruction]) -> (TransactionError, u64) {
+        self.svm.expire_blockhash();
+        let config = solana_message::v1::TransactionConfig {
+            compute_unit_limit: Some(1_400_000),
+            loaded_accounts_data_size_limit: Some(1_024 * 1_024),
+            ..solana_message::v1::TransactionConfig::empty()
+        };
+        let message = solana_message::v1::Message::try_compile_with_config(
+            &self.payer.pubkey(),
+            ixs,
+            self.svm.latest_blockhash(),
+            config,
+        )
+        .unwrap();
+        let tx =
+            VersionedTransaction::try_new(VersionedMessage::V1(message), &[&self.payer]).unwrap();
+        let failed = self
+            .svm
+            .send_transaction(tx)
+            .expect_err("the transaction fails");
+        (failed.err, failed.meta.compute_units_consumed)
+    }
+
     /// A deployed program that is not a token program.
     pub fn foreign_program(&self) -> Pubkey {
         MEMO_PROGRAM

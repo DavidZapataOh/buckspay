@@ -1,3 +1,4 @@
+import { bytesToHex } from '@noble/hashes/utils.js'
 import { getAddressEncoder } from '@solana/kit'
 import { addNetworkStateListener } from 'expo-network'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
@@ -7,8 +8,9 @@ import { useDeviceIdentity } from '../identity/use-device-identity'
 import { BUILD_GATEWAY } from '../lock/gateway'
 import { unsettledSummary, type Unsettled } from '../notes/ledger'
 import { nowSeconds, usePayments } from '../payment/payments-provider'
+import { isNoticeShown, markNoticeShown } from './clear-notice'
 import { acknowledgeLabel, isLabelAcknowledged } from './label'
-import { settleHeld, type SettlementReport } from './settle-held'
+import { type PendingNotice, settleHeld, type SettlementReport } from './settle-held'
 
 export type Settlement = {
   /** What this phone holds and has not seen settled. */
@@ -18,9 +20,15 @@ export type Settlement = {
   /** True while notes wait for the person to read what settling in the clear publishes. */
   labelPending: boolean
   acknowledge: () => Promise<void>
+  /** Notes that wait for the person to read who settling them publishes. */
+  notices: PendingNotice[]
+  /** The person read the notice of this note and said to settle it. */
+  confirmNotice: (outputId: Uint8Array) => Promise<void>
   /** Settles what can be settled now: when a note was received, the app opened, or the connection came back. */
   run: () => Promise<void>
 }
+
+const NO_NOTICES: PendingNotice[] = []
 
 const SettlementContext = createContext<Settlement | undefined>(undefined)
 
@@ -55,6 +63,7 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
         now: nowSeconds,
         salt: () => crypto.getRandomValues(new Uint8Array(16)),
         labelAcknowledged: isLabelAcknowledged,
+        noticeShown: isNoticeShown,
         random: Math.random,
         attempts: attempts.current,
       })
@@ -89,9 +98,18 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
     await run()
   }, [run])
 
+  const confirmNotice = useCallback(
+    async (outputId: Uint8Array) => {
+      await markNoticeShown(bytesToHex(outputId))
+      await run()
+    },
+    [run],
+  )
+
+  const notices = report?.notices ?? NO_NOTICES
   const value = useMemo<Settlement>(
-    () => ({ unsettled, report, labelPending, acknowledge, run }),
-    [unsettled, report, labelPending, acknowledge, run],
+    () => ({ unsettled, report, labelPending, acknowledge, notices, confirmNotice, run }),
+    [unsettled, report, labelPending, acknowledge, notices, confirmNotice, run],
   )
   return <SettlementContext.Provider value={value}>{children}</SettlementContext.Provider>
 }

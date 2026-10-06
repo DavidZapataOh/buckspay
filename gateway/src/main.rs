@@ -5,6 +5,7 @@ use buckspay_gateway::{
     config::{Config, Listen},
     float::{Caps as FloatCaps, SettlementLimits},
     janitor,
+    jobs::Jobs,
     limits::RequestLimits,
     server::{ClientAddress, Gateway, Limits, RPC_TIMEOUT, Settings, bind_unix, router},
     settlements,
@@ -133,18 +134,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         fee_payer = %config.fee_payer.pubkey(),
         "starting"
     );
-    let gateway = Arc::new(Gateway::new(
-        rpc,
-        config.fee_payer,
-        settings,
-        rents,
-        Limits {
-            requests: RequestLimits::new(config.requests_per_minute),
-            sponsor,
-            settlements,
-        },
-        config.hpke,
-    ));
+    let jobs = Jobs::open(&config.state_directory.join("jobs.json"))?;
+    let gateway = Arc::new(
+        Gateway::new(
+            rpc,
+            config.fee_payer,
+            settings,
+            rents,
+            Limits {
+                requests: RequestLimits::new(config.requests_per_minute),
+                sponsor,
+                settlements,
+            },
+            config.hpke,
+        )
+        .with_jobs(jobs),
+    );
     janitor::spawn(Arc::clone(&gateway), JANITOR_INTERVAL);
     let shutdown = async {
         signal(SignalKind::terminate())

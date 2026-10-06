@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use buckspay_protocol::{
-    secp256r1::MAX_SIGNATURES,
     window::{self, Settle},
     Owner as NoteOwner,
 };
@@ -10,7 +9,10 @@ use crate::{
     clock::now,
     error::BuckspayError,
     payout::pay_out,
-    settlement::{first_unverified, load_slots, present, walk, Link, ISSUE_BODY_LEN},
+    settlement::{
+        check_signature_budget, first_unverified, load_slots, present, walk, Link, ISSUE_BODY_LEN,
+        MAX_CHAIN_SPENDS,
+    },
     state::{Ledger, Lock, ESCROW_SEED, LEDGER_SEED, LOCK_SEED},
     verification::require_chain,
 };
@@ -62,7 +64,10 @@ impl<'info> SettleNote<'info> {
         spends: &[Link],
         records: &[AccountInfo<'info>],
     ) -> Result<()> {
-        require!(spends.len() < MAX_SIGNATURES, BuckspayError::TooManySpends);
+        require!(
+            spends.len() <= MAX_CHAIN_SPENDS,
+            BuckspayError::TooManySpends
+        );
         let w = walk(&crate::note_domain(), issue, spends)?;
 
         let i = &w.issue;
@@ -90,6 +95,7 @@ impl<'info> SettleNote<'info> {
 
         let slots = load_slots(&presented, records)?;
         let start = first_unverified(&presented, &slots);
+        check_signature_budget(w.entries.len(), start)?;
         require_chain(
             &self.instructions,
             &w.entries,

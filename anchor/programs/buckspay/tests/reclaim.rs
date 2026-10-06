@@ -591,19 +591,11 @@ fn long_chain(w: &W, spends: usize) -> Chain {
 }
 
 #[test]
-fn eight_spends_in_a_settlement_and_seven_in_a_reclaim_are_refused_before_anything_else() {
+fn seven_spends_in_a_reclaim_are_refused_before_anything_else() {
     let mut w = world();
     let payer = w.env.payer.pubkey();
     // The precompile instruction is a valid one for the first eight messages: the refusal comes
     // before the program looks at it.
-    let eight = long_chain(&w, 8);
-    let signatures: Vec<[u8; 64]> = eight.signed[..8].iter().map(|s| s.signature).collect();
-    let ixs = vec![
-        precompile_ix(&eight.entries()[..8], &signatures),
-        settle_ix(&w.env, &payer, &w.issuer, &eight, &w.payee_token),
-    ];
-    assert_eq!(w.env.send_v1(&ixs).unwrap_err(), code(1, E::TooManySpends));
-
     let seven = long_chain(&w, 7);
     w.after_settlement_window();
     let (entries, signatures) = reclaim_entries(&seven, 1, &w.holder.key, u32::MAX);

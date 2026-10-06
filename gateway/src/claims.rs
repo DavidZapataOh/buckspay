@@ -179,6 +179,10 @@ fn unbacked(
     chain: &Walk,
     token_program: Pubkey,
 ) -> Result<Option<Candidate>, Error> {
+    // A claim of the last output verifies the whole chain in one instruction.
+    if chain.entries.len() > MAX_SIGNATURES {
+        return Ok(None);
+    }
     let payment = chain.last.first;
     let Ok(claim) = claim_address(program_id, &payment.id) else {
         return Ok(None);

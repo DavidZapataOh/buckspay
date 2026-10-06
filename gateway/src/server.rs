@@ -3,6 +3,7 @@ use crate::{
     claims,
     float::SettlementLimits,
     hpke::{HpkeKeys, PublishedKey},
+    jobs::Jobs,
     limits::{Prefix, RateLimited, RequestLimits},
     onboard, operations,
     settlements::{self, Problem},
@@ -87,6 +88,8 @@ pub struct Gateway {
     pub sponsor: Arc<SponsorLimits>,
     /// What the gateway lends as the rent of the settlement records it pays for.
     pub settlements: Arc<SettlementLimits>,
+    /// The settlements that take several transactions, until each ends.
+    pub jobs: Jobs,
     pub hpke: HpkeKeys,
     /// What the program's accounts cost, as last read from the cluster.
     pub(crate) rents: Mutex<Rents>,
@@ -110,6 +113,12 @@ pub struct Limits {
 }
 
 impl Gateway {
+    /// Keeps the jobs in `jobs`, which survives a restart, in place of the ones in memory.
+    pub fn with_jobs(mut self, jobs: Jobs) -> Self {
+        self.jobs = jobs;
+        self
+    }
+
     pub fn new(
         rpc: RpcClient,
         fee_payer: Keypair,
@@ -125,6 +134,7 @@ impl Gateway {
             requests: limits.requests,
             sponsor: limits.sponsor,
             settlements: limits.settlements,
+            jobs: Jobs::default(),
             hpke,
             rents: Mutex::new(rents),
             pending: Mutex::default(),

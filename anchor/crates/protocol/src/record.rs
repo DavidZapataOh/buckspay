@@ -8,6 +8,19 @@ pub const CLAIM_SEED: &[u8] = b"claim";
 /// The only bump a record or claim address is derived with.
 pub const RECORD_BUMP: u8 = 255;
 
+/// How many messages of a chain its records vouch for. Each item is the index of the message that
+/// consumed an output (when a record of that output can vouch for a message at all) and whether the
+/// record exists with that message's content. A record is written only after the message, the one
+/// that created the output and everything before them were verified, and the output id commits to
+/// all of them: the result is the highest matching message plus one, gaps allowed, or 0.
+pub fn vouched_prefix(items: impl IntoIterator<Item = (Option<usize>, bool)>) -> usize {
+    items
+        .into_iter()
+        .filter_map(|(message, matches)| message.filter(|_| matches).map(|message| message + 1))
+        .max()
+        .unwrap_or(0)
+}
+
 #[cfg(feature = "verify")]
 fn derive(seed: &[u8], program: &[u8; 32], output: &[u8; 32]) -> Option<[u8; 32]> {
     let address = solana_sha256_hasher::hashv(&[
@@ -101,5 +114,35 @@ mod tests {
         for found in [only_spent, only_claim] {
             assert!(!recordable(&PROGRAM, &found.unwrap()));
         }
+    }
+}
+
+#[cfg(test)]
+mod vouched_tests {
+    use super::vouched_prefix;
+
+    #[test]
+    fn no_matching_record_vouches_for_nothing() {
+        assert_eq!(vouched_prefix([]), 0);
+        assert_eq!(vouched_prefix([(Some(1), false), (Some(2), false)]), 0);
+        assert_eq!(vouched_prefix([(None, true)]), 0);
+    }
+
+    #[test]
+    fn the_highest_matching_message_wins_and_gaps_are_allowed() {
+        assert_eq!(
+            vouched_prefix([(Some(1), true), (Some(2), false), (Some(3), true)]),
+            4
+        );
+        assert_eq!(
+            vouched_prefix([(Some(1), true), (Some(2), true), (Some(3), false)]),
+            3
+        );
+        assert_eq!(vouched_prefix([(Some(0), true)]), 1);
+    }
+
+    #[test]
+    fn a_record_that_cannot_vouch_never_counts() {
+        assert_eq!(vouched_prefix([(Some(1), true), (None, true)]), 2);
     }
 }
