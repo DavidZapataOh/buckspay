@@ -31,6 +31,7 @@ import {
 } from '../protocol'
 import { ACTIVE_PROFILE } from '../protocol/active-profile'
 import { compactLowS, sec1FromSpki } from './convert'
+import { withRecordableOutputs } from './salt'
 
 export type { Cluster }
 
@@ -124,33 +125,6 @@ async function verified(
 
 /** A message and the signature of this device over it. */
 export type Signed<T> = { message: T; signature: Uint8Array }
-
-/**
- * How many salts a signer tries before it gives up: about half of all outputs have a record
- * address, so a message with two outputs needs four tries on average and 64 fail once in 2^96.
- */
-const SALT_TRIES = 64
-
-const randomSalt = () => crypto.getRandomValues(new Uint8Array(16))
-
-/**
- * Tries `salted(salt)` with the given salt first and then with random ones until `check` stops
- * refusing it for lack of a record address, and returns the first that passes. Any other refusal is
- * the caller's to hear at once.
- */
-function withRecordableOutputs<T>(first: T, salted: (salt: Uint8Array) => T, check: (candidate: T) => void): T {
-  let candidate = first
-  for (let tries = 0; tries < SALT_TRIES; tries++) {
-    try {
-      check(candidate)
-      return candidate
-    } catch (error) {
-      if (!(error instanceof ProtocolError) || error.code !== 'Unrecordable') throw error
-      candidate = salted(randomSalt())
-    }
-  }
-  throw new ProtocolError('Unrecordable')
-}
 
 /**
  * Signs an issue by this device, in the slot of the interval it claims on its lock. The salt is
