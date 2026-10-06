@@ -58,7 +58,7 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@v6
       - run: pnpm exec expo prebuild -p android --clean
-      - run: ./gradlew :hardware-keys:testDebugUnitTest :hardware-keys:assembleDebugAndroidTest :touch-guard:assembleDebugAndroidTest :copresence:testDebugUnitTest :copresence:assembleDebugAndroidTest :nfc:testDebugUnitTest :nfc:assembleDebugAndroidTest
+      - run: ./gradlew :hardware-keys:testDebugUnitTest :hardware-keys:assembleDebugAndroidTest :touch-guard:assembleDebugAndroidTest :copresence:testDebugUnitTest :copresence:assembleDebugAndroidTest :nfc:testDebugUnitTest :nfc:assembleDebugAndroidTest :mesh:testDebugUnitTest :mesh:assembleDebugAndroidTest
         working-directory: android
       - name: Enable KVM
         run: |
@@ -71,7 +71,7 @@ jobs:
           target: google_apis
           arch: x86_64
           working-directory: android
-          script: ./gradlew :hardware-keys:connectedDebugAndroidTest :touch-guard:connectedDebugAndroidTest :copresence:connectedDebugAndroidTest
+          script: ./gradlew :hardware-keys:connectedDebugAndroidTest :touch-guard:connectedDebugAndroidTest :copresence:connectedDebugAndroidTest :mesh:connectedDebugAndroidTest
 
   program:
     runs-on: ubuntu-latest

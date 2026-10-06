@@ -1,6 +1,7 @@
 import type { NoteDb } from './db'
-import { EVENT_SCHEMA_VERSION, migrateEvent } from '../event/store'
+import { migrateEvent } from '../event/store'
 import { migrateWitness } from './witness-store'
+import { MESH_SCHEMA_VERSION, migrateMesh } from '../mesh/locked-queue'
 
 export const SCHEMA_VERSION = 1
 export const RESPEND_SCHEMA_VERSION = 3
@@ -101,13 +102,14 @@ CREATE TABLE lock_cursor (
 /** Creates the tables on a new database and applies the later migrations; refuses a database of a newer version. Versioned with `PRAGMA user_version`. */
 export async function migrate(db: NoteDb): Promise<void> {
   const [row] = await db.all<{ user_version: number }>('PRAGMA user_version')
-  if (row.user_version > EVENT_SCHEMA_VERSION)
+  if (row.user_version > MESH_SCHEMA_VERSION)
     throw new Error(`The note store is version ${row.user_version}, newer than this app.`)
   if (row.user_version < SCHEMA_VERSION)
     await db.exec(`BEGIN; ${SCHEMA} PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;`)
   await migrateWitness(db)
   await migrateRespend(db)
   await migrateEvent(db)
+  await migrateMesh(db)
 }
 
 /**

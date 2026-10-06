@@ -7,6 +7,7 @@ import { Button } from '../../components/button'
 import { ListRow } from '../../components/list-row'
 import { Screen } from '../../components/screen'
 import { StatusNote } from '../../components/status-note'
+import { MeshSettings, type MeshSettingsProps } from '../mesh/mesh-settings'
 import { keyProtection, SOFTWARE_KEY_WARNING } from '../identity/identity-copy'
 import { eventCopy } from '../event/copy'
 import { copy, text } from '../payment/copy'
@@ -23,7 +24,7 @@ export type PaymentsSettings = {
   nearbyCheck: NearbyCheckSettingsProps
 }
 
-export function Settings({ payments }: { payments?: PaymentsSettings }) {
+export function Settings({ payments, mesh }: { payments?: PaymentsSettings; mesh?: MeshSettingsProps }) {
   const { step, busy, error, wallet, device, deviceKey, disconnect } = useDeviceIdentity()
   const [forgetting, setForgetting] = useState(false)
   const checking = step === 'loading' && !error
@@ -94,6 +95,7 @@ export function Settings({ payments }: { payments?: PaymentsSettings }) {
           />
         </>
       ) : null}
+      {mesh ? <MeshSettings {...mesh} /> : null}
       <AppText variant="title" accessibilityRole="header" className="mt-4">
         Technical details
       </AppText>

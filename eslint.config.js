@@ -28,6 +28,10 @@ module.exports = defineConfig([
               message: 'Reach NFC through src/transport/nfc/native.ts, the only file that binds the module.',
             },
             {
+              group: ['**/modules/mesh/**'],
+              message: 'Reach the mesh through src/features/mesh/native.ts, the only file that binds the module.',
+            },
+            {
               group: ['**/modules/copresence/**'],
               message: 'Reach the modem through src/features/witness/native.ts, the only file that binds the module.',
             },
@@ -57,6 +61,10 @@ module.exports = defineConfig([
               message: 'Reach NFC through src/transport/nfc/native.ts, the only file that binds the module.',
             },
             {
+              group: ['**/modules/mesh/**'],
+              message: 'Reach the mesh through src/features/mesh/native.ts, the only file that binds the module.',
+            },
+            {
               group: ['**/modules/copresence/**'],
               message: 'Reach the modem through src/features/witness/native.ts, the only file that binds the module.',
             },
@@ -66,7 +74,12 @@ module.exports = defineConfig([
     },
   },
   {
-    files: ['src/transport/nearby/native.ts', 'src/transport/nfc/native.ts', 'src/features/witness/native.ts'],
+    files: [
+      'src/transport/nearby/native.ts',
+      'src/transport/nfc/native.ts',
+      'src/features/witness/native.ts',
+      'src/features/mesh/native.ts',
+    ],
     rules: { 'no-restricted-imports': 'off' },
   },
   {

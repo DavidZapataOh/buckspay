@@ -1,5 +1,8 @@
 import { router } from 'expo-router'
 import { useState } from 'react'
+import { Linking } from 'react-native'
+import { meshNative } from '../../features/mesh/native'
+import { useMesh } from '../../features/mesh/use-mesh'
 import { Settings } from '../../features/settings/settings'
 import { MIN_WINDOW, PAY_LIMITS } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
@@ -13,11 +16,18 @@ const money = (units: bigint) => `${formatMoney(units, BUILD_TOKEN.decimals)} ${
 export default function SettingsTab() {
   const { unsettled } = useSettlementRunner()
   const { witnessSettings, setWitnessSettings } = usePayments()
+  const mesh = useMesh(meshNative)
   const [requireFrom, setRequireFrom] = useState(
     witnessSettings.requireFrom === null ? '' : formatMoney(witnessSettings.requireFrom, BUILD_TOKEN.decimals),
   )
   return (
     <Settings
+      mesh={{
+        enabled: mesh.enabled,
+        problem: mesh.problem,
+        onToggle: (on) => void mesh.setEnabled(on),
+        onOpenSettings: () => void Linking.openSettings(),
+      }}
       payments={{
         unsettled: unsettled?.count ?? 0,
         limits: {

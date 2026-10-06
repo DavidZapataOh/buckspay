@@ -1,6 +1,6 @@
 import '../global.css'
 
-import { Stack } from 'expo-router'
+import { Stack, useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
 import * as SystemUI from 'expo-system-ui'
@@ -8,6 +8,7 @@ import { AppIdentity, MobileWalletProvider } from '@wallet-ui/react-native-kit'
 import { useEffect, useRef } from 'react'
 import { AccessibilityInfo } from 'react-native'
 import { DeviceIdentityProvider, useDeviceIdentity } from '../features/identity/use-device-identity'
+import { hasSeenPermissions } from '../features/mesh/first-open'
 import { BUILD_NETWORK } from '../features/network/build-network'
 import { NetworkProvider } from '../features/network/network-provider'
 import { PayFlowProvider } from '../features/pay/use-pay-flow'
@@ -55,10 +56,17 @@ export default function Layout() {
 }
 
 // The app opens without onboarding; paying and receiving open it until the device is `ready`.
+// A fresh install opens the permission screen first; it stays reachable and never needs a device.
 function Routes() {
   const { step } = useDeviceIdentity()
+  const router = useRouter()
   const [background] = useThemeColors('background')
   const previous = useRef(step)
+  useEffect(() => {
+    void hasSeenPermissions().then((seen) => {
+      if (!seen) router.replace('/permissions')
+    })
+  }, [router])
   // The window behind every screen follows the theme, so no light frame shows in dark mode.
   useEffect(() => {
     if (background) void SystemUI.setBackgroundColorAsync(background)
@@ -75,6 +83,7 @@ function Routes() {
       <StatusBar style="auto" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: background } }}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="permissions" />
         <Stack.Protected guard={step !== 'ready'}>
           <Stack.Screen name="onboarding" options={{ presentation: 'modal' }} />
         </Stack.Protected>

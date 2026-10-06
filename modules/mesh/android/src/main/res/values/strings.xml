@@ -1,0 +1,5 @@
+<resources>
+  <string name="mesh_channel">Nearby payments</string>
+  <string name="mesh_notification_title">Helping nearby payments</string>
+  <string name="mesh_turn_off">Turn off</string>
+</resources>
