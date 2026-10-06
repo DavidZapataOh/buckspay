@@ -152,7 +152,8 @@ jobs:
           anchor_version: 1.2.0
       - run: rustup toolchain install
         working-directory: anchor
-      - run: rustup toolchain install stable --profile minimal -c rustfmt,clippy
+      - run: rustup toolchain install
+        working-directory: gateway
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
