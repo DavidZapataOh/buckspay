@@ -22,6 +22,7 @@ import {
 } from '../../payment/pay'
 import { type PayContext, planPayment } from '../../payment/preflight'
 import { planRespend } from '../../payment/respend'
+import { withoutFlagged } from '../mesh/gossip'
 import { awaitRequest } from '../../payment/scan'
 import { MessageKind, type Transport, type TransportId } from '../../transport/types'
 import { useDeviceIdentity } from '../identity/use-device-identity'
@@ -196,7 +197,9 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
           salt: () => crypto.getRandomValues(new Uint8Array(16)),
           ...(await paymentContext(store, startOfToday())),
         }
-        const respent = credit ? null : planRespend(request, await heldOutputs(store, key, context.now), context)
+        const respent = credit
+          ? null
+          : planRespend(request, await withoutFlagged(store, await heldOutputs(store, key, context.now)), context)
         dispatch({
           type: 'planned',
           request,

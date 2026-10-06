@@ -1,6 +1,7 @@
 import { router } from 'expo-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Linking } from 'react-native'
+import { countFlagged } from '../../features/mesh/gossip'
 import { meshNative } from '../../features/mesh/native'
 import { useMesh } from '../../features/mesh/use-mesh'
 import { Settings } from '../../features/settings/settings'
@@ -15,7 +16,11 @@ const money = (units: bigint) => `${formatMoney(units, BUILD_TOKEN.decimals)} ${
 
 export default function SettingsTab() {
   const { unsettled } = useSettlementRunner()
-  const { witnessSettings, setWitnessSettings } = usePayments()
+  const { db, witnessSettings, setWitnessSettings } = usePayments()
+  const [warnings, setWarnings] = useState(0)
+  useEffect(() => {
+    if (db) void countFlagged(db).then(setWarnings)
+  }, [db])
   const mesh = useMesh(meshNative)
   const [requireFrom, setRequireFrom] = useState(
     witnessSettings.requireFrom === null ? '' : formatMoney(witnessSettings.requireFrom, BUILD_TOKEN.decimals),
@@ -25,6 +30,7 @@ export default function SettingsTab() {
       mesh={{
         enabled: mesh.enabled,
         problem: mesh.problem,
+        warnings,
         onToggle: (on) => void mesh.setEnabled(on),
         onOpenSettings: () => void Linking.openSettings(),
       }}

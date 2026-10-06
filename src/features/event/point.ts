@@ -1,4 +1,4 @@
-import type { Attester, Receiver } from '../../protocol'
+import { encodeSpendConflict, type Attester, type Receiver, type SpendConflict } from '../../protocol'
 import { acceptancePolicy, AttesterLedger } from '../attesters'
 import type { PaymentDomains } from '../payment/receiver'
 import { Reason } from '../../payment/reasons'
@@ -7,6 +7,8 @@ import { MIN_WINDOW } from '../pay/limits'
 import { relianceByAttester } from '../notes/ledger'
 import type { NoteDb } from '../notes/db'
 import { checkAtPoint, type PointCheck, recordAtPoint } from './consumed'
+import { acceptConflict, recordConflict } from '../mesh/gossip'
+import { passOn } from '../mesh/handlers'
 import type { PointPairing } from './payloads'
 
 const REFUSAL = {
@@ -34,15 +36,39 @@ export async function pointReceiverOf(
   })
 }
 
+/** The key a point proved to have spent twice is flagged, and the proof is passed on. */
+async function flagAtPoint(
+  db: NoteDb,
+  noteDomain: Uint8Array,
+  conflict: SpendConflict,
+  now: number,
+  advertise: ((frameId: string, frame: Uint8Array, ttlSeconds: number) => Promise<void>) | undefined,
+) {
+  const wire = encodeSpendConflict(conflict)
+  const accepted = acceptConflict(noteDomain, 'spend', wire)
+  if (!accepted.ok) return
+  if ((await recordConflict(db, { ...accepted, known: true }, wire, 'point', now)) !== 'duplicate' && advertise)
+    await passOn(db, wire, now, advertise)
+}
+
 /**
  * The check a point runs on a verified payment before it stores it: a refusal when the note is not this
  * event's or was spent at another point, and what the payment consumed recorded when it is accepted.
  */
-export function pointGate(db: NoteDb, pairing: PointPairing, noteDomain: Uint8Array, now: () => number): ReceiveGate {
+export function pointGate(
+  db: NoteDb,
+  pairing: PointPairing,
+  noteDomain: Uint8Array,
+  now: () => number,
+  advertise?: (frameId: string, frame: Uint8Array, ttlSeconds: number) => Promise<void>,
+): ReceiveGate {
   return {
     async admit(received, bundle) {
       const check = await checkAtPoint(db, pairing, noteDomain, received, bundle, now())
-      if (!check.ok) return REFUSAL[check.reason]
+      if (!check.ok) {
+        if (check.conflict) await flagAtPoint(db, noteDomain, check.conflict, now(), advertise)
+        return REFUSAL[check.reason]
+      }
       await recordAtPoint(db, pairing.eventId, check.entries)
       return null
     },

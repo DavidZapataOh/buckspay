@@ -20,7 +20,7 @@ import { useDeviceIdentity } from '../identity/use-device-identity'
 import { copy } from '../payment/copy'
 import { nowSeconds, usePayments } from '../payment/payments-provider'
 import { entriesSince } from '../event/consumed'
-import { pointGate, pointReceiverOf } from '../event/point'
+import { pointReceiverOf } from '../event/point'
 import { usePointMode } from '../event/use-point-mode'
 import { receiverOf } from '../payment/receiver'
 import { useQrSession } from '../payment/use-qr-session'
@@ -33,6 +33,7 @@ import { createTransportSlot } from '../transport/slot'
 import { useTransportChoice, useTransports } from '../transport/use-transports'
 import { MIN_WINDOW, PAY_LIMITS } from '../pay/limits'
 import { BUILD_MINT_BYTES, BUILD_TOKEN } from '../pay/tokens'
+import { receiveGate } from './receive-gate'
 import { initialReceiveState, receiveReducer, type ReceiveState } from './receive-reducer'
 
 export type ReceiveFlow = {
@@ -155,7 +156,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
         limits: { maxPayment: PAY_LIMITS.maxPayment },
         transport: used.current,
         request: { amount: request.amount, memo: request.memo },
-        gate: point ? pointGate(db, point.pairing, domains.noteDomain, nowSeconds) : undefined,
+        gate: receiveGate(db, point, domains.noteDomain),
       }
     }
     void receivePayment(context, transport.current, {

@@ -19,7 +19,14 @@ globalThis.IS_REACT_NATIVE_TEST_ENVIRONMENT = true
 
 type Props = Parameters<typeof MeshSettings>[0]
 const render = async (props: Partial<Props>) => {
-  const all: Props = { enabled: false, problem: undefined, onToggle: vi.fn(), onOpenSettings: vi.fn(), ...props }
+  const all: Props = {
+    enabled: false,
+    problem: undefined,
+    warnings: 0,
+    onToggle: vi.fn(),
+    onOpenSettings: vi.fn(),
+    ...props,
+  }
   return { all, root: (await act(async () => create(<MeshSettings {...all} />))).root }
 }
 const texts = (root: ReactTestInstance) => root.findAllByType('Text' as never).map((node) => node.props.children)
@@ -33,6 +40,11 @@ describe('mesh settings', () => {
     act(() => off.root.findByProps({ testID: 'mesh-switch' }).props.onValueChange(true))
     expect(off.all.onToggle).toHaveBeenCalledWith(true)
     expect(texts((await render({ enabled: true })).root)).toContain(meshCopy.status.on)
+  })
+
+  it('counts the warnings this phone received, and says so when there are none', async () => {
+    expect(texts((await render({ warnings: 0 })).root)).toContain(meshCopy.warnings(0))
+    expect(texts((await render({ warnings: 3 })).root)).toContain('Warnings received: 3')
   })
 
   it('offers the way out of each problem', async () => {

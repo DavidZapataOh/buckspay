@@ -4,6 +4,7 @@ import { addNetworkStateListener } from 'expo-network'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { AppState } from 'react-native'
 import { signSpend } from '../../keys'
+import { registerSettler } from '../mesh/settle-flagged'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { BUILD_GATEWAY } from '../lock/gateway'
 import { unsettledSummary, type Unsettled } from '../notes/ledger'
@@ -91,6 +92,8 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
       clearTimeout(timer.current)
     }
   }, [run])
+
+  useEffect(() => registerSettler(run), [run])
 
   const acknowledge = useCallback(async () => {
     await acknowledgeLabel()

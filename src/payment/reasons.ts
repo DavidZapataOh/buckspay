@@ -15,6 +15,7 @@ export const Reason = {
   OverLimit: 10,
   AboveMax: 11,
   NotSaved: 12,
+  KeyFlagged: 13,
 } as const
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export type Reason = (typeof Reason)[keyof typeof Reason]

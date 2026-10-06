@@ -12,6 +12,7 @@ export const meshCopy = {
     permissionNeeded: 'Permission needed',
     unsupported: 'Not available on this phone',
   },
+  warnings: (count: number) => `Warnings received: ${count}`,
   turnOn: 'Turn on',
   openSettings: 'Open settings',
 } as const

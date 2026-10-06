@@ -176,6 +176,8 @@ export const copy = {
     [Reason.DoubleSpend]: 'This payer already used that part of their bond for another payment. Nothing was received.',
     [Reason.OverLimit]: 'This payer has reached the most this phone accepts against their bond.',
     [Reason.AboveMax]: 'This is more than the {max} this phone accepts in one payment.',
+    [Reason.KeyFlagged]:
+      'Someone in this payment’s history paid twice, and the phones nearby know it. Nothing was received.',
     [Reason.NotSaved]: "This phone couldn't save the payment. Nothing was received. Try again.",
   } satisfies Record<Exclude<Reason, typeof Reason.Accepted>, string>,
   activity: {
