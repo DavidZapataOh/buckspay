@@ -23,6 +23,10 @@ module.exports = defineConfig([
               group: ['**/modules/nearby/**'],
               message: 'Reach Nearby through src/transport/nearby/native.ts, the only file that binds the module.',
             },
+            {
+              group: ['**/modules/copresence/**'],
+              message: 'Reach the modem through src/features/witness/native.ts, the only file that binds the module.',
+            },
           ],
         },
       ],
@@ -44,13 +48,17 @@ module.exports = defineConfig([
               group: ['**/modules/nearby/**'],
               message: 'Reach Nearby through src/transport/nearby/native.ts, the only file that binds the module.',
             },
+            {
+              group: ['**/modules/copresence/**'],
+              message: 'Reach the modem through src/features/witness/native.ts, the only file that binds the module.',
+            },
           ],
         },
       ],
     },
   },
   {
-    files: ['src/transport/nearby/native.ts'],
+    files: ['src/transport/nearby/native.ts', 'src/features/witness/native.ts'],
     rules: { 'no-restricted-imports': 'off' },
   },
 ])

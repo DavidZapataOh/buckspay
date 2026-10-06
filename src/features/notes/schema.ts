@@ -1,4 +1,5 @@
 import type { NoteDb } from './db'
+import { migrateWitness, WITNESS_SCHEMA_VERSION } from './witness-store'
 
 export const SCHEMA_VERSION = 1
 
@@ -91,11 +92,12 @@ CREATE TABLE lock_cursor (
 );
 `
 
-/** Creates the tables on a new database; refuses a database of a newer version. Versioned with `PRAGMA user_version`. */
+/** Creates the tables on a new database and applies the later migrations; refuses a database of a newer version. Versioned with `PRAGMA user_version`. */
 export async function migrate(db: NoteDb): Promise<void> {
   const [row] = await db.all<{ user_version: number }>('PRAGMA user_version')
-  if (row.user_version > SCHEMA_VERSION)
+  if (row.user_version > WITNESS_SCHEMA_VERSION)
     throw new Error(`The note store is version ${row.user_version}, newer than this app.`)
-  if (row.user_version === SCHEMA_VERSION) return
-  await db.exec(`BEGIN; ${SCHEMA} PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;`)
+  if (row.user_version < SCHEMA_VERSION)
+    await db.exec(`BEGIN; ${SCHEMA} PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;`)
+  await migrateWitness(db)
 }

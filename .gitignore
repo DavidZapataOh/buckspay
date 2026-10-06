@@ -70,3 +70,4 @@ id.json
 
 # Local native modules
 /modules/*/android/build
+/modules/*/android/.cxx

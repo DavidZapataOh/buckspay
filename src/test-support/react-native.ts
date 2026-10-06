@@ -6,6 +6,7 @@ export const Pressable = 'Pressable'
 export const ScrollView = 'ScrollView'
 export const Text = 'Text'
 export const View = 'View'
+export const Switch = 'Switch'
 
 export const AppState = { addEventListener: () => ({ remove: () => {} }) }
 export const Platform = { OS: 'android', Version: 36 }

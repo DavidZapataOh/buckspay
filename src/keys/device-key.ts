@@ -16,6 +16,7 @@ import {
   domain,
   encodeIssueBody,
   encodeSpendBody,
+  encodeWitnessBody,
   envelope,
   EXPIRY_STEP,
   interval,
@@ -28,6 +29,7 @@ import {
   reclaimEnvelope,
   type Spend,
   verifySignature,
+  type WitnessBody,
 } from '../protocol'
 import { ACTIVE_PROFILE } from '../protocol/active-profile'
 import { compactLowS, sec1FromSpki } from './convert'
@@ -218,8 +220,20 @@ export async function signReclaim(output: Output, deadline: number): Promise<Uin
 const signed = (purpose: SignedPurpose) => (slot: Uint8Array, digest: Uint8Array) =>
   verified(purpose, slot, digest, () => HardwareKeys.sign(purpose, slot, digest))
 
-// Its message is not defined yet: internal to `src/keys` until it is.
+// Takes a caller digest, so it stays internal to `src/keys`: `signWitnessRecord` is the typed entry point.
 export const signWitness = signed(Purpose.Witness)
+
+/**
+ * Signs the statement that this device key answered the receiver's challenge for `body.paymentId`.
+ * The slot is the payment id and the digest is the hash of the body, both built here from the structure.
+ * Refuses a body whose `payerKey` is not this device's key, and a malformed body. Returns compact low-S,
+ * verified against the key before it returns.
+ */
+export async function signWitnessRecord(body: WitnessBody): Promise<Uint8Array> {
+  const digest = content(encodeWitnessBody(body))
+  if (!equalBytes(body.payerKey, await ownKey())) throw new ProtocolError('Signer')
+  return signWitness(body.paymentId, digest)
+}
 
 /**
  * Signs this device key's consent to being bound to `wallet`, for `register_device`. The native

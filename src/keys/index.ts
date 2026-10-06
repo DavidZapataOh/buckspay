@@ -14,4 +14,5 @@ export {
   signIssue,
   signReclaim,
   signSpend,
+  signWitnessRecord,
 } from './device-key'

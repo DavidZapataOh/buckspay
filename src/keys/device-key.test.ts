@@ -11,6 +11,7 @@ import {
   domain,
   encodeIssueBody,
   encodeSpendBody,
+  encodeWitnessBody,
   envelope,
   EXPIRY_STEP,
   GRACE,
@@ -27,6 +28,9 @@ import {
   type Spend,
   verifySettlement,
   verifySignature,
+  verifyWitness,
+  type WitnessBody,
+  WitnessError,
 } from '../protocol'
 import * as keys from '.'
 import * as internal from './device-key'
@@ -250,10 +254,18 @@ describe('device key', () => {
       'signIssue',
       'signReclaim',
       'signSpend',
+      'signWitnessRecord',
     ])
     expect(keys).toHaveProperty('resetDeviceIdentity')
     const signers = Object.keys(internal).filter((name) => name.startsWith('sign'))
-    expect(signers.sort()).toEqual(['signDeviceBinding', 'signIssue', 'signReclaim', 'signSpend', 'signWitness'])
+    expect(signers.sort()).toEqual([
+      'signDeviceBinding',
+      'signIssue',
+      'signReclaim',
+      'signSpend',
+      'signWitness',
+      'signWitnessRecord',
+    ])
     await keys.createDeviceKey()
     const digest = new Uint8Array(32).fill(2)
     await expect(HardwareKeys.sign('device' as never, walletBytes, digest)).rejects.toThrow('ERR_INVALID_ENVELOPE')
@@ -367,5 +379,59 @@ describe('device key', () => {
 
   it('records the cluster it signs for', () => {
     expect(keys.deviceKeyCluster()).toBe('devnet')
+  })
+
+  describe('signWitnessRecord', () => {
+    const witnessBody = (payerKey: Uint8Array, over: Partial<WitnessBody> = {}): WitnessBody => ({
+      paymentId: new Uint8Array(32).fill(0x77),
+      payerKey,
+      receiverKey: p256.getPublicKey(new Uint8Array(32).fill(2), true),
+      challenge: Uint8Array.from({ length: 8 }, (_, i) => i + 1),
+      issuedAt: 1_800_000_000,
+      channel: 1,
+      ...over,
+    })
+    const witnessDomain = domain(Purpose.Witness, DEVNET_GENESIS_HASH, programId)
+
+    it('signs the body under the witness domain', async () => {
+      const { publicKey } = await keys.createDeviceKey()
+      const body = witnessBody(publicKey)
+      const signature = await keys.signWitnessRecord(body)
+      expect(signature).toHaveLength(64)
+      expect(() => verifyWitness(witnessDomain, { ...body, signature })).not.toThrow()
+    })
+
+    it('asks the module for the payment id as slot and the body hash as digest', async () => {
+      const { publicKey } = await keys.createDeviceKey()
+      const body = witnessBody(publicKey)
+      const sign = vi.spyOn(HardwareKeys, 'sign')
+      await keys.signWitnessRecord(body)
+      expect(sign).toHaveBeenCalledTimes(1)
+      expect(sign).toHaveBeenCalledWith('witness', body.paymentId, content(encodeWitnessBody(body)))
+    })
+
+    it('refuses a body for another payer key', async () => {
+      await keys.createDeviceKey()
+      const sign = vi.spyOn(HardwareKeys, 'sign')
+      const other = p256.getPublicKey(new Uint8Array(32).fill(3), true)
+      await expect(keys.signWitnessRecord(witnessBody(other))).rejects.toThrow(code('Signer'))
+      expect(sign).not.toHaveBeenCalled()
+    })
+
+    it('refuses a malformed body', async () => {
+      const { publicKey } = await keys.createDeviceKey()
+      const sign = vi.spyOn(HardwareKeys, 'sign')
+      await expect(keys.signWitnessRecord(witnessBody(publicKey, { challenge: new Uint8Array(7) }))).rejects.toThrow(
+        WitnessError,
+      )
+      expect(sign).not.toHaveBeenCalled()
+    })
+
+    it('throws when the module returns a signature that does not verify', async () => {
+      const { publicKey } = await keys.createDeviceKey()
+      const zero = new Uint8Array(32)
+      vi.spyOn(HardwareKeys, 'sign').mockImplementationOnce(() => HardwareKeys.signNote(zero, zero))
+      await expect(keys.signWitnessRecord(witnessBody(publicKey))).rejects.toThrow(code('Signature'))
+    })
   })
 })
