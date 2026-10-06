@@ -103,6 +103,8 @@ pub enum FinalReason {
     Window,
     Conflict,
     Lock,
+    StaleKey,
+    BelowFee,
 }
 
 /// What the payer is told. `Refused` is only for what `settlements::ended` ends for good: any
@@ -119,7 +121,14 @@ pub enum Answer {
 impl Answer {
     /// The JSON of the answer, zero-padded to `RESPONSE_PAD`.
     pub fn padded_json(&self) -> Vec<u8> {
-        let body = match self {
+        let mut bytes = serde_json::to_vec(&self.body()).expect("an answer is JSON");
+        bytes.resize(RESPONSE_PAD, 0);
+        bytes
+    }
+
+    /// The JSON of the answer.
+    pub fn body(&self) -> serde_json::Value {
+        match self {
             Answer::Submitted => json!({ "status": "submitted" }),
             Answer::Settled { signature } => json!({ "status": "settled", "signature": signature }),
             Answer::Duplicate => json!({ "status": "duplicate" }),
@@ -133,12 +142,11 @@ impl Answer {
                     FinalReason::Window => "window",
                     FinalReason::Conflict => "conflict",
                     FinalReason::Lock => "lock",
+                    FinalReason::StaleKey => "stale_key",
+                    FinalReason::BelowFee => "below_fee",
                 },
             }),
-        };
-        let mut bytes = serde_json::to_vec(&body).expect("an answer is JSON");
-        bytes.resize(RESPONSE_PAD, 0);
-        bytes
+        }
     }
 }
 
@@ -154,8 +162,13 @@ pub fn answer_for(outcome: &Result<Planned, Error>) -> Answer {
                     FinalReason::Conflict
                 }
                 Error::Settlement(Problem::Lock(_)) => FinalReason::Lock,
+                Error::Settlement(Problem::StaleKey) => FinalReason::StaleKey,
+                Error::Settlement(Problem::BelowFee) => FinalReason::BelowFee,
                 _ => FinalReason::Invalid,
             },
+        },
+        Err(Error::Settlement(Problem::CapExhausted(seconds))) => Answer::Retry {
+            retry_after: u64::from(*seconds),
         },
         Err(Error::Settlement(Problem::Limits(_, retry_after))) => Answer::Retry {
             retry_after: retry_after.map_or(RETRY_AFTER, u64::from),
@@ -367,6 +380,7 @@ async fn settle(state: &Arc<Gateway>, request: SettlementRequest) -> Answer {
             not_before: Some(local_now().saturating_add(
                 u32::from_le_bytes(random_bytes()) % (state.relay.delay_max_secs + 1),
             )),
+            zk: None,
         };
     match state.jobs.begin(row.clone()) {
         Ok(true) => {

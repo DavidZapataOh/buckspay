@@ -128,6 +128,10 @@ pub struct Config {
     pub state_directory: PathBuf,
     pub max_priority_fee: u64,
     pub requests_per_minute: NonZeroU32,
+    /// Native verifications of private settlements one network may ask for in a minute.
+    pub zk_verifications_per_minute: NonZeroU32,
+    /// Where the key files of private settlement are published, under `/zk/<vkSha256>/`.
+    pub zk_keys_url: Option<String>,
     /// The longest random wait, in seconds, before a relayed settlement is sent.
     pub relay_delay_max_secs: u32,
     /// Relayed settlements sponsored in one day, all relayers together.
@@ -243,6 +247,8 @@ impl Config {
                 .into(),
             max_priority_fee,
             requests_per_minute: var("REQUESTS_PER_MINUTE", "30")?,
+            zk_verifications_per_minute: var("ZK_VERIFICATIONS_PER_MINUTE", "6")?,
+            zk_keys_url: env::var("ZK_KEYS_URL").ok().filter(|url| !url.is_empty()),
             relay_delay_max_secs: var("RELAY_DELAY_MAX_SECS", "30")?,
             relay_daily_cap: var("RELAY_DAILY_CAP", "1000")?,
             caps: Caps {

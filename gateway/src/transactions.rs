@@ -6,9 +6,10 @@ use buckspay_client::{
     Program,
     instructions::{
         ApplyWalletRotationBuilder, CancelWalletRotationBuilder, ClaimLostSpendBuilder,
-        ClaimUnbackedBuilder, CloseLockBuilder, CloseRecordsBuilder, CloseSpentBuilder,
-        CreateLockBuilder, ReclaimOutputBuilder, RecordPrefixBuilder, RegisterDeviceBuilder,
-        ReleaseLockBuilder, RequestWalletRotationBuilder, SettleNoteBuilder, WithdrawLockBuilder,
+        ClaimUnbackedBuilder, CloseLockBuilder, CloseProofBufferBuilder, CloseRecordsBuilder,
+        CloseSpentBuilder, CreateLockBuilder, ReclaimOutputBuilder, RecordPrefixBuilder,
+        RegisterDeviceBuilder, ReleaseLockBuilder, RequestWalletRotationBuilder, SettleNoteBuilder,
+        WithdrawLockBuilder,
     },
     types::Link,
 };
@@ -283,6 +284,13 @@ pub fn settle_note(
         .issue(issue)
         .spends(spends)
         .add_remaining_accounts(&records(consumed));
+    program.target(builder.instruction())
+}
+
+/// `close_proof_buffer`: returns the rent of a buffer nobody settled to its payer.
+pub fn close_proof_buffer(program: &Program, payer: Pubkey, buffer: Pubkey) -> Instruction {
+    let mut builder = CloseProofBufferBuilder::new();
+    builder.payer(payer).buffer(buffer);
     program.target(builder.instruction())
 }
 

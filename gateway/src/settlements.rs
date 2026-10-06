@@ -135,6 +135,14 @@ pub enum Problem {
     NoTokenAccount,
     /// The lock does not exist, does not back the issue or holds too little.
     Lock(&'static str),
+    /// The batch is proved under a key the program no longer accepts.
+    StaleKey,
+    /// The settlement would pay the fee for its records and nothing more.
+    BelowFee,
+    /// Private settlement is paused or not configured for the mint: it resumes by itself.
+    Paused,
+    /// The mint's or the lock's draws of the window are used up: seconds until room returns.
+    CapExhausted(u32),
     /// The program refuses the claim: nothing the wallet can do by paying for it.
     Claim(&'static str),
     Limits(Refusal, Option<u32>),
@@ -155,6 +163,16 @@ impl IntoResponse for Problem {
             Problem::Lock(message) | Problem::Claim(message) => {
                 (StatusCode::CONFLICT, json!({ "error": message }))
             }
+            Problem::StaleKey => (StatusCode::CONFLICT, json!({ "error": "stale_key" })),
+            Problem::BelowFee => (StatusCode::CONFLICT, json!({ "error": "below_fee" })),
+            Problem::Paused => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                json!({ "error": "paused" }),
+            ),
+            Problem::CapExhausted(seconds) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                json!({ "error": "cap", "retryAfter": seconds }),
+            ),
             Problem::Limits(refusal, retry_after) => limits_response(refusal, *retry_after),
         };
         // A refusal the wallet can get round by paying for the transaction itself.
@@ -306,7 +324,7 @@ pub(crate) fn walk(
     })
 }
 
-fn record_address(program: &Pubkey, output: &[u8; 32]) -> Result<Pubkey, Problem> {
+pub(crate) fn record_address(program: &Pubkey, output: &[u8; 32]) -> Result<Pubkey, Problem> {
     record::address(&program.to_bytes(), output)
         .map(Pubkey::new_from_array)
         .ok_or(Problem::Invalid(
@@ -315,16 +333,16 @@ fn record_address(program: &Pubkey, output: &[u8; 32]) -> Result<Pubkey, Problem
 }
 
 /// What a request needs the chain to say, read once at the gateway's commitment.
-struct Reads {
-    lock: Lock,
-    ledger: Ledger,
-    now: u32,
-    token_program: Pubkey,
+pub(crate) struct Reads {
+    pub(crate) lock: Lock,
+    pub(crate) ledger: Ledger,
+    pub(crate) now: u32,
+    pub(crate) token_program: Pubkey,
     /// The record each presented output has, if any.
-    records: Vec<Option<RecordView>>,
+    pub(crate) records: Vec<Option<RecordView>>,
 }
 
-const PAID: u8 = 1;
+pub(crate) const PAID: u8 = 1;
 
 /// What a record account holds, or `None` when the account is no record of the program.
 pub(crate) fn record_view(program: &Pubkey, account: Option<Account>) -> Option<RecordView> {
@@ -337,8 +355,21 @@ pub(crate) fn record_view(program: &Pubkey, account: Option<Account>) -> Option<
 }
 
 async fn read_chain(state: &Gateway, issue: &Issue, records: &[Pubkey]) -> Result<Reads, Problem> {
+    read_chain_with(state, &issue.issuer, issue.lock_seq, records, &[])
+        .await
+        .map(|(reads, _)| reads)
+}
+
+/// The same, with the accounts `extra` read in the same call and returned beside it.
+pub(crate) async fn read_chain_with(
+    state: &Gateway,
+    issuer: &[u8; 33],
+    lock_seq: u32,
+    records: &[Pubkey],
+    extra: &[Pubkey],
+) -> Result<(Reads, Vec<Option<Account>>), Problem> {
     let program = state.settings.program;
-    let lock_address = program.find_lock_pda(&issue.issuer, issue.lock_seq).0;
+    let lock_address = program.find_lock_pda(issuer, lock_seq).0;
     let ledger_address = program.find_ledger_pda(&lock_address).0;
     let mut addresses = vec![
         lock_address,
@@ -347,7 +378,9 @@ async fn read_chain(state: &Gateway, issue: &Issue, records: &[Pubkey]) -> Resul
         state.settings.mint,
     ];
     addresses.extend_from_slice(records);
+    addresses.extend_from_slice(extra);
     let mut accounts = read(state, &addresses).await.map_err(upstream)?;
+    let extra = accounts.split_off(accounts.len() - extra.len());
     let lock = accounts[0]
         .as_ref()
         .and_then(|account| Lock::from_bytes(&account.data).ok())
@@ -365,13 +398,14 @@ async fn read_chain(state: &Gateway, issue: &Issue, records: &[Pubkey]) -> Resul
         .drain(4..)
         .map(|account| record_view(&program.id(), account))
         .collect();
-    Ok(Reads {
+    let reads = Reads {
         lock,
         ledger,
         now,
         token_program,
         records,
-    })
+    };
+    Ok((reads, extra))
 }
 
 pub(crate) const UNREADABLE: &str = "Solana could not be read";
@@ -383,7 +417,7 @@ fn upstream(_: Error) -> Problem {
 /// A token account of the mint `owner` holds and can be paid to: its associated account when that
 /// is one, else the first the cluster lists. The gateway creates none: the rent of a token account
 /// is a gift a wallet can take back by closing it.
-async fn token_account_of(
+pub(crate) async fn token_account_of(
     state: &Gateway,
     owner: &Pubkey,
     token_program: &Pubkey,
@@ -443,6 +477,8 @@ pub struct Job {
     pub deadline: u32,
     /// The job this send is written down in, when the settlement takes several transactions.
     pub tracked: Option<String>,
+    /// The most compute units the transaction may be given.
+    pub ceiling: u32,
 }
 
 /// What inspecting a request found.
@@ -452,7 +488,7 @@ pub enum Planned {
     Send(Box<Job>),
 }
 
-fn float_records(
+pub(crate) fn float_records(
     program: &Pubkey,
     windows: &Windows,
     lock_until: u32,
@@ -674,6 +710,7 @@ pub async fn inspect_settlement(
         batch: (batch.spends, batch.covered),
         deadline: u32::try_from(deadline).unwrap_or(u32::MAX),
         tracked: None,
+        ceiling: COMPUTE_UNIT_CEILING,
     })))
 }
 
@@ -853,6 +890,7 @@ pub async fn inspect_reclaim(
         batch: (0, 0),
         deadline: u32::MAX,
         tracked: None,
+        ceiling: COMPUTE_UNIT_CEILING,
     })))
 }
 
@@ -908,13 +946,32 @@ pub(crate) fn compose(
     loaded_accounts: u32,
     priority_fee: u64,
 ) -> Result<VersionedMessage, Error> {
+    compose_for(
+        &state.fee_payer.pubkey(),
+        instructions,
+        blockhash,
+        compute_unit_limit,
+        loaded_accounts,
+        priority_fee,
+    )
+}
+
+/// The same for a fee payer that is given.
+pub(crate) fn compose_for(
+    fee_payer: &Pubkey,
+    instructions: &[Instruction],
+    blockhash: Hash,
+    compute_unit_limit: u32,
+    loaded_accounts: u32,
+    priority_fee: u64,
+) -> Result<VersionedMessage, Error> {
     let config = v1::TransactionConfig {
         priority_fee: Some(priority_fee),
         compute_unit_limit: Some(compute_unit_limit),
         loaded_accounts_data_size_limit: Some(loaded_accounts),
         heap_size: None,
     };
-    v1::Message::try_compile_with_config(&state.fee_payer.pubkey(), instructions, blockhash, config)
+    v1::Message::try_compile_with_config(fee_payer, instructions, blockhash, config)
         .map(VersionedMessage::V1)
         .map_err(|_| Error::BadRequest("the transaction cannot be built"))
 }
@@ -966,7 +1023,7 @@ async fn sponsor(state: &Gateway, job: Job) -> Result<Json<serde_json::Value>, E
 /// Sponsors a transaction of a job: holds its place in the limits, builds and simulates it, writes
 /// the send down, sends it as the fee payer and waits for the outcome. Every limit is checked
 /// twice, once here and once immediately before the send.
-async fn sponsor_send(state: &Gateway, job: Job) -> Result<Signature, Error> {
+pub(crate) async fn sponsor_send(state: &Gateway, job: Job) -> Result<Signature, Error> {
     let reservation = state
         .settlements
         .reserve_priced(job.request.clone(), job.priced)
@@ -994,9 +1051,9 @@ async fn sponsor_send(state: &Gateway, job: Job) -> Result<Signature, Error> {
         state,
         &job.instructions,
         blockhash,
-        COMPUTE_UNIT_CEILING,
+        job.ceiling,
         loaded,
-        priority(COMPUTE_UNIT_CEILING),
+        priority(job.ceiling),
     )?;
     let simulation = state
         .rpc
@@ -1026,8 +1083,8 @@ async fn sponsor_send(state: &Gateway, job: Job) -> Result<Signature, Error> {
     }
     let used = simulation.units_consumed.unwrap_or(0);
     let limit = u32::try_from(used + used * 3 / 10)
-        .unwrap_or(COMPUTE_UNIT_CEILING)
-        .clamp(MIN_COMPUTE_UNIT_LIMIT, COMPUTE_UNIT_CEILING);
+        .unwrap_or(job.ceiling)
+        .clamp(MIN_COMPUTE_UNIT_LIMIT, job.ceiling);
     let fee = SIGNATURE_FEE * (1 + job.verified) + priority(limit);
     let message = compose(
         state,
@@ -1089,7 +1146,7 @@ async fn sponsor_send(state: &Gateway, job: Job) -> Result<Signature, Error> {
     Ok(signature)
 }
 
-fn finish(result: std::io::Result<()>) {
+pub(crate) fn finish(result: std::io::Result<()>) {
     if let Err(error) = result {
         error!(%error, "the settlement ledger could not be written; sponsoring stopped");
     }
@@ -1149,7 +1206,9 @@ pub(crate) fn ended(error: &Error) -> Option<JobState> {
         Error::Settlement(Problem::Conflict(_) | Problem::Lock("insufficient_backing")) => {
             Some(JobState::Conflict)
         }
-        Error::Settlement(Problem::Lock(_)) => Some(JobState::Refused),
+        Error::Settlement(Problem::Lock(_) | Problem::StaleKey | Problem::BelowFee) => {
+            Some(JobState::Refused)
+        }
         Error::Settlement(Problem::Invalid(reason)) if *reason != UNREADABLE => {
             Some(JobState::Refused)
         }
@@ -1213,6 +1272,7 @@ pub(crate) async fn drive(
                 last_signature: None,
                 last_valid_block_height: None,
                 not_before: None,
+                zk: None,
             });
             if written.is_err() {
                 warn!("a settlement job could not be written; nothing was sent");
@@ -1267,6 +1327,13 @@ pub(crate) async fn resume(state: &Gateway, job: &SettlementJob) {
             }
         }
     }
+    if let Some(private) = &job.zk {
+        match crate::zk::resume(state, job, private).await {
+            Ok(answer) => info!(%answer, "a private settlement job moved on"),
+            Err(_) => warn!("a private settlement job could not move on"),
+        }
+        return;
+    }
     let request = SettlementRequest {
         issue: job.issue.clone(),
         spends: job.spends.clone(),
@@ -1283,11 +1350,23 @@ pub(crate) async fn resume(state: &Gateway, job: &SettlementJob) {
     }
 }
 
+/// What `/v1/settlements` takes: a chain in the clear, or a private settlement by proofs.
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub(crate) enum Body {
+    Private(crate::zk::ZkRequest),
+    Clear(SettlementRequest),
+}
+
 pub(crate) async fn settle(
     State(state): State<Arc<Gateway>>,
     Extension(Client(ip)): Extension<Client>,
-    Json(request): Json<SettlementRequest>,
+    Json(body): Json<Body>,
 ) -> Result<Json<serde_json::Value>, Error> {
+    let request = match body {
+        Body::Clear(request) => request,
+        Body::Private(request) => return crate::zk::submit(&state, ip.into(), request).await,
+    };
     match drive(&state, ip.into(), &request, &job_key(&request)).await {
         Ok(answer) => Ok(Json(answer)),
         Err(error) => {

@@ -12,6 +12,7 @@ use buckspay_gateway::{
     settlements,
     sponsor::SponsorLimits,
     sponsored::{CONFIRM_TIMEOUT, PENDING_TTL},
+    zk::Zk,
 };
 use buckspay_protocol::lock::Windows;
 use solana_commitment_config::CommitmentConfig;
@@ -136,6 +137,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         fee_payer = %config.fee_payer.pubkey(),
         "starting"
     );
+    let mut zk = Zk::new(config.zk_verifications_per_minute);
+    if let Some(url) = config.zk_keys_url {
+        zk = zk.with_keys_url(url);
+    }
     let jobs = Jobs::open(&config.state_directory.join("jobs.json"))?;
     let gateway = Arc::new(
         Gateway::new(
@@ -151,7 +156,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             config.hpke,
         )
         .with_jobs(jobs)
-        .with_relay(Relay::with_delay(config.relay_delay_max_secs)),
+        .with_relay(Relay::with_delay(config.relay_delay_max_secs))
+        .with_zk(zk),
     );
     relay::resume_pending(&gateway);
     janitor::spawn(Arc::clone(&gateway), JANITOR_INTERVAL);

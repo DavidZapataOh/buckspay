@@ -276,8 +276,18 @@ pub struct Issuer {
 impl Issuer {
     /// Onboards a fresh device with a lock of `bond` and `backing` that lasts `seconds` more.
     pub async fn new(sponsor: &Sponsor, bond: u64, backing: u64, seconds: u32) -> Self {
+        Self::with_device(sponsor, Device::random(), bond, backing, seconds).await
+    }
+
+    /// The same for a device that is given.
+    pub async fn with_device(
+        sponsor: &Sponsor,
+        device: Device,
+        bond: u64,
+        backing: u64,
+        seconds: u32,
+    ) -> Self {
         let wallet = wallet(bond + backing).await;
-        let device = Device::random();
         let lock_until = chain_now().await + seconds;
         let prepared = sponsor
             .prepare(

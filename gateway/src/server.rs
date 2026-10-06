@@ -93,6 +93,7 @@ pub struct Gateway {
     pub jobs: Jobs,
     pub hpke: HpkeKeys,
     pub relay: Relay,
+    pub zk: crate::zk::Zk,
     /// What the program's accounts cost, as last read from the cluster.
     pub(crate) rents: Mutex<Rents>,
     /// Prepared transactions by device key.
@@ -120,6 +121,11 @@ impl Gateway {
         self
     }
 
+    pub fn with_zk(mut self, zk: crate::zk::Zk) -> Self {
+        self.zk = zk;
+        self
+    }
+
     /// Keeps the jobs in `jobs`, which survives a restart, in place of the ones in memory.
     pub fn with_jobs(mut self, jobs: Jobs) -> Self {
         self.jobs = jobs;
@@ -144,6 +150,7 @@ impl Gateway {
             jobs: Jobs::default(),
             hpke,
             relay: Relay::default(),
+            zk: crate::zk::Zk::default(),
             rents: Mutex::new(rents),
             pending: Mutex::default(),
             rotation_keys: Mutex::default(),
@@ -180,6 +187,7 @@ pub struct Client(pub IpAddr);
 pub fn router(state: Arc<Gateway>, client: ClientAddress) -> Router {
     let limited = Router::new()
         .route("/v1/hpke-config", get(hpke_config))
+        .route("/v1/zk-config", get(crate::zk::config))
         .route("/v1/onboarding/quote", get(onboard::quote))
         .route("/v1/onboard", post(onboard::prepare))
         .route("/v1/onboard/submit", post(sponsored::submit))

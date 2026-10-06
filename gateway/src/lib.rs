@@ -21,3 +21,4 @@ pub mod settlements;
 pub mod sponsor;
 pub mod sponsored;
 pub mod transactions;
+pub mod zk;

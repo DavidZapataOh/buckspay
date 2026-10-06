@@ -589,6 +589,7 @@ fn job_of(note: &Note, not_before: Option<u32>) -> SettlementJob {
         last_signature: None,
         last_valid_block_height: None,
         not_before,
+        zk: None,
     }
 }
 

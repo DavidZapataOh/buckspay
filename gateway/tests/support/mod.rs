@@ -54,6 +54,7 @@ use std::{
 use tower::ServiceExt;
 
 mod notes;
+pub mod zk;
 pub use notes::*;
 
 const SHORT_PROGRAM: &str = concat!(
@@ -108,7 +109,7 @@ fn start() -> (Cluster, Mutex<Child>) {
              --rpc-port {rpc_port} --faucet-port {faucet} --gossip-port {gossip} \
              --url devnet --clone-upgradeable-program {token} \
              --clone-upgradeable-program {token_2022} \
-             --upgradeable-program {program} {SHORT_PROGRAM} none > {ledger}.log 2>&1 & \
+             --upgradeable-program {program} {SHORT_PROGRAM} {authority} > {ledger}.log 2>&1 & \
              validator=$!; read -r _; kill $validator",
             ledger = ledger.display(),
             faucet = free_port(),
@@ -116,6 +117,7 @@ fn start() -> (Cluster, Mutex<Child>) {
             token = chain::TOKEN_PROGRAM,
             token_2022 = chain::TOKEN_2022_PROGRAM,
             program = SHORT_PROGRAM_ID,
+            authority = zk::admin().pubkey(),
         );
         let child = Command::new("bash")
             .args(["-c", &command])
@@ -138,7 +140,7 @@ fn start() -> (Cluster, Mutex<Child>) {
         });
         assert!(ready.join().unwrap(), "the validator did not start");
         let payer = Keypair::new();
-        let mint = Keypair::new();
+        let mint = Keypair::new_from_array([0x4d; 32]);
         let rpc = solana_rpc_client::rpc_client::RpcClient::new_with_commitment(
             url.clone(),
             CommitmentConfig::confirmed(),

@@ -16,6 +16,7 @@ description = "Committed protocol test vectors: public keys, signatures and mess
 paths = [
   '''anchor/crates/protocol/tests/vectors/[a-z0-9_]+\.json''',
   '''prover/testdata/vectors\.json''',
+  '''gateway/tests/fixtures/zk_requests\.json''',
 ]
 
 [[rules]]

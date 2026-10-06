@@ -14,6 +14,7 @@ use crate::{
     settlements::{RECORD_LEN, RECORD_PAYER_OFFSET, resume, spent_discriminator},
     sponsored::{Outcome, confirm, unreachable},
     transactions::{self, Withdrawal},
+    zk::{STALE_BUFFER_SECS, account_discriminator},
 };
 use base64::{Engine, prelude::BASE64_STANDARD};
 use buckspay_client::accounts::{Device, Ledger, Lock, Rotation};
@@ -49,6 +50,9 @@ const CLOSE_BATCH: usize = 20;
 const CLOSE_COMPUTE_UNIT_LIMIT: u32 = 100_000;
 const OFFSET_OF_LEDGER_PAYER: usize = 32;
 const OFFSET_OF_ROTATION_PAYER: usize = 40;
+/// Where a proof buffer says when it was created: after its discriminator, payer, nonce, length
+/// and the bytes written.
+const BUFFER_CREATED_AT_OFFSET: usize = 56;
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Report {
@@ -66,6 +70,8 @@ pub struct Report {
     pub claims_closed: u32,
     /// Settlements of several transactions that were looked at again.
     pub jobs_resumed: u32,
+    /// Proof buffers nobody settled within their stale time: the rent is back.
+    pub buffers_closed: u32,
 }
 
 /// The accounts of the program of `size` bytes whose payer, at `offset`, is the gateway.
@@ -322,6 +328,9 @@ pub async fn run_once(state: &Gateway, rotation_grace: Duration) -> Result<Repor
         resume(state, job).await;
         report.jobs_resumed += 1;
     }
+    if let Err(error) = close_buffers(state, now, &mut report).await {
+        warn!(?error, "the proof buffers could not be tended");
+    }
     state
         .stuck
         .store(u64::from(report.stuck), Ordering::Relaxed);
@@ -368,6 +377,72 @@ async fn close_claims(state: &Gateway, now: u64, report: &mut Report) -> Result<
         info!(claims = pairs.len(), "returned the rent of claims");
     } else {
         warn!("a claim close did not land");
+    }
+    Ok(())
+}
+
+/// The proof buffers whose rent can come back: the ones created `STALE_BUFFER_SECS` before `now`
+/// or earlier, by their addresses.
+fn stale_buffers(found: &[(Pubkey, u32)], now: u64) -> Vec<Pubkey> {
+    found
+        .iter()
+        .filter(|(_, created_at)| u64::from(*created_at) + u64::from(STALE_BUFFER_SECS) <= now)
+        .map(|(address, _)| *address)
+        .collect()
+}
+
+/// Closes the proof buffers of settlements that were never finished, as their payer.
+async fn close_buffers(state: &Gateway, now: u64, report: &mut Report) -> Result<(), Error> {
+    let program = state.settings.program;
+    let payer = state.fee_payer.pubkey();
+    let accounts = state
+        .rpc
+        .get_program_ui_accounts_with_config(
+            &program.id(),
+            RpcProgramAccountsConfig {
+                filters: Some(vec![
+                    RpcFilterType::Memcmp(Memcmp::new_base58_encoded(
+                        0,
+                        &account_discriminator("ProofBuffer"),
+                    )),
+                    RpcFilterType::Memcmp(Memcmp::new_base58_encoded(8, payer.as_ref())),
+                ]),
+                account_config: RpcAccountInfoConfig {
+                    encoding: Some(solana_account_decoder_client_types::UiAccountEncoding::Base64),
+                    data_slice: Some(UiDataSliceConfig {
+                        offset: BUFFER_CREATED_AT_OFFSET,
+                        length: 4,
+                    }),
+                    commitment: Some(state.rpc.commitment()),
+                    ..RpcAccountInfoConfig::default()
+                },
+                ..RpcProgramAccountsConfig::default()
+            },
+        )
+        .await
+        .map_err(unreachable)?;
+    let found: Vec<(Pubkey, u32)> = accounts
+        .into_iter()
+        .filter_map(|(address, account)| {
+            let account = account_of(account)?;
+            Some((
+                address,
+                u32::from_le_bytes(account.data.get(..4)?.try_into().ok()?),
+            ))
+        })
+        .collect();
+    for address in stale_buffers(&found, now).into_iter().take(CLOSE_BATCH) {
+        if send(
+            state,
+            &[transactions::close_proof_buffer(&program, payer, address)],
+        )
+        .await
+        {
+            report.buffers_closed += 1;
+            info!("returned the rent of a proof buffer");
+        } else {
+            warn!("a proof buffer close did not land");
+        }
     }
     Ok(())
 }
@@ -542,6 +617,17 @@ mod tests {
             due(&ledger(true, 0), &lock(until), false, release_at, &W),
             Due::Close
         );
+    }
+
+    #[test]
+    fn only_the_buffers_past_their_stale_time_are_closed() {
+        let (fresh, stale) = (Pubkey::new_unique(), Pubkey::new_unique());
+        let now = 10_000u64;
+        let found = [
+            (fresh, (now - u64::from(STALE_BUFFER_SECS) + 1) as u32),
+            (stale, (now - u64::from(STALE_BUFFER_SECS)) as u32),
+        ];
+        assert_eq!(stale_buffers(&found, now), vec![stale]);
     }
 
     #[test]

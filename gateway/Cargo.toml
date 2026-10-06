@@ -22,12 +22,18 @@ path = "src/attester_main.rs"
 name = "buckspay-gateway"
 path = "src/main.rs"
 
+[features]
+default = ["zk-test-keys"]
+# Pins the verifying keys of a throwaway ceremony, the ones the program is built with.
+zk-test-keys = ["buckspay-zk-verify/test-keys"]
+
 [dependencies]
 axum = "0.8.9"
 chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["alloc"] }
 ed25519-dalek = { version = "2.2.0", default-features = false }
 base64 = "0.22.1"
 buckspay-client = { path = "client" }
+buckspay-zk-verify = { path = "../anchor/crates/zk-verify", default-features = false }
 buckspay-protocol = { path = "../anchor/crates/protocol", features = ["verify"] }
 governor = "0.10.4"
 hpke = { version = "0.14.1", default-features = false, features = ["alloc", "chacha", "x25519"] }

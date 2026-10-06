@@ -49,6 +49,9 @@ pub struct SettlementJob {
     /// The second before which a relayed job is not sent: the gateway's random delay.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub not_before: Option<u32>,
+    /// The private settlement the job finishes, in place of `issue` and `spends`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zk: Option<crate::zk::ZkRequest>,
 }
 
 /// The state a failed simulation of a batch puts a job in, when it is not transient.
@@ -62,6 +65,10 @@ pub fn verdict(failure: &TransactionError) -> Option<JobState> {
     } else if [
         E::WrongPayee,
         E::ChainInvalid,
+        E::ProofRejected,
+        E::StaleVerifyingKey,
+        E::NonCanonicalPublic,
+        E::BelowRecordFee,
         E::LockEnded,
         E::SettlementClosed,
         E::WrongLock,
@@ -219,6 +226,7 @@ mod tests {
             last_signature: None,
             last_valid_block_height: None,
             not_before: None,
+            zk: None,
         }
     }
 
