@@ -131,8 +131,22 @@ pub fn claim_unbacked_ixs(
     mint: &Pubkey,
     chain: &Chain,
 ) -> Vec<Instruction> {
+    claim_unbacked_resumed_ixs(payer, lock, mint, chain, 0)
+}
+
+/// The same with the signatures of the messages before `covered` left out: records vouch for them.
+pub fn claim_unbacked_resumed_ixs(
+    payer: &Pubkey,
+    lock: &Pubkey,
+    mint: &Pubkey,
+    chain: &Chain,
+    covered: usize,
+) -> Vec<Instruction> {
     let payment = chain.last.first;
-    let signatures: Vec<[u8; 64]> = chain.signed.iter().map(|s| s.signature).collect();
+    let signatures: Vec<[u8; 64]> = chain.signed[covered..]
+        .iter()
+        .map(|s| s.signature)
+        .collect();
     let mut accounts = buckspay::accounts::ClaimUnbacked {
         payer: *payer,
         lock: *lock,
@@ -151,18 +165,20 @@ pub fn claim_unbacked_ixs(
             .iter()
             .map(|output| AccountMeta::new_readonly(record_account(output), false)),
     );
-    vec![
-        precompile_ix(&chain.entries(), &signatures),
-        Instruction {
-            program_id: buckspay::ID,
-            accounts,
-            data: buckspay::instruction::ClaimUnbacked {
-                issue: chain.issue_body,
-                spends: chain.links.clone(),
-            }
-            .data(),
-        },
-    ]
+    let mut ixs = vec![];
+    if !signatures.is_empty() {
+        ixs.push(precompile_ix(&chain.entries()[covered..], &signatures));
+    }
+    ixs.push(Instruction {
+        program_id: buckspay::ID,
+        accounts,
+        data: buckspay::instruction::ClaimUnbacked {
+            issue: chain.issue_body,
+            spends: chain.links.clone(),
+        }
+        .data(),
+    });
+    ixs
 }
 
 pub fn close_records_ix(pairs: &[(Pubkey, Pubkey)]) -> Instruction {

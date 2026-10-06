@@ -899,6 +899,33 @@ pub async fn send_as(payer: &Keypair, instructions: &[Instruction]) {
         .unwrap();
 }
 
+/// The same as a transaction v1: the size of one holds what a legacy transaction cannot.
+pub async fn send_v1_as(payer: &Keypair, instructions: &[Instruction]) {
+    let rpc = rpc(&cluster().url);
+    let config = solana_message::v1::TransactionConfig {
+        priority_fee: Some(0),
+        compute_unit_limit: Some(200_000),
+        loaded_accounts_data_size_limit: Some(1_024 * 1_024),
+        heap_size: None,
+    };
+    let message = solana_message::VersionedMessage::V1(
+        solana_message::v1::Message::try_compile_with_config(
+            &payer.pubkey(),
+            instructions,
+            rpc.get_latest_blockhash().await.unwrap(),
+            config,
+        )
+        .unwrap(),
+    );
+    let transaction = solana_transaction::versioned::VersionedTransaction {
+        signatures: vec![payer.sign_message(&message.serialize())],
+        message,
+    };
+    rpc.send_and_confirm_transaction(&transaction)
+        .await
+        .unwrap();
+}
+
 /// Waits until the chain's own clock reaches `unix`.
 pub async fn wait_for_chain(unix: u32) {
     while chain_now().await < unix {

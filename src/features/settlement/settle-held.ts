@@ -28,7 +28,7 @@ import {
 import type { NoteDb } from '../notes/db'
 import { settlementRequest } from './chain'
 import { needsClearNotice } from './clear-notice'
-import { settle } from './settle'
+import { type ClaimOutcome, fileClaim, settle } from './settle'
 
 /** Seconds before the window closes at which a settlement is no longer started: it could not land. */
 export const SETTLEMENT_MARGIN = 120
@@ -65,12 +65,21 @@ export type Refused = { outputId: Uint8Array; kind: string; selfPay: boolean; re
 /** A note that waits for the person to read who settling it publishes. */
 export type PendingNotice = { outputId: Uint8Array; holders: number }
 
+export type LostReport = {
+  outputId: Uint8Array
+  claim: ClaimOutcome
+  /** Messages in the chain of the note, the issue included. */
+  steps: number
+}
+
 export type SettlementReport = {
   settled: number
   waiting: number
   failed: number
   blocked?: 'label'
   refused: Refused[]
+  /** Notes that lost to a double spend, with what the claim of the loss came to. */
+  lost: LostReport[]
   notices: PendingNotice[]
   /** Seconds until the next run is worth making, when something waits. */
   retryIn?: number
@@ -102,7 +111,7 @@ function settlementSpend(output: Output, me: Uint8Array, wallet: Uint8Array, sal
 export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport> {
   const { db } = deps
   const window = GRACE - SETTLEMENT_MARGIN
-  const report: SettlementReport = { settled: 0, waiting: 0, failed: 0, refused: [], notices: [] }
+  const report: SettlementReport = { settled: 0, waiting: 0, failed: 0, refused: [], lost: [], notices: [] }
   await expireUnsettled(db, deps.now(), window)
   const notes = await settleable(db, deps.now(), window)
   if (notes.length > 0 && !(await deps.labelAcknowledged())) {
@@ -161,10 +170,8 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
       wire = encodeSpend(signed)
       await markSettlementSigned(db, note.outputId, wire, deps.now())
     }
-    const outcome = await settle(
-      deps.gateway,
-      settlementRequest({ issue: bundle.issue, spends: [...bundle.spends, decodeSpend(wire)] }),
-    )
+    const request = settlementRequest({ issue: bundle.issue, spends: [...bundle.spends, decodeSpend(wire)] })
+    const outcome = await settle(deps.gateway, request)
     if (outcome.kind === 'sent' || outcome.kind === 'settled') {
       await setNoteState(db, note.outputId, 'settled', deps.now())
       deps.attempts.delete(key)
@@ -175,6 +182,8 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
       const { refusal } = outcome
       if (refusal.kind === 'conflict') {
         await recordConflict(db, note.outputId, wire, hexToBytes(refusal.recorded), deps.now())
+        const claim = await fileClaim(deps.gateway, request)
+        report.lost.push({ outputId: note.outputId, claim, steps: request.spends.length + 1 })
         report.failed++
       } else if (['window', 'closed', 'deadline', 'lock_ended'].includes(refusal.kind)) {
         await setNoteState(db, note.outputId, 'expired', deps.now())

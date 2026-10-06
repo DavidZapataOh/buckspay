@@ -47,6 +47,7 @@ import {
   Purpose,
   reclaimBody,
   reclaimEnvelope,
+  firstConflict,
   recordAddress,
   recordContent,
   RECORD_BUMP,
@@ -679,5 +680,13 @@ describe('ticket freshness and the lock window', () => {
     const amount = issue.message.amount
     expect(pay(() => ({ bond: 4n * amount - 1n }), issuer)).toThrow(refused)
     expect(pay(() => ({ bond: 4n * amount }), issuer)).not.toThrow()
+  })
+})
+
+describe('finder vectors', () => {
+  const ref = (record: { content: string; reclaimed: boolean } | null) =>
+    record && { content: hexToBytes(record.content), reclaimed: record.reclaimed }
+  it.each(vectors.finder)('$name', ({ contents, records, first_conflict: expected }) => {
+    expect(firstConflict(contents.map(hexToBytes), records.map(ref))).toBe(expected)
   })
 })

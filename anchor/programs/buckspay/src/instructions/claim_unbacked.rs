@@ -1,13 +1,13 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-use buckspay_protocol::{slash, window, Owner as NoteOwner};
+use buckspay_protocol::{record::vouched_prefix, slash, window, Owner as NoteOwner};
 
 use crate::{
     clock::now,
     error::BuckspayError,
     filing::{self, Filing},
     records::{Role, PAID},
-    settlement::{walk, Link, ISSUE_BODY_LEN},
+    settlement::{check_signature_budget, walk, Link, ISSUE_BODY_LEN, MAX_CHAIN_SPENDS},
     spent,
     state::{Ledger, Lock, ESCROW_SEED, LEDGER_SEED, LOCK_SEED},
     verification::require_chain,
@@ -64,6 +64,10 @@ impl<'info> ClaimUnbacked<'info> {
         spends: &[Link],
         records: &[AccountInfo<'info>],
     ) -> Result<()> {
+        require!(
+            spends.len() <= MAX_CHAIN_SPENDS,
+            BuckspayError::TooManySpends
+        );
         let w = walk(&crate::note_domain(), issue, spends)?;
         let output = w.last.first;
         require!(
@@ -91,15 +95,26 @@ impl<'info> ClaimUnbacked<'info> {
             presented.len(),
             BuckspayError::RecordAccounts
         );
+        // A record that agrees with the chain vouches for the messages up to its own: it is only
+        // written after they were verified, so their signatures are not needed again.
+        let mut recorded = Vec::with_capacity(presented.len());
         for (item, account) in presented.iter().zip(records) {
-            if let Some(record) = spent::read(account, &item.output)? {
+            let record = spent::read(account, &item.output)?;
+            if let Some(record) = &record {
                 require!(record.content == item.content, BuckspayError::NotClaimable);
                 require!(
                     item.role != Role::Final || record.flags & PAID == 0,
                     BuckspayError::NotClaimable
                 );
             }
+            recorded.push(record.is_some());
         }
+        let start = vouched_prefix(
+            presented
+                .iter()
+                .zip(&recorded)
+                .map(|(item, recorded)| (item.message, *recorded)),
+        );
         let expiry = match output.owner {
             NoteOwner::Account(_) => presented[presented.len() - 1].expiry,
             NoteOwner::Device(_) => {
@@ -117,10 +132,11 @@ impl<'info> ClaimUnbacked<'info> {
             u64::from(now) <= window::report_deadline(expiry),
             BuckspayError::ClaimTooLate
         );
+        check_signature_budget(w.entries.len(), start)?;
         require_chain(
             &self.instructions,
             &w.entries,
-            0,
+            start,
             error!(BuckspayError::ChainVerification),
         )?;
 

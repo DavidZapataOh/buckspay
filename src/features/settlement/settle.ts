@@ -84,22 +84,26 @@ export const reclaim = (gateway: SettlementGateway, request: ReclaimRequest) => 
 
 /** What filing the loss of a payment that could not be settled came to. */
 export type ClaimOutcome =
-  /** The gateway filed it: the payer's bond burned twice the loss. Nobody is repaid. */
-  | { kind: 'burned'; signature: string }
-  /** The loss was claimed already. */
-  | { kind: 'claimed' }
+  /** The culprit's bond burned twice the loss, now or before, or the deadline passed. Nobody is repaid. */
+  | { kind: 'reported'; state: ClaimAnswer['state']; hop: number | null; culprit: string; burned: bigint | null }
   /** The program refuses the claim, so it is not retried: no bond left, not a loss of this lock, too late. */
   | { kind: 'nothing_to_burn'; reason: string }
   /** The gateway could not say: keep the chain and file again later. */
   | { kind: 'unavailable'; retryAfter?: number }
 
-const unclaimable = ['no_bond', 'not_claimable', 'over_coverage', 'claim_too_late', 'lock_ended']
+const unclaimable = ['no_bond', 'not_claimable', 'over_coverage', 'lock_ended']
 
 /** Files the loss a chain proves, with no wallet prompt and no signature: nothing is paid for it. */
 export async function fileClaim(gateway: SettlementGateway, request: SettlementRequest): Promise<ClaimOutcome> {
   try {
     const answer: ClaimAnswer = await gateway.claim(request)
-    return 'signature' in answer ? { kind: 'burned', signature: answer.signature } : { kind: 'claimed' }
+    return {
+      kind: 'reported',
+      state: answer.state,
+      hop: answer.hop,
+      culprit: answer.culprit,
+      burned: answer.burned === null ? null : BigInt(answer.burned),
+    }
   } catch (error) {
     if (error instanceof GatewayError) {
       if (unclaimable.includes(error.message)) return { kind: 'nothing_to_burn', reason: error.message }

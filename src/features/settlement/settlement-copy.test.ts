@@ -47,14 +47,16 @@ describe('what the user is told about settling and reclaiming', () => {
   })
 
   it('says what the claim did, and never promises repayment', () => {
-    expect(claimNotice({ kind: 'burned', signature: 'x' })).toContain('bond is destroyed')
-    expect(claimNotice({ kind: 'claimed' })).toContain('already')
+    const reported = { kind: 'reported' as const, hop: 1, culprit: '02aa' }
+    expect(claimNotice({ ...reported, state: 'filed', burned: 1n })).toContain('bond is destroyed')
+    expect(claimNotice({ ...reported, state: 'already', burned: 1n })).toContain('already')
+    expect(claimNotice({ ...reported, state: 'late', burned: null })).toContain('nothing was burned')
     expect(claimNotice({ kind: 'nothing_to_burn', reason: 'no_bond' })).toContain('nothing left to burn')
     expect(claimNotice({ kind: 'nothing_to_burn', reason: 'lock_ended' })).toContain('ended')
     expect(claimNotice({ kind: 'unavailable' })).toContain('try again')
     for (const outcome of [
-      { kind: 'burned' as const, signature: 'x' },
-      { kind: 'claimed' as const },
+      { ...reported, state: 'filed' as const, burned: 1n },
+      { ...reported, state: 'late' as const, burned: null },
       { kind: 'nothing_to_burn' as const, reason: 'no_bond' },
     ]) {
       expect(claimNotice(outcome)).toContain('not repaid')

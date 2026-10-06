@@ -51,7 +51,14 @@ describe('settlement hook', () => {
   })
 
   it('files the loss by itself when a settlement fails on a conflict, and says what happened', async () => {
-    const claim = vi.fn(async () => ({ signature: '5claim' }))
+    const claim = vi.fn(async () => ({
+      state: 'filed',
+      hop: 1,
+      culprit: '02aa',
+      lock: 'Lock1',
+      burned: '80000000',
+      signature: '5claim',
+    }))
     const settle = vi.fn(() => Promise.reject(new GatewayError(409, 'conflict', { recorded: 'ab12', selfPay: true })))
     const gateway = { settle, reclaim: vi.fn(), claim } as unknown as SettlementGateway
     await act(async () => {
@@ -64,7 +71,7 @@ describe('settlement hook', () => {
     expect(last().state).toEqual({
       step: 'done',
       outcome: { kind: 'refused', refusal: { kind: 'conflict', recorded: 'ab12' }, selfPay: true },
-      claim: { kind: 'burned', signature: '5claim' },
+      claim: { kind: 'reported', state: 'filed', hop: 1, culprit: '02aa', burned: 80_000_000n },
     })
   })
 

@@ -88,8 +88,19 @@ export type ReclaimRequest = SettlementRequest & { owner: string; which: 0 | 1; 
 /** The gateway sent the transaction, or the last record of the chain was paid already. */
 export type SettlementAnswer = { signature: string } | { status: 'settled' }
 
-/** The gateway filed the claim, or the loss was claimed already. */
-export type ClaimAnswer = { signature: string } | { status: 'claimed' }
+/**
+ * What the gateway says of a loss: `filed` by this request, `already` filed before, or `late` when
+ * its deadline passed and nothing burned. `hop` is the culprit's spend, 0-based, or `null` when
+ * the culprit is the issuer; `burned` is a decimal amount read from the claim on chain.
+ */
+export type ClaimAnswer = {
+  state: 'filed' | 'already' | 'late'
+  hop: number | null
+  culprit: string
+  lock: string
+  burned: string | null
+  signature: string | null
+}
 
 /** Buckspay's gateway, which pays for onboarding, locks, withdrawals and rotations the wallet signs. */
 export type Gateway = {

@@ -151,9 +151,10 @@ describe('gateway client', () => {
   })
 
   it('posts the chain of a loss to the claim route', async () => {
-    const fetch = stub({ signature: '5sig' })
+    const answer = { state: 'filed', hop: 2, culprit: '02aa', lock: 'Lock1', burned: '80000000', signature: '5sig' }
+    const fetch = stub(answer)
     const chain = { issue: 'aa', spends: ['bb'] }
-    expect(await gateway.claim(chain)).toEqual({ signature: '5sig' })
+    expect(await gateway.claim(chain)).toEqual(answer)
     expect(fetch.mock.calls[0][0]).toBe('https://gateway.test/v1/fraud/claim')
     expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toEqual(chain)
   })

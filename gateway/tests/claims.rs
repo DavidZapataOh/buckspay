@@ -133,8 +133,8 @@ async fn the_loser_of_a_double_spend_is_claimed_and_the_lock_burns_twice_the_los
     // The same loss is claimed once: the second answer is the first result.
     let (status, body) = post(&sponsor, "/v1/fraud/claim", &fraud.loser).await;
     assert_eq!(
-        (status, body["status"].as_str()),
-        (StatusCode::OK, Some("claimed"))
+        (status, body["state"].as_str()),
+        (StatusCode::OK, Some("already"))
     );
     assert_eq!(fraud.ledger().await.bond_free, BOND - 2 * LOSS);
 
@@ -315,8 +315,8 @@ async fn a_chain_the_backing_cannot_pay_is_claimed_and_burns_twice_its_amount() 
     // The same loss answers `claimed`, and a chain the backing could pay is no loss.
     let (status, body) = post(&sponsor, "/v1/fraud/claim", &unbacked).await;
     assert_eq!(
-        (status, body["status"].as_str()),
-        (StatusCode::OK, Some("claimed"))
+        (status, body["state"].as_str()),
+        (StatusCode::OK, Some("already"))
     );
     let (status, body) = post(&sponsor, "/v1/fraud/claim", &paid).await;
     assert_eq!(

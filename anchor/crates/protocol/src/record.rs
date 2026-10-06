@@ -21,6 +21,28 @@ pub fn vouched_prefix(items: impl IntoIterator<Item = (Option<usize>, bool)>) ->
         .unwrap_or(0)
 }
 
+/// What a record holds that matters to a conflict: the content of the message that consumed the
+/// output, and whether the record is a reclaim, which is no spend.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RecordRef {
+    pub content: [u8; 32],
+    pub reclaimed: bool,
+}
+
+/// Index, in spend order, of the first spend whose consumed output has a record that is not a
+/// reclaim and holds another content, or `None` when every record is absent or agrees. An absent
+/// record does not stop the scan. Only meaningful for a chain whose signatures were verified.
+pub fn first_conflict(contents: &[[u8; 32]], records: &[Option<RecordRef>]) -> Option<usize> {
+    assert_eq!(
+        contents.len(),
+        records.len(),
+        "one record per message is required"
+    );
+    contents.iter().zip(records).position(|(content, record)| {
+        record.is_some_and(|record| !record.reclaimed && record.content != *content)
+    })
+}
+
 #[cfg(feature = "verify")]
 fn derive(seed: &[u8], program: &[u8; 32], output: &[u8; 32]) -> Option<[u8; 32]> {
     let address = solana_sha256_hasher::hashv(&[
@@ -144,5 +166,60 @@ mod vouched_tests {
     #[test]
     fn a_record_that_cannot_vouch_never_counts() {
         assert_eq!(vouched_prefix([(Some(1), true), (None, true)]), 2);
+    }
+}
+
+#[cfg(test)]
+mod finder_tests {
+    use super::*;
+
+    fn c(n: u8) -> [u8; 32] {
+        [n; 32]
+    }
+    fn r(n: u8) -> Option<RecordRef> {
+        Some(RecordRef {
+            content: c(n),
+            reclaimed: false,
+        })
+    }
+    fn back(n: u8) -> Option<RecordRef> {
+        Some(RecordRef {
+            content: c(n),
+            reclaimed: true,
+        })
+    }
+
+    #[test]
+    fn first_conflict_returns_the_earliest_differing_record() {
+        let contents = [c(1), c(2), c(3), c(4)];
+        assert_eq!(
+            first_conflict(&contents, &[r(1), r(9), r(3), r(8)]),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn an_absent_record_does_not_hide_a_later_conflict() {
+        let contents = [c(1), c(2), c(3)];
+        assert_eq!(first_conflict(&contents, &[None, None, r(7)]), Some(2));
+    }
+
+    #[test]
+    fn a_reclaimed_record_is_never_a_conflict() {
+        let contents = [c(1), c(2)];
+        assert_eq!(first_conflict(&contents, &[back(5), r(2)]), None);
+    }
+
+    #[test]
+    fn agreeing_records_are_no_conflict() {
+        let contents = [c(1), c(2)];
+        assert_eq!(first_conflict(&contents, &[r(1), r(2)]), None);
+        assert_eq!(first_conflict(&contents, &[None, None]), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "one record per message")]
+    fn a_length_mismatch_is_a_caller_bug() {
+        first_conflict(&[c(1)], &[]);
     }
 }

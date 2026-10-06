@@ -34,6 +34,8 @@ let db: NoteDb
 let signer: ReturnType<typeof createSoftSpendSigner>
 let sent: { issue: string; spends: string[] }[]
 let answers: (() => Promise<unknown>)[]
+let claims: (() => Promise<unknown>)[] = []
+const claimed: { issue: string; spends: string[] }[] = []
 let clock = NOW + 1_000
 let acknowledged = true
 
@@ -41,6 +43,10 @@ const gateway = {
   settle: async (request: { issue: string; spends: string[] }) => {
     sent.push(request)
     return (answers.shift() ?? (async () => ({ signature: '5sig' })))()
+  },
+  claim: async (request: { issue: string; spends: string[] }) => {
+    claimed.push(request)
+    return (claims.shift() ?? (() => Promise.reject(new Error('network down'))))()
   },
 } as unknown as SettlementGateway
 
@@ -156,6 +162,8 @@ beforeEach(async () => {
   signer = createSoftSpendSigner(shop)
   sent = []
   answers = []
+  claims = []
+  claimed.length = 0
   clock = NOW + 1_000
   acknowledged = true
 })
@@ -263,6 +271,23 @@ describe('settleHeld', () => {
     )
     expect(evidence).toHaveLength(1)
     expect(bytesToHex(evidence[0].existing)).toBe('ab12')
+  })
+
+  it('files the loss of a conflict with the chain it tried and reports whom it names', async () => {
+    const { outputId } = await receive()
+    answers = [() => Promise.reject(new GatewayError(409, 'conflict', { recorded: 'ab12' }))]
+    claims = [
+      async () => ({ state: 'filed', hop: 0, culprit: '02aa', lock: 'Lock1', burned: '80000000', signature: '5s' }),
+    ]
+    const report = await settleHeld(deps())
+    expect(claimed).toEqual(sent)
+    expect(report.lost).toEqual([
+      {
+        outputId,
+        claim: { kind: 'reported', state: 'filed', hop: 0, culprit: '02aa', burned: 80_000_000n },
+        steps: 2,
+      },
+    ])
   })
 
   it('waits with growing delays while the gateway is unreachable and never signs a second content', async () => {

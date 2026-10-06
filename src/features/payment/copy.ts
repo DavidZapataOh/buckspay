@@ -179,6 +179,14 @@ export const copy = {
     [Reason.NotSaved]: "This phone couldn't save the payment. Nothing was received. Try again.",
   } satisfies Record<Exclude<Reason, typeof Reason.Accepted>, string>,
   activity: {
+    lost: {
+      title: 'Spent twice before it reached you.',
+      culprit: 'The person at step {step} of {steps} (code {code}) spent it twice.',
+      issuer: 'The issuer (code {code}) promised more than it holds.',
+      burned: 'Their bond: {amount} {symbol} destroyed. You are not repaid from it.',
+      already: 'This loss was already reported.',
+      late: 'Reported too late: nothing was burned. You are not repaid.',
+    },
     title: 'Activity',
     empty: 'No payments yet.',
     paid: 'Paid {amount} {symbol} · phone {code} · {status}',

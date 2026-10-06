@@ -277,42 +277,57 @@ impl Chain {
         chain
     }
 
-    /// Replaces link `index` by a re-salted body signed by `signer` and drops the later links.
-    pub fn resign_link(&mut self, signer: &Key, index: usize, salt: u8) {
+    /// What the chain holds just before link `index` is spent.
+    fn holding_before(&self, index: usize) -> Holding {
         let domain = buckspay::note_domain();
         let mut holding = Holding {
             first: chain::issue_signing(&domain, &self.issue).unwrap().1,
             second: None,
         };
-        let input_of = |holding: &Holding, link: &Link| {
-            if link.input == 0 {
+        for link in &self.links[..index] {
+            let input = if link.input == 0 {
                 holding.first
             } else {
                 holding.second.unwrap()
-            }
-        };
-        for link in &self.links[..index] {
-            let input = input_of(&holding, link);
+            };
             let spend = Spend::decode(input.id, &link.body).unwrap();
             let (_, envelope) = chain::spend_signing(&domain, &input, &spend).unwrap();
             holding = chain::spend_outputs(&envelope, &input, &spend).unwrap().0;
         }
+        holding
+    }
+
+    /// Replaces link `index` by a re-salted body signed by `signer` and drops the later links.
+    pub fn resign_link(&mut self, signer: &Key, index: usize, salt: u8) {
+        let holding = self.holding_before(index);
         let link = self.links[index].clone();
-        let input = input_of(&holding, &link);
+        let input = if link.input == 0 {
+            holding.first
+        } else {
+            holding.second.unwrap()
+        };
         let mut spend = Spend::decode(input.id, &link.body).unwrap();
         spend.salt = [salt; 16];
-        let mut base = self.prefix(index);
-        base.last = holding;
+        let base = self.prefix(index);
         *self = base.spend_raw(signer, link.input, |_| spend);
+    }
+
+    /// The chain up to link `index`, whose output `signer` pays to `account` instead: a second
+    /// message for the same output.
+    pub fn pay_account_at(&self, signer: &Key, index: usize, account: &Pubkey, salt: u8) -> Self {
+        let base = self.prefix(index);
+        base.spend1_to_account(signer, self.links[index].input, account, NO_LOCK, salt)
     }
 
     pub fn entries(&self) -> Vec<secp256r1::Expected> {
         self.signed.iter().map(|s| (s.key, s.envelope)).collect()
     }
 
+    /// The chain as it was after `spends` spends.
     pub fn prefix(&self, spends: usize) -> Self {
-        // The chain as it was after `spends` spends (outputs are recomputed by the caller when needed).
+        let spends = spends.min(self.links.len());
         let mut c = self.clone();
+        c.last = self.holding_before(spends);
         c.links.truncate(spends);
         c.signed.truncate(spends + 1);
         c

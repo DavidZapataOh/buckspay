@@ -7,14 +7,15 @@
 //! The program is the judge. The gateway only decides which claim to try, builds it and sends it
 //! when a simulation says it lands.
 use crate::{
+    batches::{RECLAIMED, RecordView, recorded_prefix},
     chain::SIGNATURE_FEE,
     fees::priority_fee,
     janitor,
     onboard::read,
     server::{Error, Gateway},
     settlements::{
-        COMPUTE_UNIT_CEILING, MIN_COMPUTE_UNIT_LIMIT, Problem, RECORD_LEN, SettlementRequest, Walk,
-        compose, loaded_accounts_limit, loaded_accounts_size, parse_issue, parse_spends, walk,
+        COMPUTE_UNIT_CEILING, MIN_COMPUTE_UNIT_LIMIT, Problem, SettlementRequest, Walk, compose,
+        loaded_accounts_limit, loaded_accounts_size, parse_issue, parse_spends, record_view, walk,
     },
     sponsored::{Outcome, confirm, unreachable},
     transactions::{self, Filing},
@@ -22,10 +23,11 @@ use crate::{
 use axum::{Json, extract::State};
 use buckspay_client::errors::BuckspayError;
 use buckspay_protocol::{
-    Owner, chain as rules,
+    Issue, Owner, Signed, Spend, chain as rules,
     hash::{domain, purpose},
-    record,
+    record::{self, RecordRef, first_conflict},
     secp256r1::MAX_SIGNATURES,
+    verify::verify_signature,
 };
 use sha2::{Digest, Sha256};
 use solana_account::Account;
@@ -46,10 +48,20 @@ pub const CLAIM_LEN: u64 = 92;
 pub const CLAIM_PAYER_OFFSET: usize = 56;
 /// Where the time a claim may be closed is in a claim.
 pub const CLAIM_CLOSABLE_OFFSET: usize = 88;
+/// Where the amount a claim burned is in a claim.
+pub const CLAIM_BURN_OFFSET: usize = 48;
 
 /// The first eight bytes of a claim: Anchor's discriminator of the account `Claim`.
 pub fn claim_discriminator() -> [u8; 8] {
     Sha256::digest(b"account:Claim")[..8].try_into().unwrap()
+}
+
+/// Whom a claim names, said only once the program accepts the claim.
+struct Report {
+    /// The index of the culprit's spend; `None` when the culprit is the issuer.
+    hop: Option<u8>,
+    culprit: [u8; 33],
+    lock: Pubkey,
 }
 
 /// One claim the program may take, with the accounts that name it.
@@ -58,6 +70,7 @@ struct Candidate {
     claim: Pubkey,
     /// Signatures the transaction's fee counts besides its own.
     verified: u64,
+    report: Report,
 }
 
 fn claim_address(program: &Pubkey, output: &[u8; 32]) -> Result<Pubkey, Problem> {
@@ -100,87 +113,136 @@ async fn candidates(state: &Gateway, request: &SettlementRequest) -> Result<Vec<
         .map(|mint| mint.owner)
         .ok_or(Problem::Lock("no_mint"))?;
 
+    let views: Vec<Option<RecordView>> = accounts
+        .into_iter()
+        .map(|account| record_view(&program.id(), account))
+        .collect();
+    let contents: Vec<[u8; 32]> = chain.consumed.iter().map(|c| c.content).collect();
+    let recorded: Vec<Option<RecordRef>> = views
+        .iter()
+        .map(|view| {
+            view.map(|view| RecordRef {
+                content: view.content,
+                reclaimed: view.flags & RECLAIMED != 0,
+            })
+        })
+        .collect();
     let mut found = Vec::new();
-    for (i, account) in accounts.iter().enumerate() {
-        let contradicted = account.as_ref().is_some_and(|account| {
-            account.owner == program.id()
-                && account.data.len() as u64 == RECORD_LEN
-                && account.data[8..40] != chain.consumed[i].content
-        });
-        if !contradicted {
-            continue;
-        }
-        // The loss is the culprit's payment: output 0 of spend `i`, in the chain that ends there.
-        let prefix = walk(&program.id(), &note_domain, &issue, &spends[..=i])?;
-        let earlier: Vec<([u8; 33], u32)> = prefix.entries[1..=i]
-            .iter()
-            .zip(&spends)
-            .map(|(entry, spend)| (entry.0, spend.message.lock_seq))
-            .collect();
-        let culprit = prefix.entries[i + 1].0;
-        let Some((lock_key, lock_seq)) = rules::backer(
-            &prefix.issue.issuer,
-            prefix.issue.lock_seq,
-            &earlier,
-            &culprit,
-            spends[i].message.lock_seq,
-            prefix.consumed[i].unlocked,
-        ) else {
-            continue;
-        };
-        let payment = prefix.last.first;
-        if payment.owner == Owner::Device(culprit) {
-            continue;
-        }
-        let Ok(claim) = claim_address(&program.id(), &payment.id) else {
-            continue;
-        };
-        let lock = program.find_lock_pda(&lock_key, lock_seq).0;
-        let filing = Filing {
-            payer: state.fee_payer.pubkey(),
-            lock,
-            mint: state.settings.mint,
+    if let Some(hop) = first_conflict(&contents, &recorded) {
+        let at = Spot {
+            hop,
+            record: records[hop],
             token_program,
-            claim,
-            record: records[i],
         };
-        let signature = [prefix.entries[i + 1].2];
-        let verification = transactions::chain_verification(
-            &[(prefix.entries[i + 1].0, prefix.entries[i + 1].1)],
-            &signature,
-        )
-        .ok_or(Problem::Invalid(
-            "the chain is too long for one verification",
-        ))?;
-        found.push(Candidate {
-            instructions: vec![
-                verification,
-                transactions::claim_lost_spend(
-                    &program,
-                    &filing,
-                    prefix.issue_body,
-                    prefix.links,
-                    lock_key,
-                    lock_seq,
-                ),
-            ],
-            claim,
-            verified: 1,
-        });
+        found.extend(lost_spend(state, &note_domain, &issue, &spends, &at)?);
     }
-    found.extend(unbacked(state, &program.id(), &chain, token_program)?);
+    found.extend(unbacked(
+        state,
+        &program.id(),
+        &chain,
+        &views,
+        token_program,
+    )?);
     Ok(found)
 }
 
-/// The claim of the last output of a chain whose issuer's backing cannot pay it.
+/// Where a chain first meets a record that contradicts it.
+struct Spot {
+    hop: usize,
+    record: Pubkey,
+    token_program: Pubkey,
+}
+
+/// The claim of the loss of the culprit's payment at `at.hop`: output 0 of that spend, in the chain
+/// that ends there. Only a spend its signer signed names a culprit, so a body nobody signed, which
+/// a chain refused early could carry, names nobody.
+fn lost_spend(
+    state: &Gateway,
+    note_domain: &[u8; 32],
+    issue: &Signed<Issue>,
+    spends: &[Signed<Spend>],
+    at: &Spot,
+) -> Result<Option<Candidate>, Error> {
+    let program = state.settings.program;
+    let i = at.hop;
+    let prefix = walk(&program.id(), note_domain, issue, &spends[..=i])?;
+    let (culprit, envelope, signature) = prefix.entries[i + 1];
+    if verify_signature(&culprit, &envelope, &signature).is_err() {
+        return Ok(None);
+    }
+    let earlier: Vec<([u8; 33], u32)> = prefix.entries[1..=i]
+        .iter()
+        .zip(spends)
+        .map(|(entry, spend)| (entry.0, spend.message.lock_seq))
+        .collect();
+    let Some((lock_key, lock_seq)) = rules::backer(
+        &prefix.issue.issuer,
+        prefix.issue.lock_seq,
+        &earlier,
+        &culprit,
+        spends[i].message.lock_seq,
+        prefix.consumed[i].unlocked,
+    ) else {
+        return Ok(None);
+    };
+    let payment = prefix.last.first;
+    if payment.owner == Owner::Device(culprit) {
+        return Ok(None);
+    }
+    let Ok(claim) = claim_address(&program.id(), &payment.id) else {
+        return Ok(None);
+    };
+    let lock = program.find_lock_pda(&lock_key, lock_seq).0;
+    let filing = Filing {
+        payer: state.fee_payer.pubkey(),
+        lock,
+        mint: state.settings.mint,
+        token_program: at.token_program,
+        claim,
+        record: at.record,
+    };
+    let verification = transactions::chain_verification(&[(culprit, envelope)], &[signature])
+        .ok_or(Problem::Invalid(
+            "the culprit's signature does not fit a verification",
+        ))?;
+    Ok(Some(Candidate {
+        instructions: vec![
+            verification,
+            transactions::claim_lost_spend(
+                &program,
+                &filing,
+                prefix.issue_body,
+                prefix.links,
+                lock_key,
+                lock_seq,
+            ),
+        ],
+        claim,
+        verified: 1,
+        report: Report {
+            hop: Some(u8::try_from(i).expect("a chain has at most 16 spends")),
+            culprit,
+            lock,
+        },
+    }))
+}
+
+/// The claim of the last output of a chain whose issuer's backing cannot pay it. The records that
+/// vouch for its first messages spare their signatures; more than eight left to verify wait for the
+/// records of the rest.
 fn unbacked(
     state: &Gateway,
     program_id: &Pubkey,
     chain: &Walk,
+    views: &[Option<RecordView>],
     token_program: Pubkey,
 ) -> Result<Option<Candidate>, Error> {
-    // A claim of the last output verifies the whole chain in one instruction.
-    if chain.entries.len() > MAX_SIGNATURES {
+    let vouched = if chain.consumed.is_empty() {
+        0
+    } else {
+        recorded_prefix(&chain.consumed, views)
+    };
+    if chain.entries.len().saturating_sub(vouched) > MAX_SIGNATURES {
         return Ok(None);
     }
     let payment = chain.last.first;
@@ -219,29 +281,32 @@ fn unbacked(
         claim,
         record,
     };
-    let signatures: Vec<[u8; 64]> = chain.entries.iter().map(|entry| entry.2).collect();
-    let entries: Vec<_> = chain
-        .entries
-        .iter()
-        .map(|entry| (entry.0, entry.1))
-        .collect();
-    let verification = transactions::chain_verification(&entries, &signatures).ok_or(
-        Problem::Invalid("the chain is too long for one verification"),
-    )?;
-    debug_assert!(signatures.len() <= MAX_SIGNATURES);
+    let unvouched = &chain.entries[vouched.min(chain.entries.len())..];
+    let signatures: Vec<[u8; 64]> = unvouched.iter().map(|entry| entry.2).collect();
+    let entries: Vec<_> = unvouched.iter().map(|entry| (entry.0, entry.1)).collect();
+    let mut instructions = Vec::with_capacity(2);
+    if !entries.is_empty() {
+        instructions.push(
+            transactions::chain_verification(&entries, &signatures)
+                .ok_or(Problem::Invalid("the chain does not fit one verification"))?,
+        );
+    }
+    instructions.push(transactions::claim_unbacked(
+        &state.settings.program,
+        &filing,
+        chain.issue_body,
+        chain.links.clone(),
+        &records,
+    ));
     Ok(Some(Candidate {
-        instructions: vec![
-            verification,
-            transactions::claim_unbacked(
-                &state.settings.program,
-                &filing,
-                chain.issue_body,
-                chain.links.clone(),
-                &records,
-            ),
-        ],
+        instructions,
         claim,
         verified: signatures.len() as u64,
+        report: Report {
+            hop: None,
+            culprit: chain.issue.issuer,
+            lock,
+        },
     }))
 }
 
@@ -382,24 +447,51 @@ async fn send(
     }
 }
 
-/// Files the loss the chain proves, if any claim of it lands: the answer is the signature of the
-/// transaction, or `claimed` when the loss was claimed already.
+/// What the gateway says of a loss: whom it names and what burned. `hop` and `culprit` are said
+/// only for a claim the program accepted or refused for its deadline or for being filed already,
+/// after it verified the culprit's signature.
+fn answer(
+    report: &Report,
+    state: &str,
+    signature: Option<Signature>,
+    burned: Option<u64>,
+) -> serde_json::Value {
+    serde_json::json!({
+        "state": state,
+        "hop": report.hop,
+        "culprit": hex::encode(report.culprit),
+        "lock": report.lock.to_string(),
+        "burned": burned.map(|burned| burned.to_string()),
+        "signature": signature.map(|signature| signature.to_string()),
+    })
+}
+
+/// What a claim account says was burned.
+async fn burned(state: &Gateway, claim: &Pubkey) -> Result<Option<u64>, Error> {
+    let accounts: Vec<Option<Account>> = read(state, &[*claim]).await?;
+    Ok(accounts.into_iter().next().flatten().and_then(|account| {
+        (account.data.len() as u64 == CLAIM_LEN).then(|| {
+            u64::from_le_bytes(
+                account.data[CLAIM_BURN_OFFSET..CLAIM_BURN_OFFSET + 8]
+                    .try_into()
+                    .unwrap(),
+            )
+        })
+    }))
+}
+
+/// Files the loss the chain proves, if any claim of it lands, and says whom it names: `filed`
+/// when this call filed it, `already` when it was filed before, `late` when its deadline passed.
 pub async fn file(
     state: &Gateway,
     request: &SettlementRequest,
 ) -> Result<serde_json::Value, Error> {
     let candidates = candidates(state, request).await?;
     let mut said = None;
+    let mut late = None;
     // Claims are filed one at a time so that the cap on what the gateway fronts holds exactly.
     let _filing = state.claiming.lock().await;
     for candidate in &candidates {
-        let accounts: Vec<Option<Account>> = read(state, &[candidate.claim]).await?;
-        if accounts[0]
-            .as_ref()
-            .is_some_and(|a| a.data.len() as u64 == CLAIM_LEN)
-        {
-            return Ok(serde_json::json!({ "status": "claimed" }));
-        }
         let loaded =
             loaded_accounts_limit(loaded_accounts_size(state, &candidate.instructions).await?);
         match simulate(state, &candidate.instructions, loaded).await? {
@@ -411,13 +503,21 @@ pub async fn file(
                     return Err(Problem::Limits(crate::float::Refusal::FloatCap, None).into());
                 }
                 let signature = send(state, candidate, units, loaded).await?;
-                return Ok(serde_json::json!({ "signature": signature.to_string() }));
+                let burned = burned(state, &candidate.claim).await?;
+                return Ok(answer(&candidate.report, "filed", Some(signature), burned));
             }
             Simulated::Refused(Some("claimed")) => {
-                return Ok(serde_json::json!({ "status": "claimed" }));
+                let burned = burned(state, &candidate.claim).await?;
+                return Ok(answer(&candidate.report, "already", None, burned));
+            }
+            Simulated::Refused(Some("claim_too_late")) => {
+                late = late.or(Some(&candidate.report));
             }
             Simulated::Refused(name) => said = said.or(name),
         }
+    }
+    if let Some(report) = late {
+        return Ok(answer(report, "late", None, None));
     }
     Err(Problem::Claim(said.unwrap_or("not_claimable")).into())
 }
@@ -460,8 +560,43 @@ mod tests {
         assert_eq!(refusal(&TransactionError::AccountNotFound), None);
     }
 
+    fn report() -> Report {
+        Report {
+            hop: Some(2),
+            culprit: [2; 33],
+            lock: Pubkey::new_unique(),
+        }
+    }
+
+    #[test]
+    fn a_late_claim_names_the_culprit_and_burns_nothing() {
+        let said = answer(&report(), "late", None, None);
+        assert_eq!(said["state"], "late");
+        assert_eq!(said["hop"], 2);
+        assert_eq!(said["culprit"], hex::encode([2u8; 33]));
+        assert!(said["burned"].is_null() && said["signature"].is_null());
+    }
+
+    #[test]
+    fn a_filed_claim_says_the_burn_as_a_decimal_string_and_an_issuer_has_no_hop() {
+        let issuer = Report {
+            hop: None,
+            ..report()
+        };
+        let said = answer(
+            &issuer,
+            "filed",
+            Some(Signature::default()),
+            Some(80_000_000),
+        );
+        assert_eq!(said["burned"], "80000000");
+        assert!(said["hop"].is_null());
+        assert!(said["signature"].is_string());
+    }
+
     #[test]
     fn a_claim_account_has_the_size_the_program_gives_it() {
+        assert_eq!(CLAIM_BURN_OFFSET + 8, CLAIM_PAYER_OFFSET);
         assert_eq!(CLAIM_LEN, 92);
         assert_eq!(CLAIM_PAYER_OFFSET + 32, CLAIM_CLOSABLE_OFFSET);
         assert_eq!(CLAIM_CLOSABLE_OFFSET + 4, CLAIM_LEN as usize);

@@ -326,6 +326,16 @@ struct Reads {
 
 const PAID: u8 = 1;
 
+/// What a record account holds, or `None` when the account is no record of the program.
+pub(crate) fn record_view(program: &Pubkey, account: Option<Account>) -> Option<RecordView> {
+    account
+        .filter(|account| account.owner == *program && account.data.len() as u64 == RECORD_LEN)
+        .map(|account| RecordView {
+            content: account.data[8..40].try_into().unwrap(),
+            flags: account.data[80],
+        })
+}
+
 async fn read_chain(state: &Gateway, issue: &Issue, records: &[Pubkey]) -> Result<Reads, Problem> {
     let program = state.settings.program;
     let lock_address = program.find_lock_pda(&issue.issuer, issue.lock_seq).0;
@@ -353,16 +363,7 @@ async fn read_chain(state: &Gateway, issue: &Issue, records: &[Pubkey]) -> Resul
         .ok_or(Problem::Lock("no_mint"))?;
     let records = accounts
         .drain(4..)
-        .map(|account| {
-            account
-                .filter(|account| {
-                    account.owner == program.id() && account.data.len() as u64 == RECORD_LEN
-                })
-                .map(|account| RecordView {
-                    content: account.data[8..40].try_into().unwrap(),
-                    flags: account.data[80],
-                })
-        })
+        .map(|account| record_view(&program.id(), account))
         .collect();
     Ok(Reads {
         lock,

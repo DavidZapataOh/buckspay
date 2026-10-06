@@ -1,4 +1,4 @@
-import { bytesToHex } from '@noble/hashes/utils.js'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { View } from 'react-native'
@@ -7,6 +7,7 @@ import { Button } from '../../components/button'
 import { ListRow } from '../../components/list-row'
 import { Screen } from '../../components/screen'
 import { type ActivityDetail, activityDetail } from '../../features/notes/activity'
+import { LostNote } from '../../features/activity/lost-note'
 import { sentence, parseActivityId } from '../../features/activity/format'
 import { PAY_LIMITS, MIN_WINDOW } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
@@ -44,6 +45,9 @@ export default function ActivityDetailScreen() {
   const refused = settlement.report?.refused.find(
     ({ outputId }) => detail.outputId && bytesToHex(outputId) === bytesToHex(detail.outputId),
   )
+  const lost = settlement.report?.lost.find(
+    ({ outputId }) => detail.outputId && bytesToHex(outputId) === bytesToHex(detail.outputId),
+  )
   const settleable = detail.kind === 'received' && (detail.state === 'held' || detail.state === 'settling')
   let waiting: string | undefined
   if (refused?.kind === 'no_token_account') waiting = copy.activity.noTokenAccount
@@ -73,6 +77,17 @@ export default function ActivityDetailScreen() {
       ) : null}
       {detail.locks && detail.locks.length > 0 ? (
         <ListRow title={copy.activity.locks} value={detail.locks.join(', ')} />
+      ) : null}
+      {lost?.claim.kind === 'reported' ? (
+        <LostNote
+          hop={lost.claim.hop}
+          steps={lost.steps}
+          culprit={hexToBytes(lost.claim.culprit)}
+          burned={lost.claim.burned}
+          decimals={decimals}
+          symbol={symbol}
+          state={lost.claim.state}
+        />
       ) : null}
       {waiting ? (
         <AppText variant="body" tone="muted" accessibilityLiveRegion="polite">

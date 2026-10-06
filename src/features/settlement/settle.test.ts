@@ -91,28 +91,23 @@ describe('settling through the gateway', () => {
 })
 
 describe('filing the loss of a payment that could not be settled', () => {
-  it('says the bond was burned, or that the loss was claimed already', async () => {
-    expect(
-      await fileClaim(
-        gatewayThatAnswers(async () => ({ signature: '5xyz' })),
-        request,
-      ),
-    ).toEqual({
-      kind: 'burned',
-      signature: '5xyz',
+  it('says whom the claim names and what burned, filed now, filed before or filed too late', async () => {
+    const named = { hop: 2, culprit: '02aa', lock: 'Lock1' }
+    const answer = (state: 'filed' | 'already' | 'late', burned: string | null) =>
+      gatewayThatAnswers(async () => ({ state, ...named, burned, signature: state === 'filed' ? '5xyz' : null }))
+    expect(await fileClaim(answer('filed', '80000000'), request)).toEqual({
+      kind: 'reported',
+      state: 'filed',
+      hop: 2,
+      culprit: '02aa',
+      burned: 80_000_000n,
     })
-    expect(
-      await fileClaim(
-        gatewayThatAnswers(async () => ({ status: 'claimed' })),
-        request,
-      ),
-    ).toEqual({
-      kind: 'claimed',
-    })
+    expect(await fileClaim(answer('already', '80000000'), request)).toMatchObject({ state: 'already' })
+    expect(await fileClaim(answer('late', null), request)).toMatchObject({ state: 'late', burned: null })
   })
 
   it('says when there is nothing to burn, and why, so the app does not retry', async () => {
-    for (const reason of ['no_bond', 'not_claimable', 'over_coverage', 'claim_too_late', 'lock_ended']) {
+    for (const reason of ['no_bond', 'not_claimable', 'over_coverage', 'lock_ended']) {
       expect(await fileClaim(refusing(409, { error: reason }), request)).toEqual({ kind: 'nothing_to_burn', reason })
     }
   })

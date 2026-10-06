@@ -40,10 +40,11 @@ const notRepaid = 'You were not repaid: the bond is not paid out.'
 /** What filing the loss did: the bond burns, nobody is repaid, and the words promise nothing else. */
 export function claimNotice(outcome: ClaimOutcome): string {
   switch (outcome.kind) {
-    case 'burned':
+    case 'reported':
+      if (outcome.state === 'late') return `This loss was reported too late: nothing was burned. ${notRepaid}`
+      if (outcome.state === 'already')
+        return `The payer signed this money twice and their bond was already destroyed. ${notRepaid}`
       return `The payer signed this money twice. Their bond is destroyed. ${notRepaid}`
-    case 'claimed':
-      return `The payer signed this money twice and their bond was already destroyed. ${notRepaid}`
     case 'nothing_to_burn':
       if (outcome.reason === 'no_bond') return `The payer's lock has nothing left to burn. ${notRepaid}`
       if (outcome.reason === 'lock_ended')

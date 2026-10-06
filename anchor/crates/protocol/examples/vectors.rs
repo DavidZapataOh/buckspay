@@ -17,7 +17,11 @@ use buckspay_protocol::{
     flags, kind, BondTicket, Caveats, Issue, IssueClaim, IssueConflict, Outputs, Owner,
     ProtocolError, ScopeKind, Signed, Spend, SpendConflict, CHALLENGE, GRACE, NO_LOCK, VERSION,
 };
-use buckspay_protocol::{lock::EXPIRY_STEP, record, secp256r1};
+use buckspay_protocol::{
+    lock::EXPIRY_STEP,
+    record::{self, first_conflict, RecordRef},
+    secp256r1,
+};
 use curve25519_dalek::constants::EIGHT_TORSION;
 use curve25519_dalek::{EdwardsPoint, Scalar};
 use ed25519_dalek::Signer as _;
@@ -267,6 +271,89 @@ fn device_binding(
         "signature": signature,
         "error": error,
     })
+}
+
+/// Records against the contents of a chain, and the first spend whose record contradicts it: the
+/// named cases, then pseudo-random ones from a fixed seed.
+fn finder_vectors() -> Value {
+    let case = |name: String, contents: Vec<[u8; 32]>, records: Vec<Option<RecordRef>>| {
+        json!({
+            "name": name,
+            "contents": contents.iter().map(|c| hex(c)).collect::<Vec<_>>(),
+            "records": records.iter().map(|r| r.map(|r| json!({
+                "content": hex(&r.content),
+                "reclaimed": r.reclaimed,
+            }))).collect::<Vec<_>>(),
+            "first_conflict": first_conflict(&contents, &records),
+        })
+    };
+    let c = |n: u8| [n; 32];
+    let r = |n: u8| {
+        Some(RecordRef {
+            content: c(n),
+            reclaimed: false,
+        })
+    };
+    let back = |n: u8| {
+        Some(RecordRef {
+            content: c(n),
+            reclaimed: true,
+        })
+    };
+    let mut cases = vec![
+        case(
+            "earliest_differing_record".into(),
+            vec![c(1), c(2), c(3), c(4)],
+            vec![r(1), r(9), r(3), r(8)],
+        ),
+        case(
+            "absent_record_does_not_hide_a_conflict".into(),
+            vec![c(1), c(2), c(3)],
+            vec![None, None, r(7)],
+        ),
+        case(
+            "reclaimed_record_is_no_conflict".into(),
+            vec![c(1), c(2)],
+            vec![back(5), r(2)],
+        ),
+        case(
+            "agreeing_records".into(),
+            vec![c(1), c(2)],
+            vec![r(1), r(2)],
+        ),
+        case("no_records".into(), vec![c(1), c(2)], vec![None, None]),
+    ];
+    let mut state = 0x9e37_79b9_7f4a_7c15u64;
+    let mut next = move || {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        state
+    };
+    for n in 0..20 {
+        let len = 1 + (next() % 8) as usize;
+        let contents: Vec<[u8; 32]> = (0..len).map(|i| c(1 + i as u8)).collect();
+        let records = contents
+            .iter()
+            .map(|content| match next() % 4 {
+                0 => None,
+                1 => Some(RecordRef {
+                    content: *content,
+                    reclaimed: false,
+                }),
+                2 => Some(RecordRef {
+                    content: c(200 + (next() % 50) as u8),
+                    reclaimed: false,
+                }),
+                _ => Some(RecordRef {
+                    content: c(100),
+                    reclaimed: true,
+                }),
+            })
+            .collect();
+        cases.push(case(format!("random_{n}"), contents, records));
+    }
+    json!(cases)
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -1929,6 +2016,7 @@ fn vectors() -> Value {
             payment("skips_a_ticket_for_another_lock", &at(bob.owner()), &delegated, &[delegated_to_bob(0)], &[unsigned_alice_ticket, issuer_ticket]),
             payment("a_note_as_long_as_the_receiver_allows", &Receiver { max_note_life: EXPIRY - NOW, ..at(alice.owner()) }, &issued, &[], &issuer_only),
         ],
+        "finder": finder_vectors(),
         "record_addresses": {
             "seed": hex(record::SPENT_SEED),
             "claim_seed": hex(record::CLAIM_SEED),

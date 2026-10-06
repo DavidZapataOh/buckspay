@@ -1,4 +1,5 @@
 import { ed25519 } from '@noble/curves/ed25519.js'
+import { equalBytes } from '@noble/curves/utils.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { concatBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import { checkBytes } from './codec'
@@ -37,3 +38,20 @@ export const claimAddress = (program: Uint8Array, output: Uint8Array) => derive(
  */
 export const isRecordable = (program: Uint8Array, output: Uint8Array) =>
   recordAddress(program, output) !== undefined && claimAddress(program, output) !== undefined
+
+/** What a record holds that matters to a conflict. */
+export type RecordRef = { content: Uint8Array; reclaimed: boolean }
+
+/**
+ * The index of the first spend whose consumed output has a record that is not a reclaim and holds
+ * another content, or `null` when every record is absent or agrees. An absent record does not stop
+ * the scan. The twin of `record::first_conflict`.
+ */
+export function firstConflict(contents: Uint8Array[], records: (RecordRef | null)[]): number | null {
+  if (contents.length !== records.length) throw new Error('one record per message is required')
+  const index = contents.findIndex((content, i) => {
+    const record = records[i]
+    return record !== null && !record.reclaimed && !equalBytes(record.content, content)
+  })
+  return index < 0 ? null : index
+}

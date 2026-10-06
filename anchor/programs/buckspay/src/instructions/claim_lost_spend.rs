@@ -7,7 +7,7 @@ use crate::{
     error::BuckspayError,
     filing::{self, Filing},
     records::RECLAIMED,
-    settlement::{walk, Link, ISSUE_BODY_LEN},
+    settlement::{walk, Link, ISSUE_BODY_LEN, MAX_CHAIN_SPENDS},
     spent,
     state::{Ledger, Lock, ESCROW_SEED, LEDGER_SEED, LOCK_SEED},
     verification::require_chain,
@@ -64,6 +64,10 @@ pub struct ClaimLostSpend<'info> {
 
 impl<'info> ClaimLostSpend<'info> {
     pub fn process(&mut self, lost: &LostSpend) -> Result<()> {
+        require!(
+            lost.spends.len() <= MAX_CHAIN_SPENDS,
+            BuckspayError::TooManySpends
+        );
         require!(!lost.spends.is_empty(), BuckspayError::ChainInvalid);
         let domain = crate::note_domain();
         let w = walk(&domain, &lost.issue, &lost.spends)?;
