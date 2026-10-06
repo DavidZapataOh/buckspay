@@ -81,6 +81,14 @@ describe('PayTab', () => {
     expect(onAddMoney).toHaveBeenCalled()
   })
 
+  it('offers paying someone far away only when the screen exists', async () => {
+    expect(has((await mount()).root, 'pay-far-away')).toBe(false)
+    const onFarAway = vi.fn()
+    const renderer = await mount({ onFarAway })
+    await act(async () => renderer.root.findByProps({ testID: 'pay-far-away' }).props.onPress())
+    expect(onFarAway).toHaveBeenCalled()
+  })
+
   it('lists unfinished payments with Resume and Discard, and asks before it discards', async () => {
     const onResume = vi.fn()
     const onDiscard = vi.fn()

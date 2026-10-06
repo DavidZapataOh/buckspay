@@ -48,6 +48,9 @@ export type PayDeps = {
   signSpend?: (input: Output, spend: Spend) => Promise<Signed<Spend>>
 }
 
+/** What signing a payment needs: everything of `PayDeps`, and of the transport only the way to send. */
+export type SignDeps = Omit<PayDeps, 'transport'> & { transport: Pick<Transport, 'send'> }
+
 export class PayError extends Error {
   constructor(
     readonly code: 'Declined' | 'IntervalTaken' | 'SignFailed' | 'SendFailed' | 'Mismatch',
@@ -79,7 +82,7 @@ export async function confirmAndSend(
   plan: Plan,
   request: PaymentRequest,
   transport: string,
-  deps: PayDeps,
+  deps: SignDeps,
 ): Promise<SentPayment> {
   const { issue } = plan
   if (plan.review.biometric && !(await deps.authenticate(issue.amount))) throw new PayError('Declined')
@@ -119,7 +122,7 @@ async function signAndSend(
   id: Uint8Array,
   issue: Issue,
   ticket: Plan['lock']['ticket'],
-  deps: PayDeps,
+  deps: SignDeps,
 ): Promise<SentPayment> {
   if (!equalBytes(issueMessageId(deps.noteDomain, issue), id)) throw new PayError('Mismatch')
   let signature: Uint8Array
@@ -181,7 +184,7 @@ async function signAndSendRespend(
   inputId: Uint8Array,
   body: Uint8Array,
   ticketBytes: Uint8Array | null,
-  deps: PayDeps,
+  deps: SignDeps,
 ): Promise<SentPayment> {
   const ticket = ticketBytes?.length ? decodeBondTicket(ticketBytes) : null
   const input = await heldOutput(deps.db, inputId)
@@ -209,7 +212,7 @@ async function signAndSendRespend(
   return { messageId: id, bundle: wire }
 }
 
-async function send(bundle: Uint8Array, deps: PayDeps) {
+async function send(bundle: Uint8Array, deps: SignDeps) {
   try {
     await deps.transport.send({ kind: MessageKind.Payment, payload: bundle })
   } catch (error) {
@@ -222,7 +225,7 @@ async function send(bundle: Uint8Array, deps: PayDeps) {
  * (the guard allows the same content again), one that was signed is shown again byte for byte.
  * Nothing here ever builds a new issue.
  */
-export async function resumePayments(deps: PayDeps, only?: Uint8Array): Promise<SentPayment[]> {
+export async function resumePayments(deps: SignDeps, only?: Uint8Array): Promise<SentPayment[]> {
   const resumed: SentPayment[] = []
   for (const row of await unfinishedPayments(deps.db)) {
     if (only && !equalBytes(row.messageId, only)) continue

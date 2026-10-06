@@ -130,7 +130,7 @@ export async function unfinishedPayments(db: NoteDb): Promise<Unfinished[]> {
     bundle: Uint8Array | null
     input: Uint8Array | null
   }>(
-    "SELECT message_id, state, issue_body, ticket, bundle, input FROM outgoing_payment WHERE state IN ('prepared', 'signed') ORDER BY created_at",
+    "SELECT message_id, state, issue_body, ticket, bundle, input FROM outgoing_payment WHERE state IN ('prepared', 'signed') AND NOT EXISTS (SELECT 1 FROM relay_outbox r WHERE r.message_id = outgoing_payment.message_id) ORDER BY created_at",
   )
   return rows.map((r) => ({
     messageId: r.message_id,

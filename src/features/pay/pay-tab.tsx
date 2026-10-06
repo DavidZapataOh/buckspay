@@ -7,6 +7,7 @@ import { formatMoney } from '../../utils/format-amount'
 import { eventCopy } from '../event/copy'
 import type { StoredEvent } from '../event/store'
 import { copy, text } from '../payment/copy'
+import { remoteCopy } from '../remote/copy'
 import type { UnfinishedView } from './unfinished'
 
 /** The Pay tab: what can be paid without internet, the way to scan a request, and what was left unfinished. */
@@ -21,6 +22,7 @@ export function PayTab({
   onScan,
   how,
   onPaste,
+  onFarAway,
   onAddMoney,
   onResume,
   onDiscard,
@@ -41,6 +43,8 @@ export function PayTab({
   /** The control that picks the medium, shown above the actions. */
   how?: ReactNode
   onPaste: () => void
+  /** Opens the screen that pays a contact who is not nearby. */
+  onFarAway?: () => void
   onAddMoney: () => void
   onResume: (messageId: Uint8Array) => void
   onDiscard: (messageId: Uint8Array) => void
@@ -85,6 +89,9 @@ export function PayTab({
           <View className="gap-3">
             <Button testID="pay-scan" variant="filled" label={copy.pay.scan} onPress={onScan} />
             <Button testID="pay-paste" variant="text" label={copy.pay.paste} onPress={onPaste} />
+            {onFarAway ? (
+              <Button testID="pay-far-away" variant="tonal" label={remoteCopy.title} onPress={onFarAway} />
+            ) : null}
           </View>
           {unfinished.length > 0 ? (
             <View testID="pay-unfinished" className="gap-3">

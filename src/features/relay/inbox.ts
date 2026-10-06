@@ -18,7 +18,7 @@ export type Accepted = 'stored' | 'full' | 'dropped' | { repeat: Uint8Array | nu
 const idOf = (blob: Uint8Array) => sha256(blob)
 
 /** Whether `blob` is the size and the key of something the gateway could open: cheap checks before anything is kept. */
-const plausible = (blob: Uint8Array) =>
+export const plausible = (blob: Uint8Array) =>
   BUCKETS.some((bucket) => blob.length === bucket + OVERHEAD) &&
   PINNED_GATEWAY_KEYS.some((key) => key.keyId === blob[0])
 

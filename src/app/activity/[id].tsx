@@ -8,6 +8,7 @@ import { ListRow } from '../../components/list-row'
 import { Screen } from '../../components/screen'
 import { type ActivityDetail, activityDetail } from '../../features/notes/activity'
 import { LostNote } from '../../features/activity/lost-note'
+import { RemoteStatus } from '../../features/remote/remote-status'
 import { sentence, parseActivityId } from '../../features/activity/format'
 import { PAY_LIMITS, MIN_WINDOW } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
@@ -62,6 +63,9 @@ export default function ActivityDetailScreen() {
       <AppText variant="body">{sentence({ ...detail }, symbol, decimals)}</AppText>
       <ListRow title={copy.activity.id} value={ellipsify(bytesToHex(detail.id), 8)} />
       <ListRow title={copy.activity.time} value={new Date(detail.at * 1000).toLocaleString()} />
+      {detail.remote && detail.deadline !== undefined ? (
+        <RemoteStatus state={detail.state} passedTo={detail.handedTo ?? 0} deadline={detail.deadline} />
+      ) : null}
       {detail.transport ? <ListRow title={copy.activity.transport} value={detail.transport} /> : null}
       {detail.memo ? <ListRow title={copy.activity.note} value={`“${detail.memo}”`} /> : null}
       {detail.reason ? (

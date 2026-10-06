@@ -68,6 +68,9 @@ const KEY_ID = PINNED_GATEWAY_KEYS[0].keyId
 
 const secrets = new Map<string, Uint8Array>()
 
+/** Lets the fake relayers seal an answer for a blob the test sealed itself. */
+export const rememberSecret = (blob: Uint8Array, secret: Uint8Array) => void secrets.set(bytesToHex(blob), secret)
+
 /** A sealed settlement of the size of the smallest bucket, which differs with `index`; the gateway is not asked to open it. */
 export function sealedFixture(index?: number): SealedRelay
 export function sealedFixture(
@@ -240,7 +243,12 @@ export async function dumpBytes(db: NoteDb): Promise<Uint8Array> {
  * A link whose far end is a relayer running `serveChannel` over `db`, which posts through `post`: the whole way a
  * payment goes from a phone without internet to the gateway and its sealed answer back.
  */
-export function relayerLink(db: NoteDb, post: (blob: Uint8Array) => Promise<Uint8Array>, now: () => number): L2capLink {
+export function relayerLink(
+  db: NoteDb,
+  post: (blob: Uint8Array) => Promise<Uint8Array>,
+  now: () => number,
+  online = true,
+): L2capLink {
   return {
     listen: async () => 0x81,
     async connect(address) {
@@ -250,7 +258,7 @@ export function relayerLink(db: NoteDb, post: (blob: Uint8Array) => Promise<Uint
         write: async (bytes) => toApp.push(bytes),
         close: () => toApp.close(),
       }
-      void serveChannel(db, relayer, address, post, now)
+      void serveChannel(db, relayer, address, post, now, online)
       return {
         read: (length, timeout) => toApp.read(length, timeout),
         write: async (bytes) => toRelayer.push(bytes),

@@ -317,6 +317,19 @@ impl Issuer {
         )
     }
 
+    /// An issue of `amount` from `start` that pays `account` as it is, with no spend after it.
+    pub fn issue_to_account(&self, start: u64, amount: u64, expiry: u32, account: &Pubkey) -> Note {
+        issue(
+            &self.device,
+            &cluster().mint,
+            0,
+            start,
+            amount,
+            Owner::Account(account.to_bytes()),
+            caveats(expiry, 3),
+        )
+    }
+
     /// An issue to `holder`.
     pub fn issue_to(&self, holder: &Device, start: u64, amount: u64, expiry: u32) -> Note {
         self.issue_with_hops(holder, start, amount, expiry, 6)

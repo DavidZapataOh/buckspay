@@ -81,9 +81,9 @@ pub fn parse_inner(plain: &[u8]) -> Result<Inner, Problem> {
     let issue_len = length(plain, &mut at)?;
     let issue = take(plain, &mut at, issue_len)?.to_vec();
     let count = usize::from(take(plain, &mut at, 1)?[0]);
-    if !(1..=MAX_CHAIN_SPENDS).contains(&count) {
+    if count > MAX_CHAIN_SPENDS {
         return Err(invalid(
-            "a relayed settlement carries one to sixteen spends",
+            "a relayed settlement carries at most sixteen spends",
         ));
     }
     let mut spends = Vec::with_capacity(count);
@@ -425,6 +425,12 @@ mod tests {
     }
 
     #[test]
+    fn parses_an_issue_with_no_spend() {
+        let p = parse_inner(&inner(&[7; 140], &[], 1024)).unwrap();
+        assert!(p.spends.is_empty());
+    }
+
+    #[test]
     fn refuses_nonzero_padding_unknown_kind_and_bad_counts() {
         let mut v = inner(&[7; 140], &[&[8; 150]], 1024);
         *v.last_mut().unwrap() = 1;
@@ -433,7 +439,6 @@ mod tests {
         k[1] = 2;
         assert!(parse_inner(&k).is_err());
         assert!(parse_inner(&inner(&[7; 140], &[&[8u8; 10] as &[u8]; 17], 8192)).is_err());
-        assert!(parse_inner(&inner(&[7; 140], &[], 1024)).is_err());
         assert!(parse_inner(&inner(&[7; 140], &[&[8; 150]], 1000)).is_err());
     }
 

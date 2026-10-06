@@ -2,7 +2,7 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { describe, expect, it, vi } from 'vitest'
 import { migrate } from '../notes/schema'
 import { createNodeDb } from '../notes/testing/node-db'
-import { handOff } from './handoff'
+import { handOff, spray } from './handoff'
 import { RelayRejected } from './inbox'
 import { postRelay } from './relayer'
 import { dumpBytes, indexOf, relayerLink, sealAnswer, sealedFixture, seen } from './testing'
@@ -85,5 +85,45 @@ describe('posting to the gateway', () => {
   it('tells a blob the gateway refused from a gateway it could not reach', async () => {
     await expect(postRelay('https://gw.example', reply(400) as never)(blob)).rejects.toBeInstanceOf(RelayRejected)
     await expect(postRelay('https://gw.example', reply(502) as never)(blob)).rejects.not.toBeInstanceOf(RelayRejected)
+  })
+})
+
+describe('a phone without internet', () => {
+  it('takes nothing to post: a plain blob is refused and nothing is kept', async () => {
+    const db = await store()
+    const post = vi.fn(async () => new Uint8Array(0))
+    const link = relayerLink(db, post, () => 1_000, false)
+    expect(await handOff(sealedFixture(5), [seen({ rssi: -50 })], link, 1)).toEqual({ stored: 0, answer: null })
+    expect(post).not.toHaveBeenCalled()
+    expect(await db.all('SELECT id FROM carry')).toEqual([])
+  })
+
+  it('keeps a blob that comes with copies, and a phone with internet posts what a carrier sprays to it', async () => {
+    const offline = await store()
+    const sealed = sealedFixture(6)
+    const carrier = seen({ rssi: -50, online: false })
+    expect(
+      await spray(
+        sealed,
+        8,
+        [carrier],
+        relayerLink(offline, vi.fn(), () => 1_000, false),
+      ),
+    ).toEqual({
+      stored: 1,
+      left: 4,
+    })
+    expect(await offline.all('SELECT copies FROM carry')).toEqual([{ copies: 4 }])
+    const online = await store()
+    const post = vi.fn(async () => new Uint8Array(0))
+    expect(
+      await spray(
+        sealed,
+        8,
+        [carrier],
+        relayerLink(online, post, () => 1_000, true),
+      ),
+    ).toMatchObject({ stored: 1 })
+    expect(post).toHaveBeenCalledOnce()
   })
 })

@@ -3,7 +3,8 @@ import { migrateEvent } from '../event/store'
 import { migrateWitness } from './witness-store'
 import { migrateGossip } from '../mesh/gossip'
 import { migrateMesh } from '../mesh/locked-queue'
-import { migrateRelay, RELAY_SCHEMA_VERSION } from '../relay/store'
+import { migrateRelay } from '../relay/store'
+import { migrateRemote, REMOTE_SCHEMA_VERSION } from '../remote/store'
 
 export const SCHEMA_VERSION = 1
 export const RESPEND_SCHEMA_VERSION = 3
@@ -104,7 +105,7 @@ CREATE TABLE lock_cursor (
 /** Creates the tables on a new database and applies the later migrations; refuses a database of a newer version. Versioned with `PRAGMA user_version`. */
 export async function migrate(db: NoteDb): Promise<void> {
   const [row] = await db.all<{ user_version: number }>('PRAGMA user_version')
-  if (row.user_version > RELAY_SCHEMA_VERSION)
+  if (row.user_version > REMOTE_SCHEMA_VERSION)
     throw new Error(`The note store is version ${row.user_version}, newer than this app.`)
   if (row.user_version < SCHEMA_VERSION)
     await db.exec(`BEGIN; ${SCHEMA} PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;`)
@@ -114,6 +115,7 @@ export async function migrate(db: NoteDb): Promise<void> {
   await migrateMesh(db)
   await migrateGossip(db)
   await migrateRelay(db)
+  await migrateRemote(db)
 }
 
 /**

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { NoteDb } from '../notes/db'
 import { migrate } from '../notes/schema'
-import { RELAY_SCHEMA_VERSION } from '../relay/store'
+import { REMOTE_SCHEMA_VERSION } from '../remote/store'
 import { createNodeDb } from '../notes/testing/node-db'
 import { activePairing, joinedAuthorities, joinEvent, listEvents, loadPairing, savePairing } from './store'
 import { eventWorld } from './testing'
@@ -20,7 +20,7 @@ describe('event store', () => {
   it('migrates to its version and again without harm', async () => {
     await migrate(db)
     const [row] = await db.all<{ user_version: number }>('PRAGMA user_version')
-    expect(row.user_version).toBe(RELAY_SCHEMA_VERSION)
+    expect(row.user_version).toBe(REMOTE_SCHEMA_VERSION)
   })
 
   it('joins an event once and accepts its authority until it ends', async () => {

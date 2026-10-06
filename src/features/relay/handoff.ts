@@ -1,5 +1,7 @@
 import { equalBytes } from '@noble/curves/utils.js'
 import type { Beacon } from '../mesh/beacon'
+import { concatBytes } from '@noble/hashes/utils.js'
+import { split } from './carry'
 import { type Channel, openHop } from './hop'
 import type { RelayAnswer, SealedRelay } from './seal'
 
@@ -70,4 +72,49 @@ export async function handOff(
     stored: results.filter((result) => result.stored).length,
     answer: results.find((result) => result.answer)?.answer ?? null,
   }
+}
+
+/** Up to `max` phones in range that cannot post (offline beacons of this cluster seen in the last minute), strongest first. */
+export function chooseCarriers(clusterTag: Uint8Array, beacons: readonly Seen<Beacon>[], max: number): Seen<Beacon>[] {
+  return beacons
+    .filter((b) => !b.value.online && equalBytes(b.value.clusterTag, clusterTag) && b.ageSeconds <= BEACON_TTL)
+    .sort((a, b) => b.rssi - a.rssi)
+    .slice(0, max)
+}
+
+/** Hands `copies` of `blob` to a carrier: true when it kept them. */
+export async function toCarrier(blob: Uint8Array, copies: number, target: Seen<Beacon>, link: L2capLink) {
+  const channel = await link.connect(target.address, target.value.psm)
+  try {
+    const hop = await openHop(channel, 'initiator')
+    await hop.send(concatBytes(Uint8Array.of(copies), blob))
+    return (await hop.receive(STORED_TIMEOUT_MS))[0] === 0x01
+  } catch {
+    return false
+  } finally {
+    channel.close()
+  }
+}
+
+/**
+ * Binary Spray-and-Wait over the carriers in range, one after the other: each takes half of what is left. Returns how many
+ * kept their copies and how many copies this phone still holds.
+ */
+export async function spray(
+  sealed: SealedRelay,
+  copies: number,
+  beacons: readonly Seen<Beacon>[],
+  link: L2capLink,
+  max = COPIES,
+): Promise<{ stored: number; left: number }> {
+  let left = copies
+  let stored = 0
+  for (const target of chooseCarriers(sealed.clusterTag, beacons, max)) {
+    const { give } = split(left)
+    if (give < 1) break
+    if (!(await toCarrier(sealed.blob, give, target, link))) continue
+    left -= give
+    stored++
+  }
+  return { stored, left }
 }

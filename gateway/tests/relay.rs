@@ -298,6 +298,19 @@ async fn a_relayed_settlement_settles_once_and_the_copy_is_a_duplicate() {
 }
 
 #[tokio::test]
+async fn a_payment_to_an_account_with_no_spend_settles_through_the_relay() {
+    let mut t = Relayed::start().await;
+    let expiry = t.expiry().await;
+    let note = t
+        .issuer
+        .issue_to_account(t.next, PAID, expiry, &t.payee.keypair.pubkey());
+    t.next += PAID;
+    assert!(note.spends.is_empty());
+    assert_eq!(relayed(&t.sponsor, "203.0.113.9", &note).await, "submitted");
+    paid(&t, PAID).await;
+}
+
+#[tokio::test]
 async fn nothing_reaches_the_rpc_before_the_blob_opens() {
     let sponsor = Sponsor::on_relay(
         rpc(NOWHERE),

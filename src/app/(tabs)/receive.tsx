@@ -11,6 +11,7 @@ import { MIN_WINDOW, PAY_LIMITS } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { copy, text } from '../../features/payment/copy'
 import { eventCopy } from '../../features/event/copy'
+import { remoteCopy } from '../../features/remote/copy'
 import { HowControl } from '../../features/transport/how-control'
 import { useReceiveFlow } from '../../features/receive/use-receive-flow'
 import { formatMoney, parseAmount } from '../../utils/format-amount'
@@ -99,6 +100,12 @@ export default function Receive() {
             variant="text"
             label={eventCopy.pointTitle}
             onPress={() => router.push('/receive/point')}
+          />
+          <Button
+            testID="receive-far-away"
+            variant="text"
+            label={remoteCopy.receiveTitle}
+            onPress={() => router.push('/receive/far-away')}
           />
         </>
       )}

@@ -18,7 +18,6 @@ async function setup(validated: boolean, fetchConfig = vi.fn(async () => ({ keys
   const native = {
     status: vi.fn(async () => ({ validated })),
     setBeacon: vi.fn(async () => {}),
-    clearBeacon: vi.fn(async () => {}),
   }
   const run = () =>
     syncBeacon({ db, native: native as never, genesisHash: DEVNET_GENESIS_HASH, fetchConfig, now: () => NOW })
@@ -35,20 +34,20 @@ describe('the beacon of a phone that can relay', () => {
     expect(fetchConfig).toHaveBeenCalledOnce()
   })
 
-  it('clears the beacon without validated internet and fetches nothing', async () => {
+  it('says offline, as a carrier, without validated internet and fetches nothing', async () => {
     const { native, fetchConfig, run } = await setup(false)
     expect(await run()).toBe(false)
-    expect(native.clearBeacon).toHaveBeenCalledOnce()
-    expect(native.setBeacon).not.toHaveBeenCalled()
+    expect(native.setBeacon).toHaveBeenCalledOnce()
+    expect(native.setBeacon).toHaveBeenCalledWith(false, DEVNET_GENESIS_HASH.slice(0, 4), PINNED_GATEWAY_KEYS[0].keyId)
     expect(fetchConfig).not.toHaveBeenCalled()
   })
 
-  it('clears the beacon when the gateway cannot be reached and no configuration is kept', async () => {
+  it('says offline when the gateway cannot be reached and no configuration is kept', async () => {
     const { native, run } = await setup(
       true,
       vi.fn(async () => Promise.reject(new Error('offline'))),
     )
     expect(await run()).toBe(false)
-    expect(native.clearBeacon).toHaveBeenCalledOnce()
+    expect(native.setBeacon).toHaveBeenCalledWith(false, DEVNET_GENESIS_HASH.slice(0, 4), PINNED_GATEWAY_KEYS[0].keyId)
   })
 })

@@ -2,6 +2,8 @@ import { bytesToHex } from '@noble/hashes/utils.js'
 import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
 import { ActivityList } from '../../features/activity/activity'
+import { IncomingList } from '../../features/activity/incoming-list'
+import { useIncoming } from '../../features/activity/use-incoming'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { type ActivityRow, listActivity } from '../../features/notes/activity'
 import { nowSeconds, usePayments } from '../../features/payment/payments-provider'
@@ -14,6 +16,7 @@ export default function Activity() {
   const settlement = useSettlementRunner()
   const [rows, setRows] = useState<ActivityRow[]>([])
   const [waiting, setWaiting] = useState<string[]>([])
+  const incoming = useIncoming(settlement.report)
   const notice = settlement.notices.find((pending) => !waiting.includes(bytesToHex(pending.outputId)))
 
   const { report } = settlement
@@ -38,19 +41,22 @@ export default function Activity() {
       now={nowSeconds()}
       onOpen={(id) => router.push(`/activity/${id}`)}
       header={
-        settlement.labelPending ? (
-          <SettlementLabel
-            count={settlement.unsettled?.count ?? 0}
-            earliestExpiry={settlement.unsettled?.earliestExpiry ?? null}
-            onContinue={() => void settlement.acknowledge()}
-          />
-        ) : notice ? (
-          <ClearNotice
-            holders={notice.holders}
-            onSettle={() => void settlement.confirmNotice(notice.outputId)}
-            onWait={() => setWaiting((ids) => [...ids, bytesToHex(notice.outputId)])}
-          />
-        ) : undefined
+        <>
+          <IncomingList items={incoming} symbol={BUILD_TOKEN.symbol} decimals={BUILD_TOKEN.decimals} />
+          {settlement.labelPending ? (
+            <SettlementLabel
+              count={settlement.unsettled?.count ?? 0}
+              earliestExpiry={settlement.unsettled?.earliestExpiry ?? null}
+              onContinue={() => void settlement.acknowledge()}
+            />
+          ) : notice ? (
+            <ClearNotice
+              holders={notice.holders}
+              onSettle={() => void settlement.confirmNotice(notice.outputId)}
+              onWait={() => setWaiting((ids) => [...ids, bytesToHex(notice.outputId)])}
+            />
+          ) : undefined}
+        </>
       }
     />
   )

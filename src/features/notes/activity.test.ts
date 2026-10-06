@@ -94,7 +94,9 @@ describe('listActivity', () => {
       'id',
       'kind',
       'memo',
+      'payee',
       'reason',
+      'remote',
       'state',
     ])
   })

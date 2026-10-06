@@ -13,7 +13,10 @@ describe('inner message', () => {
   it('refuses more than sixteen spends or more than the largest bucket', () => {
     expect(() => encodeInner(new Uint8Array(140), Array(17).fill(new Uint8Array(10)))).toThrow()
     expect(() => encodeInner(new Uint8Array(140), [new Uint8Array(BUCKETS[3])])).toThrow()
-    expect(() => encodeInner(new Uint8Array(140), [])).toThrow()
+  })
+
+  it('carries a note with no spend: the issue of a payment to an account is settled as it is', () => {
+    expect(encodeInner(new Uint8Array(140), []).length).toBe(1024)
   })
 
   it('lays the message out as the gateway reads it', () => {

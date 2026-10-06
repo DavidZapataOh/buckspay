@@ -33,6 +33,7 @@ export default function Pay() {
         router.push('/pay/scan')
       }}
       onPaste={() => void paste()}
+      onFarAway={() => router.push('/pay/far-away')}
       onAddMoney={() => router.push('/add-funds')}
       onResume={(messageId) => {
         void flow.resume(messageId).then(() => router.push('/pay/send'))
