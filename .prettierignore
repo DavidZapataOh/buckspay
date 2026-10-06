@@ -16,3 +16,4 @@ src/uniwind-types.d.ts
 /src/keys/fixtures
 /modules/*/android/.cxx
 /modules/*/android/build
+/prover/testdata/vectors.json
