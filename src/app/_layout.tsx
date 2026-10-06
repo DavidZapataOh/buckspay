@@ -10,6 +10,10 @@ import { AccessibilityInfo } from 'react-native'
 import { DeviceIdentityProvider, useDeviceIdentity } from '../features/identity/use-device-identity'
 import { BUILD_NETWORK } from '../features/network/build-network'
 import { NetworkProvider } from '../features/network/network-provider'
+import { PayFlowProvider } from '../features/pay/use-pay-flow'
+import { PaymentsProvider } from '../features/payment/payments-provider'
+import { ReceiveFlowProvider } from '../features/receive/use-receive-flow'
+import { SettlementProvider } from '../features/settlement/use-settlement-runner'
 import { createAuthorizationCache } from '../features/wallet/authorization-cache'
 import { configureDeviceKey } from '../keys'
 import { useThemeColors } from '../theme/use-theme-colors'
@@ -32,7 +36,15 @@ export default function Layout() {
     <NetworkProvider network={BUILD_NETWORK.network}>
       <MobileWalletProvider cache={cache} cluster={BUILD_NETWORK.network} identity={identity}>
         <DeviceIdentityProvider build={BUILD_NETWORK} cache={cache}>
-          <Routes />
+          <PaymentsProvider>
+            <SettlementProvider>
+              <PayFlowProvider>
+                <ReceiveFlowProvider>
+                  <Routes />
+                </ReceiveFlowProvider>
+              </PayFlowProvider>
+            </SettlementProvider>
+          </PaymentsProvider>
         </DeviceIdentityProvider>
       </MobileWalletProvider>
     </NetworkProvider>
@@ -66,7 +78,11 @@ function Routes() {
         <Stack.Protected guard={step === 'ready'}>
           <Stack.Screen name="add-funds" options={{ presentation: 'modal' }} />
           <Stack.Screen name="withdraw" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="pay" />
+          <Stack.Screen name="receive/session" />
+          <Stack.Screen name="activity/[id]" />
         </Stack.Protected>
+        <Stack.Screen name="reset-identity" />
       </Stack>
     </>
   )

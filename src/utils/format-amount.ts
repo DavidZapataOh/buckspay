@@ -5,6 +5,13 @@ export function formatAmount(units: bigint, decimals: number): string {
   return fraction ? `${units / scale}.${fraction}` : String(units / scale)
 }
 
+/** Money as a person reads it: at least two decimals ("5.00"), more only when the amount needs them. */
+export function formatMoney(units: bigint, decimals: number): string {
+  const [whole, fraction = ''] = formatAmount(units, decimals).split('.')
+  const places = Math.min(2, decimals)
+  return places === 0 ? whole : `${whole}.${fraction.padEnd(places, '0')}`
+}
+
 /** The base units of a decimal amount a person typed, or `undefined` if it is not one the token can hold. */
 export function parseAmount(text: string, decimals: number): bigint | undefined {
   const match = /^(\d+)(?:\.(\d+))?$/.exec(text.trim())

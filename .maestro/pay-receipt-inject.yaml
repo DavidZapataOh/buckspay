@@ -1,0 +1,12 @@
+# The payer scans the receiver's confirmation (injected) and sees Paid. Continues the payer's screen.
+# Run with `-e RECEIPT_URL=buckspay-e2e://scan?text=<the receipt text, URL-encoded>`.
+appId: xyz.buckspay.app
+---
+- tapOn:
+    id: pay-scan-receipt
+- openLink: ${RECEIPT_URL}
+- extendedWaitUntil:
+    visible:
+      id: pay-result-confirmed
+    timeout: 15000
+- takeScreenshot: pay-confirmed

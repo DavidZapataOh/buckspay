@@ -9,6 +9,7 @@ const variants = {
     content: 'on-secondary-container',
   },
   text: { container: '', label: 'text-primary', content: 'primary' },
+  danger: { container: 'bg-danger', label: 'text-on-primary', content: 'on-primary' },
 }
 
 export type ButtonProps = {

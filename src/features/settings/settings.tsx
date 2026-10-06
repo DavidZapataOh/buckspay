@@ -8,10 +8,18 @@ import { ListRow } from '../../components/list-row'
 import { Screen } from '../../components/screen'
 import { StatusNote } from '../../components/status-note'
 import { keyProtection, SOFTWARE_KEY_WARNING } from '../identity/identity-copy'
+import { copy, text } from '../payment/copy'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { BUILD_NETWORK } from '../network/build-network'
 
-export function Settings() {
+export type PaymentsSettings = {
+  /** How many received payments have not settled: what an uninstall or a reset would lose. */
+  unsettled: number
+  limits: { perPayment: string; biometricFrom: string; biometricDaily: string; window: string }
+  onReset: () => void
+}
+
+export function Settings({ payments }: { payments?: PaymentsSettings }) {
   const { step, busy, error, wallet, device, deviceKey, disconnect } = useDeviceIdentity()
   const [forgetting, setForgetting] = useState(false)
   const checking = step === 'loading' && !error
@@ -52,6 +60,33 @@ export function Settings() {
           disabled={busy}
           onPress={() => void forget()}
         />
+      ) : null}
+      {payments ? (
+        <>
+          <AppText variant="title" accessibilityRole="header" className="mt-4">
+            {copy.settings.limits}
+          </AppText>
+          <ListRow testID="limit-per-payment" title={copy.settings.perPayment} value={payments.limits.perPayment} />
+          <ListRow testID="limit-biometric" title={copy.settings.biometricFrom} value={payments.limits.biometricFrom} />
+          <ListRow
+            testID="limit-biometric-daily"
+            title={copy.settings.biometricDaily}
+            value={payments.limits.biometricDaily}
+          />
+          <ListRow testID="limit-window" title={copy.settings.window} value={payments.limits.window} />
+          <ListRow
+            testID="uninstall"
+            title={copy.settings.uninstall}
+            value={text(copy.settings.uninstallBody, { count: payments.unsettled })}
+          />
+          <Button
+            testID="reset-identity"
+            variant="tonal"
+            label={copy.settings.reset}
+            disabled={busy}
+            onPress={payments.onReset}
+          />
+        </>
       ) : null}
       <AppText variant="title" accessibilityRole="header" className="mt-4">
         Technical details

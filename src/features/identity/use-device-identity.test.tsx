@@ -5,7 +5,7 @@ import { MobileWalletProvider, type WalletAuthorizationCache } from '@wallet-ui/
 import { act } from 'react'
 import { create } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { configureDeviceKey, createDeviceKey } from '../../keys'
+import { configureDeviceKey, createDeviceKey, resetDeviceIdentity } from '../../keys'
 import HardwareKeys, { resetHardwareKeys } from '../../keys/test-support/hardware-keys'
 import AsyncStorage, { resetAsyncStorage } from '../../test-support/async-storage'
 import { type BuildNetwork, getBuildNetwork } from '../network/build-network'
@@ -109,6 +109,27 @@ describe('device identity provider', () => {
       busy: false,
     })
     expect(seen.at(-1)?.error).toBeUndefined()
+    await act(async () => renderer.unmount())
+  })
+
+  it('forgets what was recorded for a key that was deleted, and starts again at creating one', async () => {
+    const cache = createAuthorizationCache(localnet.network.id)
+    await cache.set({ accounts: [account], authToken: 'token', selectedAccount: account })
+    const { publicKey } = await createDeviceKey()
+    const [device] = await findDevicePda(publicKey)
+    const record = { chain: localnet.network.id, address: device, wallet: account.address, key: bytesToHex(publicKey) }
+    await AsyncStorage.setItem('device', JSON.stringify(record))
+    await AsyncStorage.setItem('device-key:cluster', 'devnet')
+    await AsyncStorage.setItem('activation', 'pending')
+    const renderer = await act(async () => create(<App cache={cache} render={0} />))
+    await settled()
+    expect(seen.at(-1)?.step).toBe('ready')
+    await resetDeviceIdentity()
+    await act(async () => seen.at(-1)?.reset())
+    expect(seen.at(-1)).toMatchObject({ step: 'create-key', wallet: account.address })
+    expect(seen.at(-1)?.device).toBeUndefined()
+    for (const item of ['device', 'device-key:cluster', 'activation'])
+      expect(await AsyncStorage.getItem(item)).toBeNull()
     await act(async () => renderer.unmount())
   })
 })

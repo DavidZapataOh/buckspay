@@ -1,0 +1,27 @@
+# The receiver asks for 5 USDC with a note: the request code, its phone code and the countdown appear.
+appId: xyz.buckspay.app
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: device-ready
+    timeout: 30000
+- tapOn: Receive
+- tapOn:
+    id: receive-amount
+- inputText: '5'
+- tapOn:
+    id: receive-memo
+- inputText: Coffee
+- hideKeyboard
+- tapOn:
+    id: receive-create
+- extendedWaitUntil:
+    visible:
+      id: receive-request
+    timeout: 10000
+- assertVisible:
+    id: receive-code
+- assertVisible:
+    id: receive-countdown
+- takeScreenshot: receive-request

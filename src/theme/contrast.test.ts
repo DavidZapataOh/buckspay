@@ -47,6 +47,7 @@ const pairs: [string, string, number][] = [
   ['primary', 'background', 4.5],
   ['primary', 'surface', 4.5],
   ['on-secondary-container', 'secondary-container', 4.5],
+  ['on-primary', 'danger', 4.5],
   ['danger', 'background', 4.5],
   ['danger', 'surface', 4.5],
   ['success', 'background', 4.5],

@@ -1,0 +1,19 @@
+# Kills the app mid-payment: it comes back with the unfinished payment and resumes it.
+appId: xyz.buckspay.app
+---
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: device-ready
+    timeout: 30000
+- tapOn: Pay
+- assertVisible:
+    id: pay-unfinished
+- takeScreenshot: pay-unfinished
+- tapOn:
+    id: pay-resume
+- extendedWaitUntil:
+    visible:
+      id: pay-presenting
+    timeout: 15000

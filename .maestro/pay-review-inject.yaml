@@ -1,0 +1,35 @@
+# The payer scans a request (injected at the scanner boundary), reviews it and pays: the code appears.
+# Run with `-e REQUEST_URL=buckspay-e2e://scan?text=<the request text, URL-encoded>`.
+appId: xyz.buckspay.app
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: device-ready
+    timeout: 30000
+- tapOn: Pay
+- tapOn:
+    id: pay-scan
+- extendedWaitUntil:
+    visible:
+      id: pay-scan-hint
+    timeout: 10000
+- openLink: ${REQUEST_URL}
+- extendedWaitUntil:
+    visible:
+      id: pay-review
+    timeout: 10000
+- assertVisible:
+    id: pay-to
+- assertVisible:
+    id: pay-from
+- assertVisible:
+    id: pay-consequences
+- takeScreenshot: pay-review
+- tapOn:
+    id: pay-confirm
+- extendedWaitUntil:
+    visible:
+      id: pay-presenting
+    timeout: 15000
+- takeScreenshot: pay-presenting

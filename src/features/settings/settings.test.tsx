@@ -1,5 +1,5 @@
 import { address } from '@solana/kit'
-import { act } from 'react'
+import { act, type ComponentProps } from 'react'
 import { create, type ReactTestInstance } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { configureDeviceKey, createDeviceKey, type DeviceKey } from '../../keys'
@@ -32,11 +32,14 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 globalThis.IS_REACT_NATIVE_TEST_ENVIRONMENT = true
 
 const wallet = address('Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS')
-const actions = { next: async () => {}, disconnect: async () => {} }
+const actions = { next: async () => {}, disconnect: async () => {}, reset: async () => {} }
 
-async function render(state: Omit<DeviceIdentity, 'next' | 'disconnect'> & Partial<DeviceIdentity>) {
+async function render(
+  state: Omit<DeviceIdentity, 'next' | 'disconnect' | 'reset'> & Partial<DeviceIdentity>,
+  payments?: ComponentProps<typeof Settings>['payments'],
+) {
   identity.current = { ...actions, ...state }
-  return (await act(async () => create(<Settings />))).root
+  return (await act(async () => create(<Settings payments={payments} />))).root
 }
 
 const row = (root: ReactTestInstance, testID: string) =>
@@ -76,6 +79,38 @@ describe('Settings', () => {
     expect(row(root, 'wallet')).toEqual(['Connected wallet', 'Not connected'])
     expect(root.findAllByProps({ accessibilityLabel: `Registered to: ${wallet}` })).toHaveLength(1)
     expect(root.findAllByProps({ testID: 'disconnect' })).toHaveLength(0)
+  })
+
+  it('lists the limits, what an uninstall loses and the way to reset the identity', async () => {
+    const onReset = vi.fn()
+    const device = { address: wallet, wallet, key: deviceKey.publicKey }
+    const root = await render(
+      { step: 'ready', wallet, deviceKey, device, busy: false },
+      {
+        unsettled: 3,
+        onReset,
+        limits: {
+          perPayment: '100.00 USDC',
+          biometricFrom: '20.00 USDC',
+          biometricDaily: '50.00 USDC',
+          window: '1 hour',
+        },
+      },
+    )
+    expect(row(root, 'limit-per-payment')).toEqual(['Most per payment', '100.00 USDC'])
+    expect(row(root, 'limit-window')).toEqual(['Payments you receive must stay valid for', '1 hour'])
+    expect(row(root, 'uninstall')).toEqual([
+      'If you uninstall or reset',
+      "Uninstalling this app loses payments that haven't settled yet. You have 3 right now.",
+    ])
+    await act(async () => root.findByProps({ testID: 'reset-identity', accessibilityRole: 'button' }).props.onPress())
+    expect(onReset).toHaveBeenCalledOnce()
+  })
+
+  it('shows none of it where payments are not set up', async () => {
+    const root = await render({ step: 'loading', busy: true })
+    expect(root.findAllByProps({ testID: 'uninstall' })).toHaveLength(0)
+    expect(root.findAllByProps({ testID: 'reset-identity' })).toHaveLength(0)
   })
 
   it('shows checking rows, without a spinner, while it reads them', async () => {

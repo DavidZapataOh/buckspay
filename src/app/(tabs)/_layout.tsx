@@ -21,6 +21,18 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon md="home" />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="pay">
+        <NativeTabs.Trigger.Label>Pay</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon md="north_east" />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="receive">
+        <NativeTabs.Trigger.Label>Receive</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon md="south_west" />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="activity">
+        <NativeTabs.Trigger.Label>Activity</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon md="history" />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon md="settings" />

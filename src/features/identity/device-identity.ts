@@ -112,6 +112,12 @@ const PENDING = 'activation'
 const DEVICE = 'device'
 const KEY_CLUSTER = 'device-key:cluster'
 
+/** After the device key was deleted: forgets the cluster and the registration recorded for it, then derives the step again. */
+export async function forgetIdentity(ctx: IdentityContext): Promise<IdentityState> {
+  for (const item of [PENDING, DEVICE, KEY_CLUSTER]) await AsyncStorage.removeItem(item)
+  return resolveIdentity(ctx)
+}
+
 const NOTHING_SENT = 'Nothing was sent and nothing was charged.'
 const NOT_ACTIVATED = 'Nothing was charged and this phone is not activated.'
 const EXPIRED = `The activation expired before it landed. ${NOT_ACTIVATED}`

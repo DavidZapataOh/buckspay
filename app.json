@@ -47,7 +47,21 @@
           "barcodeScannerEnabled": true
         }
       ],
-      "./plugins/with-gradle-heap"
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false
+        }
+      ],
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
+      ],
+      "expo-local-authentication",
+      "./plugins/with-gradle-heap",
+      "./plugins/with-no-backup"
     ]
   }
 }

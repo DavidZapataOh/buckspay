@@ -21,18 +21,25 @@ export type AcceptanceOptions = {
   attesters: Attester[]
   /** At most `MAX_NOTE_LIFE`: a longer note can outlive the attester's exit delay. */
   maxNoteLife?: number
+  /** How long a received note must stay valid, seconds; `MIN_WINDOW` unless the wallet chooses less. */
+  minWindow?: number
 }
 
 /**
  * The one place that says what this wallet accepts: the receiver `verifyPayment` and every screen
  * that previews a payment are built from it.
  */
-export function acceptancePolicy({ maxNoteLife = MAX_NOTE_LIFE, ...options }: AcceptanceOptions): Receiver {
+export function acceptancePolicy({
+  maxNoteLife = MAX_NOTE_LIFE,
+  minWindow = MIN_WINDOW,
+  ...options
+}: AcceptanceOptions): Receiver {
   checkU32(maxNoteLife)
+  checkU32(minWindow)
   if (maxNoteLife > MAX_NOTE_LIFE) throw new RangeError('maxNoteLife is above what an attester exit covers')
   return {
     ...options,
-    minWindow: MIN_WINDOW,
+    minWindow,
     maxNoteLife,
     acceptCategory: false,
     acceptAuthorities: [],

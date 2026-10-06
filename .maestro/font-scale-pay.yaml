@@ -1,0 +1,41 @@
+# Captures the payment screens for review at the device's current font scale and theme; run with
+# `-e THEME=light` or `-e THEME=dark`, and `-e REQUEST_URL=buckspay-e2e://scan?text=<request text>` for the review.
+appId: xyz.buckspay.app
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: device-ready
+    timeout: 30000
+- tapOn: Pay
+- takeScreenshot: pay-${THEME}
+- scrollUntilVisible:
+    element:
+      id: pay-paste
+- takeScreenshot: pay-${THEME}-end
+- tapOn: Receive
+- takeScreenshot: receive-${THEME}
+- scrollUntilVisible:
+    element:
+      id: receive-create
+- takeScreenshot: receive-${THEME}-end
+- tapOn: Activity
+- takeScreenshot: activity-${THEME}
+- tapOn: Pay
+- tapOn:
+    id: pay-scan
+- extendedWaitUntil:
+    visible:
+      id: pay-scan-hint
+    timeout: 10000
+- takeScreenshot: pay-scan-${THEME}
+- openLink: ${REQUEST_URL}
+- extendedWaitUntil:
+    visible:
+      id: pay-review
+    timeout: 10000
+- takeScreenshot: pay-review-${THEME}
+- scrollUntilVisible:
+    element:
+      id: pay-confirm
+- takeScreenshot: pay-review-${THEME}-end

@@ -1,4 +1,4 @@
-# Switches between the tabs by their labels 20 times.
+# Switches between the five tabs by their labels 20 times.
 appId: xyz.buckspay.app
 ---
 - launchApp
@@ -9,6 +9,15 @@ appId: xyz.buckspay.app
 - repeat:
     times: 20
     commands:
+      - tapOn: Pay
+      - assertVisible:
+          id: pay
+      - tapOn: Receive
+      - assertVisible:
+          id: receive
+      - tapOn: Activity
+      - assertVisible:
+          id: activity
       - tapOn: Settings
       - assertVisible:
           id: settings

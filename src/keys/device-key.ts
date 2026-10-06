@@ -84,9 +84,15 @@ export async function getDeviceKey(): Promise<DeviceKey | null> {
   return record && deviceKey(record)
 }
 
+/** The `code` a native module failure carries (`ERR_DEVICE_LOCKED`, `ERR_KEY_UNAVAILABLE`, ...), if it has one. */
+export function nativeErrorCode(error: unknown): string | undefined {
+  const code = error instanceof Error ? (error as { code?: unknown }).code : undefined
+  return typeof code === 'string' ? code : undefined
+}
+
 /**
  * Deletes the device key; the next `createDeviceKey` is a new identity. Notes the old key received
- * and did not settle are lost with it. Internal to `src/keys` until the confirmed reset flow uses it.
+ * and did not settle are lost with it. Only the confirmed reset flow calls it.
  */
 export async function resetDeviceIdentity(): Promise<void> {
   try {

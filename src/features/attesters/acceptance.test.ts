@@ -70,6 +70,12 @@ describe('the receiver a wallet builds', () => {
     expect(MAX_REGISTRY_AGE).toBe(7 * 86_400)
   })
 
+  it('requires a day of validity unless the wallet asks for less', () => {
+    expect(acceptancePolicy(options).minWindow).toBe(86_400)
+    expect(acceptancePolicy({ ...options, minWindow: 3_600 }).minWindow).toBe(3_600)
+    expect(() => acceptancePolicy({ ...options, minWindow: -1 })).toThrow()
+  })
+
   it('lets a wallet choose a shorter note life and never a longer one', () => {
     expect(acceptancePolicy({ ...options, maxNoteLife: 3_600 }).maxNoteLife).toBe(3_600)
     expect(() => acceptancePolicy({ ...options, maxNoteLife: MAX_NOTE_LIFE + 1 })).toThrow()

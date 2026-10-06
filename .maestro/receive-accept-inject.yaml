@@ -1,0 +1,16 @@
+# The receiver scans the payer's code (injected) and sees Received. Continues the open request.
+# Run with `-e PAYMENT_URL=buckspay-e2e://scan?text=<the payment text, URL-encoded>`.
+appId: xyz.buckspay.app
+---
+- tapOn:
+    id: receive-scan-payment
+- extendedWaitUntil:
+    visible:
+      id: receive-scanning
+    timeout: 10000
+- openLink: ${PAYMENT_URL}
+- extendedWaitUntil:
+    visible:
+      id: receive-result-accepted
+    timeout: 15000
+- takeScreenshot: receive-accepted

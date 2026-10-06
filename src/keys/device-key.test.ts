@@ -234,14 +234,24 @@ describe('device key', () => {
     await expect(keys.signDeviceBinding(wallet)).rejects.toThrow(code('Signature'))
   })
 
-  it('exports structured signing only, no reset, and signs no device message over a caller digest', async () => {
+  it('says which native error stopped a signature, so a screen can tell the person what to do', async () => {
+    const { publicKey } = await keys.createDeviceKey()
+    const locked = Object.assign(new Error('locked'), { code: 'ERR_DEVICE_LOCKED' })
+    vi.spyOn(HardwareKeys, 'signNote').mockRejectedValueOnce(locked)
+    const failure = await keys.signIssue(issueOf(publicKey, merchant, 0n, 10n)).catch((error: unknown) => error)
+    expect(keys.nativeErrorCode(failure)).toBe('ERR_DEVICE_LOCKED')
+    expect(keys.nativeErrorCode(new Error('plain'))).toBeUndefined()
+    expect(keys.nativeErrorCode('ERR_DEVICE_LOCKED')).toBeUndefined()
+  })
+
+  it('exports structured signing and the confirmed reset, and signs no device message over a caller digest', async () => {
     expect(Object.keys(keys).filter((name) => name.startsWith('sign'))).toEqual([
       'signDeviceBinding',
       'signIssue',
       'signReclaim',
       'signSpend',
     ])
-    expect(keys).not.toHaveProperty('resetDeviceIdentity')
+    expect(keys).toHaveProperty('resetDeviceIdentity')
     const signers = Object.keys(internal).filter((name) => name.startsWith('sign'))
     expect(signers.sort()).toEqual(['signDeviceBinding', 'signIssue', 'signReclaim', 'signSpend', 'signWitness'])
     await keys.createDeviceKey()

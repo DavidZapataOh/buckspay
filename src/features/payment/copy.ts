@@ -1,0 +1,250 @@
+import type { PayError } from '../../payment/pay'
+import type { PlanRefusal } from '../../payment/preflight'
+import { Reason } from '../../payment/reasons'
+
+/** Fills the `{name}` placeholders of a sentence; a placeholder without a value is a bug, not an empty string. */
+export function text(template: string, values: Record<string, string | number> = {}): string {
+  return template.replace(/\{(\w+)\}/g, (_, name: string) => {
+    if (!(name in values)) throw new Error(`No value for {${name}}`)
+    return String(values[name])
+  })
+}
+
+/** Every sentence of the payment screens, by screen. English only for now: a translation replaces this module. */
+export const copy = {
+  pay: {
+    title: 'Pay',
+    allowance: 'You can pay up to {amount} {symbol} without internet.',
+    noAllowance: 'Add money to pay without internet.',
+    addMoney: 'Add money',
+    scan: 'Scan to pay',
+    paste: 'Paste a request',
+    unfinished: 'Unfinished payment: {amount} {symbol} to phone {code}. Your phone was closed before it finished.',
+    resume: 'Resume',
+    discard: 'Discard',
+    discardWarning: 'This part of your allowance may stay used.',
+    notConfirmed: 'Not confirmed: ask the other person whether it arrived.',
+    showAgain: 'Show again',
+    setup: 'Finish setting up this phone to pay.',
+    setupAction: 'Set up payments',
+  },
+  scan: {
+    hint: "Hold your camera on the code on the other phone's screen.",
+    progress: 'Part {done} of {total}',
+    wrongCode: "That code isn't a payment request. Ask the other phone to show a request.",
+    wrongPayment: "That code isn't a payment. Ask the payer to show their payment.",
+    receiptHint: "Hold your camera on the confirmation on the other phone's screen.",
+  },
+  review: {
+    title: 'Pay {amount} {symbol}',
+    to: 'To',
+    phone: 'Phone {code}',
+    newPhone: 'New phone',
+    compare: "Compare this code with the one on the other phone's screen.",
+    note: 'Note from the receiver',
+    noteWarning: "Written by the other phone. Buckspay hasn't checked it.",
+    from: 'From',
+    source: 'Your offline allowance',
+    left: '{amount} {symbol} left after this payment',
+    next: 'What happens next',
+    finalForThem: "The other phone gets this payment as soon as you tap Pay. You can't cancel it afterwards.",
+    nothingLeaves:
+      'Nothing leaves your balance until the other phone settles it. If it never does, the money stays in your lock.',
+    ifRefused:
+      "If the other phone refuses it, you can show the same payment again, but it can't be sent to anyone else. This part of your allowance stays used until your lock ends.",
+    details: 'Details',
+    lock: 'Lock {number}',
+    expires: 'The payment is valid until {date}',
+    hops: 'It can be passed on {hops} more times',
+    pay: 'Pay {amount} {symbol}',
+    confirmAndPay: 'Confirm and pay {amount} {symbol}',
+    fingerprint: "You'll be asked for your fingerprint or screen lock.",
+    cancel: 'Cancel',
+    promptTitle: 'Confirm payment',
+    promptSubtitle: 'Pay {amount} {symbol} to phone {code}',
+  },
+  refusal: {
+    UnknownMint: { text: "This request is for a currency Buckspay doesn't support.", action: 'Back' },
+    SelfPayment: { text: 'This request is from your own phone.', action: 'Back' },
+    Malformed: { text: "This request isn't valid.", action: 'Back' },
+    AboveYourLimit: { text: 'This is more than the {max} you can pay at once.', action: 'Back' },
+    ClockOrExpired: {
+      text: "This request is old, or the two phones' clocks don't match. Check that both use automatic date and time, then ask for a new request.",
+      action: 'Back',
+    },
+    AlreadyPaid: { text: 'You already paid this request.', action: 'Activity' },
+    NoLock: {
+      text: "You have no offline allowance in this currency. Add money while you're online.",
+      action: 'Add money',
+    },
+    AttesterNotTrusted: {
+      text: "The other phone can't check your proof of funds yet. It needs to go online once to update.",
+      action: 'Back',
+    },
+    BondTooSmall: { text: 'Your bond is too small for {amount}. Add to your bond, or pay less.', action: 'Add money' },
+    AllowanceTooLow: {
+      text: "You only have {allowance} left to pay offline. Add money while you're online.",
+      action: 'Add money',
+    },
+    LockTooShort: {
+      text: "Your offline allowance ends too soon for this payment. Renew it while you're online.",
+      action: 'Add money',
+    },
+    TicketStale: {
+      text: 'Your proof of funds needs a refresh. Connect to the internet once, then try again.',
+      action: 'Back',
+    },
+  } satisfies Record<PlanRefusal, { text: string; action: string }>,
+  send: {
+    title: 'Show this to the other phone',
+    codeLabel: "QR code for your payment of {amount} {symbol}. Hold it in front of the other phone's camera.",
+    waiting: 'Waiting for the other phone…',
+    keepUp: 'Keep this screen up until the other phone says Received.',
+    scanReceipt: 'Scan confirmation',
+    done: 'Done',
+    confirmed: 'Paid {amount} {symbol}. The other phone confirmed it.',
+    confirmedSpoken: 'Paid {amount} {symbol}. The other phone confirmed it.',
+    rejected: "The other phone didn't accept this payment: {reason}.",
+    rejectedNext:
+      "Nothing was paid. You can show the same payment again, but it can't be sent to anyone else. {amount} {symbol} of your allowance stays used until your lock ends on {date}. Your money is still in your lock.",
+    again: 'Show again',
+    otherPayment: 'That confirmation is for a different payment.',
+    resume: 'Resume',
+    resetIdentity: 'Reset identity',
+  },
+  payError: {
+    Declined: 'Payment cancelled. Nothing was signed.',
+    NoScreenLock: 'Set a screen lock to pay more than {amount} {symbol}. Nothing was signed.',
+    Locked: 'Unlock your phone, then tap Resume.',
+    NoKey: "This phone can't sign payments. You can reset its identity; that loses payments you haven't settled.",
+    SignFailed: "Couldn't sign the payment. Tap Resume to try again.",
+    SendFailed: "Couldn't show the payment. Tap Resume.",
+    IntervalTaken: 'This payment is already in progress.',
+    Mismatch: "Something went wrong with this payment. It wasn't sent.",
+  },
+  receive: {
+    title: 'Receive',
+    amount: 'Amount',
+    memo: 'Note (optional)',
+    memoCount: '{count}/48 bytes',
+    invalidAmount: 'Enter an amount above zero, up to {max}.',
+    limits: 'Accepts up to {max} per payment. Payments must stay valid for at least {window}.',
+    bondLimit: "A payer's bond limits how much you can accept against it before it settles.",
+    create: 'Show request',
+    connectOnce: "Connect to the internet once so this phone can check payers' proofs of funds.",
+    setup: 'Finish setting up this phone to receive.',
+    requestTitle: 'Ask the payer to scan this code',
+    requestLabel: 'QR code for a request of {amount} {symbol}',
+    code: 'Phone code {code}',
+    payerSeesCode: 'The payer sees this code too',
+    countdown: 'Valid for {time}',
+    scanPayment: 'Scan payment',
+    cancelRequest: 'Cancel request',
+    expired: 'This request expired.',
+    newRequest: 'New request',
+    scanning: "Hold your camera on the code on the payer's screen.",
+    checking: 'Checking…',
+    received: 'Received {amount} {symbol}',
+    receivedSpoken: 'Received {amount} {symbol}.',
+    yours: "It's yours now. It will settle to your wallet when this phone is online.",
+    bondNote:
+      "The payer's locked bond is destroyed if they sign the same money twice. Uninstalling this app loses payments that haven't settled yet.",
+    differs: 'You asked for {asked} {symbol}; {got} {symbol} arrived.',
+    already: 'Already received. Nothing was added twice.',
+    receiptLabel: 'QR code that confirms the payment to the payer',
+    showConfirmation: 'Show confirmation to the payer',
+    done: 'Done',
+    notReceived: 'Not received.',
+    tryAgain: 'Try again',
+  },
+  reason: {
+    [Reason.Unreadable]: "Couldn't read this payment.",
+    [Reason.Invalid]: "This payment isn't valid.",
+    [Reason.Signature]: "The payment's signature didn't check out.",
+    [Reason.Ticket]: "The payer's proof of funds is missing, expired, or from a source this phone doesn't trust.",
+    [Reason.Expired]: 'This payment has expired.',
+    [Reason.Window]: 'This payment expires too soon to settle safely. This phone needs at least {window}.',
+    [Reason.NotForYou]: 'This payment is for a different phone.',
+    [Reason.Scope]: "This phone can't redeem this payment.",
+    [Reason.DoubleSpend]: 'This payer already used that part of their bond for another payment. Nothing was received.',
+    [Reason.OverLimit]: 'This payer has reached the most this phone accepts against their bond.',
+    [Reason.AboveMax]: 'This is more than the {max} this phone accepts in one payment.',
+    [Reason.NotSaved]: "This phone couldn't save the payment. Nothing was received. Try again.",
+  } satisfies Record<Exclude<Reason, typeof Reason.Accepted>, string>,
+  activity: {
+    title: 'Activity',
+    empty: 'No payments yet.',
+    paid: 'Paid {amount} {symbol} · phone {code} · {status}',
+    received: 'Received {amount} {symbol} · {status}',
+    today: 'Today',
+    status: {
+      prepared: 'Preparing',
+      signed: 'Not confirmed',
+      confirmed: 'Confirmed',
+      rejected: 'Refused',
+      abandoned: 'Cancelled',
+      held: 'Received',
+      settling: 'Settling',
+      settled: 'Settled',
+      spent: 'Passed on',
+      expired: 'Expired',
+      lost: 'Lost',
+      conflicted: 'Not paid: another payment of the same money was settled first',
+    },
+    detail: 'Payment',
+    id: 'Payment id',
+    time: 'Time',
+    transport: 'Shown by',
+    note: 'Note',
+    reason: 'Reason',
+    locks: 'Backed by lock',
+    serverWaits: "The server hasn't settled this one yet. This phone will try again.",
+    settleNow: 'Settle now',
+    noTokenAccount: 'Your wallet has no USDC account yet',
+    serverLater: 'The server will take this one after {time}',
+    walletOffer: 'Settle with your wallet',
+    expiredNote: 'This payment can no longer be settled. The payer may take it back.',
+  },
+  settlement: {
+    labelTitle: 'Settling in the clear',
+    labelBody:
+      "Settling this payment publishes the keys of the people it passed through, every amount, and the account that is paid. Buckspay's server sees this payment, your network address and the time.",
+    labelContinue: 'Continue',
+    labelNotNow: 'Not now',
+    waiting: '{count} payments are waiting for you to settle them, by {date}',
+  },
+  reset: {
+    title: "Reset this phone's identity?",
+    newKey: "This phone gets a new key. The old key is deleted and can't be recovered.",
+    lost: "Payments you received and haven't settled yet are lost: they belong to the old key. The people who paid you can take them back after {date}.",
+    registration:
+      "Your wallet will register the new key. That's one more registration, about 0.0016 SOL of rent that Buckspay pays when it can, and the old registration stays on Solana for good.",
+    lockStays: 'Your locked money stays yours. You can withdraw it with your wallet when its lock ends.',
+    count: '{count} payments, {amount} {symbol}',
+    none: 'No payments are waiting to be settled.',
+    confirm: 'Reset identity',
+    cancel: 'Cancel',
+    promptTitle: 'Reset identity',
+    promptSubtitle: 'This deletes the key of this phone',
+    done: 'This phone has a new identity.',
+  },
+  settings: {
+    limits: 'Limits',
+    perPayment: 'Most per payment',
+    biometricFrom: 'Fingerprint asked from',
+    biometricDaily: 'Fingerprint asked from a day total of',
+    window: 'Payments you receive must stay valid for',
+    uninstall: 'If you uninstall or reset',
+    uninstallBody: "Uninstalling this app loses payments that haven't settled yet. You have {count} right now.",
+    reset: 'Reset identity',
+  },
+} as const
+
+/** The sentence a payer's failure is shown as. */
+export function payErrorKey(error: PayError, code?: string): keyof typeof copy.payError {
+  if (error.code === 'Declined' && error.cause === 'NoScreenLock') return 'NoScreenLock'
+  if (error.code !== 'SignFailed') return error.code
+  if (code === 'ERR_DEVICE_LOCKED') return 'Locked'
+  if (code === 'ERR_KEY_UNAVAILABLE' || code === 'ERR_NOTE_GUARD_UNAVAILABLE') return 'NoKey'
+  return 'SignFailed'
+}

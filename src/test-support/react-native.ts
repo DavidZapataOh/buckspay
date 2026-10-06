@@ -14,3 +14,4 @@ export const TextInput = 'TextInput'
 export const PixelRatio = { get: () => 1, getPixelSizeForLayoutSize: (size: number) => size }
 export const Linking = { openSettings: async () => {} }
 export const StyleSheet = { absoluteFill: {} }
+export const AccessibilityInfo = { announceForAccessibility: (_message: string) => {} }

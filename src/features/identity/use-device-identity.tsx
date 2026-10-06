@@ -20,6 +20,7 @@ import type { ActivationInput } from './activation'
 import {
   advanceIdentity,
   describeIdentityError,
+  forgetIdentity,
   type IdentityContext,
   type IdentityState,
   resolveIdentity,
@@ -34,6 +35,8 @@ export type DeviceIdentity = IdentityState & {
   next: (input?: ActivationInput) => Promise<void>
   /** Forgets the wallet authorization on this phone; the device key and its registration stay. */
   disconnect: () => Promise<void>
+  /** After the device key was deleted: forgets the records kept for it, so onboarding starts again at creating a key. */
+  reset: () => Promise<void>
 }
 
 const DeviceIdentityContext = createContext<DeviceIdentity>({
@@ -41,6 +44,7 @@ const DeviceIdentityContext = createContext<DeviceIdentity>({
   busy: true,
   next: async () => {},
   disconnect: async () => {},
+  reset: async () => {},
 })
 
 /**
@@ -153,7 +157,9 @@ export function DeviceIdentityProvider({
     [run],
   )
 
-  const value = useMemo(() => ({ ...state, busy, next, disconnect: forget }), [state, busy, next, forget])
+  const reset = useCallback(() => run(forgetIdentity), [run])
+
+  const value = useMemo(() => ({ ...state, busy, next, disconnect: forget, reset }), [state, busy, next, forget, reset])
   return <DeviceIdentityContext.Provider value={value}>{children}</DeviceIdentityContext.Provider>
 }
 

@@ -8,10 +8,13 @@ import { homeStatus } from '../../features/identity/identity-copy'
 import { useDeviceIdentity } from '../../features/identity/use-device-identity'
 import { RotationAlert } from '../../features/lock/rotation-alert'
 import { BUILD_NETWORK } from '../../features/network/build-network'
+import { SettlementLabel } from '../../features/settlement/settlement-label'
+import { useSettlementRunner } from '../../features/settlement/use-settlement-runner'
 import { useThemeColors } from '../../theme/use-theme-colors'
 
 export default function Home() {
   const identity = useDeviceIdentity()
+  const settlement = useSettlementRunner()
   const { busy, device, next } = identity
   const status = homeStatus(identity)
   const [primary] = useThemeColors('primary')
@@ -52,6 +55,13 @@ export default function Home() {
           <Button testID="home-retry" variant="filled" label={status.retry} busy={busy} onPress={() => void next()} />
         ) : null}
       </View>
+      {settlement.labelPending ? (
+        <SettlementLabel
+          count={settlement.unsettled?.count ?? 0}
+          earliestExpiry={settlement.unsettled?.earliestExpiry ?? null}
+          onContinue={() => void settlement.acknowledge()}
+        />
+      ) : null}
       {status.testID === 'device-ready' ? <RotationAlert /> : null}
       <View
         testID="network-chip"
