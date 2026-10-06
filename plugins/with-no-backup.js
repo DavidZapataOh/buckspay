@@ -2,9 +2,9 @@ const { AndroidConfig, withAndroidManifest, withDangerousMod } = require('expo/c
 const fs = require('node:fs')
 const path = require('node:path')
 
-// The note store, the key that opens it and the app's own storage belong to a Keystore key that a
-// restored phone does not have. The SecureStore rule is the one expo-secure-store ships.
-const excluded = ['file" path="SQLite/', 'database" path="RKStorage', 'sharedpref" path="SecureStore']
+// An <include> makes Android back up only what it lists, so the note store, its database and every
+// other file stay out. The SecureStore preferences hold a key a restored phone does not have.
+const excluded = ['sharedpref" path="SecureStore']
 const exclusions = (indent) => excluded.map((rule) => `${indent}<exclude domain="${rule}"/>`).join('\n')
 
 const backupRules = () => `<?xml version="1.0" encoding="utf-8"?>
@@ -30,7 +30,7 @@ ${exclusions('    ')}
 const BACKUP = 'buckspay_backup_rules'
 const EXTRACTION = 'buckspay_data_extraction_rules'
 
-/** Replaces Android's backup rules with ones that exclude everything the note store depends on. */
+/** Replaces Android's backup rules with ones that back up only the shared preferences, minus SecureStore. */
 function withNoBackup(config) {
   config = withAndroidManifest(config, (config) => {
     const application = AndroidConfig.Manifest.getMainApplicationOrThrow(config.modResults)
