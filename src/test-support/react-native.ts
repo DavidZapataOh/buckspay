@@ -11,3 +11,6 @@ export const AppState = { addEventListener: () => ({ remove: () => {} }) }
 export const Platform = { OS: 'android', Version: 36 }
 export const ToastAndroid = { SHORT: 0, show: (_message: string, _duration: number) => {} }
 export const TextInput = 'TextInput'
+export const PixelRatio = { get: () => 1, getPixelSizeForLayoutSize: (size: number) => size }
+export const Linking = { openSettings: async () => {} }
+export const StyleSheet = { absoluteFill: {} }

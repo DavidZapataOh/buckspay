@@ -18,6 +18,24 @@ module.exports = defineConfig([
               group: ['**/modules/hardware-keys/**', '**/keys/device-key'],
               message: 'Sign through src/keys, which checks every message before the device key signs it.',
             },
+            { group: ['**/transport/testing/**'], message: 'Test doubles live under testing/ and are for tests only.' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['**/*.test.{ts,tsx}', 'src/transport/testing/**'],
+    ignores: ['src/keys/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/modules/hardware-keys/**', '**/keys/device-key'],
+              message: 'Sign through src/keys, which checks every message before the device key signs it.',
+            },
           ],
         },
       ],

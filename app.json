@@ -11,6 +11,7 @@
     },
     "android": {
       "package": "xyz.buckspay.app",
+      "blockedPermissions": ["android.permission.WRITE_SETTINGS"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon-foreground.png",
         "monochromeImage": "./assets/adaptive-icon-monochrome.png",
@@ -36,6 +37,14 @@
             "image": "./assets/splash-icon-dark.png",
             "backgroundColor": "#0B0F14"
           }
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Buckspay uses the camera to read the code on the other phone. Nothing is recorded or sent.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
         }
       ],
       "./plugins/with-gradle-heap"
