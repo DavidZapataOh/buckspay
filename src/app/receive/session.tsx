@@ -1,5 +1,5 @@
 import { router } from 'expo-router'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
@@ -33,6 +33,19 @@ export default function ReceiveSession() {
   useEffect(() => {
     if (state.name === 'requesting' && left === 0) flow.expire()
   }, [state.name, left, flow])
+
+  const latest = useRef(flow)
+  useEffect(() => {
+    latest.current = flow
+  })
+  useEffect(
+    () => () => {
+      const { state: left, cancel, finish } = latest.current
+      if (left.name === 'requesting') cancel()
+      else if (left.name === 'expired' || left.name === 'rejected') finish()
+    },
+    [],
+  )
 
   useEffect(() => {
     if (state.name === 'composing') router.back()

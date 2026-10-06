@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import type { PaymentRequest } from '../../payment/messages'
 import { buildRequest } from '../../payment/request'
 import { PaymentError } from '../../payment/messages'
 import type { ReceiveContext } from '../../payment/receive'
@@ -36,6 +37,8 @@ import { BUILD_MINT_BYTES, BUILD_TOKEN } from '../pay/tokens'
 import { receiveGate } from './receive-gate'
 import { initialReceiveState, receiveReducer, type ReceiveState } from './receive-reducer'
 
+export type CreateFailure = 'connect' | 'amount' | 'busy' | 'transport'
+
 export type ReceiveFlow = {
   state: ReceiveState
   texts: ReturnType<typeof useQrSession>['texts']
@@ -44,8 +47,11 @@ export type ReceiveFlow = {
   wrongCode: boolean
   /** Why a request cannot be made now, in words; empty when it can. */
   blocked: string
-  /** Makes the request and shows it; `undefined` when it was made, else what is wrong. */
-  create: (amountText: string, memo: string, passOn: boolean) => 'connect' | 'amount' | undefined
+  /**
+   * Makes the request once its medium is open; `undefined` when it was made, else what is wrong.
+   * `busy` means a request is already being made or shown.
+   */
+  create: (amountText: string, memo: string, passOn: boolean) => Promise<CreateFailure | undefined>
   scanPayment: () => void
   submitText: (text: string) => void
   cancel: () => void
@@ -82,6 +88,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
   const scanAfterRequest = useRef<() => void>(undefined)
   const { mode: point } = usePointMode()
   const pending = useRef<AbortController>(undefined)
+  const creating = useRef(false)
   const key = deviceKey?.publicKey
 
   const usable = useMemo(
@@ -96,12 +103,14 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const create = useCallback(
-    (amountText: string, memo: string, passOn: boolean) => {
-      if (stateRef.current.name !== 'composing' || !key || usable.length === 0) return 'connect'
+    async (amountText: string, memo: string, passOn: boolean): Promise<CreateFailure | undefined> => {
+      if (!key || usable.length === 0) return 'connect'
+      if (creating.current || stateRef.current.name !== 'composing') return 'busy'
       const amount = parseAmount(amountText, BUILD_TOKEN.decimals)
       if (amount === undefined || amount <= 0n) return 'amount'
+      let request: PaymentRequest
       try {
-        const request = buildRequest({
+        request = buildRequest({
           amount,
           memo,
           owner: point ? { type: 'account', address: point.pairing.authority } : { type: 'device', key },
@@ -112,24 +121,27 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
           witness: requestWitness(medium.id, amount, witnessSettings),
           limits: { maxPayment: PAY_LIMITS.maxPayment, minWindow: MIN_WINDOW },
         })
-        const policy = witnessPolicy({ role: 'receiver', transport: medium.id, amount, settings: witnessSettings })
-        asked.current = request.witness === 'none' ? undefined : { policy, band: request.witness }
-        used.current = medium.id
-        slot.open(medium, 'receiver').then(
-          (opened) => {
-            transport.current = opened
-            dispatch({ type: 'create', request, expiresAt: request.now + PAY_LIMITS.requestTtl })
-            void showRequest(request, opened).then(() => {
-              if (used.current !== 'qr' && stateRef.current.name === 'requesting') scanAfterRequest.current?.()
-            })
-          },
-          () => undefined,
-        )
       } catch (error) {
         if (error instanceof PaymentError) return 'amount'
         throw error
       }
-      return undefined
+      const policy = witnessPolicy({ role: 'receiver', transport: medium.id, amount, settings: witnessSettings })
+      asked.current = request.witness === 'none' ? undefined : { policy, band: request.witness }
+      used.current = medium.id
+      creating.current = true
+      try {
+        const opened = await slot.open(medium, 'receiver')
+        transport.current = opened
+        dispatch({ type: 'create', request, expiresAt: request.now + PAY_LIMITS.requestTtl })
+        void showRequest(request, opened).then(() => {
+          if (used.current !== 'qr' && stateRef.current.name === 'requesting') scanAfterRequest.current?.()
+        })
+        return undefined
+      } catch {
+        return 'transport'
+      } finally {
+        creating.current = false
+      }
     },
     [key, medium, point, slot, usable, witnessSettings],
   )

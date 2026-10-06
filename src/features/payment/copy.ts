@@ -138,6 +138,7 @@ export const copy = {
     bondLimit: "A payer's bond limits how much you can accept against it before it settles.",
     create: 'Show request',
     passOn: 'Ask for money I can pass on',
+    transportFailed: "Couldn't start {medium}. Try Code instead.",
     connectOnce: "Connect to the internet once so this phone can check payers' proofs of funds.",
     setup: 'Finish setting up this phone to receive.',
     requestTitle: 'Ask the payer to scan this code',

@@ -16,6 +16,7 @@ import { copy, text } from '../../features/payment/copy'
 import { nowSeconds } from '../../features/payment/payments-provider'
 import { useQrSession } from '../../features/payment/use-qr-session'
 import { ScanScreen } from '../../features/qr/scan-screen'
+import { howCopy } from '../../features/transport/copy'
 import { useReceiveFlow } from '../../features/receive/use-receive-flow'
 import { MessageKind } from '../../transport/types'
 import { formatMoney, parseAmount } from '../../utils/format-amount'
@@ -67,12 +68,15 @@ export default function Point() {
   const units = parseAmount(amount, BUILD_TOKEN.decimals)
   const valid = units !== undefined && units > 0n && units <= PAY_LIMITS.maxPayment
 
-  function take() {
-    const failure = flow.create(amount, '', false)
+  async function take() {
+    const failure = await flow.create(amount, '', false)
     if (failure === 'amount') {
       const max = `${formatMoney(PAY_LIMITS.maxPayment, BUILD_TOKEN.decimals)} ${BUILD_TOKEN.symbol}`
       setError(text(copy.receive.invalidAmount, { max }))
     } else if (failure === 'connect') setError(copy.receive.connectOnce)
+    else if (failure === 'transport')
+      setError(text(copy.receive.transportFailed, { medium: howCopy.labels[flow.how.chosen] }))
+    else if (failure === 'busy') return
     else {
       setError(undefined)
       router.push('/receive/session')
@@ -106,7 +110,13 @@ export default function Point() {
         onChangeText={setAmount}
       />
       <StatusNote tone="danger" message={error} />
-      <Button testID="point-take" variant="filled" label={eventCopy.take} disabled={!valid} onPress={take} />
+      <Button
+        testID="point-take"
+        variant="filled"
+        label={eventCopy.take}
+        disabled={!valid}
+        onPress={() => void take()}
+      />
       <Button
         testID="point-leave"
         variant="text"

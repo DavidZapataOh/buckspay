@@ -13,6 +13,7 @@ import { copy, text } from '../../features/payment/copy'
 import { eventCopy } from '../../features/event/copy'
 import { remoteCopy } from '../../features/remote/copy'
 import { HowControl } from '../../features/transport/how-control'
+import { howCopy } from '../../features/transport/copy'
 import { useReceiveFlow } from '../../features/receive/use-receive-flow'
 import { formatMoney, parseAmount } from '../../utils/format-amount'
 import { formatDuration } from '../../utils/format-duration'
@@ -31,10 +32,13 @@ export default function Receive() {
   const max = `${formatMoney(PAY_LIMITS.maxPayment, BUILD_TOKEN.decimals)} ${BUILD_TOKEN.symbol}`
   const bytes = new TextEncoder().encode(memo).length
 
-  function create() {
-    const failure = flow.create(amount, memo, passOn)
+  async function create() {
+    const failure = await flow.create(amount, memo, passOn)
     if (failure === 'amount') setError(text(copy.receive.invalidAmount, { max }))
     else if (failure === 'connect') setError(copy.receive.connectOnce)
+    else if (failure === 'transport')
+      setError(text(copy.receive.transportFailed, { medium: howCopy.labels[flow.how.chosen] }))
+    else if (failure === 'busy') return
     else {
       setError(undefined)
       router.push('/receive/session')
@@ -93,7 +97,7 @@ export default function Receive() {
             variant="filled"
             label={copy.receive.create}
             disabled={!valid}
-            onPress={create}
+            onPress={() => void create()}
           />
           <Button
             testID="receive-point"
