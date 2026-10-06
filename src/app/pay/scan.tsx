@@ -1,5 +1,5 @@
 import { router } from 'expo-router'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { usePayFlow } from '../../features/pay/use-pay-flow'
 import { copy } from '../../features/payment/copy'
 import { ScanScreen } from '../../features/qr/scan-screen'
@@ -16,11 +16,15 @@ export default function PayScan() {
   }, [state.name])
 
   // Leaving the screen with the camera still looking for a request puts the flow back at the start.
+  const latest = useRef(flow)
+  useEffect(() => {
+    latest.current = flow
+  })
   useEffect(
     () => () => {
-      if (flow.stateName() === 'scanning') flow.back()
+      if (latest.current.stateName() === 'scanning') latest.current.back()
     },
-    [flow],
+    [],
   )
 
   if (flow.how.chosen !== 'qr') {
