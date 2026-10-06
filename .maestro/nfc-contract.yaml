@@ -1,0 +1,10 @@
+# The transport contract suite runs inside the app, through the native module, on two phones joined in memory.
+appId: xyz.buckspay.app
+---
+- launchApp
+- openLink: buckspay-e2e://nfc-lab
+- tapOn:
+    id: nfc-run-contract
+- extendedWaitUntil:
+    visible: contract passed
+    timeout: 120000

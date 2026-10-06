@@ -1,0 +1,4 @@
+<resources>
+  <string name="nfc_service_description">Buckspay payments</string>
+  <string name="nfc_aid_description">Buckspay payment messages</string>
+</resources>
