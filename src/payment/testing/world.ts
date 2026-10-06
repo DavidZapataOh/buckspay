@@ -197,6 +197,7 @@ export function requestTo(payee: Party | Owner, amount: bigint, o: Partial<Payme
     minHops: 1,
     attesters: [ATTESTER.id],
     memo: '',
+    witness: 'none',
     ...o,
   }
 }

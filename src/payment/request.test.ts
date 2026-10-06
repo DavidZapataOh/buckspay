@@ -26,6 +26,7 @@ describe('buildRequest', () => {
       minHops: 1,
       attesters: [7],
       memo: 'Coffee',
+      witness: 'none',
     })
   })
 

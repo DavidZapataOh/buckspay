@@ -5,7 +5,8 @@ export type WitnessRole = 'payer' | 'receiver'
 
 /** What the flows call once a payment is on its way (payer) or stored (receiver). */
 export type WitnessPort = {
-  attach(messageId: Uint8Array, role: WitnessRole): Promise<WitnessResult>
+  /** `band` is the one the check runs on; the payer takes it from the request, the receiver from its settings. */
+  attach(messageId: Uint8Array, role: WitnessRole, band?: 'ultrasound' | 'audible'): Promise<WitnessResult>
   cancel(messageId: Uint8Array): void
 }
 

@@ -2,7 +2,7 @@ import { address, createSolanaRpc } from '@solana/kit'
 import { useMobileWallet } from '@wallet-ui/react-native-kit'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { AppState } from 'react-native'
-import { deviceKeyCluster } from '../../keys'
+import { deviceKeyCluster, signWitnessRecord } from '../../keys'
 import { paymentDomains } from '../../payment/domains'
 import { ACTIVE_PROFILE } from '../../protocol/active-profile'
 import type { Attester } from '../../protocol'
@@ -14,6 +14,12 @@ import { useDeviceIdentity } from '../identity/use-device-identity'
 import type { NoteDb } from '../notes/db'
 import { openNoteDb } from '../notes/key'
 import { reconcileIdentity } from '../notes/ledger'
+import { createWitnessStore } from '../notes/witness-store'
+import { createAppWitnessPort } from '../witness/app-port'
+import { createModem } from '../witness/native'
+import type { WitnessSettings } from '../witness/policy'
+import type { WitnessPort } from '../witness/port'
+import { DEFAULT_WITNESS_SETTINGS, loadWitnessSettings, saveWitnessSettings } from '../witness/settings-store'
 import type { PaymentDomains } from './receiver'
 
 const PROGRAM_ADDRESS = address(ACTIVE_PROFILE.programId)
@@ -30,6 +36,11 @@ export type Payments = {
   /** Whether the build pins an attester at all. */
   hasTrustedAttesters: boolean
   syncAttesters: () => Promise<void>
+  /** The nearby check settings of this phone. */
+  witnessSettings: WitnessSettings
+  setWitnessSettings: (patch: Partial<WitnessSettings>) => void
+  /** The nearby check of payments, once the note store is open. */
+  witnessPort?: WitnessPort
 }
 
 const PaymentsContext = createContext<Payments | undefined>(undefined)
@@ -49,6 +60,8 @@ export function PaymentsProvider({ children }: { children: ReactNode }) {
   const [attesters, setAttesters] = useState<readonly Attester[]>([])
   const attestersRef = useRef(attesters)
   const syncing = useRef(false)
+  const [witnessSettings, setSettings] = useState(DEFAULT_WITNESS_SETTINGS)
+  const settingsRef = useRef(witnessSettings)
   const key = deviceKey?.publicKey
 
   const domains = useMemo(() => {
@@ -78,6 +91,32 @@ export function PaymentsProvider({ children }: { children: ReactNode }) {
       current = false
     }
   }, [opened, step, identityError, key])
+
+  useEffect(() => {
+    void loadWitnessSettings().then((loaded) => {
+      settingsRef.current = loaded
+      setSettings(loaded)
+    })
+  }, [])
+
+  const setWitnessSettings = useCallback((patch: Partial<WitnessSettings>) => {
+    const next = { ...settingsRef.current, ...patch }
+    settingsRef.current = next
+    setSettings(next)
+    void saveWitnessSettings(next)
+  }, [])
+
+  const [witnessPort, setWitnessPort] = useState<WitnessPort>()
+  useEffect(() => {
+    if (!db) return
+    setWitnessPort(
+      createAppWitnessPort(createWitnessStore(db), () => settingsRef.current, {
+        modem: createModem,
+        sign: signWitnessRecord,
+        witnessDomain: domains.witnessDomain,
+      }),
+    )
+  }, [db, domains.witnessDomain])
 
   const syncAttesters = useCallback(async () => {
     if (TRUSTED.length === 0 || syncing.current) return
@@ -109,8 +148,18 @@ export function PaymentsProvider({ children }: { children: ReactNode }) {
   }, [syncAttesters])
 
   const value = useMemo<Payments>(
-    () => ({ db, error, domains, attesters, hasTrustedAttesters: TRUSTED.length > 0, syncAttesters }),
-    [db, error, domains, attesters, syncAttesters],
+    () => ({
+      db,
+      error,
+      domains,
+      attesters,
+      hasTrustedAttesters: TRUSTED.length > 0,
+      syncAttesters,
+      witnessSettings,
+      setWitnessSettings,
+      witnessPort,
+    }),
+    [db, error, domains, attesters, syncAttesters, witnessSettings, setWitnessSettings, witnessPort],
   )
   return <PaymentsContext.Provider value={value}>{children}</PaymentsContext.Provider>
 }

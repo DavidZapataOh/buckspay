@@ -43,6 +43,7 @@ function plan(over: Partial<PaymentRequest> = {}, paidToday = 0n): { request: Pa
     amount: 5_000_000n,
     now: NOW,
     minWindow: 3600,
+    witness: 'none',
     minHops: 1,
     attesters: [7],
     memo: 'Coffee',

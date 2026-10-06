@@ -11,6 +11,7 @@ import { MIN_WINDOW, PAY_LIMITS } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { copy, text } from '../../features/payment/copy'
 import { eventCopy } from '../../features/event/copy'
+import { HowControl } from '../../features/transport/how-control'
 import { useReceiveFlow } from '../../features/receive/use-receive-flow'
 import { formatMoney, parseAmount } from '../../utils/format-amount'
 import { formatDuration } from '../../utils/format-duration'
@@ -42,6 +43,7 @@ export default function Receive() {
   return (
     <Screen testID="receive">
       <AppText variant="headline">{copy.receive.title}</AppText>
+      <HowControl offered={flow.how.offered} chosen={flow.how.chosen} onChoose={flow.how.choose} />
       {step !== 'ready' ? (
         <View className="gap-4">
           <AppText variant="body">{copy.receive.setup}</AppText>

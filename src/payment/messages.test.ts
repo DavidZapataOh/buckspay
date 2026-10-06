@@ -35,6 +35,7 @@ const request = (over: Partial<PaymentRequest> = {}): PaymentRequest => ({
   minHops: 1,
   attesters: [7],
   memo: '',
+  witness: 'none',
   ...over,
 })
 
@@ -90,7 +91,9 @@ describe('PaymentRequest', () => {
     ['another version', (w: Uint8Array) => ((w[0] = 2), w)],
     ['trailing bytes', (w: Uint8Array) => Uint8Array.from([...w, 0])],
     ['a truncated memo', (w: Uint8Array) => w.slice(0, -1)],
-    ['unknown flag bits', (w: Uint8Array) => ((w[83] = 1), w)],
+    ['audible without asked', (w: Uint8Array) => ((w[83] = 2), w)],
+    ['unknown flag bits', (w: Uint8Array) => ((w[83] = 4), w)],
+    ['asked with an unknown bit', (w: Uint8Array) => ((w[83] = 0x81), w)],
     ['no attester', (w: Uint8Array) => ((w[84] = 0), w)],
     ['an amount of zero', (w: Uint8Array) => (w.fill(0, 66, 74), w)],
     ['no hops', (w: Uint8Array) => ((w[82] = 0), w)],
@@ -106,6 +109,30 @@ describe('PaymentRequest', () => {
     wire[wire.length - 1] = 0xff
     expect(() => decodeRequest(wire)).toThrow(PaymentError)
     expect(() => encodeRequest(request({ memo: 'x'.repeat(49) }))).toThrow(PaymentError)
+  })
+})
+
+const FLAGS = 83
+
+describe('request witness flags', () => {
+  it('round-trips each witness value', () => {
+    for (const witness of ['none', 'ultrasound', 'audible'] as const) {
+      const r = request({ witness })
+      expect(decodeRequest(encodeRequest(r))).toEqual(r)
+    }
+  })
+  it('writes bit 0 for ultrasound and bits 0 and 1 for audible, without changing the length', () => {
+    expect(encodeRequest(request({ witness: 'none' }))[FLAGS]).toBe(0)
+    expect(encodeRequest(request({ witness: 'ultrasound' }))[FLAGS]).toBe(1)
+    expect(encodeRequest(request({ witness: 'audible' }))[FLAGS]).toBe(3)
+    expect(encodeRequest(request({ witness: 'audible' }))).toHaveLength(88)
+  })
+  it('refuses audible without asked, and any other bit', () => {
+    for (const bad of [2, 4, 0x80, 0xff]) {
+      const wire = encodeRequest(request())
+      wire[FLAGS] = bad
+      expect(() => decodeRequest(wire)).toThrow(PaymentError)
+    }
   })
 })
 

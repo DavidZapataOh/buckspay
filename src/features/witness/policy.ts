@@ -9,6 +9,8 @@ export type WitnessSettings = {
   requireFrom: bigint | null
   /** Payer: answer a nearby check when the microphone permission is granted. */
   answer: boolean
+  /** Receiver: ask for the check on the audible band instead of the ultrasound one. */
+  audible: boolean
 }
 
 export type PolicyInput = {

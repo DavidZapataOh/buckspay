@@ -12,6 +12,7 @@ import { eventCopy } from '../event/copy'
 import { copy, text } from '../payment/copy'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { BUILD_NETWORK } from '../network/build-network'
+import { NearbyCheckSettings, type NearbyCheckSettingsProps } from '../witness/nearby-check-settings'
 
 export type PaymentsSettings = {
   /** How many received payments have not settled: what an uninstall or a reset would lose. */
@@ -19,6 +20,7 @@ export type PaymentsSettings = {
   limits: { perPayment: string; biometricFrom: string; biometricDaily: string; window: string }
   onReset: () => void
   onEvents: () => void
+  nearbyCheck: NearbyCheckSettingsProps
 }
 
 export function Settings({ payments }: { payments?: PaymentsSettings }) {
@@ -77,6 +79,7 @@ export function Settings({ payments }: { payments?: PaymentsSettings }) {
             value={payments.limits.biometricDaily}
           />
           <ListRow testID="limit-window" title={copy.settings.window} value={payments.limits.window} />
+          <NearbyCheckSettings {...payments.nearbyCheck} />
           <ListRow
             testID="uninstall"
             title={copy.settings.uninstall}

@@ -9,7 +9,9 @@ export function createModem(band: Band = 'ultrasound'): Modem {
   let operations = 0
   return {
     async check() {
-      const state = await Copresence.check()
+      let state = await Copresence.check()
+      if (!state.ready && state.reason === 'permission-denied' && (await Copresence.requestPermission()))
+        state = await Copresence.check()
       return state.ready ? { ready: true } : { ready: false, reason: state.reason ?? 'unsupported' }
     },
     async emit(payload, options) {

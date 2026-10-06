@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { Switch, View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
@@ -19,6 +19,7 @@ export function PayTab({
   credit,
   onSetup,
   onScan,
+  how,
   onPaste,
   onAddMoney,
   onResume,
@@ -37,6 +38,8 @@ export function PayTab({
   }
   onSetup: () => void
   onScan: () => void
+  /** The control that picks the medium, shown above the actions. */
+  how?: ReactNode
   onPaste: () => void
   onAddMoney: () => void
   onResume: (messageId: Uint8Array) => void
@@ -46,6 +49,7 @@ export function PayTab({
   return (
     <Screen testID="pay">
       <AppText variant="headline">{copy.pay.title}</AppText>
+      {ready ? how : null}
       {!ready ? (
         <View className="gap-4">
           <AppText variant="body">{copy.pay.setup}</AppText>

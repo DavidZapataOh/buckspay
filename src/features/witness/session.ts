@@ -1,6 +1,5 @@
 import { bytesToHex } from '@noble/hashes/utils.js'
 import {
-  CHANNEL_ULTRASOUND,
   decodeChallengeMessage,
   decodeResponseMessage,
   encodeChallengeMessage,
@@ -57,6 +56,8 @@ export type SessionDeps = {
   random: (length: number) => Uint8Array
   config: WitnessConfig
   witnessDomain: Uint8Array
+  /** The band of the check, as the claim records it: `CHANNEL_ULTRASOUND` or `CHANNEL_AUDIBLE`. */
+  channel: number
 }
 export type PayerDeps = SessionDeps & {
   sign(body: WitnessBody): Promise<Uint8Array>
@@ -81,7 +82,7 @@ export async function runReceiver(
   const challenge = deps.random(8)
   const issuedAt = clock.nowSeconds()
   const wire = encodeChallengeMessage(paymentId, { challenge, issuedAt })
-  const body: WitnessBody = { paymentId, ...facts, challenge, issuedAt, channel: CHANNEL_ULTRASOUND }
+  const body: WitnessBody = { paymentId, ...facts, challenge, issuedAt, channel: deps.channel }
   let playing = false
   let verified = 0
   let evidence: Uint8Array | undefined
@@ -145,7 +146,7 @@ export async function runPayer(
     let known = answers.get(id)
     if (!known) {
       if ((await deps.countSignature(paymentId)) > config.maxSignaturesPerPayment) return
-      const body: WitnessBody = { paymentId, ...facts, ...heard, channel: CHANNEL_ULTRASOUND }
+      const body: WitnessBody = { paymentId, ...facts, ...heard, channel: deps.channel }
       try {
         const signature = await deps.sign(body)
         known = { response: encodeResponseMessage(signature), evidence: encodeEvidence({ ...body, signature }) }

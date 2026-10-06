@@ -8,6 +8,7 @@ import type { RespendPlan } from '../../payment/respend'
 import { formatMoney } from '../../utils/format-amount'
 import { eventCopy } from '../event/copy'
 import { copy, text } from '../payment/copy'
+import { witnessCopy } from '../witness/copy'
 import { useTouchGuard } from './use-touch-guard'
 
 /**
@@ -18,6 +19,7 @@ export function PayReview({
   plan,
   busy,
   event,
+  nearbyCheck = false,
   onConfirm,
   onCancel,
 }: {
@@ -25,6 +27,8 @@ export function PayReview({
   busy: boolean
   /** The event whose credit this is, when the payment sells event credit. */
   event?: string
+  /** The receiver will ask for a nearby check after this payment. */
+  nearbyCheck?: boolean
   onConfirm: () => void
   onCancel: () => void
 }) {
@@ -44,6 +48,11 @@ export function PayReview({
       <AppText testID="pay-review" variant="headline">
         {text(copy.review.title, values)}
       </AppText>
+      {nearbyCheck ? (
+        <AppText testID="pay-nearby-check" variant="label" tone="muted">
+          {witnessCopy.reviewAsks}
+        </AppText>
+      ) : null}
 
       <View testID="pay-to" accessible className="gap-1">
         <AppText variant="label" tone="muted">

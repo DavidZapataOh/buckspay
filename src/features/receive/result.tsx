@@ -18,6 +18,7 @@ export function AcceptedResult({
   symbol,
   decimals,
   receipt,
+  witness,
   onDone,
 }: {
   outcome: Accepted
@@ -25,6 +26,8 @@ export function AcceptedResult({
   decimals: number
   /** The confirmation code, shown under the result. */
   receipt?: ReactNode
+  /** The nearby check of this payment, when it was asked for. */
+  witness?: ReactNode
   onDone: () => void
 }) {
   const { amount, requestedAmount } = outcome.note
@@ -49,6 +52,7 @@ export function AcceptedResult({
       <AppText variant="label" tone="muted">
         {copy.receive.bondNote}
       </AppText>
+      {witness}
       {receipt ? (
         <View testID="receive-receipt" className="gap-2">
           <AppText variant="label" tone="muted">

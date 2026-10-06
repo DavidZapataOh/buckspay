@@ -5,6 +5,7 @@ const settings = (over: Partial<WitnessSettings> = {}): WitnessSettings => ({
   ask: false,
   requireFrom: null,
   answer: false,
+  audible: false,
   ...over,
 })
 const input = (over: Partial<PolicyInput> = {}): PolicyInput => ({

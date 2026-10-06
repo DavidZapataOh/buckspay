@@ -11,5 +11,6 @@ export function paymentDomains(cluster: keyof typeof GENESIS_HASH) {
     program,
     noteDomain: domain(Purpose.Note, GENESIS_HASH[cluster], program),
     ticketDomain: domain(Purpose.Ticket, GENESIS_HASH[cluster], program),
+    witnessDomain: domain(Purpose.Witness, GENESIS_HASH[cluster], program),
   }
 }

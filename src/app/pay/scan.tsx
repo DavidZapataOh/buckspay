@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { usePayFlow } from '../../features/pay/use-pay-flow'
 import { copy } from '../../features/payment/copy'
 import { ScanScreen } from '../../features/qr/scan-screen'
+import { WaitingScreen } from '../../features/transport/waiting'
 
 export default function PayScan() {
   const flow = usePayFlow()
@@ -20,6 +21,18 @@ export default function PayScan() {
     },
     [flow],
   )
+
+  if (flow.how.chosen !== 'qr') {
+    return (
+      <WaitingScreen
+        medium={flow.how.chosen}
+        title={copy.scan.hint}
+        notice={state.name === 'scanning' && state.wrongCode ? copy.scan.wrongCode : undefined}
+        onCancel={flow.back}
+        cancelLabel={copy.review.cancel}
+      />
+    )
+  }
 
   return (
     <ScanScreen

@@ -14,6 +14,7 @@ const request: PaymentRequest = {
   minHops: 1,
   attesters: [7],
   memo: '',
+  witness: 'none',
 }
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
 

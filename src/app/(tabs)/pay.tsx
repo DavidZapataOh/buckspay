@@ -4,6 +4,7 @@ import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { unfinishedView } from '../../features/pay/unfinished'
 import { usePayFlow } from '../../features/pay/use-pay-flow'
 import { useDeviceIdentity } from '../../features/identity/use-device-identity'
+import { HowControl } from '../../features/transport/how-control'
 import { pasteInto } from '../../features/qr/paste-source'
 
 export default function Pay() {
@@ -25,6 +26,7 @@ export default function Pay() {
       decimals={BUILD_TOKEN.decimals}
       unfinished={flow.unfinished.map(unfinishedView)}
       credit={{ events: flow.events, selected: flow.creditEvent, onSelect: flow.setCreditEvent }}
+      how={<HowControl offered={flow.how.offered} chosen={flow.how.chosen} onChoose={flow.how.choose} />}
       onSetup={() => router.push('/onboarding')}
       onScan={() => {
         flow.scan()

@@ -25,6 +25,7 @@ export default function PayReviewScreen() {
           plan={state.plan}
           busy={state.name === 'confirming'}
           event={flow.creditEvent?.name}
+          nearbyCheck={state.request.witness !== 'none'}
           onConfirm={() => void flow.confirm()}
           onCancel={() => {
             flow.back()

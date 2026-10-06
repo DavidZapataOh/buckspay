@@ -1,6 +1,8 @@
 /** Every sentence of the nearby check. None of them claims more than that one phone heard the other. */
 export const witnessCopy = {
   willAsk: 'This sale will ask the other phone for a nearby check.',
+  soundUltrasound: 'A short high-pitched sound will play.',
+  soundAudible: 'A short beep will play.',
   receiverChecking: 'Listening for the other phone. Keep the phones together, up to 30 seconds.',
   payerChecking: 'Listening for the other phone. You can leave this screen.',
   seen: 'Heard the other phone nearby.',

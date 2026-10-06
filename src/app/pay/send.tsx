@@ -15,6 +15,8 @@ import { reasonText } from '../../features/payment/reason-text'
 import { ResultMark } from '../../features/payment/result-mark'
 import { QrPresenter } from '../../features/qr/qr-presenter'
 import { ScanScreen } from '../../features/qr/scan-screen'
+import { WaitingScreen } from '../../features/transport/waiting'
+import { NearbyCheck } from '../../features/witness/nearby-check'
 import { formatMoney } from '../../utils/format-amount'
 
 const money = (units: bigint) => formatMoney(units, BUILD_TOKEN.decimals)
@@ -43,6 +45,30 @@ export default function PaySend() {
       )
     }
   }, [state])
+
+  useEffect(() => {
+    if (state.name === 'presenting' && flow.how.chosen !== 'qr') flow.scanReceipt()
+  }, [state.name, flow])
+
+  const check = flow.witness()
+  const nearby =
+    check && (state.name === 'presenting' || state.name === 'awaiting-receipt' || state.name === 'confirmed') ? (
+      <NearbyCheck role="payer" messageId={state.payment.messageId} {...check} />
+    ) : null
+
+  if (state.name === 'awaiting-receipt' && flow.how.chosen !== 'qr') {
+    return (
+      <>
+        <WaitingScreen
+          medium={flow.how.chosen}
+          title={copy.send.waiting}
+          onCancel={flow.cancelReceipt}
+          cancelLabel={copy.review.cancel}
+        />
+        {nearby}
+      </>
+    )
+  }
 
   if (state.name === 'awaiting-receipt') {
     return (
@@ -77,8 +103,16 @@ export default function PaySend() {
         <AppText variant="body" tone="muted">
           {copy.send.keepUp}
         </AppText>
+        {nearby}
         <View className="gap-3">
-          <Button testID="pay-scan-receipt" variant="tonal" label={copy.send.scanReceipt} onPress={flow.scanReceipt} />
+          {flow.how.chosen === 'qr' ? (
+            <Button
+              testID="pay-scan-receipt"
+              variant="tonal"
+              label={copy.send.scanReceipt}
+              onPress={flow.scanReceipt}
+            />
+          ) : null}
           <Button testID="pay-done" variant="text" label={copy.send.done} onPress={flow.finish} />
         </View>
       </Screen>
@@ -93,6 +127,7 @@ export default function PaySend() {
         <AppText variant="headline" tone="success">
           {text(copy.send.confirmed, { amount: issue ? money(issue.amount) : '', symbol: BUILD_TOKEN.symbol })}
         </AppText>
+        {nearby}
         <Button testID="pay-done" variant="filled" label={copy.send.done} onPress={flow.finish} />
       </Screen>
     )

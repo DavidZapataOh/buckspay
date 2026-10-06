@@ -65,6 +65,7 @@ const request = (over: Partial<PaymentRequest> = {}): PaymentRequest => ({
   minHops: 1,
   attesters: [ATTESTER.id],
   memo: '',
+  witness: 'none',
   ...over,
 })
 

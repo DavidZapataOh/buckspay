@@ -54,6 +54,25 @@ export type PaymentRequest = {
   minHops: number
   attesters: number[]
   memo: string
+  /** Whether the receiver will run a nearby check after the payment, and on which band it listens. */
+  witness: 'none' | 'ultrasound' | 'audible'
+}
+
+/** Bits of the request's `flags` byte. */
+export const RequestFlags = { WitnessAsked: 1, WitnessAudible: 2 } as const
+
+const flagsOf = (witness: PaymentRequest['witness']) =>
+  witness === 'none'
+    ? 0
+    : witness === 'ultrasound'
+      ? RequestFlags.WitnessAsked
+      : RequestFlags.WitnessAsked | RequestFlags.WitnessAudible
+
+function witnessOf(flags: number): PaymentRequest['witness'] {
+  if (flags === 0) return 'none'
+  if (flags === RequestFlags.WitnessAsked) return 'ultrasound'
+  if (flags === (RequestFlags.WitnessAsked | RequestFlags.WitnessAudible)) return 'audible'
+  return malformed()
 }
 
 /** The text of `bytes` if they are valid UTF-8: invalid bytes decode to U+FFFD, which does not encode back to them. */
@@ -76,7 +95,7 @@ export function encodeRequest(request: PaymentRequest): Uint8Array {
   head.setUint32(73, now, true)
   head.setUint32(77, minWindow, true)
   head.setUint8(81, minHops)
-  head.setUint8(82, 0)
+  head.setUint8(82, flagsOf(request.witness))
   head.setUint8(83, attesters.length)
   const ids = new DataView(new ArrayBuffer(2 * attesters.length))
   attesters.forEach((id, i) => ids.setUint16(2 * i, id, true))
@@ -93,17 +112,16 @@ export function decodeRequest(wire: Uint8Array): PaymentRequest {
   const now = view.getUint32(base + 73, true)
   const minWindow = view.getUint32(base + 77, true)
   const minHops = view.getUint8(base + 81)
-  const flags = view.getUint8(base + 82)
+  const witness = witnessOf(view.getUint8(base + 82))
   const count = view.getUint8(base + 83)
-  if (flags !== 0 || count < 1 || count > MAX_ATTESTERS || amount === 0n || minHops < 1 || minHops > MAX_DEPTH)
-    malformed()
+  if (count < 1 || count > MAX_ATTESTERS || amount === 0n || minHops < 1 || minHops > MAX_DEPTH) malformed()
   const idsEnd = base + 84 + 2 * count
   if (wire.length < idsEnd + 1) malformed()
   const attesters = Array.from({ length: count }, (_, i) => view.getUint16(base + 84 + 2 * i, true))
   const memoLength = wire[idsEnd]
   if (memoLength > MAX_MEMO_BYTES || wire.length !== idsEnd + 1 + memoLength) malformed()
   const memo = strictUtf8(wire.subarray(idsEnd + 1))
-  return { owner, mint, amount, now, minWindow, minHops, attesters, memo }
+  return { owner, mint, amount, now, minWindow, minHops, attesters, memo, witness }
 }
 
 export type Bundle = { issue: Signed<Issue>; spends: Signed<Spend>[]; tickets: BondTicket[] }

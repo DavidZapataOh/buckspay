@@ -9,6 +9,9 @@ import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { copy, text } from '../../features/payment/copy'
 import { QrPresenter } from '../../features/qr/qr-presenter'
 import { ScanScreen } from '../../features/qr/scan-screen'
+import { WaitingScreen } from '../../features/transport/waiting'
+import { NearbyCheck } from '../../features/witness/nearby-check'
+import { witnessCopy } from '../../features/witness/copy'
 import { AcceptedResult, RejectedResult } from '../../features/receive/result'
 import { useSecondsLeft } from '../../features/receive/use-seconds-left'
 import { pointReasonText } from '../../features/event/copy'
@@ -40,7 +43,15 @@ export default function ReceiveSession() {
   }, [state.name, settlement])
 
   if (state.name === 'scanning' || state.name === 'verifying') {
-    return state.name === 'scanning' ? (
+    return state.name === 'scanning' && flow.how.chosen !== 'qr' ? (
+      <WaitingScreen
+        medium={flow.how.chosen}
+        title={copy.receive.scanning}
+        notice={flow.wrongCode ? copy.scan.wrongPayment : undefined}
+        onCancel={flow.back}
+        cancelLabel={copy.review.cancel}
+      />
+    ) : state.name === 'scanning' ? (
       <ScanScreen
         hint={copy.receive.scanning}
         hintTestID="receive-scanning"
@@ -69,6 +80,12 @@ export default function ReceiveSession() {
           receipt={
             flow.texts ? <QrPresenter texts={flow.texts} accessibilityLabel={copy.receive.receiptLabel} /> : undefined
           }
+          witness={(() => {
+            const check = flow.witness()
+            return check && state.outcome.accepted ? (
+              <NearbyCheck role="receiver" messageId={state.outcome.messageId} {...check} />
+            ) : undefined
+          })()}
           onDone={flow.finish}
         />
       </Screen>
@@ -116,6 +133,11 @@ export default function ReceiveSession() {
           />
         ) : null}
         <AppText variant="title">{`${amount} ${BUILD_TOKEN.symbol}`}</AppText>
+        {request.witness !== 'none' ? (
+          <AppText variant="label" tone="muted">
+            {`${witnessCopy.willAsk} ${request.witness === 'audible' ? witnessCopy.soundAudible : witnessCopy.soundUltrasound}`}
+          </AppText>
+        ) : null}
         <View testID="receive-code" accessible>
           <AppText variant="body">{text(copy.receive.code, { code: safetyCode(request.owner) })}</AppText>
           <AppText variant="label" tone="muted">
@@ -126,12 +148,14 @@ export default function ReceiveSession() {
           {text(copy.receive.countdown, { time: formatCountdown(left) })}
         </AppText>
         <View className="gap-3">
-          <Button
-            testID="receive-scan-payment"
-            variant="filled"
-            label={copy.receive.scanPayment}
-            onPress={flow.scanPayment}
-          />
+          {flow.how.chosen === 'qr' ? (
+            <Button
+              testID="receive-scan-payment"
+              variant="filled"
+              label={copy.receive.scanPayment}
+              onPress={flow.scanPayment}
+            />
+          ) : null}
           <Button
             testID="receive-cancel"
             variant="text"

@@ -23,7 +23,7 @@ import {
 import { type PayContext, planPayment } from '../../payment/preflight'
 import { planRespend } from '../../payment/respend'
 import { awaitRequest } from '../../payment/scan'
-import { MessageKind } from '../../transport/types'
+import { MessageKind, type Transport, type TransportId } from '../../transport/types'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { useOfflineLocks } from '../attesters/use-offline-locks'
 import { listEvents, type StoredEvent } from '../event/store'
@@ -31,6 +31,13 @@ import { type Unfinished, heldOutputs, paymentContext, setOutgoingState, unfinis
 import { copy, text } from '../payment/copy'
 import { nowSeconds, usePayments } from '../payment/payments-provider'
 import { useQrSession } from '../payment/use-qr-session'
+import type { Band } from '../witness/app-port'
+import type { WitnessPolicy } from '../witness/policy'
+import type { WitnessPort } from '../witness/port'
+import { payerAnswer } from '../witness/request-witness'
+import { nearbyEntry, nfcEntry, qrEntry } from '../transport/registry'
+import { createTransportSlot } from '../transport/slot'
+import { useTransportChoice, useTransports } from '../transport/use-transports'
 import { formatMoney } from '../../utils/format-amount'
 import { PAY_LIMITS } from './limits'
 import { initialPayState, payReducer, type PayState } from './pay-reducer'
@@ -65,6 +72,10 @@ export type PayFlow = {
   discard: (messageId: Uint8Array) => Promise<void>
   back: () => void
   finish: () => void
+  /** The media this phone can pay on, and the one chosen. */
+  how: Pick<ReturnType<typeof useTransports>, 'offered'> & { chosen: TransportId; choose: (id: TransportId) => void }
+  /** The nearby check of the payment sent, or undefined when the receiver did not ask for one. */
+  witness: () => { policy: WitnessPolicy; band: Band; port: WitnessPort } | undefined
 }
 
 const PayFlowContext = createContext<PayFlow | undefined>(undefined)
@@ -75,10 +86,18 @@ const startOfToday = () => Math.floor(new Date().setHours(0, 0, 0, 0) / 1000)
 export function PayFlowProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(payReducer, initialPayState)
   const stateRef = useRef<PayState>(state)
-  const { db, domains } = usePayments()
+  const { db, domains, witnessSettings, witnessPort } = usePayments()
   const { deviceKey } = useDeviceIdentity()
   const offline = useOfflineLocks()
   const session = useQrSession()
+  const entries = useMemo(() => [qrEntry({ transport: session.transport }), nfcEntry, nearbyEntry], [session.transport])
+  const { offered, ready } = useTransports(entries)
+  const { chosen, choose } = useTransportChoice('payer', ready)
+  const medium = chosen ?? entries[0]
+  const [slot] = useState(createTransportSlot)
+  const transport = useRef<Transport>(session.transport)
+  const used = useRef<TransportId>('qr')
+  const answer = useRef<{ policy: WitnessPolicy; band: Band }>(undefined)
   const [unfinished, setUnfinished] = useState<readonly Unfinished[]>([])
   const [events, setEvents] = useState<readonly StoredEvent[]>([])
   const [creditEvent, setCreditEvent] = useState<StoredEvent | null>(null)
@@ -125,7 +144,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         db,
         sign: signStoredIssue,
         signSpend,
-        transport: session.transport,
+        transport: transport.current,
         authenticate: (amount) =>
           authenticate(
             copy.review.promptTitle,
@@ -140,7 +159,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         now: nowSeconds,
       }
     },
-    [db, domains.noteDomain, session.transport],
+    [db, domains.noteDomain],
   )
 
   const abort = useCallback(() => {
@@ -156,7 +175,11 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
     pending.current = controller
     void (async () => {
       try {
-        const request = await awaitRequest(session.transport, {
+        const opened = await slot.open(medium, 'payer').catch(() => undefined)
+        if (!opened) return controller.signal.aborted ? undefined : dispatch({ type: 'back' })
+        transport.current = opened
+        used.current = medium.id
+        const request = await awaitRequest(opened, {
           signal: controller.signal,
           onWrongCode: () => dispatch({ type: 'wrong-code' }),
         })
@@ -185,7 +208,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         // The screen was left: nothing is waiting.
       }
     })()
-  }, [abort, domains, session.transport])
+  }, [abort, domains, medium, slot])
 
   const submitText = useCallback((value: string) => session.push(value), [session])
 
@@ -197,16 +220,18 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
     try {
       const { plan, request } = current
       const deps = depsFor(plan.review.receiverCode)
+      const { policy, band } = payerAnswer(used.current, request, witnessSettings)
+      answer.current = band ? { policy, band } : undefined
       const payment =
         'spend' in plan
-          ? await confirmAndSendRespend(plan, request, 'qr', { ...deps, signSpend })
-          : await confirmAndSend(plan, request, 'qr', deps)
+          ? await confirmAndSendRespend(plan, request, used.current, { ...deps, signSpend })
+          : await confirmAndSend(plan, request, used.current, deps)
       dispatch({ type: 'sent', payment })
     } catch (error) {
       dispatch({ type: 'failed', error: error instanceof PayError ? error : new PayError('SignFailed', error) })
     }
     await Promise.all([reloadUnfinished(), latest.current.offline.reload()])
-  }, [abort, depsFor, reloadUnfinished])
+  }, [abort, depsFor, reloadUnfinished, witnessSettings])
 
   const scanReceipt = useCallback(() => {
     const current = stateRef.current
@@ -262,18 +287,23 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
   const back = useCallback(() => {
     abort()
     session.clear()
+    void slot.close()
+    transport.current = session.transport
     dispatch({ type: 'back' })
-  }, [abort, session])
+  }, [abort, session, slot])
 
   const finish = useCallback(() => {
     abort()
     session.clear()
+    void slot.close()
+    transport.current = session.transport
     dispatch({ type: 'finish' })
     void reloadUnfinished()
     void latest.current.offline.reload()
-  }, [abort, reloadUnfinished, session])
+  }, [abort, reloadUnfinished, session, slot])
 
   useEffect(() => abort, [abort])
+  useEffect(() => () => void slot.close(), [slot])
 
   const value = useMemo<PayFlow>(
     () => ({
@@ -297,6 +327,8 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
       discard,
       back,
       finish,
+      how: { offered, chosen: medium.id, choose },
+      witness: () => (answer.current && witnessPort ? { ...answer.current, port: witnessPort } : undefined),
     }),
     [
       state,
@@ -317,6 +349,10 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
       discard,
       back,
       finish,
+      offered,
+      medium.id,
+      choose,
+      witnessPort,
     ],
   )
   return <PayFlowContext.Provider value={value}>{children}</PayFlowContext.Provider>

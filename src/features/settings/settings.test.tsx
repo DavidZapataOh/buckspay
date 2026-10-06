@@ -83,6 +83,7 @@ describe('Settings', () => {
 
   it('lists the limits, what an uninstall loses and the way to reset the identity', async () => {
     const onReset = vi.fn()
+    const onAnswer = vi.fn()
     const device = { address: wallet, wallet, key: deviceKey.publicKey }
     const root = await render(
       { step: 'ready', wallet, deviceKey, device, busy: false },
@@ -96,8 +97,24 @@ describe('Settings', () => {
           biometricDaily: '50.00 USDC',
           window: '1 hour',
         },
+        nearbyCheck: {
+          answer: false,
+          ask: true,
+          audible: false,
+          requireFrom: '',
+          onAnswer: onAnswer,
+          onAsk: vi.fn(),
+          onAudible: vi.fn(),
+          onRequireFrom: vi.fn(),
+        },
       },
     )
+    await act(async () =>
+      root
+        .findByProps({ testID: 'nearby-answer', accessibilityLabel: 'Answer nearby checks' })
+        .props.onValueChange(true),
+    )
+    expect(onAnswer).toHaveBeenCalledWith(true)
     expect(row(root, 'limit-per-payment')).toEqual(['Most per payment', '100.00 USDC'])
     expect(row(root, 'limit-window')).toEqual(['Payments you receive must stay valid for', '1 hour'])
     expect(row(root, 'uninstall')).toEqual([

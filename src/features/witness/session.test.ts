@@ -23,6 +23,7 @@ const base = (modem: Modem, config: WitnessConfig = FAST): SessionDeps => ({
   random,
   config,
   witnessDomain: WITNESS_DOMAIN,
+  channel: CHANNEL_ULTRASOUND,
 })
 
 function payerDeps(modem: Modem, over: Partial<PayerDeps> = {}): PayerDeps {

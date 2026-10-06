@@ -14,6 +14,7 @@ import { PaymentError } from '../../payment/messages'
 import type { ReceiveContext } from '../../payment/receive'
 import { receivePayment, showRequest } from '../../payment/receive-flow'
 import { attesterFresh } from '../../protocol'
+import type { Transport, TransportId } from '../../transport/types'
 import { parseAmount } from '../../utils/format-amount'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { copy } from '../payment/copy'
@@ -23,6 +24,13 @@ import { pointGate, pointReceiverOf } from '../event/point'
 import { usePointMode } from '../event/use-point-mode'
 import { receiverOf } from '../payment/receiver'
 import { useQrSession } from '../payment/use-qr-session'
+import type { Band } from '../witness/app-port'
+import { requestWitness } from '../witness/request-witness'
+import { type WitnessPolicy, witnessPolicy } from '../witness/policy'
+import type { WitnessPort } from '../witness/port'
+import { nearbyEntry, nfcEntry, qrEntry } from '../transport/registry'
+import { createTransportSlot } from '../transport/slot'
+import { useTransportChoice, useTransports } from '../transport/use-transports'
 import { MIN_WINDOW, PAY_LIMITS } from '../pay/limits'
 import { BUILD_MINT_BYTES, BUILD_TOKEN } from '../pay/tokens'
 import { initialReceiveState, receiveReducer, type ReceiveState } from './receive-reducer'
@@ -43,6 +51,10 @@ export type ReceiveFlow = {
   back: () => void
   expire: () => void
   finish: () => void
+  /** The media this phone can receive on, and the one chosen. */
+  how: Pick<ReturnType<typeof useTransports>, 'offered'> & { chosen: TransportId; choose: (id: TransportId) => void }
+  /** The nearby check of the payment on screen, or undefined when the request did not ask for one. */
+  witness: () => { policy: WitnessPolicy; band: Band; port: WitnessPort } | undefined
 }
 
 const ReceiveFlowContext = createContext<ReceiveFlow | undefined>(undefined)
@@ -55,9 +67,18 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
     stateRef.current = state
   })
   const [wrongCode, setWrongCode] = useState(false)
-  const { db, domains, attesters, hasTrustedAttesters } = usePayments()
+  const { db, domains, attesters, hasTrustedAttesters, witnessSettings, witnessPort } = usePayments()
   const { deviceKey } = useDeviceIdentity()
   const session = useQrSession()
+  const entries = useMemo(() => [qrEntry({ transport: session.transport }), nfcEntry, nearbyEntry], [session.transport])
+  const { offered, ready } = useTransports(entries)
+  const { chosen, choose } = useTransportChoice('receiver', ready)
+  const medium = chosen ?? entries[0]
+  const [slot] = useState(createTransportSlot)
+  const transport = useRef<Transport>(session.transport)
+  const used = useRef<TransportId>('qr')
+  const asked = useRef<{ policy: WitnessPolicy; band: Band }>(undefined)
+  const scanAfterRequest = useRef<() => void>(undefined)
   const { mode: point } = usePointMode()
   const pending = useRef<AbortController>(undefined)
   const key = deviceKey?.publicKey
@@ -87,17 +108,29 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
           attesters: usable.map((attester) => attester.id).slice(0, 8),
           now: nowSeconds(),
           minHops: passOn ? 2 : 1,
+          witness: requestWitness(medium.id, amount, witnessSettings),
           limits: { maxPayment: PAY_LIMITS.maxPayment, minWindow: MIN_WINDOW },
         })
-        void showRequest(request, session.transport)
-        dispatch({ type: 'create', request, expiresAt: request.now + PAY_LIMITS.requestTtl })
+        const policy = witnessPolicy({ role: 'receiver', transport: medium.id, amount, settings: witnessSettings })
+        asked.current = request.witness === 'none' ? undefined : { policy, band: request.witness }
+        used.current = medium.id
+        slot.open(medium, 'receiver').then(
+          (opened) => {
+            transport.current = opened
+            dispatch({ type: 'create', request, expiresAt: request.now + PAY_LIMITS.requestTtl })
+            void showRequest(request, opened).then(() => {
+              if (used.current !== 'qr' && stateRef.current.name === 'requesting') scanAfterRequest.current?.()
+            })
+          },
+          () => undefined,
+        )
       } catch (error) {
         if (error instanceof PaymentError) return 'amount'
         throw error
       }
       return undefined
     },
-    [key, point, session.transport, usable],
+    [key, medium, point, slot, usable, witnessSettings],
   )
 
   const scanPayment = useCallback(() => {
@@ -120,12 +153,12 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
           : await receiverOf(db, domains, key, attesters, now),
         db,
         limits: { maxPayment: PAY_LIMITS.maxPayment },
-        transport: 'qr',
+        transport: used.current,
         request: { amount: request.amount, memo: request.memo },
         gate: point ? pointGate(db, point.pairing, domains.noteDomain, nowSeconds) : undefined,
       }
     }
-    void receivePayment(context, session.transport, {
+    void receivePayment(context, transport.current, {
       signal: controller.signal,
       onWrongCode: () => setWrongCode(true),
     }).then(
@@ -137,36 +170,44 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
       },
       () => undefined,
     )
-  }, [abort, attesters, db, domains, key, point, session.transport])
+  }, [abort, attesters, db, domains, key, point])
+
+  useEffect(() => {
+    scanAfterRequest.current = scanPayment
+  }, [scanPayment])
 
   const submitText = useCallback((text: string) => session.push(text), [session])
 
   const cancel = useCallback(() => {
     abort()
     session.clear()
+    void slot.close()
     dispatch({ type: 'cancel' })
-  }, [abort, session])
+  }, [abort, session, slot])
 
   const back = useCallback(() => {
     const current = stateRef.current
     if (current.name !== 'scanning') return
     abort()
     dispatch({ type: 'back' })
-    void showRequest(current.request, session.transport)
-  }, [abort, session.transport])
+    void showRequest(current.request, transport.current)
+  }, [abort])
 
   const expire = useCallback(() => {
     session.clear()
+    void slot.close()
     dispatch({ type: 'expire' })
-  }, [session])
+  }, [session, slot])
 
   const finish = useCallback(() => {
     abort()
     session.clear()
+    void slot.close()
     dispatch({ type: 'finish' })
-  }, [abort, session])
+  }, [abort, session, slot])
 
   useEffect(() => abort, [abort])
+  useEffect(() => () => void slot.close(), [slot])
 
   const value = useMemo<ReceiveFlow>(
     () => ({
@@ -182,6 +223,8 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
       back,
       expire,
       finish,
+      how: { offered, chosen: medium.id, choose },
+      witness: () => (asked.current && witnessPort ? { ...asked.current, port: witnessPort } : undefined),
     }),
     [
       state,
@@ -197,6 +240,10 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
       back,
       expire,
       finish,
+      offered,
+      medium.id,
+      choose,
+      witnessPort,
     ],
   )
   return <ReceiveFlowContext.Provider value={value}>{children}</ReceiveFlowContext.Provider>

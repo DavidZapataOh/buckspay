@@ -11,6 +11,7 @@ export type RequestInput = {
   now: number
   /** How many more times the note must be passable; 1 unless the receiver wants to pass it on. */
   minHops?: number
+  witness?: PaymentRequest['witness']
   limits: { maxPayment: bigint; minWindow: number }
 }
 
@@ -33,6 +34,7 @@ export function buildRequest({
   attesters,
   now,
   minHops = 1,
+  witness = 'none',
   limits,
 }: RequestInput): PaymentRequest {
   if (amount <= 0n || amount > limits.maxPayment || attesters.length === 0) throw new PaymentError('Malformed')
@@ -45,5 +47,6 @@ export function buildRequest({
     minHops,
     attesters: [...attesters],
     memo: fitMemo(memo),
+    witness,
   }
 }

@@ -1,6 +1,6 @@
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { describe, expect, it } from 'vitest'
-import { decodeEvidence, verifyWitness } from '../../protocol'
+import { CHANNEL_ULTRASOUND, decodeEvidence, verifyWitness } from '../../protocol'
 import { createWitnessPort, type WitnessRole, type WitnessStore } from './port'
 import type { SessionDeps } from './session'
 import { createRoom, FAST, PAYMENT_ID, party, realClock, softSigner, WITNESS_DOMAIN } from './testing/world'
@@ -31,6 +31,7 @@ const deps = (modem: SessionDeps['modem']): SessionDeps => ({
   random: (n) => crypto.getRandomValues(new Uint8Array(n)),
   config: FAST,
   witnessDomain: WITNESS_DOMAIN,
+  channel: CHANNEL_ULTRASOUND,
 })
 
 function ports(room = createRoom(), known?: { payer?: boolean; receiver?: boolean }) {
