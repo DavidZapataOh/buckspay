@@ -29,7 +29,7 @@ class EnvelopeTest {
 
   @Test
   fun purposesAreTheProtocolPurposesExceptTicket() {
-    val expected = setOf("note", "device", "witness", "reclaim", "payword", "iou", "voice", "claim")
+    val expected = setOf("note", "device", "witness", "reclaim", "payword", "iou", "voice", "claim", "revoke")
     assertEquals(expected, Envelope.PURPOSES)
     assertEquals(expected, domains.keys - setOf("genesis_hash", "program_id", "ticket"))
   }

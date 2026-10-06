@@ -11,7 +11,7 @@ internal class UnknownClusterException : CodedException("Unknown cluster")
 internal class AlreadyConfiguredException : CodedException("Already configured for another cluster or program")
 
 internal object Envelope {
-  val PURPOSES = setOf("note", "device", "witness", "reclaim", "payword", "iou", "voice", "claim")
+  val PURPOSES = setOf("note", "device", "witness", "reclaim", "payword", "iou", "voice", "claim", "revoke")
 
   /** The purposes this device signs; the others are signed once their messages are defined. */
   val SIGNED = setOf("note", "witness")
