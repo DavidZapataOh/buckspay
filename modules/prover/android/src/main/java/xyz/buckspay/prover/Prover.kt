@@ -14,6 +14,11 @@ internal interface Prover {
     index: Int,
   ): ByteArray
 
+  fun loadClaim(dir: String): Int
+
+  /** The compressed claim proof (128 bytes) followed by the seven public inputs (224 bytes). */
+  fun proveClaim(request: ByteArray): ByteArray
+
   fun expand(
     pkBin: String,
     pkDump: String,
@@ -31,6 +36,15 @@ internal object NativeProver : Prover {
   ): ByteArray {
     val out = ByteArray(Native.PROOF_AND_PUBLIC)
     val code = Native.proveInto(chain, index, out)
+    if (code != Native.OK) throw ProverException(code)
+    return out
+  }
+
+  override fun loadClaim(dir: String) = Native.loadClaim(dir)
+
+  override fun proveClaim(request: ByteArray): ByteArray {
+    val out = ByteArray(Native.CLAIM_PROOF_AND_PUBLIC)
+    val code = Native.proveClaimInto(request, out)
     if (code != Native.OK) throw ProverException(code)
     return out
   }

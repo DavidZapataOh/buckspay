@@ -8,8 +8,10 @@ internal class FakeProver(
   private val loadCode: Int = Native.OK,
   private val expandCode: Int = Native.OK,
   private val onProve: (Int) -> Unit = {},
+  private val claimFailure: Int? = null,
 ) : Prover {
   val proved = mutableListOf<Int>()
+  val claimed = mutableListOf<ByteArray>()
   var loads = 0
   var releases = 0
 
@@ -26,6 +28,17 @@ internal class FakeProver(
     onProve(index)
     proved += index
     return ByteArray(Native.PROOF_AND_PUBLIC) { index.toByte() }
+  }
+
+  override fun loadClaim(dir: String): Int {
+    loads++
+    return loadCode
+  }
+
+  override fun proveClaim(request: ByteArray): ByteArray {
+    claimFailure?.let { throw ProverException(it) }
+    claimed += request.copyOf()
+    return ByteArray(Native.CLAIM_PROOF_AND_PUBLIC) { 9 }
   }
 
   override fun expand(

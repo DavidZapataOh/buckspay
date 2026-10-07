@@ -90,6 +90,42 @@ internal class ProverFiles(
     chain(noteId).delete()
   }
 
+  fun claimRequest(claimId: String) = File(File(root, "claim-requests"), checkNoteId(claimId))
+
+  fun putClaimRequest(
+    claimId: String,
+    request: ByteArray,
+  ) = atomicWrite(claimRequest(claimId), request)
+
+  fun dropClaimRequest(claimId: String) {
+    claimRequest(claimId).delete()
+  }
+
+  private fun claimProofFile(
+    claimId: String,
+    vkSha256: String,
+  ) = File(File(File(root, "claim-proofs"), checkHash(vkSha256)), checkNoteId(claimId))
+
+  fun claimProof(
+    claimId: String,
+    vkSha256: String,
+  ): ByteArray? = claimProofFile(claimId, vkSha256).takeIf { it.exists() }?.readBytes()
+
+  fun putClaimProof(
+    claimId: String,
+    vkSha256: String,
+    bytes: ByteArray,
+  ) {
+    require(bytes.size == Native.CLAIM_PROOF_AND_PUBLIC) { "invalid claim proof" }
+    atomicWrite(claimProofFile(claimId, vkSha256), bytes)
+  }
+
+  /** Forgets a claim's request and its proofs under every key once the app has stored the proof or given up. */
+  fun forgetClaim(claimId: String) {
+    dropClaimRequest(claimId)
+    File(root, "claim-proofs").listFiles()?.forEach { File(it, checkNoteId(claimId)).delete() }
+  }
+
   fun keyDir(vkSha256: String) = File(File(root, "keys"), checkHash(vkSha256))
 
   fun keyReady(vkSha256: String) = File(keyDir(vkSha256), READY).exists()

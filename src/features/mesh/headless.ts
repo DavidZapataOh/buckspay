@@ -13,6 +13,9 @@ import { settleNow } from './settle-flagged'
 import type { MeshHandlers } from './task'
 import { beaconsSeen, recordBeacon } from '../relay/beacons'
 import { runHandoffs } from '../relay/run'
+import { fetchWord, pollWords, postChannels, submitDue } from '../relay/words'
+import { runAll } from '../relay/words-settle'
+import { innerMaker } from '../rewards/secrets'
 
 const seconds = () => Math.floor(Date.now() / 1000)
 
@@ -79,5 +82,26 @@ export async function syncRelay(): Promise<void> {
     fetchConfig: async () => (await fetch(`${BUILD_GATEWAY_URL}/v1/hpke-config`)).json(),
     now: seconds,
   }).catch(() => false)
-  if (online) await postCarried(db, postRelay(BUILD_GATEWAY_URL), seconds()).catch(() => undefined)
+  if (!online) return
+  await postCarried(db, postRelay(BUILD_GATEWAY_URL), seconds()).catch(() => undefined)
+  await settleRelayWork(db, cluster, BUILD_GATEWAY_URL)
+}
+
+/**
+ * What an online relayer owes its words: asks for the words of the payments it posted, settles the words it holds once
+ * there are enough or the oldest has waited long enough.
+ */
+async function settleRelayWork(
+  db: NoteDb,
+  cluster: NonNullable<ReturnType<typeof deviceKeyCluster>>,
+  gatewayUrl: string,
+) {
+  const genesisHash = genesisHashOf(cluster)
+  await runAll([
+    ['words', () => pollWords(db, fetchWord(gatewayUrl), genesisHash, seconds())],
+    [
+      'settlement',
+      () => submitDue(db, { now: seconds(), makeInner: innerMaker(db, seconds), post: postChannels(gatewayUrl) }),
+    ],
+  ])
 }

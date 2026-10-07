@@ -98,7 +98,8 @@ export type WordFetch = { status: 200; body: Uint8Array } | { status: 404 | 410 
 
 /**
  * Asks the gateway for the words of the blobs this phone posted. A word that arrives is kept and its key forgotten; a
- * `410` ends the ask; a `404` is asked again later, up to a day after the post.
+ * `410` ends the ask; a `404` is asked again later, up to a day after the post. A word that cannot be fetched or does not
+ * verify is reported once the others were handled.
  */
 export async function pollWords(
   db: NoteDb,
@@ -111,19 +112,23 @@ export async function pollWords(
     [now],
   )
   let received = 0
+  const problems: string[] = []
   for (const ask of asks) {
     let result: WordFetch
     try {
       result = await fetchWord(ask.id)
-    } catch {
+    } catch (error) {
+      problems.push(
+        `The word of a payment could not be fetched: ${error instanceof Error ? error.message : String(error)}`,
+      )
       continue
     }
     if (result.status === 200) {
       try {
         await receiveWord(db, result.body, ask.rk_secret, genesisHash, now)
         received++
-      } catch {
-        // A word that does not open or verify is of no use to anyone.
+      } catch (error) {
+        problems.push(`A word did not open or verify: ${error instanceof Error ? error.message : String(error)}`)
       }
     }
     if (result.status === 404 && now - ask.asked_at < ASK_TTL) {
@@ -133,6 +138,7 @@ export async function pollWords(
       await db.run('DELETE FROM relay_word_asks WHERE id = ?', [ask.id])
     }
   }
+  if (problems.length > 0) throw new Error(problems.join(' '))
   return received
 }
 

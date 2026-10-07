@@ -58,23 +58,31 @@ func guard(err *error) {
 func Load(dir string) (err error) {
 	defer guard(&err)
 	Release()
-	ccs := new(cs_bn254.R1CS)
-	if err := readFrom(filepath.Join(dir, "ccs.bin"), ccs); err != nil {
-		return err
-	}
-	pk := groth16.NewProvingKey(ecc.BN254)
-	f, err := os.Open(filepath.Join(dir, "pk.dump"))
+	ccs, pk, err := readKeys(dir)
 	if err != nil {
-		return err
-	}
-	defer f.Close()
-	if err := pk.ReadDump(bufio.NewReaderSize(f, 1<<20)); err != nil {
 		return err
 	}
 	loaded.Lock()
 	loaded.ccs, loaded.pk = ccs, pk
 	loaded.Unlock()
 	return nil
+}
+
+func readKeys(dir string) (*cs_bn254.R1CS, groth16.ProvingKey, error) {
+	ccs := new(cs_bn254.R1CS)
+	if err := readFrom(filepath.Join(dir, "ccs.bin"), ccs); err != nil {
+		return nil, nil, err
+	}
+	pk := groth16.NewProvingKey(ecc.BN254)
+	f, err := os.Open(filepath.Join(dir, "pk.dump"))
+	if err != nil {
+		return nil, nil, err
+	}
+	defer f.Close()
+	if err := pk.ReadDump(bufio.NewReaderSize(f, 1<<20)); err != nil {
+		return nil, nil, err
+	}
+	return ccs, pk, nil
 }
 
 func readFrom(path string, r interface {

@@ -7,6 +7,7 @@ internal object Native {
   const val BAD_ARGS = -2
   const val FAILED = -3
   const val PROOF_AND_PUBLIC = 512
+  const val CLAIM_PROOF_AND_PUBLIC = 352
 
   init {
     System.loadLibrary("buckspay_prover")
@@ -17,6 +18,13 @@ internal object Native {
   external fun proveInto(
     chain: ByteArray,
     index: Int,
+    out: ByteArray,
+  ): Int
+
+  external fun loadClaim(dir: String): Int
+
+  external fun proveClaimInto(
+    request: ByteArray,
     out: ByteArray,
   ): Int
 

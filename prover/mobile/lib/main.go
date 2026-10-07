@@ -53,6 +53,27 @@ func BuckspayProve(chain *C.uint8_t, n C.size_t, index C.int, out *C.uint8_t) C.
 	return okCode
 }
 
+//export BuckspayLoadClaim
+func BuckspayLoadClaim(dir *C.char) C.int {
+	if dir == nil {
+		return badArgsCode
+	}
+	return code(mobile.LoadClaim(C.GoString(dir)))
+}
+
+//export BuckspayProveClaim
+func BuckspayProveClaim(req *C.uint8_t, n C.size_t, out *C.uint8_t) C.int {
+	if req == nil || out == nil || n == 0 {
+		return badArgsCode
+	}
+	res, err := mobile.ProveClaim(C.GoBytes(unsafe.Pointer(req), C.int(n)))
+	if err != nil {
+		return code(err)
+	}
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(out)), len(res)), res)
+	return okCode
+}
+
 //export BuckspayExpand
 func BuckspayExpand(pkBin, pkDump *C.char) C.int {
 	if pkBin == nil || pkDump == nil {
@@ -62,6 +83,9 @@ func BuckspayExpand(pkBin, pkDump *C.char) C.int {
 }
 
 //export BuckspayRelease
-func BuckspayRelease() { mobile.Release() }
+func BuckspayRelease() {
+	mobile.Release()
+	mobile.ReleaseClaim()
+}
 
 func main() {}

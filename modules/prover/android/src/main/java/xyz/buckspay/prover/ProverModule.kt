@@ -112,6 +112,34 @@ class ProverModule : Module() {
         }
       }
 
+      AsyncFunction("enqueueClaim") { claimId: String, request: ByteArray, vkSha256: String ->
+        files.putClaimRequest(claimId, request)
+        work.enqueueUniqueWork(
+          ClaimWorker.uniqueName(claimId),
+          ClaimWorker.POLICY,
+          ClaimWorker.request(context.packageName, claimId, vkSha256),
+        )
+      }
+
+      AsyncFunction("collectClaim") { claimId: String, vkSha256: String ->
+        files.claimProof(claimId, vkSha256)?.let {
+          mapOf("proof" to it.copyOfRange(0, CLAIM_PROOF), "publicInputs" to it.copyOfRange(CLAIM_PROOF, it.size))
+        }
+      }
+
+      AsyncFunction("claimState") { claimId: String ->
+        val info = work.getWorkInfosForUniqueWork(ClaimWorker.uniqueName(claimId)).get().firstOrNull()
+        mapOf(
+          "state" to (info?.state?.name?.lowercase() ?: "unknown"),
+          "reason" to (info?.outputData?.getString(ProveWorker.REASON) ?: ""),
+        )
+      }
+
+      AsyncFunction("forgetClaim") { claimId: String ->
+        work.cancelUniqueWork(ClaimWorker.uniqueName(claimId))
+        files.forgetClaim(claimId)
+      }
+
       AsyncFunction("acknowledge") { noteId: String, vkSha256: String, indices: IntArray ->
         files.dropProofs(noteId, vkSha256, indices.toList())
       }
@@ -130,5 +158,6 @@ class ProverModule : Module() {
 
   private companion object {
     const val PROOF = 192
+    const val CLAIM_PROOF = 128
   }
 }

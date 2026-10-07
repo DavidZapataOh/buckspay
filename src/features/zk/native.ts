@@ -1,4 +1,6 @@
 import Prover, {
+  type ClaimProof,
+  type ClaimState,
   type KeyFiles,
   type KeyState,
   type KeyStatus,
@@ -7,7 +9,7 @@ import Prover, {
 } from '../../../modules/prover/src/ProverModule'
 import type { ProvingMode } from './types'
 
-export type { KeyFiles, KeyState, KeyStatus, ProveProgress, StoredProof }
+export type { ClaimProof, ClaimState, KeyFiles, KeyState, KeyStatus, ProveProgress, StoredProof }
 
 export interface ProverNative {
   keyStatus(vkSha256: string): Promise<KeyStatus>
@@ -19,5 +21,15 @@ export interface ProverNative {
   acknowledge(noteId: string, vkSha256: string, indices: number[]): Promise<void>
 }
 
+/** What the reward claims need of the prover: the key calls and the claim entry. */
+export type ClaimProverNative = Pick<ProverNative, 'keyStatus' | 'ensureKey'> & {
+  enqueueClaim(claimId: string, request: Uint8Array, vkSha256: string): Promise<void>
+  collectClaim(claimId: string, vkSha256: string): Promise<ClaimProof | null>
+  claimState(claimId: string): Promise<ClaimState>
+  forgetClaim(claimId: string): Promise<void>
+}
+
 /** The only file that binds the prover module. */
 export const proverNative: ProverNative = Prover
+
+export const claimProverNative: ClaimProverNative = Prover

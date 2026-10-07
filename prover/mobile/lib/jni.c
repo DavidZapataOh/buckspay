@@ -5,6 +5,7 @@
 #include "_cgo_export.h"
 
 #define PROOF_AND_PUBLIC 512
+#define CLAIM_PROOF_AND_PUBLIC 352
 
 static jint load(JNIEnv *env, jclass cls, jstring dir) {
   const char *path = (*env)->GetStringUTFChars(env, dir, NULL);
@@ -27,6 +28,28 @@ static jint prove(JNIEnv *env, jclass cls, jbyteArray chain, jint index, jbyteAr
   return rc;
 }
 
+static jint loadClaim(JNIEnv *env, jclass cls, jstring dir) {
+  const char *path = (*env)->GetStringUTFChars(env, dir, NULL);
+  if (path == NULL) return -2;
+  jint rc = BuckspayLoadClaim((char *)path);
+  (*env)->ReleaseStringUTFChars(env, dir, path);
+  return rc;
+}
+
+static jint proveClaim(JNIEnv *env, jclass cls, jbyteArray request, jbyteArray out) {
+  if ((*env)->GetArrayLength(env, out) < CLAIM_PROOF_AND_PUBLIC) return -2;
+  jsize n = (*env)->GetArrayLength(env, request);
+  jbyte *in = (*env)->GetByteArrayElements(env, request, NULL);
+  if (in == NULL) return -2;
+  uint8_t result[CLAIM_PROOF_AND_PUBLIC];
+  jint rc = BuckspayProveClaim((uint8_t *)in, (size_t)n, result);
+  memset(in, 0, (size_t)n);
+  (*env)->ReleaseByteArrayElements(env, request, in, 0);
+  if (rc == 0) (*env)->SetByteArrayRegion(env, out, 0, CLAIM_PROOF_AND_PUBLIC, (jbyte *)result);
+  memset(result, 0, sizeof result);
+  return rc;
+}
+
 static jint expand(JNIEnv *env, jclass cls, jstring bin, jstring dump) {
   const char *from = (*env)->GetStringUTFChars(env, bin, NULL);
   const char *to = (*env)->GetStringUTFChars(env, dump, NULL);
@@ -42,6 +65,8 @@ static void release(JNIEnv *env, jclass cls) { BuckspayRelease(); }
 static const JNINativeMethod methods[] = {
     {"load", "(Ljava/lang/String;)I", (void *)load},
     {"proveInto", "([BI[B)I", (void *)prove},
+    {"loadClaim", "(Ljava/lang/String;)I", (void *)loadClaim},
+    {"proveClaimInto", "([B[B)I", (void *)proveClaim},
     {"expand", "(Ljava/lang/String;Ljava/lang/String;)I", (void *)expand},
     {"release", "()V", (void *)release},
 };

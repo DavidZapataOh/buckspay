@@ -18,6 +18,9 @@ export type ProveProgress = {
   state: string
   reason: string
 }
+export type ClaimProof = { proof: Uint8Array; publicInputs: Uint8Array }
+/** WorkManager's state of a claim (`unknown` when none was queued) and, when it failed, `no-key`, `no-request` or `invalid`. */
+export type ClaimState = { state: string; reason: string }
 export type StoredProof = { index: number; proof: Uint8Array; publicInputs: Uint8Array }
 
 type ProverEvents = { onProgress: (progress: ProveProgress) => void }
@@ -34,6 +37,11 @@ declare class ProverModule extends NativeModule<ProverEvents> {
   enqueue(noteId: string, chain: Uint8Array, missing: number[], vkSha256: string, mode: string): Promise<void>
   cancel(noteId: string): Promise<void>
   collect(noteId: string, vkSha256: string): Promise<StoredProof[]>
+  /** Proves one blind claim in the prover process; the request holds the leaf secrets and is deleted once proved. */
+  enqueueClaim(claimId: string, request: Uint8Array, vkSha256: string): Promise<void>
+  collectClaim(claimId: string, vkSha256: string): Promise<ClaimProof | null>
+  claimState(claimId: string): Promise<ClaimState>
+  forgetClaim(claimId: string): Promise<void>
   acknowledge(noteId: string, vkSha256: string, indices: number[]): Promise<void>
 }
 

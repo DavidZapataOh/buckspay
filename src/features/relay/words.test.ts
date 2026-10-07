@@ -215,4 +215,18 @@ describe('relayer words', () => {
     await pollWords(db, async () => ({ status: 410 }), DEVNET_GENESIS_HASH, 205)
     expect(await db.all('SELECT id FROM relay_word_asks')).toEqual([])
   })
+
+  it('reports a word that cannot be fetched, keeping the ask, and one that does not verify, dropping it', async () => {
+    const db = await store()
+    const id = sha256(new Uint8Array([3]))
+    await askFor(db, id, 100)
+    const unreachable = vi.fn(async () => Promise.reject(new Error('The gateway answered 502.')))
+    await expect(pollWords(db, unreachable, DEVNET_GENESIS_HASH, 105)).rejects.toThrow(
+      'could not be fetched: The gateway answered 502.',
+    )
+    expect(await db.all('SELECT id FROM relay_word_asks')).toHaveLength(1)
+    const garbage = vi.fn(async () => ({ status: 200 as const, body: new Uint8Array(40) }))
+    await expect(pollWords(db, garbage, DEVNET_GENESIS_HASH, 10_000)).rejects.toThrow('A word did not open or verify')
+    expect(await db.all('SELECT id FROM relay_word_asks')).toEqual([])
+  })
 })
