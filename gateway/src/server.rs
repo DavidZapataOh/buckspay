@@ -219,7 +219,10 @@ pub fn router(state: Arc<Gateway>, client: ClientAddress) -> Router {
         .layer(RequestBodyDeadlineLayer::new(BODY_DEADLINE))
         .layer(
             ServiceBuilder::new()
-                .layer(HandleErrorLayer::new(|_: BoxError| async { Error::Busy }))
+                .layer(HandleErrorLayer::new(|_: BoxError| async {
+                    tracing::info!(code = "busy", status = 503, "too many requests in flight");
+                    Error::Busy
+                }))
                 .load_shed()
                 .layer(GlobalConcurrencyLimitLayer::new(IN_FLIGHT)),
         )
@@ -336,6 +339,27 @@ pub enum Error {
     Retry,
     /// Solana could not be read, or did not answer whether it took a transaction.
     Upstream,
+}
+
+impl Error {
+    /// A short code for the log: the reason the app is given when there is one.
+    pub(crate) fn code(&self) -> String {
+        match self {
+            Error::BadRequest(_) => "bad_request".to_owned(),
+            Error::Conflict(_) => "conflict".to_owned(),
+            Error::Gone => "gone".to_owned(),
+            Error::Retired => "retired".to_owned(),
+            Error::RateLimited => "rate_limited".to_owned(),
+            Error::Refused(refusal) => crate::onboard::reason(refusal).to_owned(),
+            Error::Rejected => "rejected".to_owned(),
+            Error::Failed => "failed".to_owned(),
+            Error::Settlement(problem) => problem.code(),
+            Error::Unfunded => "unfunded".to_owned(),
+            Error::Busy => "busy".to_owned(),
+            Error::Retry => "retry".to_owned(),
+            Error::Upstream => "upstream".to_owned(),
+        }
+    }
 }
 
 impl IntoResponse for Error {

@@ -6,6 +6,13 @@ export type Why = { text: string; action?: 'settle-in-clear' }
 
 const same = (a: Uint8Array, b: Uint8Array) => bytesToHex(a) === bytesToHex(b)
 
+const busy = (reason: string) => {
+  const said = copy.activity.serverReasons[reason]
+  return said
+    ? `${said} ${copy.activity.serverRetry}`
+    : text(copy.activity.serverBusy, { code: reason === 'the gateway is busy' ? 'busy' : reason })
+}
+
 /** Why a note is still settling, from the last run: the reason and, when the person can fix it, the action. */
 export function whyWaiting(report: SettlementReport | undefined, outputId: Uint8Array): Why | undefined {
   if (!report) return undefined
@@ -23,7 +30,7 @@ export function whyWaiting(report: SettlementReport | undefined, outputId: Uint8
     if (refused.retryAt !== undefined) {
       return { text: text(copy.activity.serverLater, { time: new Date(refused.retryAt * 1000).toLocaleString() }) }
     }
-    if (refused.kind === 'limited' || refused.kind === 'busy') return { text: copy.activity.serverBusy }
+    if (refused.kind === 'limited' || refused.kind === 'busy') return { text: busy(refused.reason ?? refused.kind) }
     if (refused.kind === 'below_minimum') return { text: copy.activity.serverMinimum }
     return { text: text(copy.activity.serverCannot, { reason: refused.reason ?? refused.kind }) }
   }

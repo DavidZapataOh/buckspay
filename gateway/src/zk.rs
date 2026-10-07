@@ -898,6 +898,16 @@ pub(crate) async fn inspect(
 /// Admits a private settlement: checks it and everything it meets, writes its job down and
 /// answers `submitted` only then. The job is sent in the background and finished by the janitor
 /// if this process does not.
+/// A short id of a private settlement for the log: a hash prefix of its lock and amounts.
+pub(crate) fn short_id(request: &ZkRequest) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hash = Sha256::new();
+    hash.update(request.lock_key.as_bytes());
+    hash.update(request.lock_seq.to_be_bytes());
+    hash.update(request.cum_end.to_be_bytes());
+    hex::encode(&hash.finalize()[..4])
+}
+
 pub(crate) async fn submit(
     state: &Arc<Gateway>,
     prefix: Prefix,

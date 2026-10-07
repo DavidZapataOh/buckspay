@@ -37,6 +37,34 @@ describe('whyWaiting', () => {
     expect(whyWaiting(report({ blocked: 'gateway' }), id)?.text).toContain('no server')
   })
 
+  it('says which limit the server hit, with its code, and that the phone will try again', () => {
+    const said = (kind: string, reason: string) =>
+      whyWaiting(report({ refused: [{ outputId: id, kind, selfPay: true, reason }] }), id)?.text
+    expect(said('busy', 'float_cap')).toBe(
+      "The server's settlement budget is used up for now (float_cap). This phone will try again.",
+    )
+    expect(said('busy', 'lock_share')).toContain('(lock_share)')
+    expect(said('busy', 'too_many_locks')).toContain('(too_many_locks)')
+    expect(said('busy', 'issuer_locks')).toContain('(issuer_locks)')
+    expect(said('busy', 'daily_cap')).toContain('(daily_cap)')
+    expect(said('busy', 'unavailable')).toContain('(unavailable)')
+    expect(said('busy', 'expired')).toContain('(expired)')
+    expect(said('busy', 'paused')).toContain('(paused)')
+    expect(said('busy', 'cap')).toContain('(cap)')
+    expect(said('busy', 'the gateway is busy')).toBe('The server is busy. This phone will try again. (busy)')
+    expect(said('limited', 'network_busy')).toContain('(network_busy)')
+    expect(said('limited', 'network_limit')).toContain('(network_limit)')
+    expect(said('limited', 'key_limit')).toContain('(key_limit)')
+    expect(said('limited', 'lock_limit')).toContain('(lock_limit)')
+  })
+
+  it('keeps the generic sentence, with the code, for a reason it does not know', () => {
+    const refused = { outputId: id, kind: 'busy', selfPay: true, reason: 'something_new' }
+    expect(whyWaiting(report({ refused: [refused] }), id)?.text).toBe(
+      'The server is busy. This phone will try again. (something_new)',
+    )
+  })
+
   it('says when it will try again if nothing else is known', () => {
     expect(whyWaiting(report({ retryIn: 30 }), id)?.text).toBe('Trying again in 30 s.')
   })

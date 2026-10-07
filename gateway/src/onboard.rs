@@ -152,7 +152,7 @@ pub(crate) async fn quote(
     }))
 }
 
-fn reason(refusal: &crate::sponsor::Refusal) -> &'static str {
+pub(crate) fn reason(refusal: &crate::sponsor::Refusal) -> &'static str {
     use crate::sponsor::Refusal::*;
     match refusal {
         PrefixBusy => "network_busy",

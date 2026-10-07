@@ -47,6 +47,7 @@ use solana_signature::Signature;
 use solana_signer::Signer;
 use solana_transaction::versioned::VersionedTransaction;
 use solana_transaction_error::TransactionError;
+use std::time::Instant;
 use std::{net::IpAddr, sync::Arc, time::Duration};
 use tracing::{error, info, warn};
 
@@ -148,9 +149,9 @@ pub enum Problem {
     Limits(Refusal, Option<u32>),
 }
 
-impl IntoResponse for Problem {
-    fn into_response(self) -> Response {
-        let (status, mut body) = match &self {
+impl Problem {
+    fn parts(&self) -> (StatusCode, serde_json::Value) {
+        let (status, mut body) = match self {
             Problem::Invalid(message) => (StatusCode::BAD_REQUEST, json!({ "error": message })),
             Problem::Window(which) => (StatusCode::CONFLICT, json!({ "error": which })),
             Problem::Conflict(recorded) => (
@@ -179,6 +180,21 @@ impl IntoResponse for Problem {
         if !matches!(self, Problem::Invalid(_) | Problem::Claim(_)) {
             body["selfPay"] = json!(true);
         }
+        (status, body)
+    }
+
+    /// The reason the app is given, which is also what the gateway logs.
+    pub(crate) fn code(&self) -> String {
+        self.parts().1["error"]
+            .as_str()
+            .unwrap_or("unknown")
+            .to_owned()
+    }
+}
+
+impl IntoResponse for Problem {
+    fn into_response(self) -> Response {
+        let (status, body) = self.parts();
         let mut response = (status, Json(body)).into_response();
         if let Problem::Limits(_, Some(seconds)) = self
             && let Ok(value) = HeaderValue::from_str(&seconds.to_string())
@@ -1362,12 +1378,33 @@ pub(crate) async fn settle(
     State(state): State<Arc<Gateway>>,
     Extension(Client(ip)): Extension<Client>,
     Json(body): Json<Body>,
-) -> Result<Json<serde_json::Value>, Error> {
-    let request = match body {
-        Body::Clear(request) => request,
-        Body::Private(request) => return crate::zk::submit(&state, ip.into(), request).await,
+) -> Response {
+    let started = Instant::now();
+    let (route, id, spends) = match &body {
+        Body::Clear(request) => (
+            "clear",
+            job_key(request)[..8].to_owned(),
+            request.spends.len(),
+        ),
+        Body::Private(request) => (
+            "private",
+            crate::zk::short_id(request),
+            request.messages.len(),
+        ),
     };
-    match drive(&state, ip.into(), &request, &job_key(&request)).await {
+    let result = match body {
+        Body::Private(request) => crate::zk::submit(&state, ip.into(), request).await,
+        Body::Clear(request) => settle_clear(state, ip.into(), request).await,
+    };
+    answered(route, &id, spends, started, result)
+}
+
+async fn settle_clear(
+    state: Arc<Gateway>,
+    prefix: Prefix,
+    request: SettlementRequest,
+) -> Result<Json<serde_json::Value>, Error> {
+    match drive(&state, prefix, &request, &job_key(&request)).await {
         Ok(answer) => Ok(Json(answer)),
         Err(error) => {
             // What made the settlement fail is the evidence of a loss: nobody has to ask for it.
@@ -1380,6 +1417,32 @@ pub(crate) async fn settle(
             Err(error)
         }
     }
+}
+
+/// Logs how a settlement request ended, with only its reason code, a short id that cannot be
+/// reversed, the spend count and the time it took, and returns the response.
+fn answered(
+    route: &str,
+    id: &str,
+    spends: usize,
+    started: Instant,
+    result: Result<Json<serde_json::Value>, Error>,
+) -> Response {
+    let code = match &result {
+        Ok(_) => "ok".to_owned(),
+        Err(error) => error.code(),
+    };
+    let response = result.into_response();
+    info!(
+        route,
+        id,
+        spends,
+        status = response.status().as_u16(),
+        code,
+        elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+        "settlement answered"
+    );
+    response
 }
 
 pub(crate) async fn reclaim(
@@ -1464,5 +1527,121 @@ mod tests {
             1,
             "the attempt still counts against the network"
         );
+    }
+
+    #[derive(Clone, Default)]
+    struct Capture(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+
+    impl std::io::Write for Capture {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for Capture {
+        type Writer = Capture;
+
+        fn make_writer(&'a self) -> Capture {
+            self.clone()
+        }
+    }
+
+    fn logged(result: Result<Json<serde_json::Value>, Error>) -> (StatusCode, String) {
+        let capture = Capture::default();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(capture.clone())
+            .with_ansi(false)
+            .finish();
+        let response = tracing::subscriber::with_default(subscriber, || {
+            answered("clear", "0a1b2c3d", 1, Instant::now(), result)
+        });
+        let text = String::from_utf8(capture.0.lock().unwrap().clone()).unwrap();
+        (response.status(), text)
+    }
+
+    #[test]
+    fn a_refusal_is_logged_with_its_code_status_id_and_spend_count() {
+        let refused = Error::Settlement(Problem::Limits(Refusal::LockShare { allowed: 0 }, None));
+        let (status, line) = logged(Err(refused));
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        for expected in [
+            " INFO ",
+            "code=\"lock_share\"",
+            "status=503",
+            "id=\"0a1b2c3d\"",
+            "spends=1",
+            "elapsed_ms=",
+        ] {
+            assert!(line.contains(expected), "{expected} missing from {line}");
+        }
+        assert!(!line.contains("allowed"));
+    }
+
+    #[test]
+    fn an_answer_that_settles_is_logged_too() {
+        let (status, line) = logged(Ok(Json(json!({ "status": "settled" }))));
+        assert_eq!(status, StatusCode::OK);
+        assert!(
+            line.contains("code=\"ok\"") && line.contains("status=200"),
+            "{line}"
+        );
+    }
+
+    #[test]
+    fn a_busy_gateway_and_a_request_that_is_not_valid_are_logged() {
+        let (status, line) = logged(Err(Error::Busy));
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(line.contains("code=\"busy\""), "{line}");
+        let (_, line) = logged(Err(Problem::Invalid("issue is not hex").into()));
+        assert!(line.contains("code=\"issue is not hex\""), "{line}");
+    }
+
+    #[test]
+    fn the_code_of_every_refusal_is_the_one_the_app_receives() {
+        let refusals = [
+            Refusal::Unwritable,
+            Refusal::DailyCap,
+            Refusal::BelowMinimum(1),
+            Refusal::Horizon { retry_at: 1 },
+            Refusal::PrefixBusy,
+            Refusal::PrefixSpentToday,
+            Refusal::PrefixSpentThisMonth,
+            Refusal::KeySpentToday,
+            Refusal::KeySpentThisMonth,
+            Refusal::LockSpentToday,
+            Refusal::LockShare { allowed: 0 },
+            Refusal::TooManyLocks,
+            Refusal::IssuerLocks,
+            Refusal::FloatCap,
+            Refusal::Expired,
+        ];
+        let expected = [
+            "unavailable",
+            "daily_cap",
+            "below_minimum",
+            "horizon",
+            "network_busy",
+            "network_limit",
+            "network_limit",
+            "key_limit",
+            "key_limit",
+            "lock_limit",
+            "lock_share",
+            "too_many_locks",
+            "issuer_locks",
+            "float_cap",
+            "expired",
+        ];
+        for (refusal, code) in refusals.into_iter().zip(expected) {
+            assert_eq!(Problem::Limits(refusal, None).code(), code);
+        }
+        assert_eq!(Problem::Paused.code(), "paused");
+        assert_eq!(Problem::CapExhausted(5).code(), "cap");
+        assert_eq!(Problem::Lock("no_lock").code(), "no_lock");
     }
 }
