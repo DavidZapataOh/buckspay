@@ -5,6 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+use crate::generated::types::KeyHashes;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 use solana_address::Address;
@@ -16,13 +17,17 @@ pub struct RewardConfig {
     pub pauser: Address,
     /// Stops claims only: settling delivery words is never paused.
     pub paused: bool,
+    pub claim_key: KeyHashes,
+    pub previous_claim_key: KeyHashes,
+    /// When the key before `claim_key` was replaced; zero when no previous key is accepted.
+    pub rotated_at: i64,
     pub bump: u8,
 }
 
 pub const REWARD_CONFIG_DISCRIMINATOR: [u8; 8] = [163, 174, 98, 80, 230, 119, 69, 64];
 
 impl RewardConfig {
-    pub const LEN: usize = 74;
+    pub const LEN: usize = 338;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {

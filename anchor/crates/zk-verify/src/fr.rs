@@ -27,6 +27,21 @@ pub fn is_canonical(x: &[u8; 32]) -> bool {
     x < &MODULUS
 }
 
+/// `x` reduced below the modulus. The input is any 32 bytes, below `6r`, so five subtractions at
+/// most.
+pub fn reduce(x: &[u8; 32]) -> [u8; 32] {
+    let mut out = *x;
+    while out >= MODULUS {
+        let mut borrow = 0i16;
+        for (byte, modulus) in out.iter_mut().zip(MODULUS).rev() {
+            let diff = i16::from(*byte) - i16::from(modulus) - borrow;
+            borrow = i16::from(diff < 0);
+            *byte = diff.rem_euclid(256) as u8;
+        }
+    }
+    out
+}
+
 /// An unreduced sum of products `r_i * x_i` with `r_i < 2^128` and `x_i < 2^256`. Seventeen terms
 /// stay below `2^389`, so seven limbs hold the sum and it is reduced once, at the end.
 #[derive(Clone, Copy, Default, PartialEq, Eq)]

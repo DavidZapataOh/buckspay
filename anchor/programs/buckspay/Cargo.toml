@@ -28,6 +28,7 @@ anchor-lang = "=1.2.0"
 anchor-spl = { version = "=1.2.0", default-features = false, features = ["token", "token_2022"] }
 buckspay-protocol = { path = "../../crates/protocol" }
 buckspay-zk-verify = { path = "../../crates/zk-verify", default-features = false }
+solana-sha256-hasher = { version = "3.1.0", features = ["sha2"] }
 solana-curve25519 = "4.0.1"
 solana-instructions-sysvar = "3.0.1"
 solana-poseidon = "4.0.0"

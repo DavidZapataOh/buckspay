@@ -84,7 +84,11 @@ pub struct SettleChainProof<'info> {
 fn verify_error(error: VerifyError) -> Error {
     match error {
         VerifyError::NonCanonical => error!(BuckspayError::NonCanonicalPublic),
-        VerifyError::Input | VerifyError::Empty | VerifyError::TooMany | VerifyError::Mismatch => {
+        VerifyError::Input
+        | VerifyError::KeyShape
+        | VerifyError::Empty
+        | VerifyError::TooMany
+        | VerifyError::Mismatch => {
             error!(BuckspayError::ChainInvalid)
         }
         VerifyError::BadPoint | VerifyError::Pairing => error!(BuckspayError::ProofRejected),

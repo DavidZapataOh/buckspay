@@ -137,6 +137,16 @@ impl Ledger {
         Ok(())
     }
 
+    /// A claim takes `amount` from a reward pool. Only a pool's ledger can pay this way, so a claim
+    /// never reaches the backing of a lock.
+    pub fn pay_reward(&mut self, amount: u64) -> Result<Debit> {
+        require!(
+            self.key[0] == REWARD_LEDGER_MARKER,
+            BuckspayError::NotRewardPool
+        );
+        self.pay_backing(amount)
+    }
+
     pub fn pay_backing(&mut self, amount: u64) -> Result<Debit> {
         require!(amount > 0, BuckspayError::AmountZero);
         self.backing_left = self

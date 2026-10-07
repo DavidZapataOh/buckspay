@@ -5,6 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+use crate::generated::types::Window;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 use solana_address::Address;
@@ -20,6 +21,7 @@ pub struct RewardMint {
     pub claim_fee: u64,
     pub fee_account: Address,
     pub claim_cap: u64,
+    pub window: Window,
     pub epoch: u32,
     pub bump: u8,
 }
@@ -27,7 +29,7 @@ pub struct RewardMint {
 pub const REWARD_MINT_DISCRIMINATOR: [u8; 8] = [233, 63, 191, 22, 229, 91, 74, 155];
 
 impl RewardMint {
-    pub const LEN: usize = 125;
+    pub const LEN: usize = 149;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {

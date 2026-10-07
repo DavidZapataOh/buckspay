@@ -116,10 +116,13 @@ fn oracle_vk(vk: &Vk) -> Groth16Verifyingkey<'static> {
         vk_beta_g2: *vk.beta_g2,
         vk_gamma_g2: *vk.gamma_g2,
         vk_delta_g2: *vk.delta_g2,
-        vk_ic: Box::leak(Box::new(*vk.ic)),
+        vk_ic: Box::leak(vk.ic.to_vec().into_boxed_slice()),
         vk_commitment: Some(CommitmentVerifyingKey {
-            g2: *vk.commitment_g,
-            g_sigma_neg_g2: *vk.commitment_g_sigma_neg,
+            g2: *vk.commitment.expect("the chain key has a commitment").g,
+            g_sigma_neg_g2: *vk
+                .commitment
+                .expect("the chain key has a commitment")
+                .g_sigma_neg,
         }),
     }
 }

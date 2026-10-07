@@ -261,6 +261,162 @@
       ]
     },
     {
+      "name": "claim_rewards",
+      "docs": [
+        "Pays the leaves of the reward pool to the recipient the proofs name. Anyone may submit."
+      ],
+      "discriminator": [
+        4,
+        144,
+        132,
+        71,
+        116,
+        23,
+        151,
+        80
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Pays the rent of the nullifier accounts."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "reward_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "reward_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool_ledger",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "reward_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool_escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "reward_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "fee_account",
+          "writable": true
+        },
+        {
+          "name": "recipient",
+          "docs": [
+            "The proofs bind the owner of this account as the recipient."
+          ],
+          "writable": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "ClaimArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "claim_unbacked",
       "docs": [
         "Burns what the loss of a chain the issuer's backing can no longer pay proves."
@@ -782,6 +938,14 @@
         {
           "name": "pauser",
           "type": "pubkey"
+        },
+        {
+          "name": "claim_key",
+          "type": {
+            "defined": {
+              "name": "KeyHashes"
+            }
+          }
         }
       ]
     },
@@ -1833,6 +1997,55 @@
       ]
     },
     {
+      "name": "revoke_previous_claim_vk",
+      "docs": [
+        "Ends the acceptance of the previous claim key at once; the pauser may call it too."
+      ],
+      "discriminator": [
+        168,
+        38,
+        109,
+        198,
+        189,
+        194,
+        166,
+        128
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "reward_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "revoke_previous_vk",
       "docs": [
         "Ends the acceptance of the previous verifying key; the pauser or the admin may call it."
@@ -1939,6 +2152,69 @@
         },
         {
           "name": "trust_previous",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "rotate_claim_vk",
+      "docs": [
+        "Replaces the claim key by the one this program carries. With `keep_previous` the replaced",
+        "key stays accepted for a while."
+      ],
+      "discriminator": [
+        88,
+        46,
+        184,
+        84,
+        37,
+        129,
+        3,
+        143
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "reward_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "next",
+          "type": {
+            "defined": {
+              "name": "KeyHashes"
+            }
+          }
+        },
+        {
+          "name": "keep_previous",
           "type": "bool"
         }
       ]
@@ -2119,6 +2395,61 @@
         {
           "name": "keep_previous",
           "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "set_reward_authorities",
+      "discriminator": [
+        60,
+        3,
+        122,
+        75,
+        181,
+        137,
+        88,
+        24
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "reward_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "admin",
+          "type": "pubkey"
+        },
+        {
+          "name": "pauser",
+          "type": "pubkey"
         }
       ]
     },
@@ -3902,6 +4233,66 @@
       "code": 6086,
       "name": "HashFailed",
       "msg": "Poseidon failed on canonical inputs"
+    },
+    {
+      "code": 6087,
+      "name": "RewardsPaused",
+      "msg": "Rewards are paused"
+    },
+    {
+      "code": 6088,
+      "name": "UnknownRoot",
+      "msg": "The root is not one the tree of this epoch holds"
+    },
+    {
+      "code": 6089,
+      "name": "NullifierReused",
+      "msg": "A nullifier was already claimed"
+    },
+    {
+      "code": 6090,
+      "name": "NonCanonicalNullifier",
+      "msg": "A nullifier hash is not a canonical field element"
+    },
+    {
+      "code": 6091,
+      "name": "ClaimRejected",
+      "msg": "The claim proof does not verify"
+    },
+    {
+      "code": 6092,
+      "name": "FeeAboveMax",
+      "msg": "The claim fee is above the maximum the proof allows"
+    },
+    {
+      "code": 6093,
+      "name": "ClaimCapExceeded",
+      "msg": "The claims in the window are above the cap"
+    },
+    {
+      "code": 6094,
+      "name": "BadDenomination",
+      "msg": "The exponent is not one a word batch can have"
+    },
+    {
+      "code": 6095,
+      "name": "StaleClaimKey",
+      "msg": "The claim key is not the current one, nor the previous one inside its window"
+    },
+    {
+      "code": 6096,
+      "name": "ClaimCount",
+      "msg": "The number of claims is zero, above the limit, or not the number of accounts"
+    },
+    {
+      "code": 6097,
+      "name": "WrongRewardTree",
+      "msg": "The account is not the reward tree of the claim's epoch"
+    },
+    {
+      "code": 6098,
+      "name": "WrongNullifierAccount",
+      "msg": "The account is not the nullifier account of the claim"
     }
   ],
   "types": [
@@ -4099,6 +4490,40 @@
               "vec": {
                 "defined": {
                   "name": "WireWord"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClaimArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vk_sha256",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "max_fee",
+            "docs": [
+              "The fee ceiling every proof of the batch was made with."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "claims",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "OneClaim"
                 }
               }
             }
@@ -4429,6 +4854,53 @@
       }
     },
     {
+      "name": "OneClaim",
+      "docs": [
+        "One claim: the tree and root it opens, its nullifier hash, the exponent of its leaf and its",
+        "proof. Everything else the proof binds is read from the accounts."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "type": "u32"
+          },
+          {
+            "name": "root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "nullifier_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "exp",
+            "type": "u8"
+          },
+          {
+            "name": "proof",
+            "type": {
+              "array": [
+                "u8",
+                128
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "ProofBuffer",
       "docs": [
         "Messages written by a settler ahead of the settlement transaction that reads them. The",
@@ -4513,6 +4985,29 @@
             "type": "bool"
           },
           {
+            "name": "claim_key",
+            "type": {
+              "defined": {
+                "name": "KeyHashes"
+              }
+            }
+          },
+          {
+            "name": "previous_claim_key",
+            "type": {
+              "defined": {
+                "name": "KeyHashes"
+              }
+            }
+          },
+          {
+            "name": "rotated_at",
+            "docs": [
+              "When the key before `claim_key` was replaced; zero when no previous key is accepted."
+            ],
+            "type": "i64"
+          },
+          {
             "name": "bump",
             "type": "u8"
           }
@@ -4559,6 +5054,14 @@
           {
             "name": "claim_cap",
             "type": "u64"
+          },
+          {
+            "name": "window",
+            "type": {
+              "defined": {
+                "name": "Window"
+              }
+            }
           },
           {
             "name": "epoch",
@@ -4728,6 +5231,29 @@
                 ]
               }
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Window",
+      "docs": [
+        "A rolling draw window: two buckets, the current one and the one before it."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "start",
+            "type": "i64"
+          },
+          {
+            "name": "cur",
+            "type": "u64"
+          },
+          {
+            "name": "prev",
+            "type": "u64"
           }
         ]
       }

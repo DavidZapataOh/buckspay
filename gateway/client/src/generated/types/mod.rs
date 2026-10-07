@@ -8,11 +8,15 @@
 pub(crate) mod r#channel_words;
 pub(crate) mod r#key_hashes;
 pub(crate) mod r#link;
+pub(crate) mod r#one_claim;
+pub(crate) mod r#window;
 pub(crate) mod r#wire_message;
 pub(crate) mod r#wire_word;
 
 pub use self::r#channel_words::*;
 pub use self::r#key_hashes::*;
 pub use self::r#link::*;
+pub use self::r#one_claim::*;
+pub use self::r#window::*;
 pub use self::r#wire_message::*;
 pub use self::r#wire_word::*;

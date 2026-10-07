@@ -9,5 +9,7 @@
 export * from './channelWords'
 export * from './keyHashes'
 export * from './link'
+export * from './oneClaim'
+export * from './window'
 export * from './wireMessage'
 export * from './wireWord'

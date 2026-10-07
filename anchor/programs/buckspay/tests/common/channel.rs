@@ -9,6 +9,9 @@ use super::{
 };
 use anchor_lang::{solana_program::instruction::AccountMeta, InstructionData, ToAccountMetas};
 use buckspay::{rewards::RewardTree, ChannelWords, RewardPolicy, SettleChannelArgs, WireWord};
+
+#[path = "rewards.rs"]
+pub mod rewards;
 use buckspay_protocol::{
     hash::{content, domain, purpose},
     payword::{self, Commitment},
@@ -257,6 +260,7 @@ pub struct ChannelEnv {
     fee_before: u64,
     pub leaves: Vec<[u8; 32]>,
     pub last_logs: Vec<String>,
+    pub claims: rewards::State,
 }
 
 fn dup(issuer: &Issuer) -> Issuer {
@@ -294,6 +298,7 @@ impl ChannelEnv {
             fee_before: 0,
             leaves: vec![],
             last_logs: vec![],
+            claims: rewards::State::default(),
         };
         for k in [&e.authority, &e.admin, &e.pauser, &e.stranger] {
             e.env.svm.airdrop(&k.pubkey(), 10_000_000_000).unwrap();
@@ -427,6 +432,7 @@ impl ChannelEnv {
             data: buckspay::instruction::InitRewardConfig {
                 admin: self.admin.pubkey(),
                 pauser: self.pauser.pubkey(),
+                claim_key: super::zk::key_hashes(buckspay_zk_verify::vk::CLAIM.sha256),
             }
             .data(),
         }
@@ -650,8 +656,10 @@ impl ChannelEnv {
         self.fee_before = self.env.balance(&self.fee_account);
         let landed = self.env.send_v1(&ixs).map_err(Refused)?;
         self.last_logs = self.env.logs().lines().map(str::to_owned).collect();
-        self.leaves
-            .extend(self.events().into_iter().map(|e| e.leaf));
+        for event in self.events() {
+            self.leaves.push(event.leaf);
+            self.claims.tree_leaves.push((event.epoch, event.leaf));
+        }
         self.refresh();
         Ok(landed)
     }
@@ -676,6 +684,18 @@ impl ChannelEnv {
             "NotRewardAdmin" => E::NotRewardAdmin,
             "FeeAboveValue" => E::FeeAboveValue,
             "TreeNotFull" => E::TreeNotFull,
+            "RewardsPaused" => E::RewardsPaused,
+            "UnknownRoot" => E::UnknownRoot,
+            "NullifierReused" => E::NullifierReused,
+            "NonCanonicalNullifier" => E::NonCanonicalNullifier,
+            "ClaimRejected" => E::ClaimRejected,
+            "FeeAboveMax" => E::FeeAboveMax,
+            "ClaimCapExceeded" => E::ClaimCapExceeded,
+            "StaleClaimKey" => E::StaleClaimKey,
+            "ClaimCount" => E::ClaimCount,
+            "BadDenomination" => E::BadDenomination,
+            "WrongRewardTree" => E::WrongRewardTree,
+            "WrongNullifierAccount" => E::WrongNullifierAccount,
             other => panic!("unknown error {other}"),
         } as u32
     }

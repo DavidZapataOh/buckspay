@@ -1,15 +1,25 @@
 //! The reward pool: its configuration, the per-mint policy, and the incremental Merkle tree whose
 //! leaves the program itself computes from settled delivery words.
 use anchor_lang::prelude::*;
-use buckspay_protocol::payword::MAX_LEAVES_PER_TX;
-use buckspay_zk_verify::fr;
+use buckspay_protocol::{message::GRACE, payword::MAX_LEAVES_PER_TX};
+use buckspay_zk_verify::{fr, vk, vk::Vk};
 use solana_poseidon::{hashv, Endianness, Parameters};
 
-use crate::error::BuckspayError;
+use crate::{
+    error::BuckspayError,
+    zk::{KeyHashes, Window},
+};
 
 pub const REWARD_CONFIG_SEED: &[u8] = b"reward-config";
 pub const REWARD_MINT_SEED: &[u8] = b"reward-mint";
 pub const REWARD_TREE_SEED: &[u8] = b"reward-tree";
+pub const REWARD_NULLIFIER_SEED: &[u8] = b"reward-null";
+/// Claims in one transaction, measured: the most that fit the compute budget and the transaction.
+pub const MAX_CLAIMS_PER_TX: usize = 4;
+/// How long the previous claim key stays accepted after a rotation, before the grace.
+pub const CLAIM_KEY_OVERLAP_SECS: i64 = 72 * 3600;
+/// The length of the claim window.
+pub const CLAIM_WINDOW_SECS: i64 = 86_400;
 /// The first byte of the key of a reward pool's ledger; a lock's ledger carries a compressed
 /// P-256 point (`0x02` or `0x03`) and an attester's ledger `ATTESTER_LEDGER_MARKER`.
 pub const REWARD_LEDGER_MARKER: u8 = 0xfe;
@@ -25,7 +35,34 @@ pub struct RewardConfig {
     pub pauser: Pubkey,
     /// Stops claims only: settling delivery words is never paused.
     pub paused: bool,
+    pub claim_key: KeyHashes,
+    pub previous_claim_key: KeyHashes,
+    /// When the key before `claim_key` was replaced; zero when no previous key is accepted.
+    pub rotated_at: i64,
     pub bump: u8,
+}
+
+impl RewardConfig {
+    /// The key a claim batch is verified under: the one this program carries, or the previous one
+    /// inside its window.
+    pub fn claim_vk(&self, vk_sha256: &[u8; 32], now: u32) -> Result<Vk<'static>> {
+        if vk_sha256 == vk::CLAIM.sha256 {
+            require!(
+                self.claim_key.vk == *vk_sha256,
+                BuckspayError::StaleClaimKey
+            );
+            return Ok(vk::CLAIM);
+        }
+        let previous = vk::CLAIM_PREVIOUS
+            .filter(|key| key.sha256 == vk_sha256 && self.previous_claim_key.vk == *vk_sha256);
+        let until = self
+            .rotated_at
+            .saturating_add(CLAIM_KEY_OVERLAP_SECS + i64::from(GRACE));
+        match previous {
+            Some(key) if self.rotated_at != 0 && i64::from(now) <= until => Ok(key),
+            _ => Err(error!(BuckspayError::StaleClaimKey)),
+        }
+    }
 }
 
 /// What a mint pays for a delivery word. `word_value`, `word_fee`, `unit` and `max_fee` are fixed
@@ -41,6 +78,7 @@ pub struct RewardMint {
     pub claim_fee: u64,
     pub fee_account: Pubkey,
     pub claim_cap: u64,
+    pub window: Window,
     pub epoch: u32,
     pub bump: u8,
 }
@@ -179,6 +217,18 @@ pub const ZEROS: [[u8; 32]; TREE_DEPTH] = [
         0x2c, 0xca,
     ],
 ];
+
+/// What a proof of a claim is bound to, so it cannot be replayed on another mint, program or
+/// cluster: `SHA-256("buckspay/reward" ‖ program id ‖ mint ‖ genesis hash)` reduced into the field.
+pub fn scope(mint: &Pubkey) -> [u8; 32] {
+    let hash = solana_sha256_hasher::hashv(&[
+        b"buckspay/reward",
+        crate::ID.as_ref(),
+        mint.as_ref(),
+        &crate::GENESIS_HASH,
+    ]);
+    fr::reduce(&hash.to_bytes())
+}
 
 pub mod tree {
     use super::*;

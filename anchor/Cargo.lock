@@ -836,6 +836,7 @@ dependencies = [
  "solana-precompile-error",
  "solana-sdk-ids",
  "solana-secp256r1-program",
+ "solana-sha256-hasher",
  "solana-signer",
  "solana-transaction",
 ]

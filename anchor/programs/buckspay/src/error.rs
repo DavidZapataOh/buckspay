@@ -179,4 +179,28 @@ pub enum BuckspayError {
     TreeNotFull,
     #[msg("Poseidon failed on canonical inputs")]
     HashFailed,
+    #[msg("Rewards are paused")]
+    RewardsPaused,
+    #[msg("The root is not one the tree of this epoch holds")]
+    UnknownRoot,
+    #[msg("A nullifier was already claimed")]
+    NullifierReused,
+    #[msg("A nullifier hash is not a canonical field element")]
+    NonCanonicalNullifier,
+    #[msg("The claim proof does not verify")]
+    ClaimRejected,
+    #[msg("The claim fee is above the maximum the proof allows")]
+    FeeAboveMax,
+    #[msg("The claims in the window are above the cap")]
+    ClaimCapExceeded,
+    #[msg("The exponent is not one a word batch can have")]
+    BadDenomination,
+    #[msg("The claim key is not the current one, nor the previous one inside its window")]
+    StaleClaimKey,
+    #[msg("The number of claims is zero, above the limit, or not the number of accounts")]
+    ClaimCount,
+    #[msg("The account is not the reward tree of the claim's epoch")]
+    WrongRewardTree,
+    #[msg("The account is not the nullifier account of the claim")]
+    WrongNullifierAccount,
 }

@@ -267,6 +267,162 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "claimRewards",
+      "docs": [
+        "Pays the leaves of the reward pool to the recipient the proofs name. Anyone may submit."
+      ],
+      "discriminator": [
+        4,
+        144,
+        132,
+        71,
+        116,
+        23,
+        151,
+        80
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Pays the rent of the nullifier accounts."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "rewardConfig",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "rewardMint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "poolLedger",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rewardMint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "poolEscrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rewardMint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "feeAccount",
+          "writable": true
+        },
+        {
+          "name": "recipient",
+          "docs": [
+            "The proofs bind the owner of this account as the recipient."
+          ],
+          "writable": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "claimArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "claimUnbacked",
       "docs": [
         "Burns what the loss of a chain the issuer's backing can no longer pay proves."
@@ -389,6 +545,39 @@ export type Buckspay = {
           }
         }
       ]
+    },
+    {
+      "name": "closeChannel",
+      "docs": [
+        "Closes a channel whose words can no longer be settled and returns its rent to its payer."
+      ],
+      "discriminator": [
+        0,
+        104,
+        36,
+        1,
+        66,
+        0,
+        103,
+        157
+      ],
+      "accounts": [
+        {
+          "name": "channel",
+          "writable": true
+        },
+        {
+          "name": "payer",
+          "docs": [
+            "Gets the rent of the channel back, whoever closes it."
+          ],
+          "writable": true,
+          "relations": [
+            "channel"
+          ]
+        }
+      ],
+      "args": []
     },
     {
       "name": "closeLock",
@@ -686,6 +875,260 @@ export type Buckspay = {
           "type": {
             "defined": {
               "name": "createLockArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "initRewardConfig",
+      "discriminator": [
+        152,
+        188,
+        130,
+        236,
+        115,
+        237,
+        53,
+        159
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "rewardConfig",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "address": "zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM"
+        },
+        {
+          "name": "programData"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "admin",
+          "type": "pubkey"
+        },
+        {
+          "name": "pauser",
+          "type": "pubkey"
+        },
+        {
+          "name": "claimKey",
+          "type": {
+            "defined": {
+              "name": "keyHashes"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "initRewardMint",
+      "discriminator": [
+        7,
+        81,
+        73,
+        12,
+        174,
+        180,
+        120,
+        165
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "rewardConfig"
+          ]
+        },
+        {
+          "name": "rewardConfig",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "rewardMint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "poolLedger",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rewardMint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "poolEscrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rewardMint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tree",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  116,
+                  114,
+                  101,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "policy",
+          "type": {
+            "defined": {
+              "name": "rewardPolicy"
             }
           }
         }
@@ -1560,6 +2003,55 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "revokePreviousClaimVk",
+      "docs": [
+        "Ends the acceptance of the previous claim key at once; the pauser may call it too."
+      ],
+      "discriminator": [
+        168,
+        38,
+        109,
+        198,
+        189,
+        194,
+        166,
+        128
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "rewardConfig",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "revokePreviousVk",
       "docs": [
         "Ends the acceptance of the previous verifying key; the pauser or the admin may call it."
@@ -1671,6 +2163,193 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "rotateClaimVk",
+      "docs": [
+        "Replaces the claim key by the one this program carries. With `keep_previous` the replaced",
+        "key stays accepted for a while."
+      ],
+      "discriminator": [
+        88,
+        46,
+        184,
+        84,
+        37,
+        129,
+        3,
+        143
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "rewardConfig",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "next",
+          "type": {
+            "defined": {
+              "name": "keyHashes"
+            }
+          }
+        },
+        {
+          "name": "keepPrevious",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "rotateRewardTree",
+      "docs": [
+        "Starts the next epoch's tree once the current one is full. Anyone may call it."
+      ],
+      "discriminator": [
+        213,
+        11,
+        85,
+        50,
+        28,
+        154,
+        49,
+        42
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "rewardMint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rewardMint.mint",
+                "account": "rewardMint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "current",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  116,
+                  114,
+                  101,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rewardMint.mint",
+                "account": "rewardMint"
+              },
+              {
+                "kind": "account",
+                "path": "rewardMint.epoch",
+                "account": "rewardMint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "next",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  116,
+                  114,
+                  101,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rewardMint.mint",
+                "account": "rewardMint"
+              },
+              {
+                "kind": "account",
+                "path": "rewardMint.epoch.saturatingAdd1",
+                "account": "rewardMint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "rotateVk",
       "discriminator": [
         154,
@@ -1721,6 +2400,205 @@ export type Buckspay = {
         },
         {
           "name": "keepPrevious",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "setRewardAuthorities",
+      "discriminator": [
+        60,
+        3,
+        122,
+        75,
+        181,
+        137,
+        88,
+        24
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "rewardConfig",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "admin",
+          "type": "pubkey"
+        },
+        {
+          "name": "pauser",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "setRewardPolicy",
+      "discriminator": [
+        194,
+        18,
+        196,
+        2,
+        199,
+        36,
+        123,
+        235
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "rewardConfig"
+          ]
+        },
+        {
+          "name": "rewardConfig",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "rewardMint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rewardMint.mint",
+                "account": "rewardMint"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "claimFee",
+          "type": "u64"
+        },
+        {
+          "name": "feeAccount",
+          "type": "pubkey"
+        },
+        {
+          "name": "claimCap",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "setRewardsPaused",
+      "docs": [
+        "The pauser may only pause; the admin may do either. Settling words is never paused."
+      ],
+      "discriminator": [
+        237,
+        177,
+        240,
+        194,
+        143,
+        95,
+        101,
+        221
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "rewardConfig",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "paused",
           "type": "bool"
         }
       ]
@@ -2082,6 +2960,167 @@ export type Buckspay = {
               "defined": {
                 "name": "wireMessage"
               }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "settleChannel",
+      "docs": [
+        "Settles words of delivery channels into the reward pool: each pays `word_value` out of its",
+        "lock, the leaves of what the pool owes are computed here, never taken from the caller."
+      ],
+      "discriminator": [
+        206,
+        201,
+        217,
+        191,
+        233,
+        79,
+        47,
+        208
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Pays the rent of the channels it creates."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "rewardMint",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "poolLedger",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rewardMint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "poolEscrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rewardMint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "feeAccount",
+          "writable": true
+        },
+        {
+          "name": "tree",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  45,
+                  116,
+                  114,
+                  101,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              },
+              {
+                "kind": "account",
+                "path": "rewardMint.epoch",
+                "account": "rewardMint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "instructions",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "settleChannelArgs"
             }
           }
         }
@@ -2620,6 +3659,19 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "channel",
+      "discriminator": [
+        49,
+        159,
+        99,
+        106,
+        220,
+        87,
+        219,
+        88
+      ]
+    },
+    {
       "name": "device",
       "discriminator": [
         153,
@@ -2672,6 +3724,45 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "rewardConfig",
+      "discriminator": [
+        163,
+        174,
+        98,
+        80,
+        230,
+        119,
+        69,
+        64
+      ]
+    },
+    {
+      "name": "rewardMint",
+      "discriminator": [
+        233,
+        63,
+        191,
+        22,
+        229,
+        91,
+        74,
+        155
+      ]
+    },
+    {
+      "name": "rewardTree",
+      "discriminator": [
+        255,
+        38,
+        153,
+        166,
+        208,
+        59,
+        189,
+        114
+      ]
+    },
+    {
       "name": "rotation",
       "discriminator": [
         185,
@@ -2695,6 +3786,21 @@ export type Buckspay = {
         219,
         13,
         202
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "leafAppended",
+      "discriminator": [
+        253,
+        59,
+        85,
+        246,
+        117,
+        213,
+        27,
+        175
       ]
     }
   ],
@@ -3053,6 +4159,146 @@ export type Buckspay = {
       "code": 6070,
       "name": "wrongFeeAccount",
       "msg": "The fee account is not the one configured for the mint"
+    },
+    {
+      "code": 6071,
+      "name": "wordRejected",
+      "msg": "The word does not verify against the root of its channel"
+    },
+    {
+      "code": 6072,
+      "name": "wordAlreadySettled",
+      "msg": "The word was already settled"
+    },
+    {
+      "code": 6073,
+      "name": "channelWindowClosed",
+      "msg": "The settlement window of the channel has closed"
+    },
+    {
+      "code": 6074,
+      "name": "wordValueMismatch",
+      "msg": "The commitment does not price its words as the mint does"
+    },
+    {
+      "code": 6075,
+      "name": "innersDoNotMatchWords",
+      "msg": "The inners are not one per leaf of the words' canonical decomposition"
+    },
+    {
+      "code": 6076,
+      "name": "nonCanonicalInner",
+      "msg": "An inner is not a canonical field element"
+    },
+    {
+      "code": 6077,
+      "name": "tooManyChannels",
+      "msg": "Too many channels in one transaction"
+    },
+    {
+      "code": 6078,
+      "name": "channelStillOpen",
+      "msg": "The channel cannot be closed yet"
+    },
+    {
+      "code": 6079,
+      "name": "channelAboveBondQuarter",
+      "msg": "The commitment is above a quarter of the lock's bond"
+    },
+    {
+      "code": 6080,
+      "name": "commitmentInvalid",
+      "msg": "The commitment is malformed or its depth is out of range"
+    },
+    {
+      "code": 6081,
+      "name": "notRewardAdmin",
+      "msg": "The signer is not allowed to change the reward configuration"
+    },
+    {
+      "code": 6082,
+      "name": "notRewardPool",
+      "msg": "The ledger is not a reward pool"
+    },
+    {
+      "code": 6083,
+      "name": "feeAboveValue",
+      "msg": "The fees do not fit the value of a word"
+    },
+    {
+      "code": 6084,
+      "name": "treeFull",
+      "msg": "The reward tree of this epoch cannot take another batch"
+    },
+    {
+      "code": 6085,
+      "name": "treeNotFull",
+      "msg": "The reward tree of this epoch still has room"
+    },
+    {
+      "code": 6086,
+      "name": "hashFailed",
+      "msg": "Poseidon failed on canonical inputs"
+    },
+    {
+      "code": 6087,
+      "name": "rewardsPaused",
+      "msg": "Rewards are paused"
+    },
+    {
+      "code": 6088,
+      "name": "unknownRoot",
+      "msg": "The root is not one the tree of this epoch holds"
+    },
+    {
+      "code": 6089,
+      "name": "nullifierReused",
+      "msg": "A nullifier was already claimed"
+    },
+    {
+      "code": 6090,
+      "name": "nonCanonicalNullifier",
+      "msg": "A nullifier hash is not a canonical field element"
+    },
+    {
+      "code": 6091,
+      "name": "claimRejected",
+      "msg": "The claim proof does not verify"
+    },
+    {
+      "code": 6092,
+      "name": "feeAboveMax",
+      "msg": "The claim fee is above the maximum the proof allows"
+    },
+    {
+      "code": 6093,
+      "name": "claimCapExceeded",
+      "msg": "The claims in the window are above the cap"
+    },
+    {
+      "code": 6094,
+      "name": "badDenomination",
+      "msg": "The exponent is not one a word batch can have"
+    },
+    {
+      "code": 6095,
+      "name": "staleClaimKey",
+      "msg": "The claim key is not the current one, nor the previous one inside its window"
+    },
+    {
+      "code": 6096,
+      "name": "claimCount",
+      "msg": "The number of claims is zero, above the limit, or not the number of accounts"
+    },
+    {
+      "code": 6097,
+      "name": "wrongRewardTree",
+      "msg": "The account is not the reward tree of the claim's epoch"
+    },
+    {
+      "code": 6098,
+      "name": "wrongNullifierAccount",
+      "msg": "The account is not the nullifier account of the claim"
     }
   ],
   "types": [
@@ -3134,6 +4380,159 @@ export type Buckspay = {
           {
             "name": "bump",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "channel",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lock",
+            "type": "pubkey"
+          },
+          {
+            "name": "commitmentHash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "root",
+            "docs": [
+              "The root of the words, stored at creation: every later batch is verified against it."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "depth",
+            "type": "u8"
+          },
+          {
+            "name": "wordValue",
+            "type": "u64"
+          },
+          {
+            "name": "cumEnd",
+            "type": "u64"
+          },
+          {
+            "name": "expiry",
+            "type": "u32"
+          },
+          {
+            "name": "settled",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "payer",
+            "docs": [
+              "Gets the rent back when the channel is closed."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "closableAt",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "channelWords",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "issuerKey",
+            "type": {
+              "array": [
+                "u8",
+                33
+              ]
+            }
+          },
+          {
+            "name": "lockSeq",
+            "type": "u32"
+          },
+          {
+            "name": "commitment",
+            "docs": [
+              "Present on the first settlement of a channel: its signature is checked once, by the",
+              "secp256r1 instruction of the transaction. Later batches verify against `Channel.root`."
+            ],
+            "type": {
+              "option": {
+                "array": [
+                  "u8",
+                  91
+                ]
+              }
+            }
+          },
+          {
+            "name": "words",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "wireWord"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "claimArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vkSha256",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "maxFee",
+            "docs": [
+              "The fee ceiling every proof of the batch was made with."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "claims",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "oneClaim"
+                }
+              }
+            }
           }
         ]
       }
@@ -3258,6 +4657,35 @@ export type Buckspay = {
                 32
               ]
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "leafAppended",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "type": "u32"
+          },
+          {
+            "name": "index",
+            "type": "u32"
+          },
+          {
+            "name": "leaf",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "exp",
+            "type": "u8"
           }
         ]
       }
@@ -3432,6 +4860,53 @@ export type Buckspay = {
       }
     },
     {
+      "name": "oneClaim",
+      "docs": [
+        "One claim: the tree and root it opens, its nullifier hash, the exponent of its leaf and its",
+        "proof. Everything else the proof binds is read from the accounts."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "type": "u32"
+          },
+          {
+            "name": "root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "nullifierHash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "exp",
+            "type": "u8"
+          },
+          {
+            "name": "proof",
+            "type": {
+              "array": [
+                "u8",
+                128
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "proofBuffer",
       "docs": [
         "Messages written by a settler ahead of the settlement transaction that reads them. The",
@@ -3496,6 +4971,217 @@ export type Buckspay = {
       }
     },
     {
+      "name": "rewardConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "pauser",
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "docs": [
+              "Stops claims only: settling delivery words is never paused."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "claimKey",
+            "type": {
+              "defined": {
+                "name": "keyHashes"
+              }
+            }
+          },
+          {
+            "name": "previousClaimKey",
+            "type": {
+              "defined": {
+                "name": "keyHashes"
+              }
+            }
+          },
+          {
+            "name": "rotatedAt",
+            "docs": [
+              "When the key before `claim_key` was replaced; zero when no previous key is accepted."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rewardMint",
+      "docs": [
+        "What a mint pays for a delivery word. `word_value`, `word_fee`, `unit` and `max_fee` are fixed",
+        "when the mint is configured: a signed commitment is never re-priced."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "wordValue",
+            "type": "u64"
+          },
+          {
+            "name": "wordFee",
+            "type": "u64"
+          },
+          {
+            "name": "unit",
+            "type": "u64"
+          },
+          {
+            "name": "maxFee",
+            "type": "u64"
+          },
+          {
+            "name": "claimFee",
+            "type": "u64"
+          },
+          {
+            "name": "feeAccount",
+            "type": "pubkey"
+          },
+          {
+            "name": "claimCap",
+            "type": "u64"
+          },
+          {
+            "name": "window",
+            "type": {
+              "defined": {
+                "name": "window"
+              }
+            }
+          },
+          {
+            "name": "epoch",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rewardPolicy",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "wordValue",
+            "type": "u64"
+          },
+          {
+            "name": "wordFee",
+            "type": "u64"
+          },
+          {
+            "name": "maxFee",
+            "type": "u64"
+          },
+          {
+            "name": "claimFee",
+            "type": "u64"
+          },
+          {
+            "name": "feeAccount",
+            "type": "pubkey"
+          },
+          {
+            "name": "claimCap",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rewardTree",
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch",
+            "type": "u32"
+          },
+          {
+            "name": "nextIndex",
+            "type": "u32"
+          },
+          {
+            "name": "rootIndex",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                3
+              ]
+            }
+          },
+          {
+            "name": "filled",
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                20
+              ]
+            }
+          },
+          {
+            "name": "roots",
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                256
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "rotation",
       "docs": [
         "A pending change of a device's wallet."
@@ -3518,6 +5204,62 @@ export type Buckspay = {
           {
             "name": "bump",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "settleChannelArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "channels",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "channelWords"
+                }
+              }
+            }
+          },
+          {
+            "name": "inners",
+            "docs": [
+              "`Poseidon(nullifier, trapdoor)` of the relayer, one per exponent of",
+              "`canonical_exps(total words)`, in that order. The program computes the leaves itself."
+            ],
+            "type": {
+              "vec": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "window",
+      "docs": [
+        "A rolling draw window: two buckets, the current one and the one before it."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "start",
+            "type": "i64"
+          },
+          {
+            "name": "cur",
+            "type": "u64"
+          },
+          {
+            "name": "prev",
+            "type": "u64"
           }
         ]
       }
@@ -3556,6 +5298,41 @@ export type Buckspay = {
                 "u8",
                 192
               ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "wireWord",
+      "docs": [
+        "One word of a channel with the siblings of its path to the root."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "index",
+            "type": "u16"
+          },
+          {
+            "name": "word",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "path",
+            "type": {
+              "vec": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
             }
           }
         ]

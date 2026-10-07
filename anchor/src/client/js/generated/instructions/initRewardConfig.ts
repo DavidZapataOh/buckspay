@@ -37,6 +37,7 @@ import {
 import { getAccountMetaFactory, type ResolvedInstructionAccount } from '@solana/kit/program-client-core'
 import { findRewardConfigPda } from '../pdas'
 import { BUCKSPAY_PROGRAM_ADDRESS } from '../programs'
+import { getKeyHashesDecoder, getKeyHashesEncoder, type KeyHashes, type KeyHashesArgs } from '../types'
 
 export const INIT_REWARD_CONFIG_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([
   152, 188, 130, 236, 115, 237, 53, 159,
@@ -69,9 +70,14 @@ export type InitRewardConfigInstruction<
     ]
   >
 
-export type InitRewardConfigInstructionData = { discriminator: ReadonlyUint8Array; admin: Address; pauser: Address }
+export type InitRewardConfigInstructionData = {
+  discriminator: ReadonlyUint8Array
+  admin: Address
+  pauser: Address
+  claimKey: KeyHashes
+}
 
-export type InitRewardConfigInstructionDataArgs = { admin: Address; pauser: Address }
+export type InitRewardConfigInstructionDataArgs = { admin: Address; pauser: Address; claimKey: KeyHashesArgs }
 
 export function getInitRewardConfigInstructionDataEncoder(): FixedSizeEncoder<InitRewardConfigInstructionDataArgs> {
   return transformEncoder(
@@ -79,6 +85,7 @@ export function getInitRewardConfigInstructionDataEncoder(): FixedSizeEncoder<In
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
       ['admin', getAddressEncoder()],
       ['pauser', getAddressEncoder()],
+      ['claimKey', getKeyHashesEncoder()],
     ]),
     (value) => ({ ...value, discriminator: INIT_REWARD_CONFIG_DISCRIMINATOR }),
   )
@@ -89,6 +96,7 @@ export function getInitRewardConfigInstructionDataDecoder(): FixedSizeDecoder<In
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
     ['admin', getAddressDecoder()],
     ['pauser', getAddressDecoder()],
+    ['claimKey', getKeyHashesDecoder()],
   ])
 }
 
@@ -113,6 +121,7 @@ export type InitRewardConfigAsyncInput<
   systemProgram?: Address<TAccountSystemProgram>
   admin: InitRewardConfigInstructionDataArgs['admin']
   pauser: InitRewardConfigInstructionDataArgs['pauser']
+  claimKey: InitRewardConfigInstructionDataArgs['claimKey']
 }
 
 export async function getInitRewardConfigInstructionAsync<
@@ -204,6 +213,7 @@ export type InitRewardConfigInput<
   systemProgram?: Address<TAccountSystemProgram>
   admin: InitRewardConfigInstructionDataArgs['admin']
   pauser: InitRewardConfigInstructionDataArgs['pauser']
+  claimKey: InitRewardConfigInstructionDataArgs['claimKey']
 }
 
 export function getInitRewardConfigInstruction<

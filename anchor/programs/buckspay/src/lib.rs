@@ -31,8 +31,9 @@ pub use channel::{Channel, CHANNEL_CLOSE_DELAY, CHANNEL_SEED, MAX_CHANNELS_PER_T
 pub use error::BuckspayError;
 pub use instructions::*;
 pub use rewards::{
-    LeafAppended, RewardConfig, RewardMint, RewardPolicy, RewardTree, REWARD_CONFIG_SEED,
-    REWARD_LEDGER_MARKER, REWARD_MINT_SEED, REWARD_TREE_SEED, ROOT_HISTORY, TREE_DEPTH,
+    scope as reward_scope, LeafAppended, RewardConfig, RewardMint, RewardPolicy, RewardTree,
+    CLAIM_KEY_OVERLAP_SECS, MAX_CLAIMS_PER_TX, REWARD_CONFIG_SEED, REWARD_LEDGER_MARKER,
+    REWARD_MINT_SEED, REWARD_NULLIFIER_SEED, REWARD_TREE_SEED, ROOT_HISTORY, TREE_DEPTH,
 };
 pub use settlement::Link;
 pub use state::{
@@ -319,8 +320,40 @@ pub mod buckspay {
         ctx: Context<InitRewardConfig>,
         admin: Pubkey,
         pauser: Pubkey,
+        claim_key: KeyHashes,
     ) -> Result<()> {
-        ctx.accounts.process(&ctx.bumps, admin, pauser)
+        ctx.accounts.process(&ctx.bumps, admin, pauser, claim_key)
+    }
+
+    /// Replaces the claim key by the one this program carries. With `keep_previous` the replaced
+    /// key stays accepted for a while.
+    pub fn rotate_claim_vk(
+        ctx: Context<RewardAdmin>,
+        next: KeyHashes,
+        keep_previous: bool,
+    ) -> Result<()> {
+        ctx.accounts.rotate_claim_vk(next, keep_previous)
+    }
+
+    /// Ends the acceptance of the previous claim key at once; the pauser may call it too.
+    pub fn revoke_previous_claim_vk(ctx: Context<RewardAdmin>) -> Result<()> {
+        ctx.accounts.revoke_previous_claim_vk()
+    }
+
+    pub fn set_reward_authorities(
+        ctx: Context<RewardAdmin>,
+        admin: Pubkey,
+        pauser: Pubkey,
+    ) -> Result<()> {
+        ctx.accounts.set_authorities(admin, pauser)
+    }
+
+    /// Pays the leaves of the reward pool to the recipient the proofs name. Anyone may submit.
+    pub fn claim_rewards<'info>(
+        ctx: Context<'info, ClaimRewards<'info>>,
+        args: ClaimArgs,
+    ) -> Result<()> {
+        ctx.accounts.process(args, ctx.remaining_accounts)
     }
 
     /// The pauser may only pause; the admin may do either. Settling words is never paused.

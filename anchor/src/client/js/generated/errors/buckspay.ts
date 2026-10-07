@@ -188,6 +188,30 @@ export const BUCKSPAY_ERROR__TREE_FULL = 0x17c4 // 6084
 export const BUCKSPAY_ERROR__TREE_NOT_FULL = 0x17c5 // 6085
 /** HashFailed: Poseidon failed on canonical inputs */
 export const BUCKSPAY_ERROR__HASH_FAILED = 0x17c6 // 6086
+/** RewardsPaused: Rewards are paused */
+export const BUCKSPAY_ERROR__REWARDS_PAUSED = 0x17c7 // 6087
+/** UnknownRoot: The root is not one the tree of this epoch holds */
+export const BUCKSPAY_ERROR__UNKNOWN_ROOT = 0x17c8 // 6088
+/** NullifierReused: A nullifier was already claimed */
+export const BUCKSPAY_ERROR__NULLIFIER_REUSED = 0x17c9 // 6089
+/** NonCanonicalNullifier: A nullifier hash is not a canonical field element */
+export const BUCKSPAY_ERROR__NON_CANONICAL_NULLIFIER = 0x17ca // 6090
+/** ClaimRejected: The claim proof does not verify */
+export const BUCKSPAY_ERROR__CLAIM_REJECTED = 0x17cb // 6091
+/** FeeAboveMax: The claim fee is above the maximum the proof allows */
+export const BUCKSPAY_ERROR__FEE_ABOVE_MAX = 0x17cc // 6092
+/** ClaimCapExceeded: The claims in the window are above the cap */
+export const BUCKSPAY_ERROR__CLAIM_CAP_EXCEEDED = 0x17cd // 6093
+/** BadDenomination: The exponent is not one a word batch can have */
+export const BUCKSPAY_ERROR__BAD_DENOMINATION = 0x17ce // 6094
+/** StaleClaimKey: The claim key is not the current one, nor the previous one inside its window */
+export const BUCKSPAY_ERROR__STALE_CLAIM_KEY = 0x17cf // 6095
+/** ClaimCount: The number of claims is zero, above the limit, or not the number of accounts */
+export const BUCKSPAY_ERROR__CLAIM_COUNT = 0x17d0 // 6096
+/** WrongRewardTree: The account is not the reward tree of the claim's epoch */
+export const BUCKSPAY_ERROR__WRONG_REWARD_TREE = 0x17d1 // 6097
+/** WrongNullifierAccount: The account is not the nullifier account of the claim */
+export const BUCKSPAY_ERROR__WRONG_NULLIFIER_ACCOUNT = 0x17d2 // 6098
 
 export type BuckspayError =
   | typeof BUCKSPAY_ERROR__ALREADY_CLAIMED
@@ -197,6 +221,7 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__AMOUNT_ZERO
   | typeof BUCKSPAY_ERROR__ATTESTER_KEY
   | typeof BUCKSPAY_ERROR__ATTESTER_STATUS
+  | typeof BUCKSPAY_ERROR__BAD_DENOMINATION
   | typeof BUCKSPAY_ERROR__BELOW_RECORD_FEE
   | typeof BUCKSPAY_ERROR__BUFFER_INCOMPLETE
   | typeof BUCKSPAY_ERROR__BUFFER_LENGTH
@@ -207,6 +232,9 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__CHANNEL_ABOVE_BOND_QUARTER
   | typeof BUCKSPAY_ERROR__CHANNEL_STILL_OPEN
   | typeof BUCKSPAY_ERROR__CHANNEL_WINDOW_CLOSED
+  | typeof BUCKSPAY_ERROR__CLAIM_CAP_EXCEEDED
+  | typeof BUCKSPAY_ERROR__CLAIM_COUNT
+  | typeof BUCKSPAY_ERROR__CLAIM_REJECTED
   | typeof BUCKSPAY_ERROR__CLAIM_TOO_LATE
   | typeof BUCKSPAY_ERROR__CLOCK_OUT_OF_RANGE
   | typeof BUCKSPAY_ERROR__CLOSE_TOO_EARLY
@@ -218,6 +246,7 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__DEVICE_REQUIRED
   | typeof BUCKSPAY_ERROR__ESCROW_OPEN
   | typeof BUCKSPAY_ERROR__EXIT_NOT_READY
+  | typeof BUCKSPAY_ERROR__FEE_ABOVE_MAX
   | typeof BUCKSPAY_ERROR__FEE_ABOVE_VALUE
   | typeof BUCKSPAY_ERROR__FEE_NOT_ALLOWED
   | typeof BUCKSPAY_ERROR__FEE_TOO_HIGH
@@ -233,6 +262,7 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__MINT_NOT_ENABLED
   | typeof BUCKSPAY_ERROR__NO_BOND
   | typeof BUCKSPAY_ERROR__NON_CANONICAL_INNER
+  | typeof BUCKSPAY_ERROR__NON_CANONICAL_NULLIFIER
   | typeof BUCKSPAY_ERROR__NON_CANONICAL_PUBLIC
   | typeof BUCKSPAY_ERROR__NO_RECORD
   | typeof BUCKSPAY_ERROR__NOT_CLAIMABLE
@@ -242,6 +272,7 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__NOT_REWARD_POOL
   | typeof BUCKSPAY_ERROR__NOT_WITHDRAWN
   | typeof BUCKSPAY_ERROR__NOT_ZK_ADMIN
+  | typeof BUCKSPAY_ERROR__NULLIFIER_REUSED
   | typeof BUCKSPAY_ERROR__OVER_COVERAGE
   | typeof BUCKSPAY_ERROR__PROOF_REJECTED
   | typeof BUCKSPAY_ERROR__RECLAIM_CLOSED
@@ -250,6 +281,7 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__RECORD_ACCOUNTS
   | typeof BUCKSPAY_ERROR__RECORD_NOT_CLOSABLE
   | typeof BUCKSPAY_ERROR__RELEASE_TOO_EARLY
+  | typeof BUCKSPAY_ERROR__REWARDS_PAUSED
   | typeof BUCKSPAY_ERROR__ROTATION_BINDING
   | typeof BUCKSPAY_ERROR__ROTATION_COOLDOWN
   | typeof BUCKSPAY_ERROR__ROTATION_NOT_READY
@@ -257,6 +289,7 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__SETTLEMENT_CLOSED
   | typeof BUCKSPAY_ERROR__SLASH_PENDING
   | typeof BUCKSPAY_ERROR__STAKE_TOO_LOW
+  | typeof BUCKSPAY_ERROR__STALE_CLAIM_KEY
   | typeof BUCKSPAY_ERROR__STALE_VERIFYING_KEY
   | typeof BUCKSPAY_ERROR__TEST_KEYS_ON_MAINNET
   | typeof BUCKSPAY_ERROR__TICKET_BINDING
@@ -265,6 +298,7 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__TOO_MANY_SPENDS
   | typeof BUCKSPAY_ERROR__TREE_FULL
   | typeof BUCKSPAY_ERROR__TREE_NOT_FULL
+  | typeof BUCKSPAY_ERROR__UNKNOWN_ROOT
   | typeof BUCKSPAY_ERROR__UNKNOWN_SIGNER
   | typeof BUCKSPAY_ERROR__UNRECORDABLE_OUTPUT
   | typeof BUCKSPAY_ERROR__UNSUPPORTED_MINT_EXTENSION
@@ -274,7 +308,9 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__WORD_VALUE_MISMATCH
   | typeof BUCKSPAY_ERROR__WRONG_FEE_ACCOUNT
   | typeof BUCKSPAY_ERROR__WRONG_LOCK
+  | typeof BUCKSPAY_ERROR__WRONG_NULLIFIER_ACCOUNT
   | typeof BUCKSPAY_ERROR__WRONG_PAYEE
+  | typeof BUCKSPAY_ERROR__WRONG_REWARD_TREE
   | typeof BUCKSPAY_ERROR__ZK_CAP_EXCEEDED
   | typeof BUCKSPAY_ERROR__ZK_PAUSED
 
@@ -288,6 +324,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__AMOUNT_ZERO]: `Amount must be greater than zero`,
     [BUCKSPAY_ERROR__ATTESTER_KEY]: `The key is not a canonical point of the prime-order subgroup`,
     [BUCKSPAY_ERROR__ATTESTER_STATUS]: `The attester's status does not allow this`,
+    [BUCKSPAY_ERROR__BAD_DENOMINATION]: `The exponent is not one a word batch can have`,
     [BUCKSPAY_ERROR__BELOW_RECORD_FEE]: `The payment does not exceed the fee for the records it creates`,
     [BUCKSPAY_ERROR__BUFFER_INCOMPLETE]: `The proof buffer does not hold every message yet`,
     [BUCKSPAY_ERROR__BUFFER_LENGTH]: `The proof buffer has a length that holds no whole number of messages`,
@@ -298,6 +335,9 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__CHANNEL_ABOVE_BOND_QUARTER]: `The commitment is above a quarter of the lock's bond`,
     [BUCKSPAY_ERROR__CHANNEL_STILL_OPEN]: `The channel cannot be closed yet`,
     [BUCKSPAY_ERROR__CHANNEL_WINDOW_CLOSED]: `The settlement window of the channel has closed`,
+    [BUCKSPAY_ERROR__CLAIM_CAP_EXCEEDED]: `The claims in the window are above the cap`,
+    [BUCKSPAY_ERROR__CLAIM_COUNT]: `The number of claims is zero, above the limit, or not the number of accounts`,
+    [BUCKSPAY_ERROR__CLAIM_REJECTED]: `The claim proof does not verify`,
     [BUCKSPAY_ERROR__CLAIM_TOO_LATE]: `The claim deadline of the output has passed`,
     [BUCKSPAY_ERROR__CLOCK_OUT_OF_RANGE]: `The cluster clock is outside the supported range`,
     [BUCKSPAY_ERROR__CLOSE_TOO_EARLY]: `The lock cannot be closed yet`,
@@ -309,6 +349,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__DEVICE_REQUIRED]: `A claim on a spend that named no lock needs the device of the lock owner`,
     [BUCKSPAY_ERROR__ESCROW_OPEN]: `The escrow is still open`,
     [BUCKSPAY_ERROR__EXIT_NOT_READY]: `The attester cannot withdraw its stake yet`,
+    [BUCKSPAY_ERROR__FEE_ABOVE_MAX]: `The claim fee is above the maximum the proof allows`,
     [BUCKSPAY_ERROR__FEE_ABOVE_VALUE]: `The fees do not fit the value of a word`,
     [BUCKSPAY_ERROR__FEE_NOT_ALLOWED]: `A sponsor fee is only allowed on a sponsored first lock`,
     [BUCKSPAY_ERROR__FEE_TOO_HIGH]: `The sponsor fee is above its cap`,
@@ -324,6 +365,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__MINT_NOT_ENABLED]: `The mint is not enabled for private settlement`,
     [BUCKSPAY_ERROR__NO_BOND]: `The lock has no free bond to slash`,
     [BUCKSPAY_ERROR__NON_CANONICAL_INNER]: `An inner is not a canonical field element`,
+    [BUCKSPAY_ERROR__NON_CANONICAL_NULLIFIER]: `A nullifier hash is not a canonical field element`,
     [BUCKSPAY_ERROR__NON_CANONICAL_PUBLIC]: `A value of the proof's public inputs is not a canonical field element`,
     [BUCKSPAY_ERROR__NO_RECORD]: `The output has no record`,
     [BUCKSPAY_ERROR__NOT_CLAIMABLE]: `The loss cannot be claimed from this lock`,
@@ -333,6 +375,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__NOT_REWARD_POOL]: `The ledger is not a reward pool`,
     [BUCKSPAY_ERROR__NOT_WITHDRAWN]: `The lock has not been withdrawn`,
     [BUCKSPAY_ERROR__NOT_ZK_ADMIN]: `The signer is not allowed to change the private settlement configuration`,
+    [BUCKSPAY_ERROR__NULLIFIER_REUSED]: `A nullifier was already claimed`,
     [BUCKSPAY_ERROR__OVER_COVERAGE]: `The output is larger than the lock's bond covers`,
     [BUCKSPAY_ERROR__PROOF_REJECTED]: `The batch of proofs does not verify`,
     [BUCKSPAY_ERROR__RECLAIM_CLOSED]: `The reclaim window of the output has closed`,
@@ -341,6 +384,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__RECORD_ACCOUNTS]: `Wrong number or address of record accounts`,
     [BUCKSPAY_ERROR__RECORD_NOT_CLOSABLE]: `The record cannot be closed yet`,
     [BUCKSPAY_ERROR__RELEASE_TOO_EARLY]: `The lock cannot be released yet`,
+    [BUCKSPAY_ERROR__REWARDS_PAUSED]: `Rewards are paused`,
     [BUCKSPAY_ERROR__ROTATION_BINDING]: `Missing or malformed secp256r1 verification of the wallet rotation`,
     [BUCKSPAY_ERROR__ROTATION_COOLDOWN]: `The key was rotated too recently to rotate again`,
     [BUCKSPAY_ERROR__ROTATION_NOT_READY]: `The wallet rotation cannot be applied yet`,
@@ -348,6 +392,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__SETTLEMENT_CLOSED]: `The settlement window of the output has closed`,
     [BUCKSPAY_ERROR__SLASH_PENDING]: `A slash is still pending in the lock`,
     [BUCKSPAY_ERROR__STAKE_TOO_LOW]: `The stake is below the minimum`,
+    [BUCKSPAY_ERROR__STALE_CLAIM_KEY]: `The claim key is not the current one, nor the previous one inside its window`,
     [BUCKSPAY_ERROR__STALE_VERIFYING_KEY]: `The verifying key is not the one this program accepts`,
     [BUCKSPAY_ERROR__TEST_KEYS_ON_MAINNET]: `The keys of a throwaway ceremony cannot be used on mainnet`,
     [BUCKSPAY_ERROR__TICKET_BINDING]: `The instruction before this one is not the Ed25519 verification of this ticket`,
@@ -356,6 +401,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__TOO_MANY_SPENDS]: `Too many spends for one instruction`,
     [BUCKSPAY_ERROR__TREE_FULL]: `The reward tree of this epoch cannot take another batch`,
     [BUCKSPAY_ERROR__TREE_NOT_FULL]: `The reward tree of this epoch still has room`,
+    [BUCKSPAY_ERROR__UNKNOWN_ROOT]: `The root is not one the tree of this epoch holds`,
     [BUCKSPAY_ERROR__UNKNOWN_SIGNER]: `The key that signed the ticket is not one the attester answers for`,
     [BUCKSPAY_ERROR__UNRECORDABLE_OUTPUT]: `An output of the chain has no record address or no claim address`,
     [BUCKSPAY_ERROR__UNSUPPORTED_MINT_EXTENSION]: `The mint has an extension the program does not support`,
@@ -365,7 +411,9 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__WORD_VALUE_MISMATCH]: `The commitment does not price its words as the mint does`,
     [BUCKSPAY_ERROR__WRONG_FEE_ACCOUNT]: `The fee account is not the one configured for the mint`,
     [BUCKSPAY_ERROR__WRONG_LOCK]: `The issue does not match the lock it names`,
+    [BUCKSPAY_ERROR__WRONG_NULLIFIER_ACCOUNT]: `The account is not the nullifier account of the claim`,
     [BUCKSPAY_ERROR__WRONG_PAYEE]: `The destination does not belong to the account the note pays`,
+    [BUCKSPAY_ERROR__WRONG_REWARD_TREE]: `The account is not the reward tree of the claim's epoch`,
     [BUCKSPAY_ERROR__ZK_CAP_EXCEEDED]: `The mint's private settlement cap for this window is exhausted`,
     [BUCKSPAY_ERROR__ZK_PAUSED]: `Private settlement is paused`,
   }

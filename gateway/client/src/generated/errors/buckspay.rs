@@ -271,6 +271,42 @@ pub enum BuckspayError {
     /// 6086 - Poseidon failed on canonical inputs
     #[error("Poseidon failed on canonical inputs")]
     HashFailed = 0x17C6,
+    /// 6087 - Rewards are paused
+    #[error("Rewards are paused")]
+    RewardsPaused = 0x17C7,
+    /// 6088 - The root is not one the tree of this epoch holds
+    #[error("The root is not one the tree of this epoch holds")]
+    UnknownRoot = 0x17C8,
+    /// 6089 - A nullifier was already claimed
+    #[error("A nullifier was already claimed")]
+    NullifierReused = 0x17C9,
+    /// 6090 - A nullifier hash is not a canonical field element
+    #[error("A nullifier hash is not a canonical field element")]
+    NonCanonicalNullifier = 0x17CA,
+    /// 6091 - The claim proof does not verify
+    #[error("The claim proof does not verify")]
+    ClaimRejected = 0x17CB,
+    /// 6092 - The claim fee is above the maximum the proof allows
+    #[error("The claim fee is above the maximum the proof allows")]
+    FeeAboveMax = 0x17CC,
+    /// 6093 - The claims in the window are above the cap
+    #[error("The claims in the window are above the cap")]
+    ClaimCapExceeded = 0x17CD,
+    /// 6094 - The exponent is not one a word batch can have
+    #[error("The exponent is not one a word batch can have")]
+    BadDenomination = 0x17CE,
+    /// 6095 - The claim key is not the current one, nor the previous one inside its window
+    #[error("The claim key is not the current one, nor the previous one inside its window")]
+    StaleClaimKey = 0x17CF,
+    /// 6096 - The number of claims is zero, above the limit, or not the number of accounts
+    #[error("The number of claims is zero, above the limit, or not the number of accounts")]
+    ClaimCount = 0x17D0,
+    /// 6097 - The account is not the reward tree of the claim's epoch
+    #[error("The account is not the reward tree of the claim's epoch")]
+    WrongRewardTree = 0x17D1,
+    /// 6098 - The account is not the nullifier account of the claim
+    #[error("The account is not the nullifier account of the claim")]
+    WrongNullifierAccount = 0x17D2,
 }
 
 impl From<BuckspayError> for solana_program_error::ProgramError {

@@ -74,6 +74,7 @@ import {
   getCancelAttesterExitInstruction,
   getCancelWalletRotationInstruction,
   getClaimLostSpendInstructionAsync,
+  getClaimRewardsInstructionAsync,
   getClaimUnbackedInstructionAsync,
   getCloseChannelInstruction,
   getCloseLockInstructionAsync,
@@ -94,10 +95,13 @@ import {
   getReportFalseTicketInstructionAsync,
   getRequestAttesterExitInstruction,
   getRequestWalletRotationInstruction,
+  getRevokePreviousClaimVkInstructionAsync,
   getRevokePreviousVkInstructionAsync,
   getRotateAttesterKeyInstruction,
+  getRotateClaimVkInstructionAsync,
   getRotateRewardTreeInstruction,
   getRotateVkInstructionAsync,
+  getSetRewardAuthoritiesInstructionAsync,
   getSetRewardPolicyInstructionAsync,
   getSetRewardsPausedInstructionAsync,
   getSettleChainProofInstructionAsync,
@@ -114,6 +118,7 @@ import {
   parseCancelAttesterExitInstruction,
   parseCancelWalletRotationInstruction,
   parseClaimLostSpendInstruction,
+  parseClaimRewardsInstruction,
   parseClaimUnbackedInstruction,
   parseCloseChannelInstruction,
   parseCloseLockInstruction,
@@ -134,10 +139,13 @@ import {
   parseReportFalseTicketInstruction,
   parseRequestAttesterExitInstruction,
   parseRequestWalletRotationInstruction,
+  parseRevokePreviousClaimVkInstruction,
   parseRevokePreviousVkInstruction,
   parseRotateAttesterKeyInstruction,
+  parseRotateClaimVkInstruction,
   parseRotateRewardTreeInstruction,
   parseRotateVkInstruction,
+  parseSetRewardAuthoritiesInstruction,
   parseSetRewardPolicyInstruction,
   parseSetRewardsPausedInstruction,
   parseSettleChainProofInstruction,
@@ -154,6 +162,7 @@ import {
   type CancelAttesterExitInput,
   type CancelWalletRotationInput,
   type ClaimLostSpendAsyncInput,
+  type ClaimRewardsAsyncInput,
   type ClaimUnbackedAsyncInput,
   type CloseChannelInput,
   type CloseLockAsyncInput,
@@ -170,6 +179,7 @@ import {
   type ParsedCancelAttesterExitInstruction,
   type ParsedCancelWalletRotationInstruction,
   type ParsedClaimLostSpendInstruction,
+  type ParsedClaimRewardsInstruction,
   type ParsedClaimUnbackedInstruction,
   type ParsedCloseChannelInstruction,
   type ParsedCloseLockInstruction,
@@ -190,10 +200,13 @@ import {
   type ParsedReportFalseTicketInstruction,
   type ParsedRequestAttesterExitInstruction,
   type ParsedRequestWalletRotationInstruction,
+  type ParsedRevokePreviousClaimVkInstruction,
   type ParsedRevokePreviousVkInstruction,
   type ParsedRotateAttesterKeyInstruction,
+  type ParsedRotateClaimVkInstruction,
   type ParsedRotateRewardTreeInstruction,
   type ParsedRotateVkInstruction,
+  type ParsedSetRewardAuthoritiesInstruction,
   type ParsedSetRewardPolicyInstruction,
   type ParsedSetRewardsPausedInstruction,
   type ParsedSettleChainProofInstruction,
@@ -214,10 +227,13 @@ import {
   type ReportFalseTicketAsyncInput,
   type RequestAttesterExitInput,
   type RequestWalletRotationInput,
+  type RevokePreviousClaimVkAsyncInput,
   type RevokePreviousVkAsyncInput,
   type RotateAttesterKeyInput,
+  type RotateClaimVkAsyncInput,
   type RotateRewardTreeInput,
   type RotateVkAsyncInput,
+  type SetRewardAuthoritiesAsyncInput,
   type SetRewardPolicyAsyncInput,
   type SetRewardsPausedAsyncInput,
   type SettleChainProofAsyncInput,
@@ -392,6 +408,7 @@ export enum BuckspayInstruction {
   CancelAttesterExit,
   CancelWalletRotation,
   ClaimLostSpend,
+  ClaimRewards,
   ClaimUnbacked,
   CloseChannel,
   CloseLock,
@@ -412,10 +429,13 @@ export enum BuckspayInstruction {
   ReportFalseTicket,
   RequestAttesterExit,
   RequestWalletRotation,
+  RevokePreviousClaimVk,
   RevokePreviousVk,
   RotateAttesterKey,
+  RotateClaimVk,
   RotateRewardTree,
   RotateVk,
+  SetRewardAuthorities,
   SetRewardPolicy,
   SetRewardsPaused,
   SetZkAuthorities,
@@ -469,6 +489,15 @@ export function identifyBuckspayInstruction(
     )
   ) {
     return BuckspayInstruction.ClaimLostSpend
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([4, 144, 132, 71, 116, 23, 151, 80])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.ClaimRewards
   }
   if (
     containsBytes(
@@ -649,6 +678,15 @@ export function identifyBuckspayInstruction(
   if (
     containsBytes(
       data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([168, 38, 109, 198, 189, 194, 166, 128])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.RevokePreviousClaimVk
+  }
+  if (
+    containsBytes(
+      data,
       fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([77, 141, 243, 251, 222, 1, 200, 194])),
       0,
     )
@@ -667,6 +705,15 @@ export function identifyBuckspayInstruction(
   if (
     containsBytes(
       data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([88, 46, 184, 84, 37, 129, 3, 143])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.RotateClaimVk
+  }
+  if (
+    containsBytes(
+      data,
       fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([213, 11, 85, 50, 28, 154, 49, 42])),
       0,
     )
@@ -681,6 +728,15 @@ export function identifyBuckspayInstruction(
     )
   ) {
     return BuckspayInstruction.RotateVk
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([60, 3, 122, 75, 181, 137, 88, 24])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.SetRewardAuthorities
   }
   if (
     containsBytes(
@@ -801,6 +857,7 @@ export type ParsedBuckspayInstruction<TProgram extends string = 'zkJoXgVrQ8kvJGv
   | ({ instructionType: BuckspayInstruction.CancelAttesterExit } & ParsedCancelAttesterExitInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CancelWalletRotation } & ParsedCancelWalletRotationInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.ClaimLostSpend } & ParsedClaimLostSpendInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.ClaimRewards } & ParsedClaimRewardsInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.ClaimUnbacked } & ParsedClaimUnbackedInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CloseChannel } & ParsedCloseChannelInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CloseLock } & ParsedCloseLockInstruction<TProgram>)
@@ -821,10 +878,13 @@ export type ParsedBuckspayInstruction<TProgram extends string = 'zkJoXgVrQ8kvJGv
   | ({ instructionType: BuckspayInstruction.ReportFalseTicket } & ParsedReportFalseTicketInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RequestAttesterExit } & ParsedRequestAttesterExitInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RequestWalletRotation } & ParsedRequestWalletRotationInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.RevokePreviousClaimVk } & ParsedRevokePreviousClaimVkInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RevokePreviousVk } & ParsedRevokePreviousVkInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RotateAttesterKey } & ParsedRotateAttesterKeyInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.RotateClaimVk } & ParsedRotateClaimVkInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RotateRewardTree } & ParsedRotateRewardTreeInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RotateVk } & ParsedRotateVkInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.SetRewardAuthorities } & ParsedSetRewardAuthoritiesInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.SetRewardPolicy } & ParsedSetRewardPolicyInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.SetRewardsPaused } & ParsedSetRewardsPausedInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.SetZkAuthorities } & ParsedSetZkAuthoritiesInstruction<TProgram>)
@@ -867,6 +927,10 @@ export function parseBuckspayInstruction<TProgram extends string>(
     case BuckspayInstruction.ClaimLostSpend: {
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.ClaimLostSpend, ...parseClaimLostSpendInstruction(instruction) }
+    }
+    case BuckspayInstruction.ClaimRewards: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.ClaimRewards, ...parseClaimRewardsInstruction(instruction) }
     }
     case BuckspayInstruction.ClaimUnbacked: {
       assertIsInstructionWithAccounts(instruction)
@@ -955,6 +1019,13 @@ export function parseBuckspayInstruction<TProgram extends string>(
         ...parseRequestWalletRotationInstruction(instruction),
       }
     }
+    case BuckspayInstruction.RevokePreviousClaimVk: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: BuckspayInstruction.RevokePreviousClaimVk,
+        ...parseRevokePreviousClaimVkInstruction(instruction),
+      }
+    }
     case BuckspayInstruction.RevokePreviousVk: {
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.RevokePreviousVk, ...parseRevokePreviousVkInstruction(instruction) }
@@ -966,6 +1037,10 @@ export function parseBuckspayInstruction<TProgram extends string>(
         ...parseRotateAttesterKeyInstruction(instruction),
       }
     }
+    case BuckspayInstruction.RotateClaimVk: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.RotateClaimVk, ...parseRotateClaimVkInstruction(instruction) }
+    }
     case BuckspayInstruction.RotateRewardTree: {
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.RotateRewardTree, ...parseRotateRewardTreeInstruction(instruction) }
@@ -973,6 +1048,13 @@ export function parseBuckspayInstruction<TProgram extends string>(
     case BuckspayInstruction.RotateVk: {
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.RotateVk, ...parseRotateVkInstruction(instruction) }
+    }
+    case BuckspayInstruction.SetRewardAuthorities: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: BuckspayInstruction.SetRewardAuthorities,
+        ...parseSetRewardAuthoritiesInstruction(instruction),
+      }
     }
     case BuckspayInstruction.SetRewardPolicy: {
       assertIsInstructionWithAccounts(instruction)
@@ -1069,6 +1151,9 @@ export type BuckspayPluginInstructions = {
   claimLostSpend: (
     input: MakeOptional<ClaimLostSpendAsyncInput, 'payer'>,
   ) => ReturnType<typeof getClaimLostSpendInstructionAsync> & SelfPlanAndSendFunctions
+  claimRewards: (
+    input: MakeOptional<ClaimRewardsAsyncInput, 'payer'>,
+  ) => ReturnType<typeof getClaimRewardsInstructionAsync> & SelfPlanAndSendFunctions
   claimUnbacked: (
     input: MakeOptional<ClaimUnbackedAsyncInput, 'payer'>,
   ) => ReturnType<typeof getClaimUnbackedInstructionAsync> & SelfPlanAndSendFunctions
@@ -1123,16 +1208,25 @@ export type BuckspayPluginInstructions = {
   requestWalletRotation: (
     input: MakeOptional<RequestWalletRotationInput, 'payer'>,
   ) => ReturnType<typeof getRequestWalletRotationInstruction> & SelfPlanAndSendFunctions
+  revokePreviousClaimVk: (
+    input: RevokePreviousClaimVkAsyncInput,
+  ) => ReturnType<typeof getRevokePreviousClaimVkInstructionAsync> & SelfPlanAndSendFunctions
   revokePreviousVk: (
     input: RevokePreviousVkAsyncInput,
   ) => ReturnType<typeof getRevokePreviousVkInstructionAsync> & SelfPlanAndSendFunctions
   rotateAttesterKey: (
     input: RotateAttesterKeyInput,
   ) => ReturnType<typeof getRotateAttesterKeyInstruction> & SelfPlanAndSendFunctions
+  rotateClaimVk: (
+    input: RotateClaimVkAsyncInput,
+  ) => ReturnType<typeof getRotateClaimVkInstructionAsync> & SelfPlanAndSendFunctions
   rotateRewardTree: (
     input: MakeOptional<RotateRewardTreeInput, 'payer'>,
   ) => ReturnType<typeof getRotateRewardTreeInstruction> & SelfPlanAndSendFunctions
   rotateVk: (input: RotateVkAsyncInput) => ReturnType<typeof getRotateVkInstructionAsync> & SelfPlanAndSendFunctions
+  setRewardAuthorities: (
+    input: SetRewardAuthoritiesAsyncInput,
+  ) => ReturnType<typeof getSetRewardAuthoritiesInstructionAsync> & SelfPlanAndSendFunctions
   setRewardPolicy: (
     input: SetRewardPolicyAsyncInput,
   ) => ReturnType<typeof getSetRewardPolicyInstructionAsync> & SelfPlanAndSendFunctions
@@ -1215,6 +1309,11 @@ export function buckspayProgram() {
               client,
               getClaimLostSpendInstructionAsync({ ...input, payer: input.payer ?? client.payer }),
             ),
+          claimRewards: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getClaimRewardsInstructionAsync({ ...input, payer: input.payer ?? client.payer }),
+            ),
           claimUnbacked: (input) =>
             addSelfPlanAndSendFunctions(
               client,
@@ -1280,14 +1379,19 @@ export function buckspayProgram() {
               client,
               getRequestWalletRotationInstruction({ ...input, payer: input.payer ?? client.payer }),
             ),
+          revokePreviousClaimVk: (input) =>
+            addSelfPlanAndSendFunctions(client, getRevokePreviousClaimVkInstructionAsync(input)),
           revokePreviousVk: (input) => addSelfPlanAndSendFunctions(client, getRevokePreviousVkInstructionAsync(input)),
           rotateAttesterKey: (input) => addSelfPlanAndSendFunctions(client, getRotateAttesterKeyInstruction(input)),
+          rotateClaimVk: (input) => addSelfPlanAndSendFunctions(client, getRotateClaimVkInstructionAsync(input)),
           rotateRewardTree: (input) =>
             addSelfPlanAndSendFunctions(
               client,
               getRotateRewardTreeInstruction({ ...input, payer: input.payer ?? client.payer }),
             ),
           rotateVk: (input) => addSelfPlanAndSendFunctions(client, getRotateVkInstructionAsync(input)),
+          setRewardAuthorities: (input) =>
+            addSelfPlanAndSendFunctions(client, getSetRewardAuthoritiesInstructionAsync(input)),
           setRewardPolicy: (input) => addSelfPlanAndSendFunctions(client, getSetRewardPolicyInstructionAsync(input)),
           setRewardsPaused: (input) => addSelfPlanAndSendFunctions(client, getSetRewardsPausedInstructionAsync(input)),
           setZkAuthorities: (input) => addSelfPlanAndSendFunctions(client, getSetZkAuthoritiesInstructionAsync(input)),

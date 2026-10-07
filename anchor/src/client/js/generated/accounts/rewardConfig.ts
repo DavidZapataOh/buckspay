@@ -21,6 +21,8 @@ import {
   getBooleanEncoder,
   getBytesDecoder,
   getBytesEncoder,
+  getI64Decoder,
+  getI64Encoder,
   getStructDecoder,
   getStructEncoder,
   getU8Decoder,
@@ -38,6 +40,7 @@ import {
   type MaybeEncodedAccount,
   type ReadonlyUint8Array,
 } from '@solana/kit'
+import { getKeyHashesDecoder, getKeyHashesEncoder, type KeyHashes, type KeyHashesArgs } from '../types'
 
 export const REWARD_CONFIG_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([163, 174, 98, 80, 230, 119, 69, 64])
 
@@ -51,6 +54,10 @@ export type RewardConfig = {
   pauser: Address
   /** Stops claims only: settling delivery words is never paused. */
   paused: boolean
+  claimKey: KeyHashes
+  previousClaimKey: KeyHashes
+  /** When the key before `claim_key` was replaced; zero when no previous key is accepted. */
+  rotatedAt: bigint
   bump: number
 }
 
@@ -59,6 +66,10 @@ export type RewardConfigArgs = {
   pauser: Address
   /** Stops claims only: settling delivery words is never paused. */
   paused: boolean
+  claimKey: KeyHashesArgs
+  previousClaimKey: KeyHashesArgs
+  /** When the key before `claim_key` was replaced; zero when no previous key is accepted. */
+  rotatedAt: number | bigint
   bump: number
 }
 
@@ -70,6 +81,9 @@ export function getRewardConfigEncoder(): FixedSizeEncoder<RewardConfigArgs> {
       ['admin', getAddressEncoder()],
       ['pauser', getAddressEncoder()],
       ['paused', getBooleanEncoder()],
+      ['claimKey', getKeyHashesEncoder()],
+      ['previousClaimKey', getKeyHashesEncoder()],
+      ['rotatedAt', getI64Encoder()],
       ['bump', getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: REWARD_CONFIG_DISCRIMINATOR }),
@@ -83,6 +97,9 @@ export function getRewardConfigDecoder(): FixedSizeDecoder<RewardConfig> {
     ['admin', getAddressDecoder()],
     ['pauser', getAddressDecoder()],
     ['paused', getBooleanDecoder()],
+    ['claimKey', getKeyHashesDecoder()],
+    ['previousClaimKey', getKeyHashesDecoder()],
+    ['rotatedAt', getI64Decoder()],
     ['bump', getU8Decoder()],
   ])
 }
@@ -143,5 +160,5 @@ export async function fetchAllMaybeRewardConfig(
 }
 
 export function getRewardConfigSize(): number {
-  return 74
+  return 338
 }

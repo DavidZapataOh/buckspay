@@ -5,31 +5,24 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::generated::types::KeyHashes;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 use solana_address::Address;
 
-pub const INIT_REWARD_CONFIG_DISCRIMINATOR: [u8; 8] = [152, 188, 130, 236, 115, 237, 53, 159];
+pub const SET_REWARD_AUTHORITIES_DISCRIMINATOR: [u8; 8] = [60, 3, 122, 75, 181, 137, 88, 24];
 
 /// Accounts.
 #[derive(Debug)]
-pub struct InitRewardConfig {
-    pub authority: solana_address::Address,
+pub struct SetRewardAuthorities {
+    pub signer: solana_address::Address,
 
     pub reward_config: solana_address::Address,
-
-    pub program: solana_address::Address,
-
-    pub program_data: solana_address::Address,
-
-    pub system_program: solana_address::Address,
 }
 
-impl InitRewardConfig {
+impl SetRewardAuthorities {
     pub fn instruction(
         &self,
-        args: InitRewardConfigInstructionArgs,
+        args: SetRewardAuthoritiesInstructionArgs,
     ) -> solana_instruction::Instruction {
         self.instruction_with_remaining_accounts(args, &[])
     }
@@ -37,29 +30,22 @@ impl InitRewardConfig {
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
-        args: InitRewardConfigInstructionArgs,
+        args: SetRewardAuthoritiesInstructionArgs,
         remaining_accounts: &[solana_instruction::AccountMeta],
     ) -> solana_instruction::Instruction {
-        let mut accounts = Vec::with_capacity(5 + remaining_accounts.len());
-        accounts.push(solana_instruction::AccountMeta::new(self.authority, true));
+        let mut accounts = Vec::with_capacity(2 + remaining_accounts.len());
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.signer,
+            true,
+        ));
         accounts.push(solana_instruction::AccountMeta::new(
             self.reward_config,
             false,
         ));
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.program,
-            false,
-        ));
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.program_data,
-            false,
-        ));
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.system_program,
-            false,
-        ));
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = InitRewardConfigInstructionData::new().try_to_vec().unwrap();
+        let mut data = SetRewardAuthoritiesInstructionData::new()
+            .try_to_vec()
+            .unwrap();
         let mut args = args.try_to_vec().unwrap();
         data.append(&mut args);
 
@@ -72,14 +58,14 @@ impl InitRewardConfig {
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
-pub struct InitRewardConfigInstructionData {
+pub struct SetRewardAuthoritiesInstructionData {
     discriminator: [u8; 8],
 }
 
-impl InitRewardConfigInstructionData {
+impl SetRewardAuthoritiesInstructionData {
     pub fn new() -> Self {
         Self {
-            discriminator: [152, 188, 130, 236, 115, 237, 53, 159],
+            discriminator: [60, 3, 122, 75, 181, 137, 88, 24],
         }
     }
 
@@ -88,76 +74,51 @@ impl InitRewardConfigInstructionData {
     }
 }
 
-impl Default for InitRewardConfigInstructionData {
+impl Default for SetRewardAuthoritiesInstructionData {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
-pub struct InitRewardConfigInstructionArgs {
+pub struct SetRewardAuthoritiesInstructionArgs {
     pub admin: Address,
     pub pauser: Address,
-    pub claim_key: KeyHashes,
 }
 
-impl InitRewardConfigInstructionArgs {
+impl SetRewardAuthoritiesInstructionArgs {
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
         borsh::to_vec(self)
     }
 }
 
-/// Instruction builder for `InitRewardConfig`.
+/// Instruction builder for `SetRewardAuthorities`.
 ///
 /// ### Accounts:
 ///
-///   0. `[writable, signer]` authority
+///   0. `[signer]` signer
 ///   1. `[writable]` reward_config
-///   2. `[optional]` program (default to `zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM`)
-///   3. `[]` program_data
-///   4. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
-pub struct InitRewardConfigBuilder {
-    authority: Option<solana_address::Address>,
+pub struct SetRewardAuthoritiesBuilder {
+    signer: Option<solana_address::Address>,
     reward_config: Option<solana_address::Address>,
-    program: Option<solana_address::Address>,
-    program_data: Option<solana_address::Address>,
-    system_program: Option<solana_address::Address>,
     admin: Option<Address>,
     pauser: Option<Address>,
-    claim_key: Option<KeyHashes>,
     __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
-impl InitRewardConfigBuilder {
+impl SetRewardAuthoritiesBuilder {
     pub fn new() -> Self {
         Self::default()
     }
     #[inline(always)]
-    pub fn authority(&mut self, authority: solana_address::Address) -> &mut Self {
-        self.authority = Some(authority);
+    pub fn signer(&mut self, signer: solana_address::Address) -> &mut Self {
+        self.signer = Some(signer);
         self
     }
     #[inline(always)]
     pub fn reward_config(&mut self, reward_config: solana_address::Address) -> &mut Self {
         self.reward_config = Some(reward_config);
-        self
-    }
-    /// `[optional account, default to 'zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM']`
-    #[inline(always)]
-    pub fn program(&mut self, program: solana_address::Address) -> &mut Self {
-        self.program = Some(program);
-        self
-    }
-    #[inline(always)]
-    pub fn program_data(&mut self, program_data: solana_address::Address) -> &mut Self {
-        self.program_data = Some(program_data);
-        self
-    }
-    /// `[optional account, default to '11111111111111111111111111111111']`
-    #[inline(always)]
-    pub fn system_program(&mut self, system_program: solana_address::Address) -> &mut Self {
-        self.system_program = Some(system_program);
         self
     }
     #[inline(always)]
@@ -168,11 +129,6 @@ impl InitRewardConfigBuilder {
     #[inline(always)]
     pub fn pauser(&mut self, pauser: Address) -> &mut Self {
         self.pauser = Some(pauser);
-        self
-    }
-    #[inline(always)]
-    pub fn claim_key(&mut self, claim_key: KeyHashes) -> &mut Self {
-        self.claim_key = Some(claim_key);
         self
     }
     /// Add an additional account to the instruction.
@@ -192,71 +148,48 @@ impl InitRewardConfigBuilder {
     }
     #[allow(clippy::clone_on_copy)]
     pub fn instruction(&self) -> solana_instruction::Instruction {
-        let accounts = InitRewardConfig {
-            authority: self.authority.expect("authority is not set"),
+        let accounts = SetRewardAuthorities {
+            signer: self.signer.expect("signer is not set"),
             reward_config: self.reward_config.expect("reward_config is not set"),
-            program: self.program.unwrap_or(solana_address::address!(
-                "zkJoXgVrQ8kvJGvnAYXGaF8KgT9pUKKExXF4zoF2eTM"
-            )),
-            program_data: self.program_data.expect("program_data is not set"),
-            system_program: self
-                .system_program
-                .unwrap_or(solana_address::address!("11111111111111111111111111111111")),
         };
-        let args = InitRewardConfigInstructionArgs {
+        let args = SetRewardAuthoritiesInstructionArgs {
             admin: self.admin.clone().expect("admin is not set"),
             pauser: self.pauser.clone().expect("pauser is not set"),
-            claim_key: self.claim_key.clone().expect("claim_key is not set"),
         };
 
         accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
     }
 }
 
-/// `init_reward_config` CPI accounts.
-pub struct InitRewardConfigCpiAccounts<'a, 'b> {
-    pub authority: &'b solana_account_info::AccountInfo<'a>,
+/// `set_reward_authorities` CPI accounts.
+pub struct SetRewardAuthoritiesCpiAccounts<'a, 'b> {
+    pub signer: &'b solana_account_info::AccountInfo<'a>,
 
     pub reward_config: &'b solana_account_info::AccountInfo<'a>,
-
-    pub program: &'b solana_account_info::AccountInfo<'a>,
-
-    pub program_data: &'b solana_account_info::AccountInfo<'a>,
-
-    pub system_program: &'b solana_account_info::AccountInfo<'a>,
 }
 
-/// `init_reward_config` CPI instruction.
-pub struct InitRewardConfigCpi<'a, 'b> {
+/// `set_reward_authorities` CPI instruction.
+pub struct SetRewardAuthoritiesCpi<'a, 'b> {
     /// The program to invoke.
     pub __program: &'b solana_account_info::AccountInfo<'a>,
 
-    pub authority: &'b solana_account_info::AccountInfo<'a>,
+    pub signer: &'b solana_account_info::AccountInfo<'a>,
 
     pub reward_config: &'b solana_account_info::AccountInfo<'a>,
-
-    pub program: &'b solana_account_info::AccountInfo<'a>,
-
-    pub program_data: &'b solana_account_info::AccountInfo<'a>,
-
-    pub system_program: &'b solana_account_info::AccountInfo<'a>,
     /// The arguments for the instruction.
-    pub __args: InitRewardConfigInstructionArgs,
+    pub __args: SetRewardAuthoritiesInstructionArgs,
 }
 
-impl<'a, 'b> InitRewardConfigCpi<'a, 'b> {
+impl<'a, 'b> SetRewardAuthoritiesCpi<'a, 'b> {
     pub fn new(
         program: &'b solana_account_info::AccountInfo<'a>,
-        accounts: InitRewardConfigCpiAccounts<'a, 'b>,
-        args: InitRewardConfigInstructionArgs,
+        accounts: SetRewardAuthoritiesCpiAccounts<'a, 'b>,
+        args: SetRewardAuthoritiesInstructionArgs,
     ) -> Self {
         Self {
             __program: program,
-            authority: accounts.authority,
+            signer: accounts.signer,
             reward_config: accounts.reward_config,
-            program: accounts.program,
-            program_data: accounts.program_data,
-            system_program: accounts.system_program,
             __args: args,
         }
     }
@@ -283,25 +216,13 @@ impl<'a, 'b> InitRewardConfigCpi<'a, 'b> {
         signers_seeds: &[&[&[u8]]],
         remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
     ) -> solana_program_error::ProgramResult {
-        let mut accounts = Vec::with_capacity(5 + remaining_accounts.len());
-        accounts.push(solana_instruction::AccountMeta::new(
-            *self.authority.key,
+        let mut accounts = Vec::with_capacity(2 + remaining_accounts.len());
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.signer.key,
             true,
         ));
         accounts.push(solana_instruction::AccountMeta::new(
             *self.reward_config.key,
-            false,
-        ));
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.program.key,
-            false,
-        ));
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.program_data.key,
-            false,
-        ));
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.system_program.key,
             false,
         ));
         remaining_accounts.iter().for_each(|remaining_account| {
@@ -311,7 +232,9 @@ impl<'a, 'b> InitRewardConfigCpi<'a, 'b> {
                 is_signer: remaining_account.2,
             })
         });
-        let mut data = InitRewardConfigInstructionData::new().try_to_vec().unwrap();
+        let mut data = SetRewardAuthoritiesInstructionData::new()
+            .try_to_vec()
+            .unwrap();
         let mut args = self.__args.try_to_vec().unwrap();
         data.append(&mut args);
 
@@ -320,13 +243,10 @@ impl<'a, 'b> InitRewardConfigCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(6 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(3 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
-        account_infos.push(self.authority.clone());
+        account_infos.push(self.signer.clone());
         account_infos.push(self.reward_config.clone());
-        account_infos.push(self.program.clone());
-        account_infos.push(self.program_data.clone());
-        account_infos.push(self.system_program.clone());
         remaining_accounts
             .iter()
             .for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
@@ -339,39 +259,32 @@ impl<'a, 'b> InitRewardConfigCpi<'a, 'b> {
     }
 }
 
-/// Instruction builder for `InitRewardConfig` via CPI.
+/// Instruction builder for `SetRewardAuthorities` via CPI.
 ///
 /// ### Accounts:
 ///
-///   0. `[writable, signer]` authority
+///   0. `[signer]` signer
 ///   1. `[writable]` reward_config
-///   2. `[]` program
-///   3. `[]` program_data
-///   4. `[]` system_program
 #[derive(Clone, Debug)]
-pub struct InitRewardConfigCpiBuilder<'a, 'b> {
-    instruction: Box<InitRewardConfigCpiBuilderInstruction<'a, 'b>>,
+pub struct SetRewardAuthoritiesCpiBuilder<'a, 'b> {
+    instruction: Box<SetRewardAuthoritiesCpiBuilderInstruction<'a, 'b>>,
 }
 
-impl<'a, 'b> InitRewardConfigCpiBuilder<'a, 'b> {
+impl<'a, 'b> SetRewardAuthoritiesCpiBuilder<'a, 'b> {
     pub fn new(program: &'b solana_account_info::AccountInfo<'a>) -> Self {
-        let instruction = Box::new(InitRewardConfigCpiBuilderInstruction {
+        let instruction = Box::new(SetRewardAuthoritiesCpiBuilderInstruction {
             __program: program,
-            authority: None,
+            signer: None,
             reward_config: None,
-            program: None,
-            program_data: None,
-            system_program: None,
             admin: None,
             pauser: None,
-            claim_key: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
     }
     #[inline(always)]
-    pub fn authority(&mut self, authority: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-        self.instruction.authority = Some(authority);
+    pub fn signer(&mut self, signer: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+        self.instruction.signer = Some(signer);
         self
     }
     #[inline(always)]
@@ -383,27 +296,6 @@ impl<'a, 'b> InitRewardConfigCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
-    pub fn program(&mut self, program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-        self.instruction.program = Some(program);
-        self
-    }
-    #[inline(always)]
-    pub fn program_data(
-        &mut self,
-        program_data: &'b solana_account_info::AccountInfo<'a>,
-    ) -> &mut Self {
-        self.instruction.program_data = Some(program_data);
-        self
-    }
-    #[inline(always)]
-    pub fn system_program(
-        &mut self,
-        system_program: &'b solana_account_info::AccountInfo<'a>,
-    ) -> &mut Self {
-        self.instruction.system_program = Some(system_program);
-        self
-    }
-    #[inline(always)]
     pub fn admin(&mut self, admin: Address) -> &mut Self {
         self.instruction.admin = Some(admin);
         self
@@ -411,11 +303,6 @@ impl<'a, 'b> InitRewardConfigCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn pauser(&mut self, pauser: Address) -> &mut Self {
         self.instruction.pauser = Some(pauser);
-        self
-    }
-    #[inline(always)]
-    pub fn claim_key(&mut self, claim_key: KeyHashes) -> &mut Self {
-        self.instruction.claim_key = Some(claim_key);
         self
     }
     /// Add an additional account to the instruction.
@@ -452,36 +339,19 @@ impl<'a, 'b> InitRewardConfigCpiBuilder<'a, 'b> {
     #[allow(clippy::clone_on_copy)]
     #[allow(clippy::vec_init_then_push)]
     pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
-        let args = InitRewardConfigInstructionArgs {
+        let args = SetRewardAuthoritiesInstructionArgs {
             admin: self.instruction.admin.clone().expect("admin is not set"),
             pauser: self.instruction.pauser.clone().expect("pauser is not set"),
-            claim_key: self
-                .instruction
-                .claim_key
-                .clone()
-                .expect("claim_key is not set"),
         };
-        let instruction = InitRewardConfigCpi {
+        let instruction = SetRewardAuthoritiesCpi {
             __program: self.instruction.__program,
 
-            authority: self.instruction.authority.expect("authority is not set"),
+            signer: self.instruction.signer.expect("signer is not set"),
 
             reward_config: self
                 .instruction
                 .reward_config
                 .expect("reward_config is not set"),
-
-            program: self.instruction.program.expect("program is not set"),
-
-            program_data: self
-                .instruction
-                .program_data
-                .expect("program_data is not set"),
-
-            system_program: self
-                .instruction
-                .system_program
-                .expect("system_program is not set"),
             __args: args,
         };
         instruction.invoke_signed_with_remaining_accounts(
@@ -492,16 +362,12 @@ impl<'a, 'b> InitRewardConfigCpiBuilder<'a, 'b> {
 }
 
 #[derive(Clone, Debug)]
-struct InitRewardConfigCpiBuilderInstruction<'a, 'b> {
+struct SetRewardAuthoritiesCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_account_info::AccountInfo<'a>,
-    authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+    signer: Option<&'b solana_account_info::AccountInfo<'a>>,
     reward_config: Option<&'b solana_account_info::AccountInfo<'a>>,
-    program: Option<&'b solana_account_info::AccountInfo<'a>>,
-    program_data: Option<&'b solana_account_info::AccountInfo<'a>>,
-    system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
     admin: Option<Address>,
     pauser: Option<Address>,
-    claim_key: Option<KeyHashes>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

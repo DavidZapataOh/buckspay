@@ -89,6 +89,18 @@ impl Window {
     /// Admits `amount` if the draws of the current bucket plus the share of the previous one that
     /// still overlaps the last `len` seconds stay within `cap`.
     pub fn admit(&mut self, now: i64, amount: u64, cap: u64, len: i64) -> Result<()> {
+        self.admit_or(now, amount, cap, len, BuckspayError::ZkCapExceeded)
+    }
+
+    /// `admit`, refusing with `over` when the cap would be exceeded.
+    pub fn admit_or(
+        &mut self,
+        now: i64,
+        amount: u64,
+        cap: u64,
+        len: i64,
+        over: BuckspayError,
+    ) -> Result<()> {
         let mut elapsed = now.saturating_sub(self.start).max(0);
         if elapsed >= len.saturating_mul(2) {
             *self = Window {
@@ -108,7 +120,9 @@ impl Window {
             .checked_add(carried)
             .and_then(|sum| sum.checked_add(u128::from(amount)))
             .ok_or_else(|| error!(BuckspayError::AmountOverflow))?;
-        require!(total <= u128::from(cap), BuckspayError::ZkCapExceeded);
+        if total > u128::from(cap) {
+            return Err(error!(over));
+        }
         self.cur = self
             .cur
             .checked_add(amount)

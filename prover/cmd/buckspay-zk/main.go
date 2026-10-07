@@ -26,6 +26,7 @@ const usage = `usage:
   buckspay-zk export-vk --rust [--circuit chain|claim] [--test-keys] vk.bin
   buckspay-zk claim-vectors
   buckspay-zk claim-fixtures --keys DIR --out FILE
+  buckspay-zk claim-prove-batch --keys DIR --in requests.json --out proofs.json
   buckspay-zk prove --keys DIR --vectors vectors.json --chain NAME --message I`
 
 func main() {
@@ -65,6 +66,8 @@ func run(args []string) error {
 		return claimVectors(args[1:])
 	case "claim-fixtures":
 		return claimFixtures(args[1:])
+	case "claim-prove-batch":
+		return claimProveBatch(args[1:])
 	case "prove":
 		return proveCmd(args[1:])
 	}

@@ -1,9 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use buckspay_protocol::payword::{MAX_LEAVES_PER_TX, MIN_LEAF_EXP};
+use buckspay_zk_verify::vk;
 use core::mem::size_of;
 
 use crate::{
+    clock::now,
     error::BuckspayError,
     mint::validate_mint,
     rewards::{
@@ -11,6 +13,7 @@ use crate::{
         REWARD_LEDGER_MARKER, REWARD_MINT_SEED, REWARD_TREE_SEED, TREE_CAPACITY,
     },
     state::{Ledger, ESCROW_SEED, LEDGER_SEED},
+    zk::{self, KeyHashes, Window},
 };
 
 #[derive(Accounts)]
@@ -38,11 +41,23 @@ impl InitRewardConfig<'_> {
         bumps: &InitRewardConfigBumps,
         admin: Pubkey,
         pauser: Pubkey,
+        claim_key: KeyHashes,
     ) -> Result<()> {
+        require!(
+            zk::keys_permitted(vk::CLAIM_TEST_KEYS, &crate::GENESIS_HASH),
+            BuckspayError::TestKeysOnMainnet
+        );
+        require!(
+            claim_key.vk == *vk::CLAIM.sha256,
+            BuckspayError::StaleClaimKey
+        );
         self.reward_config.set_inner(RewardConfig {
             admin,
             pauser,
             paused: false,
+            claim_key,
+            previous_claim_key: KeyHashes::default(),
+            rotated_at: 0,
             bump: bumps.reward_config,
         });
         Ok(())
@@ -63,6 +78,52 @@ impl RewardAdmin<'_> {
         let pauser = paused && self.signer.key() == self.reward_config.pauser;
         require!(admin || pauser, BuckspayError::NotRewardAdmin);
         self.reward_config.paused = paused;
+        Ok(())
+    }
+
+    fn require_admin(&self) -> Result<()> {
+        require_keys_eq!(
+            self.signer.key(),
+            self.reward_config.admin,
+            BuckspayError::NotRewardAdmin
+        );
+        Ok(())
+    }
+
+    /// Replaces the claim key by `next`, which must be the key this program carries. With
+    /// `keep_previous` the replaced key stays accepted for its overlap and the grace.
+    pub fn rotate_claim_vk(&mut self, next: KeyHashes, keep_previous: bool) -> Result<()> {
+        self.require_admin()?;
+        require!(next.vk == *vk::CLAIM.sha256, BuckspayError::StaleClaimKey);
+        let config = &mut self.reward_config;
+        if keep_previous {
+            let carried = vk::CLAIM_PREVIOUS.is_some_and(|key| *key.sha256 == config.claim_key.vk);
+            require!(carried, BuckspayError::StaleClaimKey);
+            config.previous_claim_key = config.claim_key;
+            config.rotated_at = i64::from(now()?);
+        } else {
+            config.previous_claim_key = KeyHashes::default();
+            config.rotated_at = 0;
+        }
+        config.claim_key = next;
+        Ok(())
+    }
+
+    /// Ends the acceptance of the previous claim key at once. It only reduces what is accepted, so
+    /// the pauser may call it too.
+    pub fn revoke_previous_claim_vk(&mut self) -> Result<()> {
+        if self.signer.key() != self.reward_config.pauser {
+            self.require_admin()?;
+        }
+        self.reward_config.previous_claim_key = KeyHashes::default();
+        self.reward_config.rotated_at = 0;
+        Ok(())
+    }
+
+    pub fn set_authorities(&mut self, admin: Pubkey, pauser: Pubkey) -> Result<()> {
+        self.require_admin()?;
+        self.reward_config.admin = admin;
+        self.reward_config.pauser = pauser;
         Ok(())
     }
 }
@@ -145,6 +206,7 @@ impl InitRewardMint<'_> {
             claim_fee,
             fee_account,
             claim_cap,
+            window: Window::default(),
             epoch: 0,
             bump: bumps.reward_mint,
         });

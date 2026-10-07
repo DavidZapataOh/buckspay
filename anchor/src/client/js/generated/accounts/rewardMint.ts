@@ -40,6 +40,7 @@ import {
   type MaybeEncodedAccount,
   type ReadonlyUint8Array,
 } from '@solana/kit'
+import { getWindowDecoder, getWindowEncoder, type Window, type WindowArgs } from '../types'
 
 export const REWARD_MINT_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([233, 63, 191, 22, 229, 91, 74, 155])
 
@@ -57,6 +58,7 @@ export type RewardMint = {
   claimFee: bigint
   feeAccount: Address
   claimCap: bigint
+  window: Window
   epoch: number
   bump: number
 }
@@ -70,6 +72,7 @@ export type RewardMintArgs = {
   claimFee: number | bigint
   feeAccount: Address
   claimCap: number | bigint
+  window: WindowArgs
   epoch: number
   bump: number
 }
@@ -87,6 +90,7 @@ export function getRewardMintEncoder(): FixedSizeEncoder<RewardMintArgs> {
       ['claimFee', getU64Encoder()],
       ['feeAccount', getAddressEncoder()],
       ['claimCap', getU64Encoder()],
+      ['window', getWindowEncoder()],
       ['epoch', getU32Encoder()],
       ['bump', getU8Encoder()],
     ]),
@@ -106,6 +110,7 @@ export function getRewardMintDecoder(): FixedSizeDecoder<RewardMint> {
     ['claimFee', getU64Decoder()],
     ['feeAccount', getAddressDecoder()],
     ['claimCap', getU64Decoder()],
+    ['window', getWindowDecoder()],
     ['epoch', getU32Decoder()],
     ['bump', getU8Decoder()],
   ])
@@ -167,5 +172,5 @@ export async function fetchAllMaybeRewardMint(
 }
 
 export function getRewardMintSize(): number {
-  return 125
+  return 149
 }
