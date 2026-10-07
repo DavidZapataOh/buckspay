@@ -26,7 +26,6 @@ async function setup(locks: OfflineLock[]) {
     db,
     locks,
     wordValue: 500_000n,
-    domain: new Uint8Array(32).fill(1),
     sign,
     now: () => NOW,
   })

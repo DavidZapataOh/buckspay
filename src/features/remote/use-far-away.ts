@@ -5,7 +5,7 @@ import { authenticate } from '../../payment/authenticate'
 import { signStoredIssue } from '../../payment/native-sign'
 import { confirmAndSend, PayError } from '../../payment/pay'
 import { type PayContext, type PlanRefusal, planPayment } from '../../payment/preflight'
-import { domain, GRACE, Purpose } from '../../protocol'
+import { GRACE } from '../../protocol'
 import { formatMoney } from '../../utils/format-amount'
 import { deviceKeyCluster } from '../../keys'
 import { genesisHashOf } from '../../payment/domains'
@@ -168,7 +168,6 @@ export function useFarAway() {
                 db,
                 locks: at.locks,
                 wordValue: tip.value,
-                domain: domain(Purpose.PayWord, genesisHashOf(cluster), domains.program),
                 sign: signPayword,
                 now: nowSeconds,
               })

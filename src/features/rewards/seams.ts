@@ -1,3 +1,5 @@
+import { signPayword } from '../../keys'
+import { useDeviceIdentity } from '../identity/use-device-identity'
 import type { RewardRecord } from './state'
 
 /**
@@ -14,12 +16,11 @@ export type RewardClaims = {
 /** What a tip is made of: the fee one word pays, from the reward mint, and the bond of the lock it is paid from. */
 export type TipTerms = { wordValue: bigint; bond: bigint }
 
-/**
- * Signs the envelope of a payment-word channel with the device key. It is absent until the key module offers that
- * purpose; tipping is not offered without it.
- */
-export type PaywordSigner = (envelope: Uint8Array) => Promise<Uint8Array>
+/** Signs a payment-word channel commitment with the device key. */
+export type PaywordSigner = typeof signPayword
 
+/** The device key signs payment words; without a key there is nothing to sign with and tipping is not offered. */
 export function usePaywordSigner(): PaywordSigner | undefined {
-  return undefined
+  const { deviceKey } = useDeviceIdentity()
+  return deviceKey ? signPayword : undefined
 }

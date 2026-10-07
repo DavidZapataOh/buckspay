@@ -1,6 +1,7 @@
 import { type Signed, type Issue } from '../../protocol'
 import type { OfflineLock } from '../../payment/preflight'
 import type { NoteDb } from '../notes/db'
+import type { Commitment } from '../../protocol/payword'
 import { nextWord } from '../relay/tip'
 
 /**
@@ -11,9 +12,7 @@ export function tipWord(deps: {
   db: NoteDb
   locks: readonly OfflineLock[]
   wordValue: bigint
-  /** The envelope domain of payment words on this cluster. */
-  domain: Uint8Array
-  sign: (envelope: Uint8Array) => Promise<Uint8Array>
+  sign: (commitment: Commitment) => Promise<Uint8Array>
   now: () => number
 }) {
   return async (issue: Signed<Issue>): Promise<Uint8Array | null> => {
@@ -29,7 +28,7 @@ export function tipWord(deps: {
         backing: lock.backing,
         lockUntil: lock.lockUntil,
       },
-      { wordValue: deps.wordValue, domain: deps.domain, sign: deps.sign, now: deps.now() },
+      { wordValue: deps.wordValue, sign: deps.sign, now: deps.now() },
     )
     return 'off' in word ? null : word.word
   }
