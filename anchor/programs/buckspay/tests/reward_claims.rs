@@ -72,10 +72,10 @@ fn every_public_alteration_is_rejected_and_nothing_is_paid() {
         let known = env.other_known_root(leaf.epoch);
         type Alter = Box<dyn Fn(&mut common::channel::rewards::Claim)>;
         let cases: Vec<(&str, Alter)> = vec![
-            ("recipient", {
-                let stranger = stranger;
-                Box::new(move |c| *c = c.clone().recipient_wallet(&stranger))
-            }),
+            (
+                "recipient",
+                Box::new(move |c| *c = c.clone().recipient_wallet(&stranger)),
+            ),
             ("exp", Box::new(|c| c.claims[0].exp = 3)),
             (
                 "nullifier",
