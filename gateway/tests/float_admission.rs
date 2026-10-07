@@ -543,3 +543,14 @@ fn the_pilot_values_keep_the_places_dearer_than_the_float() {
     let cap_records = c.float_cap / RENT;
     assert!(u64::from(c.max_locks) * c.min_bond >= cap_records * c.bond_per_record);
 }
+
+#[test]
+fn a_lock_of_four_tokens_holds_records_only_under_a_lower_minimum_bond() {
+    assert_eq!(SettlementLimits::new(caps()).lock_share(4 * USDC, RENT), 0);
+    let lowered = SettlementLimits::new(Caps {
+        min_bond: 500_000,
+        ..caps()
+    });
+    assert_eq!(lowered.lock_share(4 * USDC, RENT), 4);
+    assert_eq!(lowered.lock_share(499_999, RENT), 0);
+}

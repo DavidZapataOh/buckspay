@@ -143,6 +143,8 @@ pub struct Config {
     pub claim_float_cap: u64,
     /// Base units of bond a lock needs for each open sponsored settlement record.
     pub settlement_bond_per_record: u64,
+    /// The bond a lock needs before it may hold any sponsored record, in base units of the mint.
+    pub settlement_min_bond: u64,
     pub program_id: Pubkey,
     /// The one mint the gateway sponsors locks of.
     pub mint: Pubkey,
@@ -188,6 +190,13 @@ fn var<T: std::str::FromStr>(name: &str, default: &str) -> Result<T, String> {
         .unwrap_or_else(|_| default.to_owned())
         .parse()
         .map_err(|_| format!("{name} is not valid"))
+}
+
+fn min_bond(value: Option<&str>) -> Result<u64, String> {
+    match value.unwrap_or("10000000").parse::<u64>() {
+        Ok(bond) if bond > 0 => Ok(bond),
+        _ => Err("SETTLEMENT_MIN_BOND is not valid".to_owned()),
+    }
 }
 
 impl Config {
@@ -263,6 +272,7 @@ impl Config {
             settlement_float_cap: var("SETTLEMENT_FLOAT_CAP_LAMPORTS", "1000000000")?,
             claim_float_cap: var("CLAIM_FLOAT_CAP_LAMPORTS", "500000000")?,
             settlement_bond_per_record: var("SETTLEMENT_BOND_PER_RECORD", "1000000")?,
+            settlement_min_bond: min_bond(env::var("SETTLEMENT_MIN_BOND").ok().as_deref())?,
             program_id,
             mint: Pubkey::from_str(&env::var("MINT").map_err(|_| "MINT is not set")?)
                 .map_err(|_| "MINT is not an address")?,
@@ -506,5 +516,14 @@ mod tests {
         );
         assert!(parse_steps("65:1,50:2").is_err());
         assert!(parse_steps("50").is_err());
+    }
+
+    #[test]
+    fn the_minimum_bond_defaults_to_ten_tokens_and_is_never_zero() {
+        assert_eq!(min_bond(None), Ok(10_000_000));
+        assert_eq!(min_bond(Some("500000")), Ok(500_000));
+        assert!(min_bond(Some("0")).is_err());
+        assert!(min_bond(Some("18446744073709551616")).is_err());
+        assert!(min_bond(Some("ten")).is_err());
     }
 }

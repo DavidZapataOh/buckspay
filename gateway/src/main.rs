@@ -108,10 +108,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         Windows::PRODUCTION
     };
+    info!(
+        min_bond = config.settlement_min_bond,
+        "settlement minimum bond"
+    );
     let settlements = SettlementLimits::open(
         FloatCaps {
             float_cap: config.settlement_float_cap,
             bond_per_record: config.settlement_bond_per_record,
+            min_bond: config.settlement_min_bond,
             relay_per_day: config.relay_daily_cap,
             ..FloatCaps::pilot(windows.record_ttl())
         },
