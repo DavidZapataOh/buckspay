@@ -57,6 +57,7 @@ use tower::ServiceExt;
 pub mod channels;
 mod notes;
 pub mod relay;
+pub mod rewards;
 pub mod zk;
 pub use notes::*;
 

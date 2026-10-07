@@ -140,6 +140,13 @@ pub struct Config {
     pub max_open_channels: usize,
     /// Channels one network may have the gateway open in a day.
     pub new_channels_per_network_day: u32,
+    /// The compute unit limit of a sponsored claim, and of a sponsored sweep.
+    pub reward_claim_cu: u32,
+    pub reward_sweep_cu: u32,
+    /// The compute unit price every sponsored reward transaction pays, in micro-lamports.
+    pub reward_priority_price: u64,
+    /// Lamports the reward claims and sweeps of one day may cost the gateway.
+    pub reward_daily_budget: u64,
     pub caps: Caps,
     /// Lamports of rent the gateway may have out in settlement records.
     pub settlement_float_cap: u64,
@@ -266,6 +273,10 @@ impl Config {
             relay_daily_cap: var("RELAY_DAILY_CAP", "1000")?,
             max_open_channels: var("MAX_OPEN_CHANNELS", "1000")?,
             new_channels_per_network_day: var("NEW_CHANNELS_PER_IP_DAY", "10")?,
+            reward_claim_cu: var("REWARD_CLAIM_CU", "400000")?,
+            reward_sweep_cu: var("REWARD_SWEEP_CU", "40000")?,
+            reward_priority_price: var("REWARD_PRIORITY_PRICE", "10000")?,
+            reward_daily_budget: var("REWARD_DAILY_BUDGET_LAMPORTS", "1000000000")?,
             caps: Caps {
                 cac_budget: var("CAC_BUDGET_LAMPORTS", "500000000")?,
                 open_rent_cap: var("OPEN_RENT_CAP_LAMPORTS", "600000000")?,

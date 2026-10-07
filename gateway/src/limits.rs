@@ -55,8 +55,17 @@ pub struct RequestLimits {
 
 impl RequestLimits {
     pub fn new(per_minute: NonZeroU32) -> Self {
+        Self::with_quota(Quota::per_minute(per_minute))
+    }
+
+    /// Requests per hour from one network.
+    pub fn per_hour(per_hour: NonZeroU32) -> Self {
+        Self::with_quota(Quota::per_hour(per_hour))
+    }
+
+    fn with_quota(quota: Quota) -> Self {
         Self {
-            requests: RateLimiter::keyed(Quota::per_minute(per_minute)),
+            requests: RateLimiter::keyed(quota),
             swept: Mutex::new(Instant::now()),
         }
     }

@@ -234,6 +234,10 @@ pub enum FinalReason {
     Lock,
     StaleKey,
     BelowFee,
+    /// A nullifier of the claim is spent already.
+    Spent,
+    /// The claim does not repay what it costs the gateway, or names another fee ceiling.
+    Fee,
 }
 
 /// What the payer is told. `Refused` is only for what `settlements::ended` ends for good: any
@@ -273,6 +277,8 @@ impl Answer {
                     FinalReason::Lock => "lock",
                     FinalReason::StaleKey => "stale_key",
                     FinalReason::BelowFee => "below_fee",
+                    FinalReason::Spent => "spent",
+                    FinalReason::Fee => "fee",
                 },
             }),
         }
@@ -293,6 +299,8 @@ pub fn answer_for(outcome: &Result<Planned, Error>) -> Answer {
                 Error::Settlement(Problem::Lock(_)) => FinalReason::Lock,
                 Error::Settlement(Problem::StaleKey) => FinalReason::StaleKey,
                 Error::Settlement(Problem::BelowFee) => FinalReason::BelowFee,
+                Error::Settlement(Problem::Spent) => FinalReason::Spent,
+                Error::Settlement(Problem::Fee) => FinalReason::Fee,
                 _ => FinalReason::Invalid,
             },
         },

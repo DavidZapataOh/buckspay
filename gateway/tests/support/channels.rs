@@ -3,7 +3,10 @@
 #![allow(dead_code)]
 use super::{relay::*, *};
 use base64::{Engine, prelude::BASE64_STANDARD};
-use buckspay_client::instructions::{InitRewardConfigBuilder, InitRewardMintBuilder};
+use buckspay_client::{
+    instructions::{InitRewardConfigBuilder, InitRewardMintBuilder},
+    types::KeyHashes,
+};
 use buckspay_gateway::{
     channels::Channels,
     hpke::info,
@@ -49,7 +52,13 @@ pub async fn configure_rewards() {
             .program_data(zk::program_data())
             .system_program(Pubkey::default())
             .admin(authority.pubkey())
-            .pauser(authority.pubkey());
+            .pauser(authority.pubkey())
+            .claim_key(KeyHashes {
+                vk: *buckspay_zk_verify::vk::CLAIM.sha256,
+                pk: [1; 32],
+                dump: [2; 32],
+                ccs: [3; 32],
+            });
         send_as(&authority, &[program().target(config.instruction())]).await;
         let reward_mint = reward_mint();
         let mut mint = InitRewardMintBuilder::new();

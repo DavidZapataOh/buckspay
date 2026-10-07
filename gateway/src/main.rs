@@ -9,6 +9,7 @@ use buckspay_gateway::{
     jobs::Jobs,
     limits::RequestLimits,
     relay::{self, Relay},
+    rewards::{self, Pinned, Rate, RewardJobs, Rewards},
     server::{ClientAddress, Gateway, Limits, RPC_TIMEOUT, Settings, bind_unix, router},
     settlements,
     sponsor::SponsorLimits,
@@ -151,6 +152,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let jobs = Jobs::open(&config.state_directory.join("jobs.json"))?;
     let words = Words::open(&config.state_directory.join("words.json"))?;
     let channel_jobs = ChannelJobs::open(&config.state_directory.join("channels.json"))?;
+    let reward_jobs = RewardJobs::open(&config.state_directory.join("rewards.json"))?;
+    let rewards = Rewards::new(
+        Pinned {
+            claim_cu: config.reward_claim_cu,
+            sweep_cu: config.reward_sweep_cu,
+            priority_price: config.reward_priority_price,
+        },
+        config.sol_price_micro_usdc.map(Rate::per_sol),
+        config.reward_daily_budget,
+        reward_jobs,
+    );
     let gateway = Arc::new(
         Gateway::new(
             rpc,
@@ -172,8 +184,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             config.new_channels_per_network_day,
             channel_jobs,
         ))
+        .with_rewards(rewards)
         .with_zk(zk),
     );
+    rewards::check_economics(&gateway).await?;
     relay::resume_pending(&gateway);
     janitor::spawn(Arc::clone(&gateway), JANITOR_INTERVAL);
     let shutdown = async {

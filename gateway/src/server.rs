@@ -8,6 +8,7 @@ use crate::{
     limits::{Prefix, RateLimited, RequestLimits},
     onboard, operations,
     relay::{self, MAX_RELAY_BYTES, Relay},
+    rewards::{self, Rewards},
     settlements::{self, Problem},
     sponsor::{FeeMode, Refusal, SponsorLimits},
     sponsored::{self, Pending},
@@ -99,6 +100,8 @@ pub struct Gateway {
     pub words: Words,
     /// What bounds the channels the gateway opens, and the jobs that settle words.
     pub channels: Channels,
+    /// What bounds the reward claims and sweeps the gateway pays for, and their jobs.
+    pub rewards: Rewards,
     pub zk: crate::zk::Zk,
     /// What the program's accounts cost, as last read from the cluster.
     pub(crate) rents: Mutex<Rents>,
@@ -138,6 +141,11 @@ impl Gateway {
         self
     }
 
+    pub fn with_rewards(mut self, rewards: Rewards) -> Self {
+        self.rewards = rewards;
+        self
+    }
+
     pub fn with_zk(mut self, zk: crate::zk::Zk) -> Self {
         self.zk = zk;
         self
@@ -169,6 +177,7 @@ impl Gateway {
             relay: Relay::default(),
             words: Words::default(),
             channels: Channels::default(),
+            rewards: Rewards::default(),
             zk: crate::zk::Zk::default(),
             rents: Mutex::new(rents),
             pending: Mutex::default(),
@@ -242,6 +251,13 @@ pub fn router(state: Arc<Gateway>, client: ClientAddress) -> Router {
                 .layer(DefaultBodyLimit::max(channels::BODY_LIMIT)),
         )
         .route("/v1/channels/{key}", get(channels::status))
+        .merge(
+            Router::new()
+                .route("/v1/claims", post(rewards::post_claims))
+                .route("/v1/sweeps", post(rewards::post_sweeps))
+                .layer(DefaultBodyLimit::max(rewards::BODY_LIMIT)),
+        )
+        .route("/v1/claims/{key}", get(rewards::status))
         .layer(RequestBodyDeadlineLayer::new(BODY_DEADLINE))
         .layer(
             ServiceBuilder::new()

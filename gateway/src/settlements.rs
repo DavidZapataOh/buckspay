@@ -140,6 +140,10 @@ pub enum Problem {
     StaleKey,
     /// The settlement would pay the fee for its records and nothing more.
     BelowFee,
+    /// A nullifier of a reward claim is spent already.
+    Spent,
+    /// A reward claim does not repay its cost, or names a fee ceiling the mint does not have.
+    Fee,
     /// Private settlement is paused or not configured for the mint: it resumes by itself.
     Paused,
     /// The mint's or the lock's draws of the window are used up: seconds until room returns.
@@ -166,6 +170,8 @@ impl Problem {
             }
             Problem::StaleKey => (StatusCode::CONFLICT, json!({ "error": "stale_key" })),
             Problem::BelowFee => (StatusCode::CONFLICT, json!({ "error": "below_fee" })),
+            Problem::Spent => (StatusCode::CONFLICT, json!({ "error": "spent" })),
+            Problem::Fee => (StatusCode::CONFLICT, json!({ "error": "fee" })),
             Problem::Paused => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 json!({ "error": "paused" }),
@@ -177,7 +183,10 @@ impl Problem {
             Problem::Limits(refusal, retry_after) => limits_response(refusal, *retry_after),
         };
         // A refusal the wallet can get round by paying for the transaction itself.
-        if !matches!(self, Problem::Invalid(_) | Problem::Claim(_)) {
+        if !matches!(
+            self,
+            Problem::Invalid(_) | Problem::Claim(_) | Problem::Spent | Problem::Fee
+        ) {
             body["selfPay"] = json!(true);
         }
         (status, body)
@@ -1222,9 +1231,13 @@ pub(crate) fn ended(error: &Error) -> Option<JobState> {
         Error::Settlement(Problem::Conflict(_) | Problem::Lock("insufficient_backing")) => {
             Some(JobState::Conflict)
         }
-        Error::Settlement(Problem::Lock(_) | Problem::StaleKey | Problem::BelowFee) => {
-            Some(JobState::Refused)
-        }
+        Error::Settlement(
+            Problem::Lock(_)
+            | Problem::StaleKey
+            | Problem::BelowFee
+            | Problem::Spent
+            | Problem::Fee,
+        ) => Some(JobState::Refused),
         Error::Settlement(Problem::Invalid(reason)) if *reason != UNREADABLE => {
             Some(JobState::Refused)
         }

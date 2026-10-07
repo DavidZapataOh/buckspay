@@ -17,6 +17,7 @@ pub mod message;
 pub mod onboard;
 pub mod operations;
 pub mod relay;
+pub mod rewards;
 pub mod server;
 pub mod settlements;
 pub mod sponsor;

@@ -185,6 +185,7 @@ pub fn due(ledger: &Ledger, lock: &Lock, escrow_open: bool, now: u64, windows: &
 /// rent coming back, and a full reward tree is rotated so that settling words never stops.
 async fn tend_channels(state: &Gateway, now: u64, report: &mut Report) -> Result<(), Error> {
     crate::channels::resume_pending(state).await;
+    crate::rewards::resume_pending(state).await;
     let open = paid_by_us(
         state,
         Channel::LEN as u64,

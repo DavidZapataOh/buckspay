@@ -1,3 +1,4 @@
+import type { ClaimRequest, JobAnswer } from '../rewards/api'
 import type { ZkAnswer, ZkSettlementRequest } from '../zk/settle-private'
 import type { ZkConfigAnswer } from '../zk/trusted-key'
 
@@ -131,7 +132,15 @@ export type PrivateGateway = {
   zkConfig(): Promise<ZkConfigAnswer>
 }
 
-export function createGateway(url: string): Gateway & SettlementGateway & PrivateGateway {
+/** The reward claims and sweeps the gateway pays for: no wallet signs a claim, and the fresh address alone signs a sweep. */
+export type RewardsGateway = {
+  submitClaims(request: ClaimRequest): Promise<JobAnswer>
+  /** Sends a sweep signed by the fresh address, base64 of the transaction with the gateway's signature left empty. */
+  submitSweep(transaction: string): Promise<JobAnswer>
+  claimStatus(jobKey: string): Promise<JobAnswer>
+}
+
+export function createGateway(url: string): Gateway & SettlementGateway & PrivateGateway & RewardsGateway {
   async function call<T>(path: string, body?: unknown): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       try {
@@ -197,6 +206,9 @@ export function createGateway(url: string): Gateway & SettlementGateway & Privat
       }
     },
     zkConfig: () => call('/v1/zk-config'),
+    submitClaims: (request) => call('/v1/claims', request),
+    submitSweep: (transaction) => call('/v1/sweeps', { transaction }),
+    claimStatus: (jobKey) => call(`/v1/claims/${jobKey}`),
   }
 }
 
