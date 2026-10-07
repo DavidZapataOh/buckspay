@@ -1,9 +1,11 @@
 import { bytesToHex } from '@noble/hashes/utils.js'
-import { getAddressEncoder } from '@solana/kit'
+import { address, getAddressEncoder } from '@solana/kit'
+import { useMobileWallet } from '@wallet-ui/react-native-kit'
 import { addNetworkStateListener } from 'expo-network'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { AppState } from 'react-native'
 import { deviceKeyCluster, signSpend } from '../../keys'
+import { ACTIVE_PROFILE } from '../../protocol/active-profile'
 import { genesisHashOf } from '../../payment/domains'
 import { relayQueue } from '../relay/queue'
 import { registerSettler } from '../mesh/settle-flagged'
@@ -13,6 +15,7 @@ import { unsettledSummary, type Unsettled } from '../notes/ledger'
 import { nowSeconds, usePayments } from '../payment/payments-provider'
 import { isNoticeShown, markNoticeShown } from './clear-notice'
 import { acknowledgeLabel, isLabelAcknowledged } from './label'
+import { createDevicePrivateRoute } from '../zk/device'
 import { type PendingNotice, settleHeld, type SettlementReport } from './settle-held'
 
 export type Settlement = {
@@ -27,11 +30,14 @@ export type Settlement = {
   notices: PendingNotice[]
   /** The person read the notice of this note and said to settle it. */
   confirmNotice: (outputId: Uint8Array) => Promise<void>
+  /** The person asked to settle this note now: proofs start at once, on any network, and submission is not delayed. */
+  settleNow: (outputId: Uint8Array) => Promise<void>
   /** Settles what can be settled now: when a note was received, the app opened, or the connection came back. */
   run: () => Promise<void>
 }
 
 const NO_NOTICES: PendingNotice[] = []
+const PROGRAM_ADDRESS = address(ACTIVE_PROFILE.programId)
 
 const SettlementContext = createContext<Settlement | undefined>(undefined)
 
@@ -39,6 +45,8 @@ const SettlementContext = createContext<Settlement | undefined>(undefined)
 export function SettlementProvider({ children }: { children: ReactNode }) {
   const { db, domains } = usePayments()
   const { deviceKey, device } = useDeviceIdentity()
+  const { client } = useMobileWallet()
+  const asked = useRef(new Set<string>())
   const [unsettled, setUnsettled] = useState<Unsettled>()
   const [report, setReport] = useState<SettlementReport>()
   const [labelPending, setLabelPending] = useState(false)
@@ -71,6 +79,15 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
         random: Math.random,
         attempts: attempts.current,
         queueRelay: cluster ? relayQueue(db, genesisHashOf(cluster), nowSeconds) : undefined,
+        private: createDevicePrivateRoute({
+          db,
+          gateway: BUILD_GATEWAY,
+          rpc: client.rpc,
+          programAddress: PROGRAM_ADDRESS,
+          noteDomain: domains.noteDomain,
+          now: nowSeconds,
+          asked: asked.current,
+        }),
       })
       setReport(result)
       setLabelPending(result.blocked === 'label')
@@ -79,7 +96,7 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
     } finally {
       running.current = false
     }
-  }, [db, domains, key, wallet])
+  }, [client.rpc, db, domains, key, wallet])
 
   useEffect(() => {
     void run()
@@ -113,10 +130,18 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
     [run],
   )
 
+  const settleNow = useCallback(
+    async (outputId: Uint8Array) => {
+      asked.current.add(bytesToHex(outputId))
+      await run()
+    },
+    [run],
+  )
+
   const notices = report?.notices ?? NO_NOTICES
   const value = useMemo<Settlement>(
-    () => ({ unsettled, report, labelPending, acknowledge, notices, confirmNotice, run }),
-    [unsettled, report, labelPending, acknowledge, notices, confirmNotice, run],
+    () => ({ unsettled, report, labelPending, acknowledge, notices, confirmNotice, settleNow, run }),
+    [unsettled, report, labelPending, acknowledge, notices, confirmNotice, settleNow, run],
   )
   return <SettlementContext.Provider value={value}>{children}</SettlementContext.Provider>
 }

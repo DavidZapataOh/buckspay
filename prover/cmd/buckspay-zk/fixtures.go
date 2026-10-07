@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/gnark/frontend"
 
 	"github.com/DavidZapataOh/buckspay/prover/circuit"
+	"github.com/DavidZapataOh/buckspay/prover/proofenc"
 	"github.com/DavidZapataOh/buckspay/prover/witness"
 )
 
@@ -121,44 +122,25 @@ func be32(x *big.Int) string {
 	return hex.EncodeToString(b)
 }
 
-// arkFlags rewrites the flag bits of a gnark compressed point into those of the compression
-// syscalls: gnark marks the smaller y 0b10, the larger 0b11 and infinity 0b01; the syscalls leave
-// the smaller y unmarked, mark the larger 0b10 and infinity 0b01.
-func arkFlags(b []byte) []byte {
-	top := b[0] & 0xC0
-	b[0] &^= 0xC0
-	switch top {
-	case 0xC0:
-		b[0] |= 0x80
-	case 0x40:
-		b[0] |= 0x40
-	}
-	return b
-}
-
 func encode(proof groth16.Proof, pub witness.Public10, ok bool) (proofJSON, error) {
 	p, good := proof.(*groth16bn254.Proof)
 	if !good || len(p.Commitments) != 1 {
 		return proofJSON{}, errors.New("not a BN254 proof with one commitment")
 	}
-	g1 := func(q *bn254.G1Affine) ([]byte, []byte) {
-		c, r := q.Bytes(), q.RawBytes()
-		return r[:], arkFlags(c[:])
+	comp, err := proofenc.Compress(proof)
+	if err != nil {
+		return proofJSON{}, err
 	}
-	g2 := func(q *bn254.G2Affine) ([]byte, []byte) {
-		c, r := q.Bytes(), q.RawBytes()
-		return r[:], arkFlags(c[:])
-	}
-	var raw, comp []byte
+	var raw []byte
 	for _, q := range []*bn254.G1Affine{&p.Ar} {
-		r, c := g1(q)
-		raw, comp = append(raw, r...), append(comp, c...)
+		r := q.RawBytes()
+		raw = append(raw, r[:]...)
 	}
-	r, c := g2(&p.Bs)
-	raw, comp = append(raw, r...), append(comp, c...)
+	rb := p.Bs.RawBytes()
+	raw = append(raw, rb[:]...)
 	for _, q := range []*bn254.G1Affine{&p.Krs, &p.Commitments[0], &p.CommitmentPok} {
-		r, c := g1(q)
-		raw, comp = append(raw, r...), append(comp, c...)
+		r := q.RawBytes()
+		raw = append(raw, r[:]...)
 	}
 	out := proofJSON{Raw: hex.EncodeToString(raw), Compressed: hex.EncodeToString(comp), GnarkAccepts: ok}
 	for k := range pub {

@@ -1,5 +1,5 @@
 import { bytesToHex } from '@noble/hashes/utils.js'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DEVNET_GENESIS_HASH,
   decodeSpend,
@@ -38,6 +38,8 @@ import { openAsGateway, parseInner } from '../relay/testing'
 import type { NoteDb } from '../notes/db'
 import { migrate } from '../notes/schema'
 import { createNodeDb } from '../notes/testing/node-db'
+import type { PrivateNote } from '../zk/private-settler'
+import type { PrivateSettlementState } from '../zk/types'
 import { settleHeld, type SettlementDeps, settlementDelay } from './settle-held'
 
 const payer = party(1)
@@ -463,5 +465,86 @@ describe('a phone without a connection', () => {
     const report = await settleHeld(deps({ queueRelay: relayQueue(db, DEVNET_GENESIS_HASH, () => clock) }))
     expect(report.settled).toBe(0)
     expect(await db.all('SELECT id FROM relay_outbox')).toEqual([])
+  })
+})
+
+describe('the private route', () => {
+  const settler = (state: PrivateSettlementState) => {
+    const advance = vi.fn(async (_note: PrivateNote) => state)
+    return { advance, private: { settler: { advance }, userAsked: (id: string) => asked.includes(id) } }
+  }
+  let asked: string[]
+  beforeEach(() => {
+    asked = []
+  })
+
+  it('sends a note that others held through the settler, with this phone settlement spend last, and no notice or clear request', async () => {
+    const outputId = await receiveThroughAnotherHolder()
+    const fake = settler({ kind: 'waiting-for-charger', proved: 0, total: 3 })
+    const report = await settleHeld(deps({ noticeShown: async () => false, private: fake.private }))
+    expect(report).toMatchObject({
+      settled: 0,
+      waiting: 1,
+      notices: [],
+      private: [{ state: { kind: 'waiting-for-charger' }, holders: 1 }],
+    })
+    expect(sent).toHaveLength(0)
+    const [call] = fake.advance.mock.calls
+    expect(call[0].outputId).toEqual(outputId)
+    expect(call[0].chain.spends).toHaveLength(2)
+    expect(call[0].chain.spends[1].message.outputs).toMatchObject({ type: 'one', owner: { type: 'account' } })
+    expect(call[0].settleBy).toBeGreaterThan(clock)
+    expect(report.retryIn).toBeGreaterThan(0)
+    expect(await stateOf(outputId)).toBe('settling')
+  })
+
+  it('marks the note settled once the gateway has taken the proofs', async () => {
+    const outputId = await receiveThroughAnotherHolder()
+    const report = await settleHeld(
+      deps({ noticeShown: async () => false, private: settler({ kind: 'submitting' }).private }),
+    )
+    expect(report).toMatchObject({ settled: 1, waiting: 0 })
+    expect(await stateOf(outputId)).toBe('settled')
+  })
+
+  it('expires a note the gateway says is out of time', async () => {
+    const outputId = await receiveThroughAnotherHolder()
+    const report = await settleHeld(
+      deps({ noticeShown: async () => false, private: settler({ kind: 'failed', reason: 'expired' }).private }),
+    )
+    expect(report).toMatchObject({ settled: 0, failed: 1 })
+    expect(await stateOf(outputId)).toBe('expired')
+  })
+
+  it('passes on that the person asked to settle now', async () => {
+    const outputId = await receiveThroughAnotherHolder()
+    asked.push(bytesToHex(outputId))
+    const fake = settler({ kind: 'proving', proved: 1, total: 3 })
+    await settleHeld(deps({ noticeShown: async () => false, private: fake.private }))
+    expect(fake.advance.mock.calls[0][0].userAsked).toBe(true)
+  })
+
+  it('settles in the clear when the person chose that, even though the private route exists', async () => {
+    const outputId = await receiveThroughAnotherHolder()
+    const fake = settler({ kind: 'ready' })
+    const report = await settleHeld(deps({ noticeShown: async () => true, private: fake.private }))
+    expect(report).toMatchObject({ settled: 1, private: [] })
+    expect(fake.advance).not.toHaveBeenCalled()
+    expect(sent).toHaveLength(1)
+    expect(await stateOf(outputId)).toBe('settled')
+  })
+
+  it('keeps notes nobody else held on the clear route', async () => {
+    await receive()
+    const fake = settler({ kind: 'ready' })
+    const report = await settleHeld(deps({ noticeShown: async () => false, private: fake.private }))
+    expect(report).toMatchObject({ settled: 1, private: [] })
+    expect(fake.advance).not.toHaveBeenCalled()
+  })
+
+  it('shows the clear notice as before when there is no private route', async () => {
+    await receiveThroughAnotherHolder()
+    const report = await settleHeld(deps({ noticeShown: async () => false }))
+    expect(report).toMatchObject({ settled: 0, notices: [{ holders: 1 }], private: [] })
   })
 })

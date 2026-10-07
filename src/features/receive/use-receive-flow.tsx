@@ -9,12 +9,15 @@ import {
   useRef,
   useState,
 } from 'react'
+import { address } from '@solana/kit'
+import { useMobileWallet } from '@wallet-ui/react-native-kit'
 import type { PaymentRequest } from '../../payment/messages'
 import { buildRequest } from '../../payment/request'
 import { PaymentError } from '../../payment/messages'
 import type { ReceiveContext } from '../../payment/receive'
 import { receivePayment, showRequest } from '../../payment/receive-flow'
 import { attesterFresh } from '../../protocol'
+import { ACTIVE_PROFILE } from '../../protocol/active-profile'
 import type { Transport, TransportId } from '../../transport/types'
 import { parseAmount } from '../../utils/format-amount'
 import { useDeviceIdentity } from '../identity/use-device-identity'
@@ -34,8 +37,11 @@ import { createTransportSlot } from '../transport/slot'
 import { useTransportChoice, useTransports } from '../transport/use-transports'
 import { MIN_WINDOW, PAY_LIMITS } from '../pay/limits'
 import { BUILD_MINT_BYTES, BUILD_TOKEN } from '../pay/tokens'
+import { recordFeeSource } from '../zk/fee-gate'
 import { receiveGate } from './receive-gate'
 import { initialReceiveState, receiveReducer, type ReceiveState } from './receive-reducer'
+
+const PROGRAM_ADDRESS = address(ACTIVE_PROFILE.programId)
 
 export type CreateFailure = 'connect' | 'amount' | 'busy' | 'transport'
 
@@ -75,6 +81,8 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
   })
   const [wrongCode, setWrongCode] = useState(false)
   const { db, domains, attesters, hasTrustedAttesters, witnessSettings, witnessPort } = usePayments()
+  const { client } = useMobileWallet()
+  const recordFees = useMemo(() => recordFeeSource(client.rpc, PROGRAM_ADDRESS), [client.rpc])
   const { deviceKey } = useDeviceIdentity()
   const session = useQrSession()
   const entries = useMemo(() => [qrEntry({ transport: session.transport }), nfcEntry, nearbyEntry], [session.transport])
@@ -168,7 +176,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
         limits: { maxPayment: PAY_LIMITS.maxPayment },
         transport: used.current,
         request: { amount: request.amount, memo: request.memo },
-        gate: receiveGate(db, point, domains.noteDomain),
+        gate: receiveGate(db, point, domains.noteDomain, { fee: recordFees, expected: request.amount }),
       }
     }
     void receivePayment(context, transport.current, {
@@ -183,7 +191,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
       },
       () => undefined,
     )
-  }, [abort, attesters, db, domains, key, point])
+  }, [abort, attesters, db, domains, key, point, recordFees])
 
   useEffect(() => {
     scanAfterRequest.current = scanPayment

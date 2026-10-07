@@ -1,3 +1,6 @@
+import type { ZkAnswer, ZkSettlementRequest } from '../zk/settle-private'
+import type { ZkConfigAnswer } from '../zk/trusted-key'
+
 /** The gateway refused a request, with the HTTP status it answered. */
 export class GatewayError extends Error {
   readonly status: number
@@ -121,7 +124,14 @@ export type SettlementGateway = {
   claim(request: SettlementRequest): Promise<ClaimAnswer>
 }
 
-export function createGateway(url: string): Gateway & SettlementGateway {
+/** The private route: a chain settled by one proof per message, so the gateway sees the lock and the payee, not the holders. */
+export type PrivateGateway = {
+  settlePrivate(request: ZkSettlementRequest): Promise<ZkAnswer>
+  /** The keys the gateway offers; the app checks their hashes against the program or its build before using them. */
+  zkConfig(): Promise<ZkConfigAnswer>
+}
+
+export function createGateway(url: string): Gateway & SettlementGateway & PrivateGateway {
   async function call<T>(path: string, body?: unknown): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       try {
@@ -178,6 +188,15 @@ export function createGateway(url: string): Gateway & SettlementGateway {
     settle: (request) => call('/v1/settlements', request),
     reclaim: (request) => call('/v1/reclaims', request),
     claim: (request) => call('/v1/fraud/claim', request),
+    async settlePrivate(request) {
+      try {
+        return await call<ZkAnswer>('/v1/settlements', request)
+      } catch (error) {
+        if (error instanceof GatewayError && typeof error.body.status === 'string') return error.body as ZkAnswer
+        throw error
+      }
+    },
+    zkConfig: () => call('/v1/zk-config'),
   }
 }
 

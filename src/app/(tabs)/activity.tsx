@@ -8,6 +8,7 @@ import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { type ActivityRow, listActivity } from '../../features/notes/activity'
 import { nowSeconds, usePayments } from '../../features/payment/payments-provider'
 import { ClearNotice } from '../../features/settlement/clear-notice-card'
+import { PrivateSettlementCard } from '../../features/settlement/private-settlement-card'
 import { SettlementLabel } from '../../features/settlement/settlement-label'
 import { useSettlementRunner } from '../../features/settlement/use-settlement-runner'
 
@@ -17,6 +18,9 @@ export default function Activity() {
   const [rows, setRows] = useState<ActivityRow[]>([])
   const [waiting, setWaiting] = useState<string[]>([])
   const incoming = useIncoming(settlement.report)
+  const onPrivateRoute = settlement.report?.private.find(
+    ({ state }) => state.kind !== 'settled' && state.kind !== 'submitting',
+  )
   const notice = settlement.notices.find((pending) => !waiting.includes(bytesToHex(pending.outputId)))
 
   const { report } = settlement
@@ -48,6 +52,13 @@ export default function Activity() {
               count={settlement.unsettled?.count ?? 0}
               earliestExpiry={settlement.unsettled?.earliestExpiry ?? null}
               onContinue={() => void settlement.acknowledge()}
+            />
+          ) : onPrivateRoute ? (
+            <PrivateSettlementCard
+              state={onPrivateRoute.state}
+              clearAllowed
+              onSettleNow={() => void settlement.settleNow(onPrivateRoute.outputId)}
+              onSettleInClear={() => void settlement.confirmNotice(onPrivateRoute.outputId)}
             />
           ) : notice ? (
             <ClearNotice

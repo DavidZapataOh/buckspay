@@ -1,0 +1,29 @@
+package xyz.buckspay.prover
+
+/** The Go proving library, registered by `JNI_OnLoad`. Only the `:prover` process touches it. */
+internal object Native {
+  const val OK = 0
+  const val NO_KEY = -1
+  const val BAD_ARGS = -2
+  const val FAILED = -3
+  const val PROOF_AND_PUBLIC = 512
+
+  init {
+    System.loadLibrary("buckspay_prover")
+  }
+
+  external fun load(dir: String): Int
+
+  external fun proveInto(
+    chain: ByteArray,
+    index: Int,
+    out: ByteArray,
+  ): Int
+
+  external fun expand(
+    pkBin: String,
+    pkDump: String,
+  ): Int
+
+  external fun release()
+}

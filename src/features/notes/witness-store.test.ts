@@ -1,4 +1,4 @@
-import { REMOTE_SCHEMA_VERSION } from '../remote/store'
+import { ZK_SCHEMA_VERSION } from '../zk/proof-store'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { encodeBundle } from '../../payment/messages'
 import { makeTicket, MINT, party, signIssue } from '../../payment/testing/world'
@@ -89,14 +89,12 @@ describe('migrateWitness', () => {
       'SELECT witness, witness_signed FROM outgoing_payment',
     )
     expect(row).toEqual({ witness: null, witness_signed: 0 })
-    expect((await fresh.all<{ user_version: number }>('PRAGMA user_version'))[0].user_version).toBe(
-      REMOTE_SCHEMA_VERSION,
-    )
+    expect((await fresh.all<{ user_version: number }>('PRAGMA user_version'))[0].user_version).toBe(ZK_SCHEMA_VERSION)
   })
 
   it('runs twice without harm', async () => {
     await migrateWitness(db)
-    expect(await version()).toBe(REMOTE_SCHEMA_VERSION)
+    expect(await version()).toBe(ZK_SCHEMA_VERSION)
   })
 
   it('refuses a database that is not at version 1', async () => {

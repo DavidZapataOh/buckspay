@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('./receive-gate', () => ({ receiveGate: vi.fn() }))
+vi.mock('@wallet-ui/react-native-kit', () => ({ useMobileWallet: () => ({ client: { rpc: {} } }) }))
 vi.mock('../event/point', () => ({ pointReceiverOf: vi.fn() }))
 vi.mock('../event/consumed', () => ({ entriesSince: vi.fn() }))
 vi.mock('../payment/receiver', () => ({ receiverOf: vi.fn() }))

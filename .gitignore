@@ -80,3 +80,6 @@ ccs.bin
 *.srs
 p1-*
 p2-*
+
+# Built from prover/mobile by the app build
+modules/prover/android/src/main/jniLibs/

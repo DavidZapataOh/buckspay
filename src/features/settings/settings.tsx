@@ -13,6 +13,7 @@ import { eventCopy } from '../event/copy'
 import { copy, text } from '../payment/copy'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { BUILD_NETWORK } from '../network/build-network'
+import { PrivateDataRow, type PrivateDataProps } from '../zk/private-data-row'
 import { NearbyCheckSettings, type NearbyCheckSettingsProps } from '../witness/nearby-check-settings'
 
 export type PaymentsSettings = {
@@ -24,7 +25,15 @@ export type PaymentsSettings = {
   nearbyCheck: NearbyCheckSettingsProps
 }
 
-export function Settings({ payments, mesh }: { payments?: PaymentsSettings; mesh?: MeshSettingsProps }) {
+export function Settings({
+  payments,
+  mesh,
+  privateData,
+}: {
+  payments?: PaymentsSettings
+  mesh?: MeshSettingsProps
+  privateData?: PrivateDataProps
+}) {
   const { step, busy, error, wallet, device, deviceKey, disconnect } = useDeviceIdentity()
   const [forgetting, setForgetting] = useState(false)
   const checking = step === 'loading' && !error
@@ -96,6 +105,7 @@ export function Settings({ payments, mesh }: { payments?: PaymentsSettings; mesh
         </>
       ) : null}
       {mesh ? <MeshSettings {...mesh} /> : null}
+      {privateData ? <PrivateDataRow {...privateData} /> : null}
       <AppText variant="title" accessibilityRole="header" className="mt-4">
         Technical details
       </AppText>

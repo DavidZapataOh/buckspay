@@ -29,6 +29,9 @@ import type { NoteDb } from '../notes/db'
 import { type NoteChain, settlementRequest } from './chain'
 import { needsClearNotice } from './clear-notice'
 import { type ClaimOutcome, fileClaim, settle } from './settle'
+import { privatePath } from '../zk/policy'
+import type { PrivateNote } from '../zk/private-settler'
+import type { PrivateSettlementState } from '../zk/types'
 
 /** Seconds before the window closes at which a settlement is no longer started: it could not land. */
 export const SETTLEMENT_MARGIN = 120
@@ -60,12 +63,36 @@ export type SettlementDeps = {
   attempts: Map<string, number>
   /** Seals a note this phone cannot settle for lack of a connection and queues it for a phone nearby that has one. */
   queueRelay?: (note: { outputId: Uint8Array; chain: NoteChain; expiry: number }) => Promise<void>
+  /**
+   * The private route: notes that others held before this phone are settled with a proof per message, so
+   * the intermediaries stay off the chain. Without it, or when the person chose to settle in the clear,
+   * the clear route and its notice apply.
+   */
+  private?: {
+    settler: { advance(note: PrivateNote): Promise<PrivateSettlementState> }
+    /** Whether the person asked to settle this note now (hex of its output id). */
+    userAsked: (outputId: string) => boolean
+  }
 }
 
 export type Refused = { outputId: Uint8Array; kind: string; selfPay: boolean; retryAt?: number }
 
 /** A note that waits for the person to read who settling it publishes. */
 export type PendingNotice = { outputId: Uint8Array; holders: number }
+
+/** A note on the private route, where it is, and how many people held it before this phone. */
+export type PrivateProgress = { outputId: Uint8Array; state: PrivateSettlementState; holders: number }
+
+/** Seconds before a note on the private route is looked at again, by what it waits for. */
+const PRIVATE_WAIT: Record<PrivateSettlementState['kind'], number> = {
+  'needs-key': 60,
+  'waiting-for-charger': 900,
+  proving: 30,
+  ready: 300,
+  submitting: 60,
+  settled: 0,
+  failed: 120,
+}
 
 export type LostReport = {
   outputId: Uint8Array
@@ -83,6 +110,8 @@ export type SettlementReport = {
   /** Notes that lost to a double spend, with what the claim of the loss came to. */
   lost: LostReport[]
   notices: PendingNotice[]
+  /** Notes on the private route. */
+  private: PrivateProgress[]
   /** Seconds until the next run is worth making, when something waits. */
   retryIn?: number
 }
@@ -113,7 +142,15 @@ function settlementSpend(output: Output, me: Uint8Array, wallet: Uint8Array, sal
 export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport> {
   const { db } = deps
   const window = GRACE - SETTLEMENT_MARGIN
-  const report: SettlementReport = { settled: 0, waiting: 0, failed: 0, refused: [], lost: [], notices: [] }
+  const report: SettlementReport = {
+    settled: 0,
+    waiting: 0,
+    failed: 0,
+    refused: [],
+    lost: [],
+    notices: [],
+    private: [],
+  }
   await expireUnsettled(db, deps.now(), window)
   const notes = await settleable(db, deps.now(), window)
   if (notes.length > 0 && !(await deps.labelAcknowledged())) {
@@ -136,7 +173,9 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
     if (!output) throw new Error('The stored chain does not end in the note')
     const terminal = output.owner.type === 'account'
     const notice = wire || terminal ? null : needsClearNotice(bundle, deps.me)
-    if (notice && !(await deps.noticeShown(key))) {
+    const clearChosen = notice ? await deps.noticeShown(key) : true
+    const privateRoute = !!deps.private && !!notice && !clearChosen && privatePath({ spends: bundle.spends.length + 1 })
+    if (notice && !clearChosen && !privateRoute) {
       report.waiting++
       report.notices.push({ outputId: note.outputId, holders: notice.holders })
       continue
@@ -176,6 +215,26 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
     const chain: NoteChain = {
       issue: bundle.issue,
       spends: wire ? [...bundle.spends, decodeSpend(wire)] : bundle.spends,
+    }
+    if (privateRoute && deps.private && notice) {
+      const state = await deps.private.settler.advance({
+        outputId: note.outputId,
+        chain,
+        settleBy: note.expiry + window,
+        userAsked: deps.private.userAsked(key),
+      })
+      report.private.push({ outputId: note.outputId, state, holders: notice.holders })
+      if (state.kind === 'settled' || state.kind === 'submitting') {
+        await setNoteState(db, note.outputId, 'settled', deps.now())
+        deps.attempts.delete(key)
+        report.settled++
+      } else if (state.kind === 'failed' && state.reason === 'expired') {
+        await setNoteState(db, note.outputId, 'expired', deps.now())
+        report.failed++
+      } else {
+        wait(PRIVATE_WAIT[state.kind])
+      }
+      continue
     }
     const request = settlementRequest(chain)
     const outcome = await settle(deps.gateway, request)

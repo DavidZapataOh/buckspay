@@ -9,6 +9,7 @@ import { Settings } from '../../features/settings/settings'
 import { MIN_WINDOW, PAY_LIMITS } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { carried } from '../../features/relay/inbox'
+import { usePrivateData } from '../../features/zk/use-private-data'
 import { useSettlementRunner } from '../../features/settlement/use-settlement-runner'
 import { usePayments } from '../../features/payment/payments-provider'
 import { formatMoney, parseAmount } from '../../utils/format-amount'
@@ -26,6 +27,7 @@ export default function SettingsTab() {
     if (db) void carried(db).then(setPassedOn)
   }, [db])
   const mesh = useMesh(meshNative)
+  const privateData = usePrivateData()
   useEffect(() => {
     if (mesh.enabled) void syncRelay()
   }, [mesh.enabled])
@@ -34,6 +36,7 @@ export default function SettingsTab() {
   )
   return (
     <Settings
+      privateData={privateData}
       mesh={{
         enabled: mesh.enabled,
         problem: mesh.problem,

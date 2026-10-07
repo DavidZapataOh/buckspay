@@ -16,3 +16,9 @@ describe('app config', () => {
     expect(resolve().scheme).toEqual(['buckspay', 'buckspay-e2e'])
   })
 })
+
+describe('app config zk pins', () => {
+  it('carries no pin without a manifest', () => {
+    expect((appConfig({ config: base } as never) as { extra: { zk: unknown[] } }).extra.zk).toEqual([])
+  })
+})

@@ -170,3 +170,30 @@ describe('gateway client', () => {
     })
   })
 })
+
+describe('private settlement requests', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('posts the request to the settlements route and returns the answer', async () => {
+    const fetch = stub({ status: 'submitted' })
+    const answer = await gateway.settlePrivate({ kind: 'zk' } as never)
+    expect(answer).toEqual({ status: 'submitted' })
+    expect(fetch.mock.calls[0][0]).toBe('https://gateway.test/v1/settlements')
+  })
+
+  it('returns a refusal the gateway answers with a status, not an error', async () => {
+    stub({ status: 'refused', reason: 'stale_key' }, { status: 409 })
+    expect(await gateway.settlePrivate({ kind: 'zk' } as never)).toEqual({ status: 'refused', reason: 'stale_key' })
+  })
+
+  it('throws what is not an answer', async () => {
+    stub({ error: 'busy' }, { status: 503 })
+    await expect(gateway.settlePrivate({ kind: 'zk' } as never)).rejects.toBeInstanceOf(GatewayError)
+  })
+
+  it('reads the keys the gateway offers', async () => {
+    const fetch = stub({ current: { vkSha256: 'aa' } })
+    expect(await gateway.zkConfig()).toEqual({ current: { vkSha256: 'aa' } })
+    expect(fetch.mock.calls[0][0]).toBe('https://gateway.test/v1/zk-config')
+  })
+})

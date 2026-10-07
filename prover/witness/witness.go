@@ -271,6 +271,19 @@ func Public(c *Chain, i int) ([circuit.NumPublic]*big.Int, error) {
 	return out, nil
 }
 
+// PublicBytes is Public as the program reads it: the ten inputs, 32 big-endian bytes each.
+func PublicBytes(c *Chain, i int) ([]byte, error) {
+	pub, err := Public(c, i)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]byte, circuit.NumPublic*32)
+	for k, x := range pub {
+		x.FillBytes(out[k*32 : (k+1)*32])
+	}
+	return out, nil
+}
+
 // scalar assigns x as the four 64-bit limbs of a P-256 scalar without reducing it modulo n, so
 // that a value the circuit must refuse stays what it is.
 func scalar(x *big.Int) emulated.Element[emulated.P256Fr] {

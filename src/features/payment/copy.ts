@@ -184,6 +184,8 @@ export const copy = {
     [Reason.AboveMax]: 'This is more than the {max} this phone accepts in one payment.',
     [Reason.KeyFlagged]:
       'Someone in this payment’s history paid twice, and the phones nearby know it. Nothing was received.',
+    [Reason.BelowNet]:
+      'After the fees of settling this payment privately you would receive less than you asked for. Nothing was received.',
     [Reason.NotSaved]: "This phone couldn't save the payment. Nothing was received. Try again.",
   } satisfies Record<Exclude<Reason, typeof Reason.Accepted>, string>,
   activity: {

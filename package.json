@@ -22,6 +22,7 @@
     "ios": "expo run:ios",
     "lint": "expo lint --fix",
     "lint:check": "expo lint",
+    "prover:build": "prover/mobile/build-android.sh",
     "lint:kotlin": "ktlint \"modules/**/*.kt\"",
     "start": "expo start",
     "web": "expo start --web",
