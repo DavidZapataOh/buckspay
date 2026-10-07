@@ -5,7 +5,7 @@ import { authenticate } from '../../payment/authenticate'
 import { signStoredIssue } from '../../payment/native-sign'
 import { confirmAndSend, PayError } from '../../payment/pay'
 import { type PayContext, type PlanRefusal, planPayment } from '../../payment/preflight'
-import { GRACE } from '../../protocol'
+import { domain, GRACE, Purpose } from '../../protocol'
 import { formatMoney } from '../../utils/format-amount'
 import { deviceKeyCluster } from '../../keys'
 import { genesisHashOf } from '../../payment/domains'
@@ -27,6 +27,10 @@ import { remoteRequest, REMOTE_MIN_WINDOW } from './plan'
 import { refreshDeliveries } from './refresh'
 import { type RemoteCtx, remoteSender, type RemoteOutcome, sealWithStored } from './send'
 import { remoteCopy } from './copy'
+import { usePaywordSigner } from '../rewards/seams'
+import { tipWord } from '../rewards/tip-word'
+import { useTipTerms } from '../rewards/use-tip-terms'
+import { useTipping } from '../rewards/use-tipping'
 
 const startOfToday = () => Math.floor(new Date().setHours(0, 0, 0, 0) / 1000)
 
@@ -36,6 +40,8 @@ export function useFarAway() {
   const { deviceKey } = useDeviceIdentity()
   const offline = useOfflineLocks()
   const { client } = useMobileWallet()
+  const { tip } = useTipping(useTipTerms())
+  const signPayword = usePaywordSigner()
   const online = useNetworkState().isInternetReachable === true && BUILD_GATEWAY !== null
   const [contacts, setContacts] = useState<Contact[]>([])
   const [pendingTo, setPendingTo] = useState<Uint8Array[]>([])
@@ -156,6 +162,17 @@ export function useFarAway() {
         noteDomain: domains.noteDomain,
         settleDirect: (settlement) => settle(gateway!, settlement),
         seal: sealWithStored(db, genesisHashOf(cluster)),
+        word:
+          tip && signPayword
+            ? tipWord({
+                db,
+                locks: at.locks,
+                wordValue: tip.value,
+                domain: domain(Purpose.PayWord, genesisHashOf(cluster), domains.program),
+                sign: signPayword,
+                now: nowSeconds,
+              })
+            : undefined,
       }
       await confirmAndSend(planned.plan, request, 'remote', {
         db,
@@ -197,5 +214,5 @@ export function useFarAway() {
     return undefined
   }
 
-  return { contacts, pendingTo, online, busy, error, deadlineFor, pay, addLink }
+  return { contacts, pendingTo, online, busy, error, tip, deadlineFor, pay, addLink }
 }

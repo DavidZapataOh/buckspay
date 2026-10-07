@@ -15,6 +15,7 @@ import { unsettledSummary, type Unsettled } from '../notes/ledger'
 import { nowSeconds, usePayments } from '../payment/payments-provider'
 import { isNoticeShown, markNoticeShown } from './clear-notice'
 import { acknowledgeLabel, isLabelAcknowledged } from './label'
+import { useRewardsAdvance } from '../rewards/use-reward-claims'
 import { createDevicePrivateRoute } from '../zk/device'
 import { type PendingNotice, settleHeld, type SettlementReport } from './settle-held'
 
@@ -58,6 +59,7 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
   const { db, domains } = usePayments()
   const { deviceKey, device } = useDeviceIdentity()
   const { client } = useMobileWallet()
+  const advanceRewards = useRewardsAdvance()
   const asked = useRef(new Set<string>())
   const [unsettled, setUnsettled] = useState<Unsettled>()
   const [report, setReport] = useState<SettlementReport>()
@@ -114,6 +116,7 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
       setReport(result)
       setLabelPending(result.blocked === 'label')
       setUnsettled(await unsettledSummary(db))
+      await advanceRewards?.()
       if (result.retryIn !== undefined) timer.current = setTimeout(() => void run(), result.retryIn * 1000)
     } finally {
       running.current = false
@@ -123,7 +126,7 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
         void run()
       }
     }
-  }, [client.rpc, db, domains, key, wallet])
+  }, [advanceRewards, client.rpc, db, domains, key, wallet])
 
   useEffect(() => {
     void run()

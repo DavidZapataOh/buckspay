@@ -2,7 +2,7 @@ import { openURL } from 'expo-linking'
 import { useNetwork } from '../../features/network/use-network'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { RewardsScreen } from '../../features/rewards/rewards-screen'
-import { useRewardClaims } from '../../features/rewards/seams'
+import { useRewardClaims } from '../../features/rewards/use-reward-claims'
 import { useRewards } from '../../features/rewards/use-rewards'
 
 export default function RewardsRoute() {

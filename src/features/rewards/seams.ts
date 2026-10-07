@@ -14,12 +14,12 @@ export type RewardClaims = {
 /** What a tip is made of: the fee one word pays, from the reward mint, and the bond of the lock it is paid from. */
 export type TipTerms = { wordValue: bigint; bond: bigint }
 
-/** The claim store of this phone. It is not present until the phone prover ships; claiming is not offered without it. */
-export function useRewardClaims(): RewardClaims | undefined {
-  return undefined
-}
+/**
+ * Signs the envelope of a payment-word channel with the device key. It is absent until the key module offers that
+ * purpose; tipping is not offered without it.
+ */
+export type PaywordSigner = (envelope: Uint8Array) => Promise<Uint8Array>
 
-/** The terms of a tip; absent until the reward mint is read, and tipping is not offered without them. */
-export function useTipTerms(): TipTerms | undefined {
+export function usePaywordSigner(): PaywordSigner | undefined {
   return undefined
 }
