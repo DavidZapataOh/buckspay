@@ -19,6 +19,7 @@ import type { NoteDb } from '../notes/db'
 import { nextCumEnd, unfinishedPayments } from '../notes/outgoing'
 import { migrate } from '../notes/schema'
 import { createNodeDb } from '../notes/testing/node-db'
+import PayTabScreen from '../../app/(tabs)/pay'
 import PaySend from '../../app/pay/send'
 import { type PayFlow, PayFlowProvider, usePayFlow } from './use-pay-flow'
 
@@ -30,6 +31,8 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('expo-linking', () => ({ addEventListener: vi.fn(() => ({ remove: vi.fn() })), openURL: vi.fn() }))
+vi.mock('../qr/paste-source', () => ({ pasteInto: vi.fn() }))
+vi.mock('../transport/how-control', () => ({ HowControl: () => null }))
 vi.mock('../qr/e2e-source', () => ({ installE2eScan: () => () => {} }))
 vi.mock('../witness/nearby-check', () => ({ NearbyCheck: () => null }))
 vi.mock('../payment/result-mark', () => ({ ResultMark: () => null }))
@@ -55,7 +58,7 @@ vi.mock('../payment/payments-provider', () => ({
   }),
 }))
 vi.mock('../identity/use-device-identity', () => ({
-  useDeviceIdentity: () => ({ deviceKey: { publicKey: new Uint8Array(33).fill(2) } }),
+  useDeviceIdentity: () => ({ deviceKey: { publicKey: new Uint8Array(33).fill(2) }, step: 'ready' }),
 }))
 vi.mock('../attesters/use-offline-locks', () => ({
   useOfflineLocks: () => ({ locks: mocks.locks, reload: async () => {}, allowance: () => 0n }),
@@ -119,8 +122,12 @@ function Harness() {
   useEffect(() => {
     flow = current
   })
-  if (!open) return null
-  return <PaySend />
+  return (
+    <>
+      <PayTabScreen />
+      {open ? <PaySend /> : null}
+    </>
+  )
 }
 
 const limits = {
@@ -309,6 +316,41 @@ describe('an unfinished payment shown again', () => {
     await act(async () => mocks.open(false))
     await act(async () => flow.scan())
     expect(flow.state).toMatchObject({ name: 'scanning' })
+    await act(async () => tree.unmount())
+  })
+
+  it('shows the code again from the Pay tab after the send screen was left with the system back', async () => {
+    const { row } = await seedSignedPayment()
+    let tree!: ReturnType<typeof create>
+    await act(async () => {
+      tree = create(
+        <PayFlowProvider>
+          <Harness />
+        </PayFlowProvider>,
+      )
+    })
+    await act(async () => {
+      await flow.resume(row.messageId)
+      mocks.open(true)
+    })
+    await act(async () => mocks.open(false))
+    expect(flow.state.name).toBe('presenting')
+    const shown = () => tree.root.findAll((n) => typeof n.type === 'string' && n.props.testID === 'qr-shown')
+    expect(shown()).toHaveLength(0)
+    const never = () => new Promise<never>(() => {})
+    mocks.db = { run: never, all: never, exec: never, transaction: never }
+    await act(async () =>
+      tree.update(
+        <PayFlowProvider>
+          <Harness />
+        </PayFlowProvider>,
+      ),
+    )
+    const resume = tree.root.findAll((n) => typeof n.type === 'string' && n.props.testID === 'pay-resume')
+    expect(resume).toHaveLength(1)
+    await act(async () => resume[0].props.onPress())
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50)))
+    expect(shown()).toHaveLength(1)
     await act(async () => tree.unmount())
   })
 

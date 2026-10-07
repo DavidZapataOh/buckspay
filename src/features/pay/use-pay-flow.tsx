@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { equalBytes } from '@noble/curves/utils.js'
 import { authenticate } from '../../payment/authenticate'
 import { signStoredIssue } from '../../payment/native-sign'
 import { signSpend } from '../../keys'
@@ -276,6 +277,19 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
   const resume = useCallback(
     async (messageId?: Uint8Array) => {
       abort()
+      const current = stateRef.current
+      if (
+        (current.name === 'presenting' || current.name === 'awaiting-receipt') &&
+        (!messageId || equalBytes(current.payment.messageId, messageId))
+      ) {
+        try {
+          await transport.current.send({ kind: MessageKind.Payment, payload: current.payment.bundle })
+          dispatch({ type: 'resumed', payment: current.payment })
+        } catch (error) {
+          dispatch({ type: 'failed', error: new PayError('SendFailed', error) })
+        }
+        return
+      }
       try {
         const [payment] = await resumePayments(depsFor(), messageId)
         if (payment) dispatch({ type: 'resumed', payment })

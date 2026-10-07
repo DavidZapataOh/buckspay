@@ -65,6 +65,7 @@ export function payReducer(state: PayState, event: PayEvent): PayState {
       return state
     case 'presenting':
       if (event.type === 'scan-receipt') return { name: 'awaiting-receipt', payment: state.payment }
+      if (event.type === 'failed') return { name: 'failed', error: event.error, payment: state.payment }
       if (event.type === 'finish') return initialPayState
       return state
     case 'awaiting-receipt':
