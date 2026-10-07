@@ -6,7 +6,7 @@ import type { Reason } from '../../payment/reasons'
 
 export type PayState =
   | { name: 'idle' }
-  | { name: 'scanning'; wrongCode: boolean }
+  | { name: 'scanning'; wrongCode: boolean; unreadable?: boolean }
   | { name: 'reviewing'; request: PaymentRequest; plan: Plan | RespendPlan }
   | { name: 'refused'; reason: PlanRefusal; lockSeq?: number; request: PaymentRequest }
   | { name: 'confirming'; request: PaymentRequest; plan: Plan | RespendPlan }
@@ -20,6 +20,7 @@ export type PayEvent =
   | { type: 'scan' }
   | { type: 'planned'; request: PaymentRequest; planned: Planned | { ok: true; plan: RespendPlan } }
   | { type: 'wrong-code' }
+  | { type: 'unreadable' }
   | { type: 'confirm' }
   | { type: 'sent'; payment: SentPayment }
   | { type: 'resumed'; payment: SentPayment }
@@ -49,6 +50,7 @@ export function payReducer(state: PayState, event: PayEvent): PayState {
           : { name: 'refused', reason: planned.reason, lockSeq: planned.lockSeq, request }
       }
       if (event.type === 'wrong-code') return state.wrongCode ? state : { name: 'scanning', wrongCode: true }
+      if (event.type === 'unreadable') return { name: 'scanning', wrongCode: false, unreadable: true }
       if (event.type === 'back') return initialPayState
       return state
     case 'reviewing':

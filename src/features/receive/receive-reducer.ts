@@ -44,6 +44,7 @@ export function receiveReducer(state: ReceiveState, event: ReceiveEvent): Receiv
       if (event.type === 'back') return { name: 'requesting', request: state.request, expiresAt: state.expiresAt }
       return state
     case 'verifying':
+      if (event.type === 'back') return { name: 'requesting', request: state.request, expiresAt: state.expiresAt }
       if (event.type !== 'outcome') return state
       return event.outcome.accepted
         ? { name: 'accepted', outcome: event.outcome }

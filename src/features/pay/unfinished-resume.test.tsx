@@ -5,7 +5,7 @@ import { create } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createQrPair } from '../../transport/testing/qr-pair'
 import { decodeBundle, type PaymentRequest } from '../../payment/messages'
-import { encodeReceipt } from '../../payment/messages'
+import { encodeReceipt, encodeRequest } from '../../payment/messages'
 import { Reason } from '../../payment/reasons'
 import { encodeFrames } from '../../transport/framing'
 import { qrFrameLimits } from '../../transport/qr/limits'
@@ -24,6 +24,7 @@ import { type PayFlow, PayFlowProvider, usePayFlow } from './use-pay-flow'
 
 const mocks = vi.hoisted(() => ({
   db: undefined as unknown,
+  locks: [] as unknown[],
   sign: undefined as undefined | ((...args: unknown[]) => unknown),
   open: (_open: boolean) => {},
 }))
@@ -48,7 +49,7 @@ vi.mock('../payment/payments-provider', () => ({
   nowSeconds: () => 1_800_000_025,
   usePayments: () => ({
     db: mocks.db,
-    domains: { noteDomain: new Uint8Array(32).fill(7), program: new Uint8Array(32).fill(8) },
+    domains: { noteDomain: NOTE_DOMAIN, program: PROGRAM },
     witnessSettings: { ask: false, requireFrom: null, answer: false },
     witnessPort: undefined,
   }),
@@ -57,7 +58,7 @@ vi.mock('../identity/use-device-identity', () => ({
   useDeviceIdentity: () => ({ deviceKey: { publicKey: new Uint8Array(33).fill(2) } }),
 }))
 vi.mock('../attesters/use-offline-locks', () => ({
-  useOfflineLocks: () => ({ locks: [], reload: async () => {}, allowance: () => 0n }),
+  useOfflineLocks: () => ({ locks: mocks.locks, reload: async () => {}, allowance: () => 0n }),
 }))
 vi.mock('../transport/use-transports', () => ({
   useTransports: (entries: unknown[]) => ({ offered: [], ready: entries }),
@@ -73,6 +74,12 @@ vi.mock('../transport/registry', () => ({
   nearbyEntry: { id: 'nearby' },
 }))
 vi.mock('../../payment/native-sign', () => ({ signStoredIssue: (...args: unknown[]) => mocks.sign?.(...args) }))
+vi.mock('./tokens', async () => {
+  const world = await import('../../payment/testing/world')
+  const { bytesToHex } = await import('@noble/hashes/utils.js')
+  const token = { symbol: 'USDC', decimals: 6 }
+  return { BUILD_TOKEN: token, BUILD_TOKENS: new Map([[bytesToHex(world.MINT), token]]) }
+})
 vi.mock('../../keys', () => ({ signSpend: vi.fn(), nativeErrorCode: () => undefined }))
 vi.mock('../../payment/authenticate', () => ({ authenticate: async () => true }))
 vi.mock('../qr/qr-presenter', () => ({
@@ -116,6 +123,34 @@ function Harness() {
   return <PaySend />
 }
 
+const limits = {
+  noteLifetime: 72 * 3600,
+  noteHops: 3,
+  requestTtl: 600,
+  skewTolerance: 120,
+  transferMargin: 120,
+  maxPayment: 100_000_000n,
+  biometricFrom: 20_000_000n,
+  biometricDaily: 50_000_000n,
+}
+
+const lockOf = async () => ({
+  lockSeq: 3,
+  mint: MINT,
+  bond: 200_000_000n,
+  backing: 100_000_000n,
+  lockUntil: NOW + 30 * 86400,
+  nextCumEnd: await nextCumEnd(db, payer.key, 3),
+  ticket: makeTicket({
+    device: payer.key,
+    mint: MINT,
+    lockSeq: 3,
+    bond: 200_000_000n,
+    backing: 100_000_000n,
+    lockUntil: NOW + 30 * 86400,
+  }),
+})
+
 async function seedSignedPayment() {
   const signer = createSoftSigner(payer)
   mocks.sign = signer.sign as never
@@ -124,35 +159,9 @@ async function seedSignedPayment() {
     me: payer.key,
     noteDomain: NOTE_DOMAIN,
     program: PROGRAM,
-    locks: [
-      {
-        lockSeq: 3,
-        mint: MINT,
-        bond: 200_000_000n,
-        backing: 100_000_000n,
-        lockUntil: NOW + 30 * 86400,
-        nextCumEnd: await nextCumEnd(db, payer.key, 3),
-        ticket: makeTicket({
-          device: payer.key,
-          mint: MINT,
-          lockSeq: 3,
-          bond: 200_000_000n,
-          backing: 100_000_000n,
-          lockUntil: NOW + 30 * 86400,
-        }),
-      },
-    ],
+    locks: [await lockOf()],
     tokens: new Map([[bytesToHex(MINT), { symbol: 'USDC', decimals: 6 }]]),
-    limits: {
-      noteLifetime: 72 * 3600,
-      noteHops: 3,
-      requestTtl: 600,
-      skewTolerance: 120,
-      transferMargin: 120,
-      maxPayment: 100_000_000n,
-      biometricFrom: 20_000_000n,
-      biometricDaily: 50_000_000n,
-    },
+    limits,
     salt: () => crypto.getRandomValues(new Uint8Array(16)),
     knownReceivers: new Set(),
     paidRequests: new Set(),
@@ -251,6 +260,79 @@ describe('an unfinished payment shown again', () => {
     expect(flow.state.name).toBe('presenting')
     expect(tree.root.findAll((n) => typeof n.type === 'string' && n.props.testID === 'qr-shown')).toHaveLength(1)
     expect(signer.signatures).toBe(signed)
+    await act(async () => tree.unmount())
+  })
+
+  it('plans a new request while an earlier payment is unconfirmed, and says a paid one is already paid', async () => {
+    await seedSignedPayment()
+    mocks.locks = [await lockOf()]
+    let tree!: ReturnType<typeof create>
+    await act(async () => {
+      tree = create(
+        <PayFlowProvider>
+          <Harness />
+        </PayFlowProvider>,
+      )
+    })
+    const read = async (wanted: typeof request) => {
+      await act(async () => flow.scan())
+      for (const text of encodeFrames(
+        { kind: MessageKind.Request, payload: encodeRequest(wanted) },
+        qrFrameLimits(),
+      ).map(frameToText)) {
+        await act(async () => flow.submitText(text))
+      }
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 50)))
+    }
+    await read({ ...request, amount: 2_000_000n })
+    expect(flow.state).toMatchObject({ name: 'reviewing' })
+    await act(async () => flow.back())
+    await read(request)
+    expect(flow.state).toMatchObject({ name: 'refused', reason: 'AlreadyPaid' })
+    await act(async () => tree.unmount())
+  })
+
+  it('scans a new request after the send screen was left without pressing Done', async () => {
+    const { row } = await seedSignedPayment()
+    let tree!: ReturnType<typeof create>
+    await act(async () => {
+      tree = create(
+        <PayFlowProvider>
+          <Harness />
+        </PayFlowProvider>,
+      )
+    })
+    await act(async () => {
+      await flow.resume(row.messageId)
+      mocks.open(true)
+    })
+    await act(async () => mocks.open(false))
+    await act(async () => flow.scan())
+    expect(flow.state).toMatchObject({ name: 'scanning' })
+    await act(async () => tree.unmount())
+  })
+
+  it('says so when a request was read and the payment could not be planned', async () => {
+    await seedSignedPayment()
+    mocks.locks = [await lockOf()]
+    await db.run('DROP TABLE received_note')
+    let tree!: ReturnType<typeof create>
+    await act(async () => {
+      tree = create(
+        <PayFlowProvider>
+          <Harness />
+        </PayFlowProvider>,
+      )
+    })
+    await act(async () => flow.scan())
+    for (const text of encodeFrames(
+      { kind: MessageKind.Request, payload: encodeRequest(request) },
+      qrFrameLimits(),
+    ).map(frameToText)) {
+      await act(async () => flow.submitText(text))
+    }
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50)))
+    expect(flow.state).toMatchObject({ name: 'scanning', unreadable: true })
     await act(async () => tree.unmount())
   })
 })

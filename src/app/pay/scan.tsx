@@ -6,6 +6,9 @@ import { ScanScreen } from '../../features/qr/scan-screen'
 import { howCopy } from '../../features/transport/copy'
 import { WaitingScreen } from '../../features/transport/waiting'
 
+const scanNotice = (state: { wrongCode: boolean; unreadable?: boolean }) =>
+  state.unreadable ? copy.scan.unreadable : state.wrongCode ? copy.scan.wrongCode : undefined
+
 export default function PayScan() {
   const flow = usePayFlow()
   const { state } = flow
@@ -44,7 +47,7 @@ export default function PayScan() {
       hint={copy.scan.hint}
       hintTestID="pay-scan-hint"
       progress={flow.progress}
-      notice={state.name === 'scanning' && state.wrongCode ? copy.scan.wrongCode : undefined}
+      notice={state.name === 'scanning' ? scanNotice(state) : undefined}
       onText={flow.submitText}
       onCancel={flow.back}
       cancelLabel={copy.review.cancel}

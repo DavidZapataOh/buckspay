@@ -189,7 +189,9 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
           void entriesSince(db, point.pairing.eventId, startedAt - 1).then((entries) => point.sync.push(entries))
         }
       },
-      () => undefined,
+      () => {
+        if (!controller.signal.aborted) dispatch({ type: 'back' })
+      },
     )
   }, [abort, attesters, db, domains, key, point, recordFees])
 

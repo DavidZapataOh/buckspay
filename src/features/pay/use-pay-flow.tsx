@@ -169,7 +169,12 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const scan = useCallback(() => {
-    if (stateRef.current.name !== 'idle') return
+    const { name } = stateRef.current
+    if (name !== 'idle') {
+      if (name !== 'presenting' && name !== 'confirmed' && name !== 'rejected' && name !== 'failed') return
+      session.clear()
+      dispatch({ type: 'finish' })
+    }
     dispatch({ type: 'scan' })
     abort()
     const controller = new AbortController()
@@ -208,10 +213,10 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
             : planPayment(request, context, credit ? { authorityOnly: credit.authority } : undefined),
         })
       } catch {
-        // The screen was left: nothing is waiting.
+        if (!controller.signal.aborted) dispatch({ type: 'unreadable' })
       }
     })()
-  }, [abort, domains, medium, slot])
+  }, [abort, domains, medium, session, slot])
 
   const submitText = useCallback((value: string) => session.push(value), [session])
 
@@ -248,7 +253,9 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'receipt', result })
         await reloadUnfinished()
       },
-      () => undefined,
+      () => {
+        if (!controller.signal.aborted) dispatch({ type: 'cancel' })
+      },
     )
   }, [abort, depsFor, reloadUnfinished])
 

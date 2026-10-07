@@ -44,6 +44,7 @@ const table: [ReceiveState['name'], string, Partial<ReceiveState>][] = [
   ['scanning', 'back', { name: 'requesting' }],
   ['verifying', 'accepted', { name: 'accepted' }],
   ['verifying', 'refused', { name: 'rejected' }],
+  ['verifying', 'back', { name: 'requesting' }],
   ['accepted', 'finish', { name: 'composing' }],
   ['rejected', 'scanPayment', { name: 'scanning' }],
   ['rejected', 'finish', { name: 'composing' }],
