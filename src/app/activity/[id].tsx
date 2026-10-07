@@ -17,6 +17,7 @@ import { copy, text } from '../../features/payment/copy'
 import { usePayments } from '../../features/payment/payments-provider'
 import { reasonText } from '../../features/payment/reason-text'
 import type { Reason } from '../../payment/reasons'
+import { whyWaiting } from '../../features/settlement/why'
 import { useSettlementRunner } from '../../features/settlement/use-settlement-runner'
 import { ellipsify } from '../../utils/ellipsify'
 
@@ -43,19 +44,12 @@ export default function ActivityDetailScreen() {
   if (!detail) return <Screen testID="activity-detail">{null}</Screen>
 
   const { symbol, decimals } = BUILD_TOKEN
-  const refused = settlement.report?.refused.find(
-    ({ outputId }) => detail.outputId && bytesToHex(outputId) === bytesToHex(detail.outputId),
-  )
   const lost = settlement.report?.lost.find(
     ({ outputId }) => detail.outputId && bytesToHex(outputId) === bytesToHex(detail.outputId),
   )
   const settleable = detail.kind === 'received' && (detail.state === 'held' || detail.state === 'settling')
-  let waiting: string | undefined
-  if (refused?.kind === 'no_token_account') waiting = copy.activity.noTokenAccount
-  else if (refused?.retryAt !== undefined) {
-    waiting = text(copy.activity.serverLater, { time: new Date(refused.retryAt * 1000).toLocaleString() })
-  } else if (refused) waiting = copy.activity.serverWaits
-  else if (detail.state === 'expired') waiting = copy.activity.expiredNote
+  const why = settleable && detail.outputId ? whyWaiting(settlement.report, detail.outputId) : undefined
+  const waiting = why?.text ?? (detail.state === 'expired' ? copy.activity.expiredNote : undefined)
 
   return (
     <Screen testID="activity-detail">
@@ -104,7 +98,16 @@ export default function ActivityDetailScreen() {
             testID="settle-now"
             variant="filled"
             label={copy.activity.settleNow}
-            onPress={() => void settlement.run()}
+            busy={settlement.running}
+            onPress={() => detail.outputId && void settlement.settleNow(detail.outputId)}
+          />
+        ) : null}
+        {why?.action === 'settle-in-clear' && detail.outputId ? (
+          <Button
+            testID="settle-in-clear"
+            variant="tonal"
+            label={copy.activity.settleInClear}
+            onPress={() => detail.outputId && void settlement.confirmNotice(detail.outputId)}
           />
         ) : null}
         {detail.kind === 'paid' && detail.unfinished ? (

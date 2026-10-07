@@ -306,6 +306,19 @@ describe('settleHeld', () => {
     ])
   })
 
+  it('says why a note still waits: the device could not sign, the gateway was out of reach, or it refused', async () => {
+    const { outputId } = await receive()
+    const locked = Object.assign(new Error('locked'), { code: 'ERR_DEVICE_LOCKED' })
+    const signing = await settleHeld(deps({ signSpend: () => Promise.reject(locked) }))
+    expect(signing.stalled).toEqual([{ outputId, kind: 'sign', code: 'ERR_DEVICE_LOCKED' }])
+    answers = [() => Promise.reject(new Error('network down'))]
+    expect((await settleHeld(deps())).stalled).toEqual([{ outputId, kind: 'offline' }])
+    answers = [() => Promise.reject(new GatewayError(409, 'no_lock', {}))]
+    expect((await settleHeld(deps())).refused).toMatchObject([{ kind: 'lock', reason: 'no_lock' }])
+    answers = [() => Promise.reject(new GatewayError(400, 'bad_chain', {}))]
+    expect((await settleHeld(deps())).refused).toMatchObject([{ kind: 'invalid', reason: 'bad_chain' }])
+  })
+
   it('waits with growing delays while the gateway is unreachable and never signs a second content', async () => {
     await receive()
     answers = Array.from({ length: 5 }, () => () => Promise.reject(new Error('network down')))
@@ -347,7 +360,7 @@ describe('settleHeld', () => {
       () => Promise.reject(new GatewayError(409, 'horizon', { retryAt: clock + 7200 })),
     ]
     const first = await settleHeld(deps())
-    expect(first.refused).toEqual([{ outputId, kind: 'invalid', selfPay: true }])
+    expect(first.refused).toEqual([{ outputId, kind: 'invalid', selfPay: true, reason: 'invalid' }])
     const second = await settleHeld(deps())
     expect(second.refused).toEqual([{ outputId, kind: 'horizon', selfPay: false, retryAt: clock + 7200 }])
     expect(await stateOf(outputId)).toBe('settling')

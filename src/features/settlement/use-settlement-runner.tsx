@@ -32,11 +32,23 @@ export type Settlement = {
   confirmNotice: (outputId: Uint8Array) => Promise<void>
   /** The person asked to settle this note now: proofs start at once, on any network, and submission is not delayed. */
   settleNow: (outputId: Uint8Array) => Promise<void>
+  /** True while a run is under way. */
+  running: boolean
   /** Settles what can be settled now: when a note was received, the app opened, or the connection came back. */
   run: () => Promise<void>
 }
 
 const NO_NOTICES: PendingNotice[] = []
+const EMPTY_REPORT: SettlementReport = {
+  settled: 0,
+  waiting: 0,
+  failed: 0,
+  refused: [],
+  stalled: [],
+  lost: [],
+  notices: [],
+  private: [],
+}
 const PROGRAM_ADDRESS = address(ACTIVE_PROFILE.programId)
 
 const SettlementContext = createContext<Settlement | undefined>(undefined)
@@ -52,6 +64,8 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
   const [labelPending, setLabelPending] = useState(false)
   const attempts = useRef(new Map<string, number>())
   const running = useRef(false)
+  const again = useRef(false)
+  const [busy, setBusy] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const key = deviceKey?.publicKey
   const wallet = device?.wallet
@@ -59,8 +73,16 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
   const run = useCallback(async () => {
     if (!db) return
     setUnsettled(await unsettledSummary(db))
-    if (!key || !wallet || !BUILD_GATEWAY || running.current) return
+    if (running.current) {
+      again.current = true
+      return
+    }
+    if (!key || !wallet || !BUILD_GATEWAY) {
+      setReport({ ...EMPTY_REPORT, blocked: !key || !wallet ? 'wallet' : 'gateway' })
+      return
+    }
     running.current = true
+    setBusy(true)
     clearTimeout(timer.current)
     try {
       const cluster = deviceKeyCluster()
@@ -95,6 +117,11 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
       if (result.retryIn !== undefined) timer.current = setTimeout(() => void run(), result.retryIn * 1000)
     } finally {
       running.current = false
+      setBusy(false)
+      if (again.current) {
+        again.current = false
+        void run()
+      }
     }
   }, [client.rpc, db, domains, key, wallet])
 
@@ -140,8 +167,8 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
 
   const notices = report?.notices ?? NO_NOTICES
   const value = useMemo<Settlement>(
-    () => ({ unsettled, report, labelPending, acknowledge, notices, confirmNotice, settleNow, run }),
-    [unsettled, report, labelPending, acknowledge, notices, confirmNotice, settleNow, run],
+    () => ({ unsettled, report, labelPending, acknowledge, notices, confirmNotice, settleNow, running: busy, run }),
+    [unsettled, report, labelPending, busy, acknowledge, notices, confirmNotice, settleNow, run],
   )
   return <SettlementContext.Provider value={value}>{children}</SettlementContext.Provider>
 }

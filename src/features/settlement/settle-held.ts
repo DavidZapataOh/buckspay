@@ -28,7 +28,7 @@ import {
 import type { NoteDb } from '../notes/db'
 import { type NoteChain, settlementRequest } from './chain'
 import { needsClearNotice } from './clear-notice'
-import { type ClaimOutcome, fileClaim, settle } from './settle'
+import { type ClaimOutcome, fileClaim, type Refusal, settle } from './settle'
 import { privatePath } from '../zk/policy'
 import type { PrivateNote } from '../zk/private-settler'
 import type { PrivateSettlementState } from '../zk/types'
@@ -75,7 +75,17 @@ export type SettlementDeps = {
   }
 }
 
-export type Refused = { outputId: Uint8Array; kind: string; selfPay: boolean; retryAt?: number }
+export type Refused = {
+  outputId: Uint8Array
+  kind: string
+  selfPay: boolean
+  retryAt?: number
+  /** What the gateway said about it, when it said more than the kind. */
+  reason?: string
+}
+
+/** A note that could not be sent this time for a reason on this side: the device would not sign, or the gateway was out of reach. */
+export type Stalled = { outputId: Uint8Array; kind: 'sign'; code?: string } | { outputId: Uint8Array; kind: 'offline' }
 
 /** A note that waits for the person to read who settling it publishes. */
 export type PendingNotice = { outputId: Uint8Array; holders: number }
@@ -105,8 +115,9 @@ export type SettlementReport = {
   settled: number
   waiting: number
   failed: number
-  blocked?: 'label'
+  blocked?: 'label' | 'wallet' | 'gateway'
   refused: Refused[]
+  stalled: Stalled[]
   /** Notes that lost to a double spend, with what the claim of the loss came to. */
   lost: LostReport[]
   notices: PendingNotice[]
@@ -115,6 +126,9 @@ export type SettlementReport = {
   /** Seconds until the next run is worth making, when something waits. */
   retryIn?: number
 }
+
+const reasonOf = (refusal: Refusal) =>
+  'reason' in refusal ? refusal.reason : refusal.kind === 'invalid' ? refusal.message : undefined
 
 const bodyOf = (input: Uint8Array, body: Uint8Array) =>
   decodeSpend(concatBytes(input, body, new Uint8Array(64))).message
@@ -147,6 +161,7 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
     waiting: 0,
     failed: 0,
     refused: [],
+    stalled: [],
     lost: [],
     notices: [],
     private: [],
@@ -201,7 +216,9 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
       let signed: Signed<Spend>
       try {
         signed = await deps.signSpend(output, bodyOf(output.id, body))
-      } catch {
+      } catch (error) {
+        const code = (error as { code?: unknown } | null)?.code
+        report.stalled.push({ outputId: note.outputId, kind: 'sign', ...(typeof code === 'string' ? { code } : {}) })
         wait()
         continue
       }
@@ -244,6 +261,7 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
       report.settled++
     } else if (outcome.kind === 'unknown') {
       await deps.queueRelay?.({ outputId: note.outputId, chain, expiry: note.expiry }).catch(() => undefined)
+      report.stalled.push({ outputId: note.outputId, kind: 'offline' })
       wait()
     } else {
       const { refusal } = outcome
@@ -268,6 +286,7 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
           kind: refusal.kind,
           selfPay: outcome.selfPay,
           ...(retryAt === undefined ? {} : { retryAt }),
+          ...(reasonOf(refusal) === undefined ? {} : { reason: reasonOf(refusal) }),
         })
         const hint =
           retryAt === undefined
