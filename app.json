@@ -11,7 +11,7 @@
     },
     "android": {
       "package": "xyz.buckspay.app",
-      "blockedPermissions": ["android.permission.WRITE_SETTINGS"],
+      "blockedPermissions": ["android.permission.WRITE_SETTINGS", "android.permission.SYSTEM_ALERT_WINDOW"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon-foreground.png",
         "monochromeImage": "./assets/adaptive-icon-monochrome.png",
