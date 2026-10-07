@@ -143,11 +143,12 @@ jobs:
           cache-dependency-path: prover/go.sum
       - run: test -z "$(gofmt -l .)"
         working-directory: prover
-      - run: go vet ./...
+      # mobile/lib is the Android JNI layer: it needs the NDK headers, so only the Gradle build compiles it.
+      - run: go vet $(go list ./... | grep -v /mobile/lib$)
         working-directory: prover
       # The solver tests (every vector against the constraint system) and the ceremony tests; the
       # full single-party setups run weekly.
-      - run: go test -short ./...
+      - run: go test -short $(go list ./... | grep -v /mobile/lib$)
         working-directory: prover
       - run: rustup toolchain install
         working-directory: anchor
@@ -172,7 +173,7 @@ jobs:
         with:
           go-version-file: prover/go.mod
           cache-dependency-path: prover/go.sum
-      - run: go test -timeout 30m ./...
+      - run: go test -timeout 30m $(go list ./... | grep -v /mobile/lib$)
         working-directory: prover
 
   expo-sdk:
