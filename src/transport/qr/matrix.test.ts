@@ -1,11 +1,11 @@
 import { readBarcodes } from 'zxing-wasm/reader'
 import { describe, expect, it } from 'vitest'
-import { encodeFrames } from '../framing'
+import { encodeFrames, MULTI_HEADER_BYTES } from '../framing'
 import { MessageKind } from '../types'
 import { rasterize } from '../testing/raster'
 import { seeded } from '../testing/random'
 import { layoutQr } from './layout'
-import { qrFrameLimits } from './limits'
+import { QR_CHARS, qrFrameLimits } from './limits'
 import { qrMatrix } from './matrix'
 import { qrPath } from './path'
 import { frameToText } from './text'
@@ -57,6 +57,23 @@ describe('qrMatrix', () => {
 })
 
 describe('layoutQr', () => {
+  it('decodes the frames drawn at the 311 and 600 character limits from a raster at the screen width', async () => {
+    const screenPx = 1080 - 2 * Math.round(24 * 2.625)
+    const message = (length: number, seed: number) => ({ kind: MessageKind.Payment, payload: payload(length, seed) })
+    const largestSingle = frameToText(encodeFrames(message(limits.single - 1, 1), limits)[0])
+    const multi = frameToText(encodeFrames(message(3 * (limits.multi - MULTI_HEADER_BYTES), 2), limits)[0])
+    expect(largestSingle.length).toBeGreaterThan(QR_CHARS.single - 3)
+    expect(largestSingle.length).toBeLessThanOrEqual(QR_CHARS.single)
+    expect(multi.length).toBeGreaterThan(QR_CHARS.multi - 3)
+    expect(multi.length).toBeLessThanOrEqual(QR_CHARS.multi)
+    for (const text of [largestSingle, multi]) {
+      const matrix = qrMatrix(text)
+      const layout = layoutQr(screenPx, matrix.length)
+      expect(layout.crisp).toBe(true)
+      expect(await decode(matrix, layout.pixelsPerModule)).toBe(text)
+    }
+  })
+
   it('uses whole pixels per module and the quiet zone of four modules', () => {
     expect(layoutQr(1000, 77)).toEqual({ pixelsPerModule: 11, sizePx: 935, quietPx: 44, crisp: true })
     expect(layoutQr(935, 77).pixelsPerModule).toBe(11)
