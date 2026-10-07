@@ -6,6 +6,7 @@ import { BUILD_FUNDING_MINT } from '../lock/build-funding'
 import { useLocks } from '../lock/use-locks'
 import { nextCumEnd } from '../notes/outgoing'
 import { nowSeconds, usePayments } from '../payment/payments-provider'
+import { loadActiveLocks, saveActiveLocks } from './active-locks'
 import { allowance, needsRefresh, offlineLocks } from './offline-locks'
 import { loadTickets, MAX_TICKET_BATCH, requestTickets, saveTickets, type TicketLifetime } from './tickets'
 
@@ -30,11 +31,27 @@ export function useOfflineLocks() {
   const asking = useRef(false)
   const lastAsked = useRef(0)
 
-  const active = useMemo(
+  const [remembered, setRemembered] = useState<readonly number[]>([])
+  useEffect(() => {
+    if (!key) return
+    let current = true
+    void loadActiveLocks(key).then((seqs) => current && setRemembered(seqs))
+    return () => {
+      current = false
+    }
+  }, [key])
+
+  const onChain = useMemo(
     () =>
-      (chain ?? []).filter((lock) => !lock.withdrawn && lock.mint === BUILD_FUNDING_MINT).map((lock) => lock.lockSeq),
+      chain === undefined
+        ? undefined
+        : chain.filter((lock) => !lock.withdrawn && lock.mint === BUILD_FUNDING_MINT).map((lock) => lock.lockSeq),
     [chain],
   )
+  useEffect(() => {
+    if (key && onChain) void saveActiveLocks(key, onChain).catch(() => undefined)
+  }, [key, onChain])
+  const active = onChain ?? remembered
 
   const snapshot = useCallback(async () => {
     if (!key || !db) return undefined
