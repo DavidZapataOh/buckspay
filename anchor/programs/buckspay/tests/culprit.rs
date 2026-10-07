@@ -189,6 +189,22 @@ fn a_double_spend_at_the_first_hop_burns_twice_the_culprits_payment() {
 }
 
 #[test]
+fn a_double_spend_burns_twice_the_payment_not_the_amount_the_spend_consumed() {
+    let mut w = Cast::new(2);
+    let paid = PAYMENT / 4;
+    let chain =
+        w.issue_to_first()
+            .spend2(&w.holders[0].key, 0, w.holders[1].key.owner(), paid, 0, 1);
+    let supply = w.env.supply();
+    w.settle_to_winner(&chain.pay_account_at(&w.holders[0].key, 0, &w.winner, 0xA0))
+        .unwrap();
+    assert_eq!(w.finder(&chain), Some(0));
+    w.claim(&chain.prefix(1), 0).unwrap();
+    assert_eq!(supply - w.env.supply(), 2 * paid);
+    assert_eq!(w.free_bond(0), HOLDER_BOND - 2 * paid);
+}
+
+#[test]
 fn a_double_spend_at_a_middle_hop_names_that_holder() {
     let mut w = Cast::new(6);
     let honest = w.honest();

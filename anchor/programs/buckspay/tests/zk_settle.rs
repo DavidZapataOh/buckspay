@@ -131,6 +131,19 @@ fn stale_verifying_key_fails_before_pairing() {
 }
 
 #[test]
+fn the_compiled_key_is_refused_while_the_config_names_the_previous_one() {
+    each_cluster(|z| {
+        z.before_rotation();
+        let note = z.private_note(2);
+        is(
+            &z.send(&ZkSettle::inline(z, &note)).unwrap_err(),
+            E::StaleVerifyingKey,
+        );
+        assert!(z.no_records_written(&note));
+    });
+}
+
+#[test]
 fn non_canonical_s_out_is_refused() {
     each_cluster(|z| {
         let note = z.private_note(2);
