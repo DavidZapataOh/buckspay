@@ -268,6 +268,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
 
   const resume = useCallback(
     async (messageId?: Uint8Array) => {
+      abort()
       try {
         const [payment] = await resumePayments(depsFor(), messageId)
         if (payment) dispatch({ type: 'resumed', payment })
@@ -276,7 +277,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
       }
       await reloadUnfinished()
     },
-    [depsFor, reloadUnfinished],
+    [abort, depsFor, reloadUnfinished],
   )
 
   const discard = useCallback(

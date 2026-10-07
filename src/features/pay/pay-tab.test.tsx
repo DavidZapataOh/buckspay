@@ -99,7 +99,7 @@ describe('PayTab', () => {
     })
     const shown = texts(renderer.root).join('\n')
     expect(shown).toMatch(
-      /Unfinished payment: 5\.00 USDC to phone [A-Z2-9]{4}-[A-Z2-9]{4}\. Your phone was closed before it finished\./,
+      /Unfinished payment: 5\.00 USDC to phone [A-Z2-9]{4}-[A-Z2-9]{4}\. It was left before the other phone confirmed it\./,
     )
     expect(shown).toContain('Not confirmed: ask the other person whether it arrived.')
     const resume = renderer.root.findAll((node) => node.props.testID === 'pay-resume' && typeof node.type === 'string')

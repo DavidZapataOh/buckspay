@@ -19,7 +19,8 @@ export const copy = {
     addMoney: 'Add money',
     scan: 'Scan to pay',
     paste: 'Paste a request',
-    unfinished: 'Unfinished payment: {amount} {symbol} to phone {code}. Your phone was closed before it finished.',
+    unfinished:
+      'Unfinished payment: {amount} {symbol} to phone {code}. It was left before the other phone confirmed it.',
     resume: 'Resume',
     discard: 'Discard',
     discardWarning: 'This part of your allowance may stay used.',

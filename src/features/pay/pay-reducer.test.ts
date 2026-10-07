@@ -59,6 +59,7 @@ const table: [PayState['name'], string, Partial<PayState>][] = [
   ['awaiting-receipt', 'confirmedReceipt', { name: 'confirmed' }],
   ['awaiting-receipt', 'rejectedReceipt', { name: 'rejected', reason: Reason.OverLimit }],
   ['awaiting-receipt', 'otherReceipt', { name: 'presenting' }],
+  ['awaiting-receipt', 'resumed', { name: 'presenting' }],
   ['awaiting-receipt', 'cancel', { name: 'presenting' }],
   ['confirmed', 'finish', { name: 'idle' }],
   ['rejected', 'showAgain', { name: 'presenting' }],

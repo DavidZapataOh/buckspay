@@ -66,6 +66,7 @@ export function payReducer(state: PayState, event: PayEvent): PayState {
       if (event.type === 'finish') return initialPayState
       return state
     case 'awaiting-receipt':
+      if (event.type === 'resumed') return { name: 'presenting', payment: event.payment }
       if (event.type === 'cancel') return { name: 'presenting', payment: state.payment }
       if (event.type !== 'receipt') return state
       if (event.result.status === 'confirmed') return { name: 'confirmed', payment: state.payment }
