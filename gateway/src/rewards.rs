@@ -754,18 +754,23 @@ fn word(bytes: &[u8]) -> [u8; 32] {
     out
 }
 
+/// How long after a rotation the previous claim key still verifies: the longest lock and an hour.
+pub(crate) const CLAIM_KEY_OVERLAP: u32 = 72 * 3600 + 3600;
+
 /// The key a claim batch is verified under, as the program picks it: the current key, or the
 /// previous one inside its window.
 fn claim_key(config: &RewardConfig, sha256: &[u8; 32], now: u32) -> Option<Vk<'static>> {
     if sha256 == vk::CLAIM.sha256 {
         return (config.claim_key.vk == *sha256).then_some(vk::CLAIM);
     }
-    let overlap = 72 * 3600 + 3600;
     vk::CLAIM_PREVIOUS.filter(|key| {
         key.sha256 == sha256
             && config.previous_claim_key.vk == *sha256
             && config.rotated_at != 0
-            && i64::from(now) <= config.rotated_at.saturating_add(overlap)
+            && i64::from(now)
+                <= config
+                    .rotated_at
+                    .saturating_add(i64::from(CLAIM_KEY_OVERLAP))
     })
 }
 
@@ -1170,7 +1175,7 @@ async fn drive_sweep(state: &Gateway, key: &str, job: &RewardJob) -> Result<Sent
     submit(state, key, tx, 0).await
 }
 
-async fn read_sweep_config(state: &Gateway) -> Result<SweepConfig, Error> {
+pub(crate) async fn read_sweep_config(state: &Gateway) -> Result<SweepConfig, Error> {
     let rewards = &state.rewards;
     let rate = rewards.rate.ok_or(refuse(Problem::Paused))?;
     let fee_account = state.settings.fee_token.ok_or(refuse(Problem::Paused))?;

@@ -17,6 +17,7 @@ pub mod message;
 pub mod onboard;
 pub mod operations;
 pub mod relay;
+pub mod reward_reads;
 pub mod rewards;
 pub mod server;
 pub mod settlements;

@@ -216,6 +216,9 @@ pub fn router(state: Arc<Gateway>, client: ClientAddress) -> Router {
     let limited = Router::new()
         .route("/v1/hpke-config", get(hpke_config))
         .route("/v1/zk-config", get(crate::zk::config))
+        .route("/v1/sweeps/quote", get(crate::reward_reads::sweep_quote))
+        .route("/v1/rewards/key", get(crate::reward_reads::key))
+        .route("/v1/rewards/trees/{epoch}", get(crate::reward_reads::tree))
         .route("/v1/onboarding/quote", get(onboard::quote))
         .route("/v1/onboard", post(onboard::prepare))
         .route("/v1/onboard/submit", post(sponsored::submit))
@@ -363,6 +366,8 @@ pub enum Error {
     Conflict(&'static str),
     /// There is no prepared transaction for this key.
     Gone,
+    /// The chain holds nothing under the name asked for.
+    NotFound(&'static str),
     /// The endpoint was removed.
     Retired,
     RateLimited,
@@ -391,6 +396,7 @@ impl Error {
             Error::BadRequest(_) => "bad_request".to_owned(),
             Error::Conflict(_) => "conflict".to_owned(),
             Error::Gone => "gone".to_owned(),
+            Error::NotFound(_) => "not_found".to_owned(),
             Error::Retired => "retired".to_owned(),
             Error::RateLimited => "rate_limited".to_owned(),
             Error::Refused(refusal) => crate::onboard::reason(refusal).to_owned(),
@@ -411,6 +417,7 @@ impl IntoResponse for Error {
         match self {
             Error::BadRequest(message) => json(StatusCode::BAD_REQUEST, message).into_response(),
             Error::Conflict(message) => json(StatusCode::CONFLICT, message).into_response(),
+            Error::NotFound(message) => json(StatusCode::NOT_FOUND, message).into_response(),
             Error::Gone => {
                 json(StatusCode::GONE, "no prepared transaction for this key").into_response()
             }

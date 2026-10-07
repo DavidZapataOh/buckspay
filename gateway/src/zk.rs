@@ -285,7 +285,7 @@ pub fn select(vk_sha256: &[u8; 32], trusted: &Trusted, now: u32) -> Result<Vk<'s
 pub struct Zk {
     limits: RequestLimits,
     verified: AtomicU64,
-    keys_url: Option<String>,
+    pub(crate) keys_url: Option<String>,
 }
 
 impl Default for Zk {
@@ -1044,6 +1044,23 @@ pub(crate) async fn config(
 /// The keys the program holds, copied as they are: the app checks their hashes against the chain
 /// or its own pin, never this answer alone. The previous key is listed until it stops settling.
 fn config_body(config: &ZkConfig, base: &str, life: u32) -> serde_json::Value {
+    keys_body(
+        &config.current,
+        &config.previous,
+        config.rotated_at,
+        base,
+        life,
+    )
+}
+
+/// The current key and, once one was replaced, the previous key with the last second it may be used.
+pub(crate) fn keys_body(
+    current: &buckspay_client::types::KeyHashes,
+    previous: &buckspay_client::types::KeyHashes,
+    rotated_at: i64,
+    base: &str,
+    life: u32,
+) -> serde_json::Value {
     let keys = |hashes: &buckspay_client::types::KeyHashes| {
         let vk = hex::encode(hashes.vk);
         json!({
@@ -1055,10 +1072,10 @@ fn config_body(config: &ZkConfig, base: &str, life: u32) -> serde_json::Value {
             "ccsSha256": hex::encode(hashes.ccs),
         })
     };
-    let mut body = json!({ "current": keys(&config.current) });
-    if config.rotated_at != 0 {
-        let mut previous = keys(&config.previous);
-        previous["validUntil"] = json!(config.rotated_at.saturating_add(i64::from(life)));
+    let mut body = json!({ "current": keys(current) });
+    if rotated_at != 0 {
+        let mut previous = keys(previous);
+        previous["validUntil"] = json!(rotated_at.saturating_add(i64::from(life)));
         body["previous"] = previous;
     }
     body

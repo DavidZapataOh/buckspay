@@ -84,7 +84,7 @@ impl Leaf {
         poseidon(&[&self.nullifier, &self.trapdoor])
     }
 
-    fn value(&self) -> [u8; 32] {
+    pub fn value(&self) -> [u8; 32] {
         let mut exp = [0u8; 32];
         exp[31] = self.exp;
         poseidon(&[&self.inner(), &exp])
@@ -478,30 +478,44 @@ pub async fn start_with(peer: &str, rate: Option<Rate>) -> Gw {
 }
 
 pub async fn start_with_budget(peer: &str, rate: Option<Rate>, daily_budget: u64) -> Gw {
+    start_with_keys(peer, rate, daily_budget, None).await
+}
+
+pub async fn start_with_keys(
+    peer: &str,
+    rate: Option<Rate>,
+    daily_budget: u64,
+    keys_url: Option<&str>,
+) -> Gw {
     world().await;
     let fee_account = token_account(&Keypair::new().pubkey(), 0).await;
     let mut settings = settings();
     settings.fee_token = Some(fee_account);
     let fee_payer = funded(1_000_000_000).await;
     let fee_payer_address = fee_payer.pubkey();
-    let gateway = std::sync::Arc::new(
-        Gateway::new(
-            rpc(&cluster().url),
-            fee_payer,
-            settings,
-            rents().await,
-            Limits {
-                requests: RequestLimits::new(std::num::NonZeroU32::new(1_000).unwrap()),
-                sponsor: SponsorLimits::new(caps()),
-                settlements: SettlementLimits::new(float_caps()),
-            },
-            hpke(),
-        )
-        .with_rewards(
-            Rewards::new(PINNED, rate, daily_budget, RewardJobs::default())
-                .with_claim_ip_limit(CLAIM_IP_LIMIT),
-        ),
+    let mut gateway = Gateway::new(
+        rpc(&cluster().url),
+        fee_payer,
+        settings,
+        rents().await,
+        Limits {
+            requests: RequestLimits::new(std::num::NonZeroU32::new(1_000).unwrap()),
+            sponsor: SponsorLimits::new(caps()),
+            settlements: SettlementLimits::new(float_caps()),
+        },
+        hpke(),
+    )
+    .with_rewards(
+        Rewards::new(PINNED, rate, daily_budget, RewardJobs::default())
+            .with_claim_ip_limit(CLAIM_IP_LIMIT),
     );
+    if let Some(url) = keys_url {
+        gateway = gateway.with_zk(
+            buckspay_gateway::zk::Zk::new(std::num::NonZeroU32::new(1_000).unwrap())
+                .with_keys_url(url.to_owned()),
+        );
+    }
+    let gateway = std::sync::Arc::new(gateway);
     Gw {
         sponsor: Sponsor {
             fee_payer: fee_payer_address,
@@ -521,6 +535,10 @@ impl Gw {
 
     pub async fn leaf(&self, index: usize) -> Leaf {
         world().await.leaves[index].clone()
+    }
+
+    pub async fn get(&self, path: &str) -> (StatusCode, Vec<u8>) {
+        get_raw(&self.sponsor, self.peer.split(':').next().unwrap(), path).await
     }
 
     pub async fn leaves(&self, indexes: std::ops::Range<usize>) -> Vec<Leaf> {
@@ -650,6 +668,25 @@ impl Gw {
 
     /// A sweep from `fresh` to a new token account of `to`, signed by `fresh` alone.
     pub async fn sweep_body(&self, fresh: &Keypair, to: &Pubkey, amount: u64, fee: u64) -> String {
+        self.sweep_body_with(
+            fresh,
+            to,
+            amount,
+            fee,
+            (PINNED.sweep_cu, PINNED.priority_price),
+        )
+        .await
+    }
+
+    /// The same sweep under the compute limit and price given.
+    pub async fn sweep_body_with(
+        &self,
+        fresh: &Keypair,
+        to: &Pubkey,
+        amount: u64,
+        fee: u64,
+        (limit, price): (u32, u64),
+    ) -> String {
         let (source, destination) = (
             associated(&fresh.pubkey(), &cluster().mint),
             associated(to, &cluster().mint),
@@ -670,8 +707,8 @@ impl Gw {
             }
         };
         let instructions = [
-            ComputeBudgetInstruction::set_compute_unit_limit(PINNED.sweep_cu),
-            ComputeBudgetInstruction::set_compute_unit_price(PINNED.priority_price),
+            ComputeBudgetInstruction::set_compute_unit_limit(limit),
+            ComputeBudgetInstruction::set_compute_unit_price(price),
             create_associated_idempotent(&self.sponsor.fee_payer, to, &cluster().mint),
             transfer(destination, amount),
             transfer(self.fee_account, fee),

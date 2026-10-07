@@ -653,7 +653,7 @@ async fn leaf_indexes(state: &Gateway, signature: &Signature) -> Vec<u32> {
     leaves_in(&logs)
 }
 
-fn event_discriminator() -> [u8; 8] {
+pub(crate) fn event_discriminator() -> [u8; 8] {
     Sha256::digest(b"event:LeafAppended")[..8]
         .try_into()
         .expect("a hash is longer than eight bytes")

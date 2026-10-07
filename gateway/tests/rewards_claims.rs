@@ -1,7 +1,10 @@
 mod support;
 
+use axum::http::StatusCode;
 use base64::{Engine, prelude::BASE64_STANDARD};
+use buckspay_client::accounts::RewardConfig;
 use buckspay_gateway::rewards::{self, Rate};
+use solana_pubkey::Pubkey;
 use solana_signer::Signer;
 use support::{rewards::*, *};
 
@@ -193,4 +196,130 @@ async fn a_claim_that_does_not_repay_its_cost_at_the_rate_is_refused() {
     assert_eq!(answer.reason.as_deref(), Some("fee"), "{answer:?}");
     assert_eq!(gw.fee_payer_lamports().await, before);
     assert_eq!(gw.sent_transactions().await, sent);
+}
+
+async fn leaf_values(gw: &Gw) -> Vec<u8> {
+    gw.leaves(0..14)
+        .await
+        .iter()
+        .flat_map(Leaf::value)
+        .collect()
+}
+
+#[tokio::test]
+async fn the_tree_endpoint_serves_every_leaf_from_index_zero() {
+    let gw = start_with_rewards("10.1.12.1:4000").await;
+    let (status, body) = gw.get("/v1/rewards/trees/0").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body.len(), 14 * 32);
+    assert_eq!(body, leaf_values(&gw).await);
+}
+
+#[tokio::test]
+async fn an_unknown_epoch_is_not_found_and_a_malformed_one_is_refused() {
+    let gw = start_with_rewards("10.1.12.2:4000").await;
+    assert_eq!(gw.get("/v1/rewards/trees/9").await.0, StatusCode::NOT_FOUND);
+    assert_eq!(
+        gw.get("/v1/rewards/trees/x").await.0,
+        StatusCode::BAD_REQUEST
+    );
+}
+
+#[tokio::test]
+async fn the_key_endpoint_offers_what_the_program_holds() {
+    let gw = start_with_keys("10.1.12.3:4000", None, 0, Some("https://keys.example/")).await;
+    let (status, body) = gw.get("/v1/rewards/key").await;
+    assert_eq!(status, StatusCode::OK);
+    let offer: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let config = RewardConfig::from_bytes(
+        &account(&Pubkey::find_program_address(&[b"reward-config"], &program().id()).0)
+            .await
+            .unwrap()
+            .data,
+    )
+    .unwrap();
+    let vk = hex::encode(config.claim_key.vk);
+    assert_eq!(offer["vkSha256"], vk);
+    assert_eq!(offer["pkSha256"], hex::encode(config.claim_key.pk));
+    assert_eq!(offer["ccsSha256"], hex::encode(config.claim_key.ccs));
+    assert_eq!(offer["dumpSha256"], hex::encode(config.claim_key.dump));
+    assert_eq!(
+        offer["pkUrl"],
+        format!("https://keys.example/zk/{vk}/pk.bin")
+    );
+    assert_eq!(
+        offer["ccsUrl"],
+        format!("https://keys.example/zk/{vk}/ccs.bin")
+    );
+    assert_eq!(config.rotated_at, 0);
+    assert!(offer.get("previous").is_none(), "{offer}");
+}
+
+#[tokio::test]
+async fn the_key_endpoint_needs_the_published_files() {
+    let gw = start_with_rewards("10.1.12.4:4000").await;
+    assert_eq!(gw.get("/v1/rewards/key").await.0, StatusCode::BAD_REQUEST);
+}
+
+async fn quote_of(gw: &Gw) -> serde_json::Value {
+    let (status, body) = gw.get("/v1/sweeps/quote").await;
+    assert_eq!(status, StatusCode::OK);
+    serde_json::from_slice(&body).unwrap()
+}
+
+#[tokio::test]
+async fn the_sweep_quote_states_what_the_sweep_check_enforces() {
+    let gw = start_with_rewards("10.1.13.1:4000").await;
+    let (quote, cfg) = (quote_of(&gw).await, gw.sweep_config());
+    assert_eq!(quote["gateway"], cfg.gateway.to_string());
+    assert_eq!(quote["feeAccount"], cfg.fee_account.to_string());
+    assert_eq!(quote["fee"], cfg.sweep_fee.to_string());
+    assert_eq!(quote["feeWithAccount"], cfg.sweep_fee_with_ata.to_string());
+    assert_eq!(quote["computeUnitLimit"], cfg.pinned.sweep_cu);
+    assert_eq!(
+        quote["computeUnitPrice"],
+        cfg.pinned.priority_price.to_string()
+    );
+
+    let number = |name: &str| quote[name].as_str().unwrap().parse::<u64>().unwrap();
+    let limit = u32::try_from(quote["computeUnitLimit"].as_u64().unwrap()).unwrap();
+    let (fresh, to) = (fresh_keypair("quote"), fresh_keypair("quote-to").pubkey());
+    let built = gw
+        .sweep_body_with(
+            &fresh,
+            &to,
+            1_000_000,
+            number("feeWithAccount"),
+            (limit, number("computeUnitPrice")),
+        )
+        .await;
+    let body: serde_json::Value = serde_json::from_str(&built).unwrap();
+    let bytes = BASE64_STANDARD
+        .decode(body["transaction"].as_str().unwrap())
+        .unwrap();
+    let tx: solana_transaction::versioned::VersionedTransaction =
+        bincode::deserialize(&bytes).unwrap();
+    rewards::check_sweep(&tx, &cfg).unwrap();
+
+    let sent = gw.sent_transactions().await;
+    for pinned in [
+        (limit + 1, number("computeUnitPrice")),
+        (limit, number("computeUnitPrice") + 1),
+    ] {
+        let other = gw
+            .sweep_body_with(&fresh, &to, 1_000_000, number("feeWithAccount"), pinned)
+            .await;
+        let answer = gw.post_raw("/v1/sweeps", other).await;
+        assert_eq!(
+            (answer.status.as_str(), answer.reason.as_deref()),
+            ("refused", Some("invalid"))
+        );
+    }
+    assert_eq!(gw.sent_transactions().await, sent);
+}
+
+#[tokio::test]
+async fn the_sweep_quote_needs_a_rate() {
+    let gw = start_with("10.1.13.2:4000", None).await;
+    assert_eq!(gw.get("/v1/sweeps/quote").await.0, StatusCode::BAD_REQUEST);
 }
