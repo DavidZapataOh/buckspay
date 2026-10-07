@@ -1,6 +1,7 @@
 import { BUCKSPAY_PROGRAM_ADDRESS } from '@project/anchor'
 import Constants from 'expo-constants'
 import { useState } from 'react'
+import { Switch, View } from 'react-native'
 import { AddressRow } from '../../components/address-row'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
@@ -11,6 +12,8 @@ import { MeshSettings, type MeshSettingsProps } from '../mesh/mesh-settings'
 import { keyProtection, SOFTWARE_KEY_WARNING } from '../identity/identity-copy'
 import { eventCopy } from '../event/copy'
 import { copy, text } from '../payment/copy'
+import { MIN_TIP_BOND, rewardsCopy } from '../rewards/copy'
+import { formatMoney } from '../../utils/format-amount'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { BUILD_NETWORK } from '../network/build-network'
 import { PrivateDataRow, type PrivateDataProps } from '../zk/private-data-row'
@@ -25,14 +28,27 @@ export type PaymentsSettings = {
   nearbyCheck: NearbyCheckSettingsProps
 }
 
+export type TippingSettings = {
+  on: boolean
+  /** What one word pays, from the reward mint. */
+  wordValue: bigint
+  /** The bond of the lock the tips are made from. */
+  bond: bigint
+  symbol: string
+  decimals: number
+  onToggle: (on: boolean) => void
+}
+
 export function Settings({
   payments,
   mesh,
   privateData,
+  tipping,
 }: {
   payments?: PaymentsSettings
   mesh?: MeshSettingsProps
   privateData?: PrivateDataProps
+  tipping?: TippingSettings
 }) {
   const { step, busy, error, wallet, device, deviceKey, disconnect } = useDeviceIdentity()
   const [forgetting, setForgetting] = useState(false)
@@ -106,6 +122,7 @@ export function Settings({
       ) : null}
       {mesh ? <MeshSettings {...mesh} /> : null}
       {privateData ? <PrivateDataRow {...privateData} /> : null}
+      {tipping ? <TipRow {...tipping} /> : null}
       <AppText variant="title" accessibilityRole="header" className="mt-4">
         Technical details
       </AppText>
@@ -117,5 +134,33 @@ export function Settings({
       <AddressRow address={BUCKSPAY_PROGRAM_ADDRESS} label="Program" />
       <ListRow title="Version" value={Constants.expoConfig?.version ?? 'Unknown'} />
     </Screen>
+  )
+}
+
+function TipRow({ on, wordValue, bond, symbol, decimals, onToggle }: TippingSettings) {
+  const covered = bond >= MIN_TIP_BOND
+  return (
+    <View testID="tipping" className="gap-1">
+      <AppText variant="title" accessibilityRole="header" className="mt-4">
+        {rewardsCopy.tipSection}
+      </AppText>
+      <View className="min-h-14 flex-row items-center justify-between">
+        <View className="flex-1 pr-4">
+          <AppText variant="body">{rewardsCopy.tipSwitch}</AppText>
+          <AppText variant="label" tone="muted">
+            {covered
+              ? text(rewardsCopy.tipAmount, { amount: formatMoney(wordValue, decimals), symbol })
+              : rewardsCopy.tipNeedsBond}
+          </AppText>
+        </View>
+        <Switch
+          testID="tip-switch"
+          accessibilityLabel={rewardsCopy.tipSwitch}
+          value={covered && on}
+          disabled={!covered}
+          onValueChange={onToggle}
+        />
+      </View>
+    </View>
   )
 }

@@ -96,6 +96,7 @@ function Routes() {
           <Stack.Screen name="receive/point" />
           <Stack.Screen name="events" />
           <Stack.Screen name="activity/[id]" />
+          <Stack.Screen name="activity/rewards" />
         </Stack.Protected>
         <Stack.Screen name="reset-identity" />
       </Stack>

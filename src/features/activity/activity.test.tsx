@@ -1,4 +1,4 @@
-import { act } from 'react'
+import { act, type ReactElement } from 'react'
 import { create, type ReactTestInstance } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
 import type { ActivityRow } from '../notes/activity'
@@ -35,6 +35,8 @@ const row = (over: Partial<ActivityRow>): ActivityRow => ({
 })
 const texts = (root: ReactTestInstance) =>
   root.findAllByType('Text' as never).map((node) => [node.props.children].flat().join(''))
+
+const mount = async (element: ReactElement) => act(async () => create(element))
 
 describe('ActivityList', () => {
   it('lists payments and received notes newest first with their words', async () => {
@@ -130,5 +132,27 @@ describe('activity ids', () => {
     expect(words('relay-handed', 1)).toContain('Handed to 1 phone nearby')
     expect(words('relay-handed', 3)).toContain('Handed to 3 phones nearby')
     expect(words('relay-sent')).toContain('Sent')
+  })
+
+  it('opens rewards from its own row, with what is ready, and only when it is given', async () => {
+    const onOpen = vi.fn()
+    const none = await mount(<ActivityList rows={[]} symbol="USDC" decimals={6} now={NOW} onOpen={vi.fn()} />)
+    expect(texts(none.root)).not.toContain('Rewards')
+    const r = await mount(
+      <ActivityList
+        rows={[]}
+        symbol="USDC"
+        decimals={6}
+        now={NOW}
+        onOpen={vi.fn()}
+        rewards={{ summary: '0.98 USDC ready to claim', onOpen }}
+      />,
+    )
+    expect(texts(r.root)).toContain('Rewards')
+    expect(texts(r.root)).toContain('0.98 USDC ready to claim')
+    const entry = r.root.findByProps({ accessibilityLabel: 'Rewards: 0.98 USDC ready to claim' })
+    expect(entry.props.accessibilityRole).toBe('button')
+    await act(async () => entry.props.onPress())
+    expect(onOpen).toHaveBeenCalledOnce()
   })
 })

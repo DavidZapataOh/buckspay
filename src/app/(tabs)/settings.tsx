@@ -8,6 +8,8 @@ import { useMesh } from '../../features/mesh/use-mesh'
 import { Settings } from '../../features/settings/settings'
 import { MIN_WINDOW, PAY_LIMITS } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
+import { useTipTerms } from '../../features/rewards/seams'
+import { useTipping } from '../../features/rewards/use-tipping'
 import { carried } from '../../features/relay/inbox'
 import { usePrivateData } from '../../features/zk/use-private-data'
 import { useSettlementRunner } from '../../features/settlement/use-settlement-runner'
@@ -28,6 +30,7 @@ export default function SettingsTab() {
   }, [db])
   const mesh = useMesh(meshNative)
   const privateData = usePrivateData()
+  const tipping = useTipping(useTipTerms())
   useEffect(() => {
     if (mesh.enabled) void syncRelay()
   }, [mesh.enabled])
@@ -37,6 +40,7 @@ export default function SettingsTab() {
   return (
     <Settings
       privateData={privateData}
+      tipping={tipping.settings}
       mesh={{
         enabled: mesh.enabled,
         problem: mesh.problem,

@@ -3,6 +3,7 @@ import { Pressable, View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Screen } from '../../components/screen'
 import { copy } from '../payment/copy'
+import { rewardsCopy } from '../rewards/copy'
 import type { ActivityRow } from '../notes/activity'
 import { activityId, sentence } from './format'
 
@@ -16,6 +17,7 @@ export function ActivityList({
   now,
   onOpen,
   header,
+  rewards,
 }: {
   rows: readonly ActivityRow[]
   symbol: string
@@ -24,6 +26,8 @@ export function ActivityList({
   onOpen: (id: string) => void
   /** What goes above the list: a notice that needs the person's attention. */
   header?: ReactNode
+  /** The way into the relayer rewards, given only when this phone has some. */
+  rewards?: { summary: string; onOpen: () => void }
 }) {
   const today = dayStart(now)
   const headings = rows.map((row, index) => {
@@ -34,6 +38,20 @@ export function ActivityList({
   return (
     <Screen testID="activity">
       <AppText variant="headline">{copy.activity.title}</AppText>
+      {rewards ? (
+        <Pressable
+          testID="rewards-entry"
+          accessibilityRole="button"
+          accessibilityLabel={`${rewardsCopy.entry}: ${rewards.summary}`}
+          onPress={rewards.onOpen}
+          className="min-h-14 justify-center py-2"
+        >
+          <AppText variant="body">{rewardsCopy.entry}</AppText>
+          <AppText variant="label" tone="muted">
+            {rewards.summary}
+          </AppText>
+        </Pressable>
+      ) : null}
       {header}
       {rows.length === 0 ? (
         <AppText variant="body" tone="muted">

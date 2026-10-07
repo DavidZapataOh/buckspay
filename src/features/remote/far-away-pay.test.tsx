@@ -60,4 +60,18 @@ describe('Far away pay', () => {
     await press(r.root, 'Ana')
     expect(texts(r.root)).toContain(remoteCopy.notChecked)
   })
+
+  it('shows the delivery tip on the review only when tipping is on, without calling it delivery proof', async () => {
+    const tip = { value: 500_000n }
+    const on = await mount(<FarAwayPay contacts={ana()} now={1} online tip={tip} />)
+    await press(on.root, 'Ana')
+    await type(on.root, remoteCopy.amount, '3')
+    await press(on.root, remoteCopy.review)
+    expect(texts(on.root)).toContain('Delivery tip · up to 0.50 USDC, paid only if your payment settles')
+    const off = await mount(<FarAwayPay contacts={ana()} now={1} online />)
+    await press(off.root, 'Ana')
+    await type(off.root, remoteCopy.amount, '3')
+    await press(off.root, remoteCopy.review)
+    expect(texts(off.root).join('\n')).not.toMatch(/Delivery tip/)
+  })
 })

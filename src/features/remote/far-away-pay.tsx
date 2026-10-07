@@ -9,6 +9,7 @@ import { TextField } from '../../components/text-field'
 import { GRACE } from '../../protocol'
 import { formatMoney, parseAmount } from '../../utils/format-amount'
 import { text } from '../payment/copy'
+import { rewardsCopy } from '../rewards/copy'
 import { BUILD_TOKEN } from '../pay/tokens'
 import type { Contact } from './contacts'
 import { remoteCopy } from './copy'
@@ -31,6 +32,7 @@ export function FarAwayPay({
   error,
   onConfirm,
   onAddLink,
+  tip,
 }: {
   contacts: readonly Contact[]
   now: number
@@ -42,6 +44,8 @@ export function FarAwayPay({
   error?: string
   onConfirm?: (contact: Contact, amount: bigint) => void
   onAddLink?: () => void
+  /** The tip paid to the phone that hands this payment in, shown when tipping is on. */
+  tip?: { value: bigint }
 }) {
   const [chosen, setChosen] = useState<Contact>()
   const [typed, setTyped] = useState('')
@@ -87,6 +91,14 @@ export function FarAwayPay({
               deadline: when(deadlineFor(chosen, amount)),
             })}
           </AppText>
+          {tip ? (
+            <AppText testID="delivery-tip" variant="body">
+              {text(rewardsCopy.tipReview, {
+                amount: formatMoney(tip.value, BUILD_TOKEN.decimals),
+                symbol: BUILD_TOKEN.symbol,
+              })}
+            </AppText>
+          ) : null}
           <AppText variant="label" tone="muted">
             {online ? remoteCopy.onlineNote : remoteCopy.offlineNote}
           </AppText>

@@ -142,4 +142,44 @@ describe('Settings', () => {
     }
     expect(root.findAllByType('ActivityIndicator' as never)).toHaveLength(0)
   })
+
+  describe('tipping', () => {
+    const tipping = (over: Partial<NonNullable<ComponentProps<typeof Settings>['tipping']>> = {}) => ({
+      on: true,
+      wordValue: 500_000n,
+      bond: 800_000_000n,
+      symbol: 'USDC',
+      decimals: 6,
+      onToggle: vi.fn(),
+      ...over,
+    })
+    const mount = async (props: ComponentProps<typeof Settings>) => {
+      identity.current = { ...actions, step: 'loading', busy: true }
+      return (await act(async () => create(<Settings {...props} />))).root
+    }
+    const tipSwitch = (root: ReactTestInstance) =>
+      root.findByProps({ accessibilityLabel: 'Tip people who carry my payments', testID: 'tip-switch' })
+
+    it('shows the switch with the per-payment amount and reports a change', async () => {
+      const t = tipping()
+      const root = await mount({ tipping: t })
+      expect(tipSwitch(root).props.value).toBe(true)
+      expect(texts(root)).toContain('0.50 USDC per delivered payment')
+      await act(async () => tipSwitch(root).props.onValueChange(false))
+      expect(t.onToggle).toHaveBeenCalledWith(false)
+    })
+
+    it('is off, with its reason, below a 32 USDC deposit', async () => {
+      const t = tipping({ bond: 31_999_999n })
+      const root = await mount({ tipping: t })
+      expect(tipSwitch(root).props.value).toBe(false)
+      expect(tipSwitch(root).props.disabled).toBe(true)
+      expect(texts(root)).toContain('Tipping needs a deposit of at least 32 USDC.')
+    })
+
+    it('does not show the section without a tipping setting', async () => {
+      const root = await mount({})
+      expect(root.findAllByProps({ testID: 'tip-switch' })).toHaveLength(0)
+    })
+  })
 })
