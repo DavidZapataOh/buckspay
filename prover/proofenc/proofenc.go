@@ -69,3 +69,39 @@ func Compress(proof groth16.Proof) ([]byte, error) {
 	}
 	return out, nil
 }
+
+// PlainCompressedLen is A 32 | B 64 | C 32, the layout of a proof without a commitment.
+const PlainCompressedLen = 128
+
+// PlainRawLen is A 64 | B 128 | C 64: the uncompressed points a proof without a commitment sends.
+const PlainRawLen = 256
+
+func plain(proof groth16.Proof) (*groth16bn254.Proof, error) {
+	p, ok := proof.(*groth16bn254.Proof)
+	if !ok || len(p.Commitments) != 0 {
+		return nil, errors.New("not a BN254 proof without commitments")
+	}
+	return p, nil
+}
+
+// CompressPlain returns the compressed layout of a BN254 proof without commitments.
+func CompressPlain(proof groth16.Proof) ([]byte, error) {
+	p, err := plain(proof)
+	if err != nil {
+		return nil, err
+	}
+	a, b, c := p.Ar.Bytes(), p.Bs.Bytes(), p.Krs.Bytes()
+	out := append(ArkFlags(a[:]), ArkFlags(b[:])...)
+	return append(out, ArkFlags(c[:])...), nil
+}
+
+// RawPlain returns the uncompressed layout of a BN254 proof without commitments.
+func RawPlain(proof groth16.Proof) ([]byte, error) {
+	p, err := plain(proof)
+	if err != nil {
+		return nil, err
+	}
+	a, b, c := p.Ar.RawBytes(), p.Bs.RawBytes(), p.Krs.RawBytes()
+	out := append(a[:], b[:]...)
+	return append(out, c[:]...), nil
+}

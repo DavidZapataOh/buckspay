@@ -870,6 +870,7 @@ dependencies = [
  "serde_json",
  "solana-bn254",
  "solana-define-syscall 5.2.0",
+ "solana-poseidon",
  "solana-sha256-hasher",
 ]
 

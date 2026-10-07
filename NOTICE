@@ -1,0 +1,9 @@
+Buckspay
+
+Third-party components:
+
+  prover/poseidon contains code derived from github.com/Lightprotocol/light-protocol, commit
+  a67a427e6c58a38dd2e6a16a4042ca91d7cf4571 (prover/server/prover/poseidon): the Poseidon round
+  constants and the circuit gadget. Copyright 2021-2026 Light Protocol Labs, licensed under the
+  Apache License, Version 2.0. That prover is itself derived from code of the Worldcoin Foundation,
+  Copyright (c) 2023, MIT License.

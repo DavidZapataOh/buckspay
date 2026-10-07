@@ -14,14 +14,17 @@ import (
 // it holds the trapdoor, so the keys prove nothing about soundness. It exists for tests that need
 // proofs under a fresh key without running a ceremony.
 func testSetup(args []string) error {
-	var out string
-	if _, err := flags("test-setup", args, func(fs *flag.FlagSet) { fs.StringVar(&out, "out", "", "output directory") }); err != nil {
+	var out, name string
+	if _, err := flags("test-setup", args, func(fs *flag.FlagSet) {
+		fs.StringVar(&out, "out", "", "output directory")
+		circuitFlag(fs, &name)
+	}); err != nil {
 		return err
 	}
 	if out == "" {
-		return fmt.Errorf("usage: buckspay-zk test-setup --out DIR")
+		return fmt.Errorf("usage: buckspay-zk test-setup [--circuit chain|claim] --out DIR")
 	}
-	ccs, err := compile()
+	ccs, err := compile(name)
 	if err != nil {
 		return err
 	}

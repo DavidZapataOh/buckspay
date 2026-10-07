@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 
 	"github.com/DavidZapataOh/buckspay/prover/circuit"
+	"github.com/DavidZapataOh/buckspay/prover/claim"
 )
 
 func flags(name string, args []string, define func(*flag.FlagSet)) (*flag.FlagSet, error) {
@@ -50,8 +51,22 @@ func readFile(path string, r io.ReaderFrom) error {
 	return err
 }
 
-func compile() (*cs_bn254.R1CS, error) {
-	ccs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit.Message{})
+// circuitFlag registers --circuit, which selects the circuit a command works on.
+func circuitFlag(fs *flag.FlagSet, name *string) {
+	fs.StringVar(name, "circuit", "chain", "circuit: chain or claim")
+}
+
+func compile(name string) (*cs_bn254.R1CS, error) {
+	var c frontend.Circuit
+	switch name {
+	case "chain":
+		c = &circuit.Message{}
+	case "claim":
+		c = &claim.Claim{}
+	default:
+		return nil, fmt.Errorf("unknown circuit %q", name)
+	}
+	ccs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, c)
 	if err != nil {
 		return nil, err
 	}
@@ -67,11 +82,14 @@ func loadCCS(path string) (*cs_bn254.R1CS, error) {
 }
 
 func compileCmd(args []string) error {
-	var out string
-	if _, err := flags("compile", args, func(fs *flag.FlagSet) { fs.StringVar(&out, "out", "ccs.bin", "constraint system file") }); err != nil {
+	var out, name string
+	if _, err := flags("compile", args, func(fs *flag.FlagSet) {
+		fs.StringVar(&out, "out", "ccs.bin", "constraint system file")
+		circuitFlag(fs, &name)
+	}); err != nil {
 		return err
 	}
-	ccs, err := compile()
+	ccs, err := compile(name)
 	if err != nil {
 		return err
 	}

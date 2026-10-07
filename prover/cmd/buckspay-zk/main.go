@@ -11,7 +11,7 @@ import (
 
 const usage = `usage:
   buckspay-zk count
-  buckspay-zk compile --out ccs.bin
+  buckspay-zk compile [--circuit chain|claim] --out ccs.bin
   buckspay-zk vectors-check vectors.json
   buckspay-zk ceremony phase1-init --log2 N --out FILE
   buckspay-zk ceremony phase1-contribute --in FILE --out FILE
@@ -19,11 +19,13 @@ const usage = `usage:
   buckspay-zk ceremony phase2-init --ccs ccs.bin --srs SRS --out FILE
   buckspay-zk ceremony phase2-contribute --in FILE --out FILE
   buckspay-zk ceremony phase2-seal --ccs ccs.bin --srs SRS --beacon HEX --out DIR FILE...
-  buckspay-zk ceremony local-test --out DIR
-  buckspay-zk test-setup --out DIR
+  buckspay-zk ceremony local-test [--circuit chain|claim] [--log2 N] --out DIR
+  buckspay-zk test-setup [--circuit chain|claim] --out DIR
   buckspay-zk prove-batch --keys DIR --in chains.json --out proofs.json
   buckspay-zk fixtures --keys DIR --vectors vectors.json --out DIR
-  buckspay-zk export-vk --rust [--test-keys] vk.bin
+  buckspay-zk export-vk --rust [--circuit chain|claim] [--test-keys] vk.bin
+  buckspay-zk claim-vectors
+  buckspay-zk claim-fixtures --keys DIR --out FILE
   buckspay-zk prove --keys DIR --vectors vectors.json --chain NAME --message I`
 
 func main() {
@@ -59,6 +61,10 @@ func run(args []string) error {
 		return fixtures(args[1:])
 	case "export-vk":
 		return exportVK(args[1:])
+	case "claim-vectors":
+		return claimVectors(args[1:])
+	case "claim-fixtures":
+		return claimFixtures(args[1:])
 	case "prove":
 		return proveCmd(args[1:])
 	}

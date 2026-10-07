@@ -53,7 +53,7 @@ func vectorsCheck(args []string) error {
 	if err != nil {
 		return err
 	}
-	ccs, err := compile()
+	ccs, err := compile("chain")
 	if err != nil {
 		return err
 	}
@@ -152,7 +152,9 @@ func proveCmd(args []string) error {
 
 func exportVK(args []string) error {
 	var rust, test bool
+	var name string
 	fs, err := flags("export-vk", args, func(fs *flag.FlagSet) {
+		circuitFlag(fs, &name)
 		fs.BoolVar(&rust, "rust", false, "write a Rust source file")
 		fs.BoolVar(&test, "test-keys", false, "mark the key as a test key whose trapdoor is known")
 	})
@@ -160,13 +162,16 @@ func exportVK(args []string) error {
 		return err
 	}
 	if !rust || fs.NArg() != 1 {
-		return fmt.Errorf("usage: buckspay-zk export-vk --rust [--test-keys] vk.bin")
+		return fmt.Errorf("usage: buckspay-zk export-vk --rust [--circuit chain|claim] [--test-keys] vk.bin")
 	}
 	vk := groth16.NewVerifyingKey(ecc.BN254)
 	if err := readFile(fs.Arg(0), vk); err != nil {
 		return err
 	}
 	var opts []keys.ExportOption
+	if name == "claim" {
+		opts = append(opts, keys.Claim())
+	}
 	if raw, err := os.ReadFile(filepath.Join(filepath.Dir(fs.Arg(0)), "manifest.json")); err == nil {
 		var m keys.Manifest
 		if err := json.Unmarshal(raw, &m); err != nil {

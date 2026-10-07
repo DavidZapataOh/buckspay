@@ -26,6 +26,7 @@ ark-ff = "0.5"
 groth16-solana = { git = "https://github.com/Lightprotocol/groth16-solana", rev = "ac9d959f9b14479c20c9d4f8168fa4cc47c13071", features = ["bsb22", "bsb22-test"] }
 hex = "0.4"
 proptest = "1"
+solana-poseidon = "4.0.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

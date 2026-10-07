@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/gnark/constraint"
 
 	"github.com/DavidZapataOh/buckspay/prover/circuit"
+	"github.com/DavidZapataOh/buckspay/prover/claim"
 )
 
 // Manifest lists the artifacts of one setup and how they were made. Hashes are SHA-256 in hex.
@@ -75,12 +76,25 @@ func Store(dir string, ccs constraint.ConstraintSystem, pk groth16.ProvingKey, v
 	return m, os.WriteFile(filepath.Join(dir, "manifest.json"), append(raw, '\n'), 0o644)
 }
 
-const icLen = circuit.NumPublic + 2 // the constant one, the public inputs and the BSB22 commitment
-
 // ExportOption changes what ExportRust writes.
 type ExportOption func(*exportOptions)
 
-type exportOptions struct{ test bool }
+type exportOptions struct {
+	test        bool
+	name        string
+	numPublic   int
+	commitments int
+}
+
+func defaultExport() exportOptions {
+	return exportOptions{name: "per-message", numPublic: circuit.NumPublic, commitments: 1}
+}
+
+// Claim exports the key of the claim circuit, which has no BSB22 commitment: IC holds the constant
+// one and the public inputs, and the commitment constants are not written.
+func Claim() ExportOption {
+	return func(o *exportOptions) { o.name, o.numPublic, o.commitments = "claim", claim.NumPublic, 0 }
+}
 
 // TestKeys marks the exported key as a test key: TEST_KEYS is true in the generated file, so that
 // a verifier can refuse it on a production cluster.
@@ -90,7 +104,7 @@ func TestKeys() ExportOption { return func(o *exportOptions) { o.test = true } }
 // the big-endian layout of the alt_bn128 syscalls (G2 as x.c1, x.c0, y.c1, y.c0). It refuses a
 // key that does not have the shape of the circuit.
 func ExportRust(vk groth16.VerifyingKey, w io.Writer, opts ...ExportOption) error {
-	var o exportOptions
+	o := defaultExport()
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -98,11 +112,12 @@ func ExportRust(vk groth16.VerifyingKey, w io.Writer, opts ...ExportOption) erro
 	if !ok {
 		return errors.New("not a BN254 Groth16 verifying key")
 	}
+	icLen := o.numPublic + 1 + o.commitments
 	if len(key.G1.K) != icLen {
 		return fmt.Errorf("IC has %d points, the circuit has %d", len(key.G1.K), icLen)
 	}
-	if len(key.CommitmentKeys) != 1 {
-		return fmt.Errorf("%d commitment keys, the circuit has 1", len(key.CommitmentKeys))
+	if len(key.CommitmentKeys) != o.commitments {
+		return fmt.Errorf("%d commitment keys, the circuit has %d", len(key.CommitmentKeys), o.commitments)
 	}
 	var raw bytes.Buffer
 	if _, err := key.WriteTo(&raw); err != nil {
@@ -111,13 +126,13 @@ func ExportRust(vk groth16.VerifyingKey, w io.Writer, opts ...ExportOption) erro
 	sum := sha256.Sum256(raw.Bytes())
 
 	var out strings.Builder
-	out.WriteString("// Generated from the verifying key of the per-message circuit. Do not edit.\n\n")
+	fmt.Fprintf(&out, "// Generated from the verifying key of the %s circuit. Do not edit.\n\n", o.name)
 	if o.test {
 		out.WriteString("// Made by a throwaway local ceremony: its trapdoor is known. Never pin it in a release build.\n")
 	}
 	fmt.Fprintf(&out, "pub const TEST_KEYS: bool = %t;\n", o.test)
-	fmt.Fprintf(&out, "pub const NUM_PUBLIC: usize = %d;\n", circuit.NumPublic)
-	fmt.Fprintf(&out, "const _: () = assert!(IC.len() == NUM_PUBLIC + 2);\n\n")
+	fmt.Fprintf(&out, "pub const NUM_PUBLIC: usize = %d;\n", o.numPublic)
+	fmt.Fprintf(&out, "const _: () = assert!(IC.len() == NUM_PUBLIC + %d);\n\n", 1+o.commitments)
 	constant := func(name string, size int, b []byte) {
 		fmt.Fprintf(&out, "#[rustfmt::skip]\npub const %s: [u8; %d] = [%s];\n", name, size, hexList(b))
 	}
@@ -126,13 +141,15 @@ func ExportRust(vk groth16.VerifyingKey, w io.Writer, opts ...ExportOption) erro
 	constant("BETA_G2", 128, g2(&key.G2.Beta))
 	constant("GAMMA_G2", 128, g2(&key.G2.Gamma))
 	constant("DELTA_G2", 128, g2(&key.G2.Delta))
-	out.WriteString("#[rustfmt::skip]\npub const IC: [[u8; 64]; 12] = [\n")
+	fmt.Fprintf(&out, "#[rustfmt::skip]\npub const IC: [[u8; 64]; %d] = [\n", icLen)
 	for i := range key.G1.K {
 		fmt.Fprintf(&out, "    [%s],\n", hexList(g1(&key.G1.K[i])))
 	}
 	out.WriteString("];\n")
-	constant("COMMITMENT_KEY_G", 128, g2(&key.CommitmentKeys[0].G))
-	constant("COMMITMENT_KEY_G_SIGMA_NEG", 128, g2(&key.CommitmentKeys[0].GSigmaNeg))
+	if o.commitments == 1 {
+		constant("COMMITMENT_KEY_G", 128, g2(&key.CommitmentKeys[0].G))
+		constant("COMMITMENT_KEY_G_SIGMA_NEG", 128, g2(&key.CommitmentKeys[0].GSigmaNeg))
+	}
 	_, err := io.WriteString(w, out.String())
 	return err
 }

@@ -189,28 +189,33 @@ func phase2Seal(args []string) error {
 // marked as test keys: whoever ran it can reconstruct the trapdoor, so they prove nothing about
 // soundness and must never be pinned in a release build.
 func localTest(args []string) error {
-	var out string
-	if _, err := flags("local-test", args, func(fs *flag.FlagSet) { fs.StringVar(&out, "out", "", "output directory") }); err != nil {
+	var out, name string
+	var log2 uint
+	if _, err := flags("local-test", args, func(fs *flag.FlagSet) {
+		fs.StringVar(&out, "out", "", "output directory")
+		fs.UintVar(&log2, "log2", ceremony.Log2Domain, "log2 of the FFT domain")
+		circuitFlag(fs, &name)
+	}); err != nil {
 		return err
 	}
 	start := time.Now()
 	step := func(what string) {
 		fmt.Fprintf(os.Stderr, "%s: %s, peak RSS %d MB\n", what, time.Since(start).Round(time.Second), peakRSS())
 	}
-	ccs, err := compile()
+	ccs, err := compile(name)
 	if err != nil {
 		return err
 	}
 	step("compiled")
 	sum := sha256.Sum256([]byte("zk-test-keys"))
 	beacon := sum[:]
-	p1 := []*mpcsetup.Phase1{ceremony.Contribute1(ceremony.Init1())}
+	p1 := []*mpcsetup.Phase1{ceremony.Contribute1(ceremony.Init1Size(uint8(log2)))}
 	p1 = append(p1, ceremony.Contribute1(p1[0]))
 	var h1 []string
 	for _, p := range p1 {
 		h1 = append(h1, ceremony.ContributionHash(p))
 	}
-	srs, err := ceremony.Seal1(ceremony.Log2Domain, beacon, p1...)
+	srs, err := ceremony.Seal1(uint8(log2), beacon, p1...)
 	if err != nil {
 		return err
 	}
