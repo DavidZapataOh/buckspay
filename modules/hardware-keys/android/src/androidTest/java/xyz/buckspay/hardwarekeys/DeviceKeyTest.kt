@@ -222,7 +222,7 @@ class DeviceKeyTest {
     assertThrows(KeyNotFoundException::class.java) { key.signNote(domains, slot, content) }
     assertThrows(KeyNotFoundException::class.java) { key.sign(domains, "witness", slot, content) }
     key.create(domains, challenge)
-    for (purpose in listOf("note", "device", "reclaim", "payword", "iou", "voice", "claim", "ticket", "x")) {
+    for (purpose in listOf("note", "device", "reclaim", "iou", "voice", "claim", "ticket", "x")) {
       assertThrows(purpose, InvalidEnvelopeException::class.java) { key.sign(domains, purpose, slot, content) }
     }
     assertThrows(InvalidEnvelopeException::class.java) { key.sign(domains, "witness", ByteArray(31), content) }

@@ -1,7 +1,7 @@
 import { NativeModule, requireNativeModule } from 'expo'
 
 /** Purposes signed by `sign`; `note` envelopes go through `signNote` and its guard. */
-export type SignedPurpose = 'witness'
+export type SignedPurpose = 'witness' | 'payword'
 
 export type Cluster = 'devnet' | 'mainnet'
 

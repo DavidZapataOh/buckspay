@@ -35,8 +35,8 @@ class EnvelopeTest {
   }
 
   @Test
-  fun signsNotesAndWitnessesOnly() {
-    assertEquals(setOf("note", "witness"), Envelope.SIGNED)
+  fun signsNotesWitnessesAndChannelCommitmentsOnly() {
+    assertEquals(setOf("note", "witness", "payword"), Envelope.SIGNED)
     assertTrue(Envelope.PURPOSES.containsAll(Envelope.SIGNED))
   }
 

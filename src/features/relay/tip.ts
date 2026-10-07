@@ -4,7 +4,6 @@ import {
   commitmentTotal,
   encodeCommitment,
   MIN_WORD_DEPTH,
-  paywordEnvelope,
   wordProof,
   wordRoot,
 } from '../../protocol/payword'
@@ -28,10 +27,8 @@ export type TipLock = {
 
 export type TipOptions = {
   wordValue: bigint
-  /** The envelope domain of the cluster: `domain(Purpose.PayWord, genesisHash, programId)`. */
-  domain: Uint8Array
-  /** The device key's signature over an envelope (`signPayword`). */
-  sign: (envelope: Uint8Array) => Promise<Uint8Array>
+  /** The device key's signature over a commitment (`signPayword`). */
+  sign: (commitment: Commitment) => Promise<Uint8Array>
   now: number
   depth?: number
   random?: () => Uint8Array
@@ -87,7 +84,7 @@ export async function tipFor(db: NoteDb, lock: TipLock, options: TipOptions): Pr
   if (!('hash' in row)) return row
   const { signature, ...tip } = toTip(row, wordRoot(row.seed, row.depth))
   if (signature) return { ...tip, signature }
-  const signed = await options.sign(paywordEnvelope(options.domain, tip.commitment))
+  const signed = await options.sign(tip.commitment)
   await db.run('UPDATE payword_channels SET signature = ? WHERE hash = ? AND signature IS NULL', [signed, row.hash])
   return { ...tip, signature: signed }
 }

@@ -14,7 +14,7 @@ internal object Envelope {
   val PURPOSES = setOf("note", "device", "witness", "reclaim", "payword", "iou", "voice", "claim", "revoke")
 
   /** The purposes this device signs; the others are signed once their messages are defined. */
-  val SIGNED = setOf("note", "witness")
+  val SIGNED = setOf("note", "witness", "payword")
   private val TAG = "BUCKSPAY:v1:".toByteArray(Charsets.US_ASCII)
   private const val VERSION: Byte = 1
   private const val DEVICE_BINDING: Byte = 0x50

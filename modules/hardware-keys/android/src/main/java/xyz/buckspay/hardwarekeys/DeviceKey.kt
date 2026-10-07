@@ -152,7 +152,7 @@ internal class DeviceKey(
     }
   }
 
-  /** DER `SHA256withECDSA` signature over `DOMAIN(purpose) ‖ slot ‖ content` for `witness`. */
+  /** DER `SHA256withECDSA` signature over `DOMAIN(purpose) ‖ slot ‖ content` for `witness` and `payword`. */
   fun sign(
     domains: Domains,
     purpose: String,

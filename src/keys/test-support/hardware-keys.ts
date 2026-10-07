@@ -94,7 +94,7 @@ export default {
     return sign('note', slot, content)
   },
   async sign(purpose: SignedPurpose, slot: Uint8Array, content: Uint8Array): Promise<Uint8Array> {
-    if (purpose !== 'witness') throw coded('ERR_INVALID_ENVELOPE')
+    if (purpose !== 'witness' && purpose !== 'payword') throw coded('ERR_INVALID_ENVELOPE')
     return sign(purpose, slot, content)
   },
   async signDeviceBinding(wallet: Uint8Array): Promise<Uint8Array> {

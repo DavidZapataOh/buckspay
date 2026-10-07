@@ -12,6 +12,7 @@ export {
   type Signed,
   signDeviceBinding,
   signIssue,
+  signPayword,
   signReclaim,
   signSpend,
   signWitnessRecord,

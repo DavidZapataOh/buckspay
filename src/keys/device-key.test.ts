@@ -1,14 +1,21 @@
 import { p256 } from '@noble/curves/nist.js'
 import { BUCKSPAY_PROGRAM_ADDRESS } from '@project/anchor'
 import { address, getAddressEncoder } from '@solana/kit'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { bytesToHex, concatBytes, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import vectors from '../../anchor/crates/protocol/tests/vectors/v1.json'
+import { PAY_LIMITS } from '../features/pay/limits'
 import HardwareKeys from '../../modules/hardware-keys/src/HardwareKeysModule'
 import {
   type Caveats,
+  type Commitment,
   content,
+  decodeCommitment,
   deviceBindingEnvelope,
   DEVNET_GENESIS_HASH,
   domain,
+  encodeCommitment,
   encodeIssueBody,
   encodeSpendBody,
   encodeWitnessBody,
@@ -21,6 +28,7 @@ import {
   NO_LOCK,
   type Output,
   outputId,
+  paywordEnvelope,
   type Owner,
   Purpose,
   reclaimEnvelope,
@@ -32,6 +40,7 @@ import {
   type WitnessBody,
   WitnessError,
 } from '../protocol'
+import { compactLowS } from './convert'
 import * as keys from '.'
 import * as internal from './device-key'
 import { configuredProgramId, nativeSignatures, resetHardwareKeys } from './test-support/hardware-keys'
@@ -207,7 +216,7 @@ describe('device key', () => {
       const message = envelope(domain(purpose, DEVNET_GENESIS_HASH, programId), slot, digest)
       if (purpose === Purpose.Witness) expect(() => verifySignature(publicKey, message, signature)).not.toThrow()
       else expect(() => verifySignature(publicKey, message, signature)).toThrow()
-      if (purpose !== Purpose.Witness)
+      if (purpose !== Purpose.Witness && purpose !== Purpose.PayWord)
         await expect(HardwareKeys.sign(purpose as never, slot, digest)).rejects.toThrow('ERR_INVALID_ENVELOPE')
     }
     await expect(internal.signWitness(new Uint8Array(31), digest)).rejects.toThrow(code('Length'))
@@ -252,6 +261,7 @@ describe('device key', () => {
     expect(Object.keys(keys).filter((name) => name.startsWith('sign'))).toEqual([
       'signDeviceBinding',
       'signIssue',
+      'signPayword',
       'signReclaim',
       'signSpend',
       'signWitnessRecord',
@@ -261,6 +271,7 @@ describe('device key', () => {
     expect(signers.sort()).toEqual([
       'signDeviceBinding',
       'signIssue',
+      'signPayword',
       'signReclaim',
       'signSpend',
       'signWitness',
@@ -432,6 +443,109 @@ describe('device key', () => {
       const zero = new Uint8Array(32)
       vi.spyOn(HardwareKeys, 'sign').mockImplementationOnce(() => HardwareKeys.signNote(zero, zero))
       await expect(keys.signWitnessRecord(witnessBody(publicKey))).rejects.toThrow(code('Signature'))
+    })
+  })
+
+  describe('signPayword', () => {
+    const vector = vectors.payword
+    const paywordDomain = domain(Purpose.PayWord, DEVNET_GENESIS_HASH, new Uint8Array(32).fill(0xb0))
+    const golden = decodeCommitment(hexToBytes(vector.commitment))
+    const open = (over: Partial<Commitment> = {}): Commitment => ({
+      ...golden,
+      expiry: Math.floor(Date.now() / 1000) + 3 * 86_400,
+      ...over,
+    })
+
+    it('signs exactly the envelope the program rebuilds from the commitment', async () => {
+      const { publicKey } = await keys.createDeviceKey()
+      const c = open()
+      const signature = await keys.signPayword(c)
+      expect(signature).toHaveLength(64)
+      const message = paywordEnvelope(domain(Purpose.PayWord, DEVNET_GENESIS_HASH, programId), c)
+      expect(() => verifySignature(publicKey, message, signature)).not.toThrow()
+    })
+
+    it('hands the module the slot and content of the golden envelope', async () => {
+      await keys.createDeviceKey()
+      const sign = vi.spyOn(HardwareKeys, 'sign')
+      await keys.signPayword(golden)
+      const message = hexToBytes(vector.envelope)
+      expect(bytesToHex(paywordEnvelope(paywordDomain, golden))).toBe(vector.envelope)
+      expect(sign).toHaveBeenCalledWith('payword', message.slice(32, 64), message.slice(64, 96))
+    })
+
+    it('is valid under the payword domain and under no other purpose', async () => {
+      const { publicKey } = await keys.createDeviceKey()
+      const c = open()
+      const signature = await keys.signPayword(c)
+      const body = encodeCommitment(c)
+      const slot = sha256(concatBytes(utf8ToBytes(Purpose.PayWord), body))
+      for (const purpose of Object.values(Purpose).filter((purpose) => purpose !== 'ticket')) {
+        const message = envelope(domain(purpose, DEVNET_GENESIS_HASH, programId), slot, content(body))
+        const verifies = () => verifySignature(publicKey, message, signature)
+        if (purpose === Purpose.PayWord) expect(verifies).not.toThrow()
+        else expect(verifies).toThrow()
+      }
+    })
+
+    it('is not accepted as the signature of any other purpose', async () => {
+      const { publicKey } = await keys.createDeviceKey()
+      const c = open()
+      const body = encodeCommitment(c)
+      const slot = sha256(concatBytes(utf8ToBytes(Purpose.PayWord), body))
+      const witness = await internal.signWitness(slot, content(body))
+      const payword = domain(Purpose.PayWord, DEVNET_GENESIS_HASH, programId)
+      expect(() => verifySignature(publicKey, envelope(payword, slot, content(body)), witness)).toThrow()
+      const note = await HardwareKeys.signNote(slot, content(body))
+      expect(() => verifySignature(publicKey, envelope(payword, slot, content(body)), compactLowS(note))).toThrow()
+    })
+
+    it('refuses a commitment that expired', async () => {
+      await keys.createDeviceKey()
+      const sign = vi.spyOn(HardwareKeys, 'sign')
+      await expect(keys.signPayword(open({ expiry: Math.floor(Date.now() / 1000) - 1 }))).rejects.toThrow(
+        code('Expired'),
+      )
+      expect(sign).not.toHaveBeenCalled()
+    })
+
+    it('signs a commitment until the second it expires', async () => {
+      await keys.createDeviceKey()
+      vi.useFakeTimers({ toFake: ['Date'] })
+      try {
+        vi.setSystemTime(1_800_000_000_000)
+        await expect(keys.signPayword(open({ expiry: 1_800_000_000 }))).rejects.toThrow(code('Expired'))
+        await expect(keys.signPayword(open({ expiry: 1_800_000_001 }))).resolves.toHaveLength(64)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('refuses a channel worth a biometric confirmation, since it is signed without one', async () => {
+      await keys.createDeviceKey()
+      const sign = vi.spyOn(HardwareKeys, 'sign')
+      const limit = PAY_LIMITS.biometricFrom
+      const wordValue = limit >> BigInt(golden.depth)
+      await expect(keys.signPayword(open({ wordValue }))).rejects.toThrow(code('Amount'))
+      await expect(keys.signPayword(open({ wordValue: wordValue + 1n }))).rejects.toThrow(code('Amount'))
+      expect(sign).not.toHaveBeenCalled()
+      await expect(keys.signPayword(open({ wordValue: wordValue - 1n }))).resolves.toHaveLength(64)
+    })
+
+    it('refuses a malformed commitment', async () => {
+      await keys.createDeviceKey()
+      const sign = vi.spyOn(HardwareKeys, 'sign')
+      await expect(keys.signPayword(open({ depth: 9 }))).rejects.toThrow(code('Depth'))
+      await expect(keys.signPayword(open({ depth: 3 }))).rejects.toThrow(code('Depth'))
+      await expect(keys.signPayword(open({ root: new Uint8Array(31) }))).rejects.toThrow(code('Length'))
+      expect(sign).not.toHaveBeenCalled()
+    })
+
+    it('throws when the module returns a signature that does not verify', async () => {
+      await keys.createDeviceKey()
+      const zero = new Uint8Array(32)
+      vi.spyOn(HardwareKeys, 'sign').mockImplementationOnce(() => HardwareKeys.signNote(zero, zero))
+      await expect(keys.signPayword(open())).rejects.toThrow(code('Signature'))
     })
   })
 })

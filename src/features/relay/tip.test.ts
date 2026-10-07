@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { Purpose, domain } from '../../protocol/hash'
 import { wordProof } from '../../protocol/payword'
 import { migrate } from '../notes/schema'
 import { createNodeDb } from '../notes/testing/node-db'
@@ -24,7 +23,6 @@ const lock = (change: Partial<TipLock> = {}): TipLock => ({
 let seeds = 0
 const options = (now: number, change: Partial<TipOptions> = {}): TipOptions => ({
   wordValue: 500_000n,
-  domain: domain(Purpose.PayWord, new Uint8Array(32).fill(1), new Uint8Array(32).fill(2)),
   sign: async () => new Uint8Array(64).fill(7),
   now,
   random: () => new Uint8Array(32).fill(++seeds),

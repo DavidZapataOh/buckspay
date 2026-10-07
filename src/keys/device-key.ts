@@ -20,10 +20,15 @@ import {
   envelope,
   EXPIRY_STEP,
   interval,
+  type Commitment,
+  commitmentTotal,
+  decodeCommitment,
+  encodeCommitment,
   type Issue,
   issueSlot,
   MAINNET_GENESIS_HASH,
   type Output,
+  paywordEnvelope,
   ProtocolError,
   Purpose,
   reclaimEnvelope,
@@ -31,6 +36,7 @@ import {
   verifySignature,
   type WitnessBody,
 } from '../protocol'
+import { PAY_LIMITS } from '../features/pay/limits'
 import { ACTIVE_PROFILE } from '../protocol/active-profile'
 import { compactLowS, sec1FromSpki } from './convert'
 import { withRecordableOutputs } from './salt'
@@ -233,6 +239,21 @@ export async function signWitnessRecord(body: WitnessBody): Promise<Uint8Array> 
   const digest = content(encodeWitnessBody(body))
   if (!equalBytes(body.payerKey, await ownKey())) throw new ProtocolError('Signer')
   return signWitness(body.paymentId, digest)
+}
+
+/**
+ * Signs a channel commitment: the message the program rebuilds from it (`paywordEnvelope`). It is
+ * signed without a confirmation, so a commitment worth one (`biometricFrom` or more) is refused,
+ * and so is one that expired or is malformed. Returns compact low-S, verified against the key
+ * before it returns.
+ */
+export async function signPayword(commitment: Commitment): Promise<Uint8Array> {
+  const checked = decodeCommitment(encodeCommitment(commitment))
+  const total = commitmentTotal(checked)
+  if (total === null || total >= PAY_LIMITS.biometricFrom) throw new ProtocolError('Amount')
+  if (checked.expiry <= Math.floor(Date.now() / 1000)) throw new ProtocolError('Expired')
+  const message = paywordEnvelope(domainOf(Purpose.PayWord), checked)
+  return signed(Purpose.PayWord)(message.slice(32, 64), message.slice(64, 96))
 }
 
 /**
