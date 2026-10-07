@@ -4,6 +4,7 @@
 pub mod attester;
 pub mod batches;
 pub mod chain;
+pub mod channels;
 pub mod claims;
 pub mod config;
 pub mod fees;
@@ -21,4 +22,5 @@ pub mod settlements;
 pub mod sponsor;
 pub mod sponsored;
 pub mod transactions;
+pub mod words;
 pub mod zk;

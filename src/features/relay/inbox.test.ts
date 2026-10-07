@@ -94,4 +94,19 @@ describe('relayer inbox', () => {
     expect(indexOf(dump, payerKey)).toBe(-1)
     expect(indexOf(dump, amountLe)).toBe(-1)
   })
+
+  it('posts every blob with a key of its own for the word, and forgets the key when the post fails', async () => {
+    const db = await store()
+    const blob = sealedFixture().blob
+    await accept(db, blob, 1, 'peer-a')
+    const post = vi.fn(async (_blob: Uint8Array, _rk: Uint8Array) => {
+      throw new Error('offline')
+    })
+    await forward(db, post, 2)
+    expect(post.mock.calls[0][1]).toHaveLength(32)
+    expect(await db.all('SELECT id FROM relay_word_asks')).toEqual([])
+    const posted = vi.fn(async (_blob: Uint8Array, _rk: Uint8Array) => new Uint8Array(304))
+    await forward(db, posted, 3)
+    expect(await db.all('SELECT id FROM relay_word_asks')).toHaveLength(1)
+  })
 })

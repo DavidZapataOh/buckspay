@@ -36,7 +36,7 @@ buckspay-client = { path = "client" }
 buckspay-zk-verify = { path = "../anchor/crates/zk-verify", default-features = false }
 buckspay-protocol = { path = "../anchor/crates/protocol", features = ["verify"] }
 governor = "0.10.4"
-hpke = { version = "0.14.1", default-features = false, features = ["alloc", "chacha", "x25519"] }
+hpke = { version = "0.14.1", default-features = false, features = ["alloc", "chacha", "getrandom", "x25519"] }
 getrandom = "0.3.4"
 hex = "0.4.3"
 hkdf = "0.13.0"

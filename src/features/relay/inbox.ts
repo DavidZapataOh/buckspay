@@ -2,6 +2,7 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { PINNED_GATEWAY_KEYS } from '../../protocol/hpke'
 import type { NoteDb } from '../notes/db'
 import { BUCKETS } from './inner'
+import { askFor } from './words'
 
 /** `keyId u8 ‖ enc 32` before the ciphertext, whose tag is 16 bytes. */
 const OVERHEAD = 1 + 32 + 16
@@ -57,12 +58,13 @@ export async function accept(db: NoteDb, blob: Uint8Array, now: number, peer: st
 export class RelayRejected extends Error {}
 
 /**
- * Posts what waits to the gateway through `post`, keeps the sealed answer for a day and forgets the blob.
+ * Posts what waits to the gateway through `post`, with a key to seal the word of the payment to, keeps the sealed answer
+ * for a day and forgets the blob.
  * A blob the gateway refuses outright puts its sender in an exponential backoff; one that could not be posted stays.
  */
 export async function forward(
   db: NoteDb,
-  post: (blob: Uint8Array) => Promise<Uint8Array>,
+  post: (blob: Uint8Array, rk: Uint8Array) => Promise<Uint8Array>,
   now: number,
 ): Promise<number> {
   await db.run('DELETE FROM relay_seen WHERE answered_at <= ?', [now - SEEN_SECONDS])
@@ -73,8 +75,9 @@ export async function forward(
   for (const { id, blob, peer } of waiting) {
     let response: Uint8Array
     try {
-      response = await post(blob)
+      response = await post(blob, await askFor(db, id, now))
     } catch (error) {
+      await db.run('DELETE FROM relay_word_asks WHERE id = ?', [id])
       if (!(error instanceof RelayRejected)) continue
       await db.run('DELETE FROM relay_inbox WHERE id = ?', [id])
       const [row] = await db.all<{ strikes: number }>('SELECT strikes FROM relay_peers WHERE peer = ?', [peer])

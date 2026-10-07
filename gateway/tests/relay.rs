@@ -3,14 +3,10 @@
 //! answer is readable by the payer only.
 mod support;
 
-use axum::{
-    body::Body,
-    extract::connect_info::MockConnectInfo,
-    http::{Request, StatusCode, header},
-};
+use axum::http::StatusCode;
 use buckspay_gateway::{
     float::{Caps as FloatCaps, SettlementLimits},
-    hpke::{HpkeKeys, info},
+    hpke::info,
     janitor,
     jobs::{JobState, Jobs, SettlementJob},
     limits::RELAY_PREFIX,
@@ -19,25 +15,11 @@ use buckspay_gateway::{
     sponsor::SponsorLimits,
 };
 use buckspay_protocol::{Caveats, Outputs, cluster::DEVNET_GENESIS_HASH, lock::Windows};
-use chacha20poly1305::{
-    ChaCha20Poly1305, Key, KeyInit, Nonce,
-    aead::{Aead, Payload},
-};
-use hkdf::Hkdf;
-use hpke::{
-    Deserializable, OpModeS, Serializable, aead::ChaCha20Poly1305 as HpkeChaCha, kdf::HkdfSha256,
-    kem::X25519HkdfSha256,
-};
-use http_body_util::BodyExt;
 use serde_json::Value;
-use sha2_v11::Sha256;
 use solana_keypair::Keypair;
 use solana_signer::Signer;
-use std::{net::SocketAddr, num::NonZeroU32, sync::Arc};
-use support::*;
-use tower::ServiceExt;
-
-type Kem = X25519HkdfSha256;
+use std::{num::NonZeroU32, sync::Arc};
+use support::{relay::*, *};
 
 const BOND: u64 = 20_000_000;
 const BACKING: u64 = 20_000_000;
@@ -113,104 +95,8 @@ fn instant() -> Relay {
     Relay::with_delay(0)
 }
 
-/// The gateway's key as the app pins it.
-fn gateway_key() -> (u8, <Kem as hpke::Kem>::PublicKey) {
-    let published = hpke_keys().published().remove(0);
-    let public = base64_decode(&published.public_key);
-    (
-        published.key_id,
-        <Kem as hpke::Kem>::PublicKey::from_bytes(&public).unwrap(),
-    )
-}
-
-fn hpke_keys() -> HpkeKeys {
-    support::hpke()
-}
-
-fn base64_decode(value: &str) -> Vec<u8> {
-    use base64::{Engine, prelude::BASE64_STANDARD};
-    BASE64_STANDARD.decode(value).unwrap()
-}
-
-/// What the payer keeps to read the answer: the exporter secret and `enc`.
-struct Opener {
-    secret: [u8; 32],
-    enc: [u8; 32],
-}
-
-impl Opener {
-    /// The JSON the gateway sealed, or `None` when the body is not for this payer.
-    fn open(&self, body: &[u8]) -> Option<Value> {
-        let (nonce, ciphertext) = body.split_at_checked(32)?;
-        let mut salt = [0u8; 64];
-        salt[..32].copy_from_slice(&self.enc);
-        salt[32..].copy_from_slice(nonce);
-        let hkdf = Hkdf::<Sha256>::new(Some(&salt), &self.secret);
-        let (mut key, mut iv) = ([0u8; 32], [0u8; 12]);
-        hkdf.expand(b"key", &mut key).unwrap();
-        hkdf.expand(b"nonce", &mut iv).unwrap();
-        let plain = ChaCha20Poly1305::new(&Key::from(key))
-            .decrypt(
-                &Nonce::from(iv),
-                Payload {
-                    msg: ciphertext,
-                    aad: b"",
-                },
-            )
-            .ok()?;
-        assert_eq!(plain.len(), 256, "every answer has the same length");
-        let end = plain.iter().rposition(|byte| *byte != 0)? + 1;
-        serde_json::from_slice(&plain[..end]).ok()
-    }
-
-    fn status(&self, body: &[u8]) -> String {
-        self.open(body).expect("the answer opens")["status"]
-            .as_str()
-            .unwrap()
-            .to_owned()
-    }
-}
-
 fn inner(note: &Note, bucket: usize) -> Vec<u8> {
-    let issue = hex::decode(note.issue_hex()).unwrap();
-    let spends: Vec<Vec<u8>> = note
-        .spend_hexes()
-        .iter()
-        .map(|spend| hex::decode(spend).unwrap())
-        .collect();
-    let mut plain = vec![1u8, 1];
-    plain.extend((issue.len() as u16).to_be_bytes());
-    plain.extend(&issue);
-    plain.push(spends.len() as u8);
-    for spend in &spends {
-        plain.extend((spend.len() as u16).to_be_bytes());
-        plain.extend(spend);
-    }
-    plain.resize(bucket, 0);
-    plain
-}
-
-fn seal_with(
-    key_id: u8,
-    public: &<Kem as hpke::Kem>::PublicKey,
-    purpose: &str,
-    genesis: [u8; 32],
-    plain: &[u8],
-) -> (Vec<u8>, Opener) {
-    let (enc, mut context) = hpke::setup_sender::<HpkeChaCha, HkdfSha256, Kem>(
-        &OpModeS::Base,
-        public,
-        &info(purpose, &genesis),
-    )
-    .unwrap();
-    let ciphertext = context.seal(plain, RELAY_AAD).unwrap();
-    let mut secret = [0u8; 32];
-    context.export(EXPORT_LABEL, &mut secret).unwrap();
-    let enc: [u8; 32] = enc.to_bytes().as_slice().try_into().unwrap();
-    let mut blob = vec![key_id];
-    blob.extend(enc);
-    blob.extend(ciphertext);
-    (blob, Opener { secret, enc })
+    support::relay::inner(note, bucket, None)
 }
 
 fn seal_relay(note: &Note, bucket: usize) -> (Vec<u8>, Opener) {
@@ -221,32 +107,6 @@ fn seal_relay(note: &Note, bucket: usize) -> (Vec<u8>, Opener) {
         "relay",
         DEVNET_GENESIS_HASH,
         &inner(note, bucket),
-    )
-}
-
-async fn post_relay(sponsor: &Sponsor, peer: &str, body: Vec<u8>) -> (StatusCode, Vec<u8>) {
-    let peer: SocketAddr = format!("{peer}:4000").parse().unwrap();
-    let request = Request::post("/v1/relay")
-        .header(header::CONTENT_TYPE, "application/octet-stream")
-        .body(Body::from(body))
-        .unwrap();
-    let response = sponsor
-        .app
-        .clone()
-        .layer(MockConnectInfo(peer))
-        .oneshot(request)
-        .await
-        .unwrap();
-    let status = response.status();
-    (
-        status,
-        response
-            .into_body()
-            .collect()
-            .await
-            .unwrap()
-            .to_bytes()
-            .to_vec(),
     )
 }
 
@@ -367,7 +227,11 @@ async fn a_body_over_the_relay_limit_is_refused_by_the_layer() {
     assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
     let note = t.note().await;
     let (blob, open) = seal_relay(&note, 8192);
-    assert_eq!(blob.len(), MAX_RELAY_BYTES);
+    assert_eq!(
+        blob.len(),
+        MAX_RELAY_BYTES - 32,
+        "a bucket and no relayer key"
+    );
     let (status, body) = post_relay(&t.sponsor, "203.0.113.1", blob).await;
     assert_eq!(
         (status, open.status(&body).as_str()),
@@ -590,6 +454,7 @@ fn job_of(note: &Note, not_before: Option<u32>) -> SettlementJob {
         last_valid_block_height: None,
         not_before,
         zk: None,
+        word: None,
     }
 }
 

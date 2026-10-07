@@ -98,7 +98,7 @@ pub fn margin(windows: &Windows) -> u32 {
     (windows.grace / 4).min(120)
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SettlementRequest {
     /// The signed issue, hex.
@@ -1289,6 +1289,7 @@ pub(crate) async fn drive(
                 last_valid_block_height: None,
                 not_before: None,
                 zk: None,
+                word: None,
             });
             if written.is_err() {
                 warn!("a settlement job could not be written; nothing was sent");

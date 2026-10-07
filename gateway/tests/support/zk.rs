@@ -218,7 +218,7 @@ pub fn mint_address() -> Pubkey {
     Pubkey::find_program_address(&[b"zk-mint", cluster().mint.as_ref()], &program().id()).0
 }
 
-fn program_data() -> Pubkey {
+pub fn program_data() -> Pubkey {
     Pubkey::find_program_address(
         &[program().id().as_ref()],
         &Pubkey::from_str_const("BPFLoaderUpgradeab1e11111111111111111111111"),
@@ -233,7 +233,7 @@ pub async fn fee_account() -> Pubkey {
         .token
 }
 
-async fn airdrop(to: &Pubkey, lamports: u64) {
+pub async fn airdrop(to: &Pubkey, lamports: u64) {
     let rpc = rpc(&cluster().url);
     let signature = rpc.request_airdrop(to, lamports).await.unwrap();
     while !rpc.confirm_transaction(&signature).await.unwrap() {

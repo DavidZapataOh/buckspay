@@ -1,5 +1,6 @@
 use crate::{
     chain::Rents,
+    channels::{self, Channels},
     claims,
     float::SettlementLimits,
     hpke::{HpkeKeys, PublishedKey},
@@ -10,6 +11,7 @@ use crate::{
     settlements::{self, Problem},
     sponsor::{FeeMode, Refusal, SponsorLimits},
     sponsored::{self, Pending},
+    words::Words,
 };
 use axum::{
     Extension, Json, RequestExt, Router,
@@ -93,6 +95,10 @@ pub struct Gateway {
     pub jobs: Jobs,
     pub hpke: HpkeKeys,
     pub relay: Relay,
+    /// The words released to relayers.
+    pub words: Words,
+    /// What bounds the channels the gateway opens, and the jobs that settle words.
+    pub channels: Channels,
     pub zk: crate::zk::Zk,
     /// What the program's accounts cost, as last read from the cluster.
     pub(crate) rents: Mutex<Rents>,
@@ -118,6 +124,17 @@ pub struct Limits {
 impl Gateway {
     pub fn with_relay(mut self, relay: Relay) -> Self {
         self.relay = relay;
+        self
+    }
+
+    /// Keeps the released words in `words`, which survives a restart.
+    pub fn with_words(mut self, words: Words) -> Self {
+        self.words = words;
+        self
+    }
+
+    pub fn with_channels(mut self, channels: Channels) -> Self {
+        self.channels = channels;
         self
     }
 
@@ -150,6 +167,8 @@ impl Gateway {
             jobs: Jobs::default(),
             hpke,
             relay: Relay::default(),
+            words: Words::default(),
+            channels: Channels::default(),
             zk: crate::zk::Zk::default(),
             rents: Mutex::new(rents),
             pending: Mutex::default(),
@@ -216,6 +235,13 @@ pub fn router(state: Arc<Gateway>, client: ClientAddress) -> Router {
                 .route("/v1/relay", post(relay::relay))
                 .layer(DefaultBodyLimit::max(MAX_RELAY_BYTES)),
         )
+        .merge(Router::new().route("/v1/relay/{id}/word", get(relay::word)))
+        .merge(
+            Router::new()
+                .route("/v1/channels", post(channels::post))
+                .layer(DefaultBodyLimit::max(channels::BODY_LIMIT)),
+        )
+        .route("/v1/channels/{key}", get(channels::status))
         .layer(RequestBodyDeadlineLayer::new(BODY_DEADLINE))
         .layer(
             ServiceBuilder::new()
@@ -275,7 +301,8 @@ async fn rate_limit(
     next: Next,
 ) -> Response {
     // The relay counts in its own buckets, not in the per-network quota of the other routes.
-    if request.uri().path() == "/v1/relay" {
+    let path = request.uri().path();
+    if path == "/v1/relay" || path.starts_with("/v1/relay/") {
         return relay::limit(&state, ip, request, next).await;
     }
     match state.requests.check(Prefix::from(ip)) {

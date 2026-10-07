@@ -109,3 +109,24 @@ export async function sealWithExport(
   const secret = new Uint8Array(await sender.export(label.slice().buffer as ArrayBuffer, 32))
   return { keyId: key.keyId, enc: new Uint8Array(sender.enc), ciphertext: new Uint8Array(ct), secret }
 }
+
+/** Opens a message sealed to the X25519 key `secret` for `purpose` on the cluster with `genesisHash`, or `null` if it is not for that key. */
+export async function openSealed(
+  secret: Uint8Array,
+  sealed: { enc: Uint8Array; ciphertext: Uint8Array },
+  purpose: string,
+  genesisHash: Uint8Array,
+  aad: Uint8Array,
+): Promise<Uint8Array | null> {
+  try {
+    const recipientKey = await suite.kem.deserializePrivateKey(secret.slice().buffer as ArrayBuffer)
+    const plain = await suite.open(
+      { recipientKey, enc: sealed.enc.slice().buffer as ArrayBuffer, info: hpkeInfo(purpose, genesisHash) },
+      sealed.ciphertext.slice().buffer as ArrayBuffer,
+      aad.slice().buffer as ArrayBuffer,
+    )
+    return new Uint8Array(plain)
+  } catch {
+    return null
+  }
+}

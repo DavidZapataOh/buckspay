@@ -943,6 +943,7 @@ pub(crate) async fn submit(
         last_valid_block_height: None,
         not_before: None,
         zk: Some(request),
+        word: None,
     };
     let answer = match state.jobs.begin(row.clone()) {
         Ok(true) => {

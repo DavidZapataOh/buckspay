@@ -17,7 +17,7 @@ use crate::{
     zk::{STALE_BUFFER_SECS, account_discriminator},
 };
 use base64::{Engine, prelude::BASE64_STANDARD};
-use buckspay_client::accounts::{Device, Ledger, Lock, Rotation};
+use buckspay_client::accounts::{Channel, Device, Ledger, Lock, Rotation};
 use buckspay_protocol::lock::Windows;
 use solana_account::Account;
 use solana_account_decoder_client_types::UiDataSliceConfig;
@@ -48,6 +48,10 @@ const JOBS_PER_RUN: usize = 10;
 /// a few thousand.
 const CLOSE_BATCH: usize = 20;
 const CLOSE_COMPUTE_UNIT_LIMIT: u32 = 100_000;
+/// The most lamports of rent one rotation of the reward tree may cost the gateway.
+pub const ROTATION_BUDGET_LAMPORTS: u64 = 100_000_000;
+/// Where a reward tree says how many leaves it holds: after its discriminator, mint and epoch.
+const TREE_NEXT_INDEX_OFFSET: usize = 44;
 const OFFSET_OF_LEDGER_PAYER: usize = 32;
 const OFFSET_OF_ROTATION_PAYER: usize = 40;
 /// Where a proof buffer says when it was created: after its discriminator, payer, nonce, length
@@ -70,12 +74,16 @@ pub struct Report {
     pub claims_closed: u32,
     /// Settlements of several transactions that were looked at again.
     pub jobs_resumed: u32,
+    /// Channels closed: the rent the gateway fronted for them is back.
+    pub channels_closed: u32,
+    /// Reward trees rotated because the current one was full.
+    pub trees_rotated: u32,
     /// Proof buffers nobody settled within their stale time: the rent is back.
     pub buffers_closed: u32,
 }
 
 /// The accounts of the program of `size` bytes whose payer, at `offset`, is the gateway.
-async fn paid_by_us(
+pub(crate) async fn paid_by_us(
     state: &Gateway,
     size: u64,
     offset: usize,
@@ -171,6 +179,96 @@ pub fn due(ledger: &Ledger, lock: &Lock, escrow_open: bool, now: u64, windows: &
     } else {
         Due::Nothing
     }
+}
+
+/// Words waiting to be sent are sent, the channels past their close time are closed with their
+/// rent coming back, and a full reward tree is rotated so that settling words never stops.
+async fn tend_channels(state: &Gateway, now: u64, report: &mut Report) -> Result<(), Error> {
+    crate::channels::resume_pending(state).await;
+    let open = paid_by_us(
+        state,
+        Channel::LEN as u64,
+        crate::channels::CHANNEL_PAYER_OFFSET,
+    )
+    .await?;
+    let due = crate::channels::closing(
+        &state.settings.program,
+        &open,
+        u32::try_from(now).unwrap_or(u32::MAX),
+        CLOSE_BATCH,
+    );
+    if !due.is_empty() {
+        let count = due.len() as u32;
+        if send_with_limit(state, &due, CLOSE_COMPUTE_UNIT_LIMIT).await {
+            report.channels_closed += count;
+        }
+    }
+    rotate_full_tree(state, report).await
+}
+
+/// Rotates the reward tree of the mint when it is full, paying the rent of the next one up to
+/// `ROTATION_BUDGET_LAMPORTS`.
+async fn rotate_full_tree(state: &Gateway, report: &mut Report) -> Result<(), Error> {
+    use buckspay_client::{accounts::RewardMint, instructions::RotateRewardTree};
+    let program = state.settings.program;
+    let reward_mint = Pubkey::find_program_address(
+        &[b"reward-mint", state.settings.mint.as_ref()],
+        &program.id(),
+    )
+    .0;
+    let Some(pool) = read(state, &[reward_mint])
+        .await?
+        .remove(0)
+        .and_then(|account| RewardMint::from_bytes(&account.data).ok())
+    else {
+        return Ok(());
+    };
+    let tree = |epoch: u32| {
+        Pubkey::find_program_address(
+            &[b"reward-tree", pool.mint.as_ref(), &epoch.to_le_bytes()],
+            &program.id(),
+        )
+        .0
+    };
+    let Some(account) = read(state, &[tree(pool.epoch)]).await?.remove(0) else {
+        return Ok(());
+    };
+    let Some(next_index) = account
+        .data
+        .get(TREE_NEXT_INDEX_OFFSET..TREE_NEXT_INDEX_OFFSET + 4)
+        .and_then(|bytes| <[u8; 4]>::try_from(bytes).ok())
+        .map(u32::from_le_bytes)
+    else {
+        return Ok(());
+    };
+    if !crate::channels::tree_is_full(next_index) {
+        return Ok(());
+    }
+    let rent = state
+        .rpc
+        .get_minimum_balance_for_rent_exemption(buckspay_client::accounts::RewardTree::LEN)
+        .await
+        .map_err(unreachable)?;
+    if rent > ROTATION_BUDGET_LAMPORTS {
+        warn!(
+            rent,
+            "a full reward tree needs more rent than the rotation budget"
+        );
+        return Ok(());
+    }
+    let rotate = RotateRewardTree {
+        payer: state.fee_payer.pubkey(),
+        reward_mint,
+        current: tree(pool.epoch),
+        next: tree(pool.epoch + 1),
+        system_program: Pubkey::default(),
+    }
+    .instruction();
+    let rotate = program.target(rotate);
+    if send_with_limit(state, &[rotate], COMPUTE_UNIT_LIMIT).await {
+        report.trees_rotated += 1;
+    }
+    Ok(())
 }
 
 /// One pass over everything the gateway paid for.
@@ -327,6 +425,9 @@ pub async fn run_once(state: &Gateway, rotation_grace: Duration) -> Result<Repor
     for job in state.jobs.pending().iter().take(JOBS_PER_RUN) {
         resume(state, job).await;
         report.jobs_resumed += 1;
+    }
+    if let Err(error) = tend_channels(state, now, &mut report).await {
+        warn!(?error, "the channels could not be tended");
     }
     if let Err(error) = close_buffers(state, now, &mut report).await {
         warn!(?error, "the proof buffers could not be tended");

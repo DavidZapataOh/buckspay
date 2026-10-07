@@ -6,18 +6,27 @@ use crate::{
     hpke::{self, OpenError},
     jobs::{JobState, SettlementJob},
     limits::{RELAY_PREFIX, RequestLimits},
-    onboard::local_now,
+    onboard::{local_now, read},
     server::{Error, Gateway},
     settlements::{
         self, MAX_CHAIN_SPENDS, Planned, Problem, SettlementRequest, inspect_settlement,
+        parse_issue,
     },
+    words::{self, Binding, Outcome},
 };
 use axum::{
     body::Bytes,
-    extract::{Request, State},
+    extract::{Path, Request, State},
     http::{StatusCode, header::CONTENT_TYPE},
     middleware::Next,
     response::{IntoResponse, Response},
+};
+use buckspay_client::accounts::Lock;
+use buckspay_protocol::{
+    Issue,
+    hash::{domain, purpose},
+    payword::{self, Commitment, WordProof},
+    verify::verify_signature,
 };
 use chacha20poly1305::{
     ChaCha20Poly1305, Key, KeyInit, Nonce,
@@ -25,12 +34,15 @@ use chacha20poly1305::{
 };
 use hkdf::Hkdf;
 use serde_json::json;
+use sha2::Digest;
 use sha2_v11::Sha256;
 use std::{net::IpAddr, num::NonZeroU32, sync::Arc, time::Duration};
 use tracing::{info, warn};
 
-/// `keyId u8 ‖ enc 32 ‖ ciphertext`, the ciphertext being a bucket and a 16-byte tag.
-pub const MAX_RELAY_BYTES: usize = 8_241;
+/// `keyId u8 ‖ enc 32 ‖ ciphertext [‖ rk 32]`, the ciphertext being a bucket and a 16-byte tag.
+pub const MAX_RELAY_BYTES: usize = 8_241 + RK_LEN;
+/// The key a relayer asks its word to be sealed to, after the ciphertext.
+const RK_LEN: usize = 32;
 /// Every sealed answer carries a body of this length.
 pub const RESPONSE_PAD: usize = 256;
 pub const RELAY_AAD: &[u8] = b"buckspay/relay/v1";
@@ -43,10 +55,20 @@ const TAG: usize = 16;
 const RETRY_AFTER: u64 = 600;
 const RETRY_AFTER_UPSTREAM: u64 = 60;
 
-/// The message the payer sealed: the signed issue and the signed spends of one note.
+/// The message the payer sealed: the signed issue and the signed spends of one note, and the
+/// delivery word it tips with.
 pub struct Inner {
     pub issue: Vec<u8>,
     pub spends: Vec<Vec<u8>>,
+    pub word: Option<WordPart>,
+}
+
+/// A delivery word as the payer wrote it: not yet checked against anything.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WordPart {
+    pub commitment: Vec<u8>,
+    pub signature: [u8; 64],
+    pub proof: Vec<u8>,
 }
 
 fn invalid(message: &'static str) -> Problem {
@@ -69,15 +91,18 @@ fn length(plain: &[u8], at: &mut usize) -> Result<usize, Problem> {
 }
 
 /// `version 1 ‖ kind 1 ‖ issueLen u16 ‖ issue ‖ n u8 ‖ (len u16 ‖ spend) × n`, then zeros up to a
-/// bucket size.
+/// bucket size. Kind 2 adds `commitment 91 ‖ sig 64 ‖ wordLen u16 ‖ word proof` before the zeros:
+/// a word part that is cut short or followed by anything but zeros is dropped, and the payment
+/// settles as kind 1.
 pub fn parse_inner(plain: &[u8]) -> Result<Inner, Problem> {
     if !BUCKETS.contains(&plain.len()) {
         return Err(invalid("the relayed message is not a bucket size"));
     }
     let mut at = 0;
-    if take(plain, &mut at, 2)? != [1, 1] {
-        return Err(invalid("not a relayed settlement"));
-    }
+    let kind = match take(plain, &mut at, 2)? {
+        [1, kind @ (1 | 2)] => *kind,
+        _ => return Err(invalid("not a relayed settlement")),
+    };
     let issue_len = length(plain, &mut at)?;
     let issue = take(plain, &mut at, issue_len)?.to_vec();
     let count = usize::from(take(plain, &mut at, 1)?[0]);
@@ -91,10 +116,114 @@ pub fn parse_inner(plain: &[u8]) -> Result<Inner, Problem> {
         let len = length(plain, &mut at)?;
         spends.push(take(plain, &mut at, len)?.to_vec());
     }
+    if kind == 2 {
+        let word = word_part(plain, &mut at).filter(|_| plain[at..].iter().all(|byte| *byte == 0));
+        return Ok(Inner {
+            issue,
+            spends,
+            word,
+        });
+    }
     if plain[at..].iter().any(|byte| *byte != 0) {
         return Err(invalid("the padding of a relayed message is not zeros"));
     }
-    Ok(Inner { issue, spends })
+    Ok(Inner {
+        issue,
+        spends,
+        word: None,
+    })
+}
+
+fn word_part(plain: &[u8], at: &mut usize) -> Option<WordPart> {
+    let commitment = take(plain, at, payword::COMMITMENT_LEN).ok()?.to_vec();
+    let signature = take(plain, at, 64).ok()?.try_into().ok()?;
+    let len = length(plain, at).ok()?;
+    let proof = take(plain, at, len).ok()?.to_vec();
+    Some(WordPart {
+        commitment,
+        signature,
+        proof,
+    })
+}
+
+/// A relayed body taken apart.
+pub struct Body<'a> {
+    pub key_id: u8,
+    pub enc: [u8; 32],
+    pub ciphertext: &'a [u8],
+    pub rk: Option<[u8; RK_LEN]>,
+    /// The SHA-256 of the blob without `rk`, hex: what the word is asked for by.
+    pub id: String,
+}
+
+/// `keyId u8 ‖ enc 32 ‖ ciphertext`, then an optional `rk` of 32 bytes: the ciphertext is a bucket
+/// and a tag, so the length says whether `rk` is there.
+pub fn split_body(body: &[u8]) -> Result<Body<'_>, Error> {
+    let fits = |len: usize| {
+        (HEADER + TAG..=MAX_RELAY_BYTES).contains(&len) && BUCKETS.contains(&(len - HEADER - TAG))
+    };
+    let (blob, rk) = if fits(body.len()) {
+        (body, None)
+    } else if let Some(at) = body.len().checked_sub(RK_LEN).filter(|at| fits(*at)) {
+        let (blob, rk) = body.split_at(at);
+        (blob, Some(rk.try_into().expect("split at the key length")))
+    } else {
+        return Err(Error::BadRequest("not a relayed settlement"));
+    };
+    Ok(Body {
+        key_id: blob[0],
+        enc: blob[1..HEADER].try_into().expect("a header holds enc"),
+        ciphertext: &blob[HEADER..],
+        rk,
+        id: hex::encode(sha2::Sha256::digest(blob)),
+    })
+}
+
+/// A word that passed every check the gateway can make before the payment settles.
+#[derive(Debug, PartialEq)]
+pub struct ValidWord {
+    pub commitment: Commitment,
+    pub part: WordPart,
+}
+
+/// What a relayed message comes to: the settlement it asks for, and the word that goes with it
+/// when the word holds. An invalid word never blocks the payment.
+#[derive(Debug, PartialEq)]
+pub struct Plan {
+    pub settlement: SettlementRequest,
+    pub word: Option<ValidWord>,
+}
+
+/// The settlement of `inner` and its word, if the word is genuine: the commitment decodes, names
+/// the issue's mint and lock, is signed by the issuer, its proof verifies under its root, and its
+/// whole interval fits in a quarter of the bond.
+pub fn plan_relayed(inner: &Inner, domain: &[u8; 32], issue: &Issue, lock: &Lock) -> Plan {
+    let settlement = SettlementRequest {
+        issue: hex::encode(&inner.issue),
+        spends: inner.spends.iter().map(hex::encode).collect(),
+    };
+    let word = inner
+        .word
+        .as_ref()
+        .and_then(|part| genuine(part, domain, issue, lock));
+    Plan { settlement, word }
+}
+
+fn genuine(part: &WordPart, domain: &[u8; 32], issue: &Issue, lock: &Lock) -> Option<ValidWord> {
+    let commitment = Commitment::decode(&part.commitment).ok()?;
+    let proof = WordProof::decode(&part.proof, commitment.depth).ok()?;
+    let signed = commitment.mint == issue.mint
+        && commitment.lock_seq == issue.lock_seq
+        && lock.mint.to_bytes() == commitment.mint
+        && commitment.total()? <= lock.bond / 4
+        && payword::verify_word(&commitment.root, commitment.depth, &proof);
+    let envelope = payword::payword_signing(domain, &commitment).ok()?;
+    (signed && verify_signature(&issue.issuer, &envelope, &part.signature).is_ok()).then(|| {
+        ValidWord {
+            commitment,
+            part: part.clone(),
+        }
+    })
 }
 
 #[derive(Debug, PartialEq)]
@@ -258,9 +387,15 @@ impl Default for Relay {
     }
 }
 
+impl Relay {
+    /// Counts one request from `ip` in the relay's buckets: `false` when either is spent.
+    pub fn admit(&self, ip: IpAddr) -> bool {
+        self.per_prefix.check(ip.into()).is_ok() && self.wide.check(RELAY_PREFIX).is_ok()
+    }
+}
+
 pub(crate) async fn limit(state: &Gateway, ip: IpAddr, request: Request, next: Next) -> Response {
-    let relay = &state.relay;
-    if relay.per_prefix.check(ip.into()).is_err() || relay.wide.check(RELAY_PREFIX).is_err() {
+    if !state.relay.admit(ip) {
         return Error::RateLimited.into_response();
     }
     next.run(request).await
@@ -280,6 +415,7 @@ pub(crate) fn drive_later(state: Arc<Gateway>, job: SettlementJob) {
             tokio::time::sleep(Duration::from_secs(u64::from(wait))).await;
         }
         settlements::resume(&state, &job).await;
+        words::release_if_settled(&state, &job.key).await;
     });
 }
 
@@ -303,20 +439,15 @@ fn sealed(exporter: &[u8; 32], enc: &[u8; 32], answer: &Answer) -> Response {
 }
 
 pub(crate) async fn relay(State(state): State<Arc<Gateway>>, body: Bytes) -> Response {
-    if body.len() > MAX_RELAY_BYTES
-        || body.len() < HEADER + TAG
-        || !BUCKETS.contains(&(body.len() - HEADER - TAG))
-    {
+    let Ok(parts) = split_body(&body) else {
         return Error::BadRequest("not a relayed settlement").into_response();
-    }
-    let (key_id, rest) = (body[0], &body[1..]);
-    let (enc, ciphertext) = rest.split_at(32);
+    };
     let info = hpke::info("relay", &state.settings.genesis_hash);
     let (plain, exporter) = match state.hpke.open_with_export_at(
         u64::from(local_now()),
-        key_id,
-        enc,
-        ciphertext,
+        parts.key_id,
+        &parts.enc,
+        parts.ciphertext,
         &info,
         RELAY_AAD,
         EXPORT_LABEL,
@@ -327,21 +458,52 @@ pub(crate) async fn relay(State(state): State<Arc<Gateway>>, body: Bytes) -> Res
             return Error::BadRequest("the message does not open").into_response();
         }
     };
-    let enc: [u8; 32] = enc.try_into().expect("split at 32");
     let inner = match parse_inner(&plain) {
         Ok(inner) => inner,
         Err(problem) => return problem.into_response(),
     };
+    let ask = parts.rk.map(|rk| (rk, parts.id));
+    sealed(&exporter, &parts.enc, &settle(&state, inner, ask).await)
+}
+
+/// The word of a message, once it is known to be genuine, and the relayer it is asked for.
+async fn bound(
+    state: &Gateway,
+    inner: &Inner,
+    issue: &Issue,
+    ask: (&[u8; RK_LEN], &str),
+) -> Result<Option<Binding>, Error> {
+    let program = state.settings.program;
+    let lock = program.find_lock_pda(&issue.issuer, issue.lock_seq).0;
+    let Some(account) = read(state, &[lock]).await?.remove(0) else {
+        return Ok(None);
+    };
+    let Ok(lock) = Lock::from_bytes(&account.data) else {
+        return Ok(None);
+    };
+    let domain = domain(
+        purpose::PAYWORD,
+        &state.settings.genesis_hash,
+        &program.id().to_bytes(),
+    );
+    let plan = plan_relayed(inner, &domain, issue, &lock);
+    Ok(plan.word.map(|word| Binding {
+        blob_id: ask.1.to_owned(),
+        rk: hex::encode(ask.0),
+        issuer: hex::encode(issue.issuer),
+        commitment: hex::encode(&word.part.commitment),
+        signature: hex::encode(word.part.signature),
+        proof: hex::encode(&word.part.proof),
+    }))
+}
+
+/// Inspects the settlement, checks the limits it would meet, writes the job down with the word of
+/// the post that writes it, and answers `submitted` only then.
+async fn settle(state: &Arc<Gateway>, inner: Inner, ask: Option<([u8; RK_LEN], String)>) -> Answer {
     let request = SettlementRequest {
         issue: hex::encode(&inner.issue),
         spends: inner.spends.iter().map(hex::encode).collect(),
     };
-    sealed(&exporter, &enc, &settle(&state, request).await)
-}
-
-/// Inspects the settlement, checks the limits it would meet, writes the job down and answers
-/// `submitted` only then.
-async fn settle(state: &Arc<Gateway>, request: SettlementRequest) -> Answer {
     let key = settlements::job_key(&request);
     let job = match inspect_settlement(state, RELAY_PREFIX, &request).await {
         Ok(Planned::Send(job)) => *job,
@@ -351,6 +513,11 @@ async fn settle(state: &Arc<Gateway>, request: SettlementRequest) -> Answer {
             )) = &other
             {
                 claims::file_in_background(Arc::clone(state), request);
+            } else if let (Err(error), Some((_, id))) = (&other, &ask)
+                && settlements::ended(error).is_some()
+                && inner.word.is_some()
+            {
+                words::forget(state, id);
             }
             return answer_for(&other);
         }
@@ -365,6 +532,15 @@ async fn settle(state: &Arc<Gateway>, request: SettlementRequest) -> Answer {
     {
         return answer_for(&Err(settlements::limits(state, refusal, now)));
     }
+    let word = match (&ask, parse_issue(&request.issue)) {
+        (Some((rk, id)), Ok(issue)) => {
+            match bound(state, &inner, &issue.message, (rk, id.as_str())).await {
+                Ok(word) => word,
+                Err(error) => return answer_for(&Err(error)),
+            }
+        }
+        _ => None,
+    };
     let row =
         SettlementJob {
             key,
@@ -381,6 +557,7 @@ async fn settle(state: &Arc<Gateway>, request: SettlementRequest) -> Answer {
                 u32::from_le_bytes(random_bytes()) % (state.relay.delay_max_secs + 1),
             )),
             zk: None,
+            word,
         };
     match state.jobs.begin(row.clone()) {
         Ok(true) => {
@@ -393,6 +570,31 @@ async fn settle(state: &Arc<Gateway>, request: SettlementRequest) -> Answer {
             warn!("a relayed job could not be written; nothing was sent");
             answer_for(&Err(Error::Upstream))
         }
+    }
+}
+
+/// `GET /v1/relay/{id}/word`: the word of the blob `id`, sealed to the key of the post that wrote
+/// its job. `404` while the job is pending, `410` when it ended without a word for anyone.
+pub(crate) async fn word(State(state): State<Arc<Gateway>>, Path(id): Path<String>) -> Response {
+    if id.len() != 64 || !id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Error::BadRequest("not a blob id").into_response();
+    }
+    let id = id.to_ascii_lowercase();
+    if state.words.outcome(&id).is_none()
+        && let Some(job) = state.jobs.bound_to(&id)
+        && let Some(binding) = &job.word
+    {
+        words::release_job(&state, &job, binding).await;
+    }
+    match state.words.outcome(&id) {
+        Some(Outcome::Released(envelope)) => (
+            StatusCode::OK,
+            [(CONTENT_TYPE, "application/octet-stream")],
+            hex::decode(envelope).unwrap_or_default(),
+        )
+            .into_response(),
+        Some(Outcome::Unfunded | Outcome::Gone) => StatusCode::GONE.into_response(),
+        None => StatusCode::NOT_FOUND.into_response(),
     }
 }
 
@@ -431,6 +633,235 @@ mod tests {
             .ok()
     }
 
+    use buckspay_protocol::{
+        Caveats, Issue,
+        caveats::{Owner, ScopeKind},
+    };
+    use p256::ecdsa::{SigningKey, signature::Signer};
+
+    const MINT: [u8; 32] = [4; 32];
+    const GENESIS: [u8; 32] = [5; 32];
+    const PROGRAM: [u8; 32] = [6; 32];
+
+    fn domain_of() -> [u8; 32] {
+        domain(purpose::PAYWORD, &GENESIS, &PROGRAM)
+    }
+
+    fn lock(bond: u64) -> Lock {
+        Lock {
+            discriminator: [0; 8],
+            mint: solana_pubkey::Pubkey::new_from_array(MINT),
+            bond,
+            backing: 0,
+            lock_until: 0,
+            bump: 255,
+            escrow_bump: 255,
+        }
+    }
+
+    /// A kind 2 message for a channel of 16 words worth `word_value` each, and what it is built of.
+    struct Kind2 {
+        bytes: Vec<u8>,
+        issue: Issue,
+        commitment: Commitment,
+        part: WordPart,
+    }
+
+    fn proof_of(words: &[[u8; 32]], index: usize) -> WordProof {
+        let mut level: Vec<[u8; 32]> = words
+            .iter()
+            .enumerate()
+            .map(|(i, w)| payword::leaf(i as u16, w))
+            .collect();
+        let (mut at, mut path) = (index, vec![]);
+        while level.len() > 1 {
+            path.push(level[at ^ 1]);
+            level = level
+                .chunks(2)
+                .map(|pair| payword::node(&pair[0], &pair[1]))
+                .collect();
+            at /= 2;
+        }
+        WordProof {
+            index: index as u16,
+            word: words[index],
+            path,
+        }
+    }
+
+    fn kind2(word_value: u64) -> Kind2 {
+        let key = SigningKey::from_slice(&[9; 32]).unwrap();
+        let issuer: [u8; 33] = key
+            .verifying_key()
+            .to_sec1_point(true)
+            .as_bytes()
+            .try_into()
+            .unwrap();
+        let words: Vec<[u8; 32]> = (0..16u8).map(|i| [i + 1; 32]).collect();
+        let commitment = Commitment {
+            mint: MINT,
+            lock_seq: 2,
+            cum_end: 1_000_000,
+            depth: 4,
+            word_value,
+            root: payword::root(&words),
+            expiry: 5_000,
+        };
+        let envelope = payword::payword_signing(&domain_of(), &commitment).unwrap();
+        let signed: p256::ecdsa::Signature = key.sign(&envelope);
+        let signature: [u8; 64] = signed.normalize_s().to_bytes().into();
+        let proof = proof_of(&words, 3).encode();
+        let issue_bytes = vec![7u8; 227];
+        let mut plain = vec![1u8, 2];
+        plain.extend((issue_bytes.len() as u16).to_be_bytes());
+        plain.extend(&issue_bytes);
+        plain.push(0);
+        plain.extend(commitment.encode());
+        plain.extend(signature);
+        plain.extend((proof.len() as u16).to_be_bytes());
+        plain.extend(&proof);
+        plain.resize(1024, 0);
+        Kind2 {
+            bytes: plain,
+            issue: Issue {
+                issuer,
+                mint: MINT,
+                lock_seq: 2,
+                cum_end: 900_000,
+                salt: [0; 16],
+                owner: Owner::Account([1; 32]),
+                amount: 10,
+                caveats: Caveats {
+                    expiry: 9_000,
+                    hops_left: 1,
+                    flags: 0,
+                    scope_kind: ScopeKind::Any,
+                    scope: [0; 20],
+                },
+            },
+            commitment,
+            part: WordPart {
+                commitment: commitment.encode().to_vec(),
+                signature,
+                proof,
+            },
+        }
+    }
+
+    fn planned(k: &Kind2, bond: u64) -> Plan {
+        plan_relayed(
+            &parse_inner(&k.bytes).unwrap(),
+            &domain_of(),
+            &k.issue,
+            &lock(bond),
+        )
+    }
+
+    #[test]
+    fn kind_two_inner_round_trips_and_kind_one_still_parses() {
+        let k2 = kind2(6);
+        let inner_two = parse_inner(&k2.bytes).unwrap();
+        assert_eq!(inner_two.word.as_ref().unwrap(), &k2.part);
+        assert_eq!(
+            Commitment::decode(&k2.part.commitment).unwrap(),
+            k2.commitment
+        );
+        let plain = inner(&[7; 227], &[], 1024);
+        assert!(parse_inner(&plain).unwrap().word.is_none());
+    }
+
+    #[test]
+    fn body_with_and_without_rk_is_accepted_and_other_lengths_are_not() {
+        for bucket in BUCKETS {
+            let body = vec![0u8; bucket + HEADER + TAG];
+            assert!(split_body(&body).unwrap().rk.is_none());
+            let mut with = body.clone();
+            with.extend([7u8; RK_LEN]);
+            let split = split_body(&with).unwrap();
+            assert_eq!(split.rk, Some([7u8; RK_LEN]));
+            assert_eq!(
+                split.id,
+                split_body(&body).unwrap().id,
+                "the id does not depend on rk"
+            );
+            let mut odd = body.clone();
+            odd.push(0);
+            assert!(split_body(&odd).is_err());
+        }
+        assert!(split_body(&vec![0; MAX_RELAY_BYTES + 1]).is_err());
+    }
+
+    #[test]
+    fn an_invalid_word_still_settles_the_payment_without_a_word() {
+        let good = kind2(6);
+        assert!(planned(&good, 400).word.is_some());
+        let mut path_corrupted = kind2(6);
+        let mut part = path_corrupted.part.clone();
+        *part.proof.last_mut().unwrap() ^= 1;
+        let mut inner = parse_inner(&path_corrupted.bytes).unwrap();
+        inner.word = Some(part);
+        let plan = plan_relayed(&inner, &domain_of(), &path_corrupted.issue, &lock(400));
+        assert!(plan.word.is_none());
+        assert_eq!(plan.settlement, planned(&good, 400).settlement);
+        path_corrupted.issue.lock_seq += 1;
+        assert!(planned(&path_corrupted, 400).word.is_none(), "another lock");
+        let mut other_mint = kind2(6);
+        other_mint.issue.mint = [8; 32];
+        assert!(planned(&other_mint, 400).word.is_none(), "another mint");
+        let mut other_issuer = kind2(6);
+        other_issuer.issue.issuer[5] ^= 1;
+        assert!(
+            planned(&other_issuer, 400).word.is_none(),
+            "not the issuer's signature"
+        );
+    }
+
+    #[test]
+    fn a_commitment_above_a_quarter_of_the_bond_releases_no_word() {
+        assert!(planned(&kind2(6), 400).word.is_some(), "96 of 100");
+        assert!(planned(&kind2(7), 400).word.is_none(), "112 of 100");
+    }
+
+    #[test]
+    fn a_word_part_cut_short_or_followed_by_junk_is_dropped_and_the_payment_stays() {
+        let mut junk = kind2(6).bytes;
+        *junk.last_mut().unwrap() = 1;
+        assert!(parse_inner(&junk).unwrap().word.is_none());
+        let mut short = vec![1u8, 2];
+        short.extend(227u16.to_be_bytes());
+        short.extend([7u8; 227]);
+        short.push(0);
+        short.extend([3u8; 91 + 64]);
+        short.extend(u16::MAX.to_be_bytes());
+        short.resize(1024, 0);
+        let parsed = parse_inner(&short).unwrap();
+        assert!(parsed.word.is_none());
+        assert_eq!(parsed.issue.len(), 227);
+    }
+
+    #[test]
+    fn prints_the_tip_the_app_builds() {
+        let k = kind2(6);
+        let parsed = parse_inner(&k.bytes).unwrap();
+        let word = parsed.word.unwrap();
+        let vector = json!({
+            "issue": hex::encode(&parsed.issue),
+            "commitment": hex::encode(&word.commitment),
+            "signature": hex::encode(word.signature),
+            "proof": hex::encode(&word.proof),
+            "inner": hex::encode(&k.bytes),
+        });
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/vectors/inner-kind2.json"
+        );
+        let text = serde_json::to_string_pretty(&vector).unwrap() + "\n";
+        if std::env::var_os("WRITE_VECTORS").is_some() {
+            std::fs::write(path, &text).unwrap();
+        }
+        assert_eq!(std::fs::read_to_string(path).unwrap(), text);
+    }
+
     #[test]
     fn parses_an_inner_settlement_with_padding() {
         let p = parse_inner(&inner(&[7; 140], &[&[8; 150]], 1024)).unwrap();
@@ -450,7 +881,7 @@ mod tests {
         *v.last_mut().unwrap() = 1;
         assert!(parse_inner(&v).is_err());
         let mut k = inner(&[7; 140], &[&[8; 10]], 1024);
-        k[1] = 2;
+        k[1] = 3;
         assert!(parse_inner(&k).is_err());
         assert!(parse_inner(&inner(&[7; 140], &[&[8u8; 10] as &[u8]; 17], 8192)).is_err());
         assert!(parse_inner(&inner(&[7; 140], &[&[8; 150]], 1000)).is_err());

@@ -36,6 +36,8 @@ export type RemoteCtx = {
   settleDirect: (request: SettlementRequest) => Promise<Outcome>
   /** Seals the inner message to the gateway key this build pins for `now`. */
   seal: (inner: Uint8Array, now: number) => Promise<SealedRelay>
+  /** The tip of a payment: the next delivery word of the payer's channel, or `null` when tipping is off. */
+  word?: (issue: SignedRemote['issue']) => Promise<Uint8Array | null>
 }
 
 export type SignedRemote = { messageId: Uint8Array; issue: Signed<Issue>; spends: Signed<Spend>[] }
@@ -70,7 +72,11 @@ export async function sendRemote(ctx: RemoteCtx, signed: SignedRemote): Promise<
       return 'refused'
     }
   }
-  const inner = encodeInner(encodeIssue(signed.issue), signed.spends.map(encodeSpend))
+  const inner = encodeInner(
+    encodeIssue(signed.issue),
+    signed.spends.map(encodeSpend),
+    (await ctx.word?.(signed.issue)) ?? undefined,
+  )
   const sealed = await ctx.seal(inner, ctx.now())
   const [output] = walkChain(ctx.noteDomain, signed.issue, signed.spends).last
   await queueSealed(db, {

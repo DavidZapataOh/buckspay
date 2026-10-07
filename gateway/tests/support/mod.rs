@@ -13,6 +13,7 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use buckspay_client::Program;
 use buckspay_gateway::{
     chain::{self, Rents},
+    channels::Channels,
     float::{Caps as FloatCaps, SettlementLimits},
     hpke::HpkeKeys,
     jobs::Jobs,
@@ -53,7 +54,9 @@ use std::{
 };
 use tower::ServiceExt;
 
+pub mod channels;
 mod notes;
+pub mod relay;
 pub mod zk;
 pub use notes::*;
 
@@ -653,6 +656,36 @@ impl Sponsor {
         jobs: Jobs,
         relay: Relay,
     ) -> Self {
+        Self::on_channels(
+            rpc,
+            fee_payer,
+            limits,
+            float,
+            settings,
+            client,
+            rents,
+            per_minute,
+            jobs,
+            relay,
+            Channels::default(),
+        )
+    }
+
+    /// The same, with the channels the gateway opens bounded by `channels`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn on_channels(
+        rpc: RpcClient,
+        fee_payer: Keypair,
+        limits: Arc<SponsorLimits>,
+        float: Arc<SettlementLimits>,
+        settings: Settings,
+        client: ClientAddress,
+        rents: Rents,
+        per_minute: u32,
+        jobs: Jobs,
+        relay: Relay,
+        channels: Channels,
+    ) -> Self {
         let fee_payer_address = fee_payer.pubkey();
         let gateway = Arc::new(
             Gateway::new(
@@ -668,7 +701,8 @@ impl Sponsor {
                 hpke(),
             )
             .with_jobs(jobs)
-            .with_relay(relay),
+            .with_relay(relay)
+            .with_channels(channels),
         );
         Self {
             fee_payer: fee_payer_address,

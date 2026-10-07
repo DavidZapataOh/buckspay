@@ -52,6 +52,9 @@ pub struct SettlementJob {
     /// The private settlement the job finishes, in place of `issue` and `spends`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub zk: Option<crate::zk::ZkRequest>,
+    /// The delivery word of the first post that wrote the job, written with it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub word: Option<crate::words::Binding>,
 }
 
 /// The state a failed simulation of a batch puts a job in, when it is not transient.
@@ -133,6 +136,20 @@ impl Jobs {
         self.rows.lock().unwrap().get(key).cloned()
     }
 
+    /// The job that holds the word bound to the blob `blob_id`.
+    pub fn bound_to(&self, blob_id: &str) -> Option<SettlementJob> {
+        self.rows
+            .lock()
+            .unwrap()
+            .values()
+            .find(|job| {
+                job.word
+                    .as_ref()
+                    .is_some_and(|word| word.blob_id == blob_id)
+            })
+            .cloned()
+    }
+
     /// The jobs still to be finished.
     pub fn pending(&self) -> Vec<SettlementJob> {
         self.rows
@@ -194,19 +211,25 @@ impl Jobs {
     /// A write goes to a temporary file in the same directory, is synced, replaces the file by
     /// rename and syncs the directory: a power loss leaves the old jobs or the new ones.
     fn save(&self, rows: &MutexGuard<'_, BTreeMap<String, SettlementJob>>) -> io::Result<()> {
-        let Some(path) = &self.path else {
-            return Ok(());
-        };
-        let dir = path
-            .parent()
-            .filter(|dir| !dir.as_os_str().is_empty())
-            .unwrap_or(Path::new("."));
-        let mut file = tempfile::NamedTempFile::new_in(dir)?;
-        file.write_all(&serde_json::to_vec(&**rows).map_err(io::Error::other)?)?;
-        file.as_file().sync_all()?;
-        file.persist(path).map_err(|e| e.error)?;
-        fs::File::open(dir)?.sync_all()
+        match &self.path {
+            Some(path) => write_atomic(path, &**rows),
+            None => Ok(()),
+        }
     }
+}
+
+/// Writes `value` as JSON to a temporary file in the same directory, syncs it, replaces `path` by
+/// rename and syncs the directory: a power loss leaves the old content or the new.
+pub(crate) fn write_atomic(path: &Path, value: &impl Serialize) -> io::Result<()> {
+    let dir = path
+        .parent()
+        .filter(|dir| !dir.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let mut file = tempfile::NamedTempFile::new_in(dir)?;
+    file.write_all(&serde_json::to_vec(value).map_err(io::Error::other)?)?;
+    file.as_file().sync_all()?;
+    file.persist(path).map_err(|e| e.error)?;
+    fs::File::open(dir)?.sync_all()
 }
 
 #[cfg(test)]
@@ -227,6 +250,7 @@ mod tests {
             last_valid_block_height: None,
             not_before: None,
             zk: None,
+            word: None,
         }
     }
 

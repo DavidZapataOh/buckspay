@@ -1,4 +1,5 @@
 import { sha256 } from '@noble/hashes/sha2.js'
+import { concatBytes } from '@noble/hashes/utils.js'
 import type { NoteDb } from '../notes/db'
 import { accept, forward, RelayRejected } from './inbox'
 import { acceptCarry, answeredByRelayer, parseFrame } from './carry'
@@ -17,7 +18,7 @@ export async function serveChannel(
   db: NoteDb,
   channel: Channel,
   peer: string,
-  post: (blob: Uint8Array) => Promise<Uint8Array>,
+  post: (blob: Uint8Array, rk: Uint8Array) => Promise<Uint8Array>,
   now: () => number,
   online = true,
 ): Promise<void> {
@@ -59,13 +60,16 @@ export async function serveChannel(
   }
 }
 
-/** Posts a sealed settlement to the gateway; a refusal of the blob itself (`400`) is told apart from a failure to reach it. */
+/**
+ * Posts a sealed settlement to the gateway with the key `rk` its word is to be sealed to, if the gateway writes the job
+ * for this post; a refusal of the blob itself (`400`) is told apart from a failure to reach it.
+ */
 export function postRelay(gatewayUrl: string, request: typeof fetch = fetch) {
-  return async (blob: Uint8Array): Promise<Uint8Array> => {
+  return async (blob: Uint8Array, rk?: Uint8Array): Promise<Uint8Array> => {
     const response = await request(`${gatewayUrl}/v1/relay`, {
       method: 'POST',
       headers: { 'content-type': 'application/octet-stream' },
-      body: blob as BodyInit,
+      body: (rk ? concatBytes(blob, rk) : blob) as BodyInit,
     })
     if (response.status === 400) throw new RelayRejected()
     if (!response.ok) throw new Error(`The gateway answered ${response.status}.`)

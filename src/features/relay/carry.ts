@@ -1,6 +1,7 @@
 import { sha256 } from '@noble/hashes/sha2.js'
 import type { NoteDb } from '../notes/db'
 import { plausible, RelayRejected } from './inbox'
+import { askFor } from './words'
 
 /** Copies a payer sprays: half goes to the first carrier it meets, half of what is left to the next. */
 export const SPRAY_COPIES = 8
@@ -83,15 +84,16 @@ export async function answeredByRelayer(db: NoteDb, id: Uint8Array, _now: number
  */
 export async function postCarried(
   db: NoteDb,
-  post: (blob: Uint8Array) => Promise<Uint8Array>,
+  post: (blob: Uint8Array, rk: Uint8Array) => Promise<Uint8Array>,
   now: number,
 ): Promise<number> {
   let posted = 0
   for (const row of await toHand(db, { online: true }, now)) {
     try {
-      await post(row.blob)
+      await post(row.blob, await askFor(db, row.id, now))
       posted++
     } catch (error) {
+      await db.run('DELETE FROM relay_word_asks WHERE id = ?', [row.id])
       if (!(error instanceof RelayRejected)) continue
     }
     await answeredByRelayer(db, row.id, now)

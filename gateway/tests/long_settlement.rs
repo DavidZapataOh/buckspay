@@ -102,6 +102,7 @@ fn job_of(note: &Note) -> SettlementJob {
         last_valid_block_height: None,
         not_before: None,
         zk: None,
+        word: None,
     }
 }
 

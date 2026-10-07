@@ -136,6 +136,10 @@ pub struct Config {
     pub relay_delay_max_secs: u32,
     /// Relayed settlements sponsored in one day, all relayers together.
     pub relay_daily_cap: u32,
+    /// Open `Channel` accounts the gateway may pay rent for at once.
+    pub max_open_channels: usize,
+    /// Channels one network may have the gateway open in a day.
+    pub new_channels_per_network_day: u32,
     pub caps: Caps,
     /// Lamports of rent the gateway may have out in settlement records.
     pub settlement_float_cap: u64,
@@ -260,6 +264,8 @@ impl Config {
             zk_keys_url: env::var("ZK_KEYS_URL").ok().filter(|url| !url.is_empty()),
             relay_delay_max_secs: var("RELAY_DELAY_MAX_SECS", "30")?,
             relay_daily_cap: var("RELAY_DAILY_CAP", "1000")?,
+            max_open_channels: var("MAX_OPEN_CHANNELS", "1000")?,
+            new_channels_per_network_day: var("NEW_CHANNELS_PER_IP_DAY", "10")?,
             caps: Caps {
                 cac_budget: var("CAC_BUDGET_LAMPORTS", "500000000")?,
                 open_rent_cap: var("OPEN_RENT_CAP_LAMPORTS", "600000000")?,

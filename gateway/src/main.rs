@@ -1,6 +1,7 @@
 use buckspay_client::{Program, accounts};
 use buckspay_gateway::{
     chain::{self, Rents},
+    channels::{ChannelJobs, Channels},
     claims,
     config::{Config, Listen},
     float::{Caps as FloatCaps, SettlementLimits},
@@ -12,6 +13,7 @@ use buckspay_gateway::{
     settlements,
     sponsor::SponsorLimits,
     sponsored::{CONFIRM_TIMEOUT, PENDING_TTL},
+    words::Words,
     zk::Zk,
 };
 use buckspay_protocol::lock::Windows;
@@ -147,6 +149,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         zk = zk.with_keys_url(url);
     }
     let jobs = Jobs::open(&config.state_directory.join("jobs.json"))?;
+    let words = Words::open(&config.state_directory.join("words.json"))?;
+    let channel_jobs = ChannelJobs::open(&config.state_directory.join("channels.json"))?;
     let gateway = Arc::new(
         Gateway::new(
             rpc,
@@ -162,6 +166,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .with_jobs(jobs)
         .with_relay(Relay::with_delay(config.relay_delay_max_secs))
+        .with_words(words)
+        .with_channels(Channels::new(
+            config.max_open_channels,
+            config.new_channels_per_network_day,
+            channel_jobs,
+        ))
         .with_zk(zk),
     );
     relay::resume_pending(&gateway);
