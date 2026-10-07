@@ -1,13 +1,17 @@
 import { router } from 'expo-router'
 import { useEffect, useRef } from 'react'
 import { usePayFlow } from '../../features/pay/use-pay-flow'
-import { copy } from '../../features/payment/copy'
+import { copy, text } from '../../features/payment/copy'
 import { ScanScreen } from '../../features/qr/scan-screen'
 import { howCopy } from '../../features/transport/copy'
 import { WaitingScreen } from '../../features/transport/waiting'
 
-const scanNotice = (state: { wrongCode: boolean; unreadable?: boolean }) =>
-  state.unreadable ? copy.scan.unreadable : state.wrongCode ? copy.scan.wrongCode : undefined
+const scanNotice = (state: { wrongCode: boolean; unreadable?: string }) =>
+  state.unreadable
+    ? text(copy.scan.unreadable, { code: state.unreadable })
+    : state.wrongCode
+      ? copy.scan.wrongCode
+      : undefined
 
 export default function PayScan() {
   const flow = usePayFlow()

@@ -33,7 +33,7 @@ export const copy = {
     hint: "Hold your camera on the code on the other phone's screen.",
     progress: 'Part {done} of {total}',
     wrongCode: "That code isn't a payment request. Ask the other phone to show a request.",
-    unreadable: "Couldn't use that request. Cancel, then scan it again.",
+    unreadable: "Couldn't use that request ({code}). Cancel, then scan it again.",
     wrongPayment: "That code isn't a payment. Ask the payer to show their payment.",
     receiptHint: "Hold your camera on the confirmation on the other phone's screen.",
   },

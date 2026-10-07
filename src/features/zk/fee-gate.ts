@@ -28,17 +28,27 @@ export function feeGate({
   }
 }
 
+const FEE_READ_MS = 4000
+
+const timeout = (ms: number) => {
+  const controller = new AbortController()
+  setTimeout(() => controller.abort(), ms)
+  return controller.signal
+}
+
 const cacheKey = (mint: Uint8Array) => `zk:record-fee-v1:${bytesToHex(mint)}`
 
 /** The record fee of a mint: read from its `ZkMint` account when online and remembered for when it is not. */
-export function recordFeeSource(rpc: Rpc<GetAccountInfoApi>, programAddress: Address) {
+export function recordFeeSource(rpc: Rpc<GetAccountInfoApi>, programAddress: Address, readMs = FEE_READ_MS) {
   return async (mint: Uint8Array): Promise<bigint | undefined> => {
     try {
       const [account] = await getProgramDerivedAddress({
         programAddress,
         seeds: [new TextEncoder().encode('zk-mint'), mint],
       })
-      const { value } = await rpc.getAccountInfo(account, { encoding: 'base64', commitment: 'confirmed' }).send()
+      const { value } = await rpc
+        .getAccountInfo(account, { encoding: 'base64', commitment: 'confirmed' })
+        .send({ abortSignal: timeout(readMs) })
       if (!value) return undefined
       const fee = recordFee(Uint8Array.from(getBase64Encoder().encode(value.data[0])))
       await AsyncStorage.setItem(cacheKey(mint), fee.toString())

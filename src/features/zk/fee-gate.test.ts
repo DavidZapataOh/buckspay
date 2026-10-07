@@ -1,8 +1,11 @@
+import type { Address } from '@solana/kit'
 import { describe, expect, it, vi } from 'vitest'
 import type { Bundle } from '../../payment/messages'
 import { Reason } from '../../payment/reasons'
 import type { ReceiveGate } from '../../payment/receive'
-import { feeGate } from './fee-gate'
+import { feeGate, recordFeeSource } from './fee-gate'
+
+vi.mock('@react-native-async-storage/async-storage', () => import('../../test-support/async-storage'))
 
 type Received = Parameters<ReceiveGate['admit']>[0]
 const received = (amount: bigint) => ({ mint: new Uint8Array(32).fill(1), output: { amount } }) as unknown as Received
@@ -29,5 +32,20 @@ describe('feeGate', () => {
     expect(
       await feeGate({ fee: async () => undefined, expected: 1_000_000n }).admit(received(1_000_000n), bundle(5)),
     ).toBeNull()
+  })
+})
+
+describe('recordFeeSource with no network', () => {
+  const program = '11111111111111111111111111111111' as Address
+
+  it('gives up when the network does not answer, so a receipt is never held back by it', async () => {
+    const rpc = {
+      getAccountInfo: () => ({
+        send: ({ abortSignal }: { abortSignal: AbortSignal }) =>
+          new Promise((_, reject) => abortSignal.addEventListener('abort', () => reject(new Error('aborted')))),
+      }),
+    }
+    const answer = recordFeeSource(rpc as never, program, 20)(new Uint8Array(32).fill(1))
+    expect(await answer).toBeUndefined()
   })
 })

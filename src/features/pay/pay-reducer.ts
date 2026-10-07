@@ -4,9 +4,12 @@ import type { Plan, Planned, PlanRefusal } from '../../payment/preflight'
 import type { RespendPlan } from '../../payment/respend'
 import type { Reason } from '../../payment/reasons'
 
+/** The step of reading a request that failed, as a short code a person can report. */
+export type ScanStep = 'E_READ' | 'E_STORE' | 'E_PLAN'
+
 export type PayState =
   | { name: 'idle' }
-  | { name: 'scanning'; wrongCode: boolean; unreadable?: boolean }
+  | { name: 'scanning'; wrongCode: boolean; unreadable?: ScanStep }
   | { name: 'reviewing'; request: PaymentRequest; plan: Plan | RespendPlan }
   | { name: 'refused'; reason: PlanRefusal; lockSeq?: number; request: PaymentRequest }
   | { name: 'confirming'; request: PaymentRequest; plan: Plan | RespendPlan }
@@ -20,7 +23,7 @@ export type PayEvent =
   | { type: 'scan' }
   | { type: 'planned'; request: PaymentRequest; planned: Planned | { ok: true; plan: RespendPlan } }
   | { type: 'wrong-code' }
-  | { type: 'unreadable' }
+  | { type: 'unreadable'; step: ScanStep }
   | { type: 'confirm' }
   | { type: 'sent'; payment: SentPayment }
   | { type: 'resumed'; payment: SentPayment }
@@ -50,7 +53,7 @@ export function payReducer(state: PayState, event: PayEvent): PayState {
           : { name: 'refused', reason: planned.reason, lockSeq: planned.lockSeq, request }
       }
       if (event.type === 'wrong-code') return state.wrongCode ? state : { name: 'scanning', wrongCode: true }
-      if (event.type === 'unreadable') return { name: 'scanning', wrongCode: false, unreadable: true }
+      if (event.type === 'unreadable') return { name: 'scanning', wrongCode: false, unreadable: event.step }
       if (event.type === 'back') return initialPayState
       return state
     case 'reviewing':

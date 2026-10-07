@@ -270,7 +270,9 @@ describe('an unfinished payment shown again', () => {
     await act(async () => tree.unmount())
   })
 
-  it('plans a new request while an earlier payment is unconfirmed, and says a paid one is already paid', async () => {
+  it('plans a new request with no network, while an earlier payment is unconfirmed, and says a paid one is already paid', async () => {
+    const offline = vi.fn(() => Promise.reject(new TypeError('Network request failed')))
+    vi.stubGlobal('fetch', offline)
     await seedSignedPayment()
     mocks.locks = [await lockOf()]
     let tree!: ReturnType<typeof create>
@@ -296,6 +298,8 @@ describe('an unfinished payment shown again', () => {
     await act(async () => flow.back())
     await read(request)
     expect(flow.state).toMatchObject({ name: 'refused', reason: 'AlreadyPaid' })
+    expect(offline).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
     await act(async () => tree.unmount())
   })
 
@@ -374,7 +378,7 @@ describe('an unfinished payment shown again', () => {
       await act(async () => flow.submitText(text))
     }
     await act(async () => new Promise((resolve) => setTimeout(resolve, 50)))
-    expect(flow.state).toMatchObject({ name: 'scanning', unreadable: true })
+    expect(flow.state).toMatchObject({ name: 'scanning', unreadable: 'E_PLAN' })
     await act(async () => tree.unmount())
   })
 })

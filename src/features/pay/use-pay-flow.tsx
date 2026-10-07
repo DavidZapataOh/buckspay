@@ -42,7 +42,7 @@ import { createTransportSlot } from '../transport/slot'
 import { useTransportChoice, useTransports } from '../transport/use-transports'
 import { formatMoney } from '../../utils/format-amount'
 import { PAY_LIMITS } from './limits'
-import { initialPayState, payReducer, type PayState } from './pay-reducer'
+import { initialPayState, payReducer, type PayState, type ScanStep } from './pay-reducer'
 import { BUILD_TOKEN, BUILD_TOKENS } from './tokens'
 
 type Offline = ReturnType<typeof useOfflineLocks>
@@ -181,6 +181,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
     const controller = new AbortController()
     pending.current = controller
     void (async () => {
+      let step: ScanStep = 'E_READ'
       try {
         const opened = await slot.open(medium, 'payer').catch(() => undefined)
         if (!opened) return controller.signal.aborted ? undefined : dispatch({ type: 'back' })
@@ -192,6 +193,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         })
         const { offline: current, db: store, key, creditEvent: credit } = latest.current
         if (!store || !key) return
+        step = 'E_STORE'
         const context: PayContext = {
           now: nowSeconds(),
           me: key,
@@ -203,6 +205,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
           salt: () => crypto.getRandomValues(new Uint8Array(16)),
           ...(await paymentContext(store, startOfToday())),
         }
+        step = 'E_PLAN'
         const respent = credit
           ? null
           : planRespend(request, await withoutFlagged(store, await heldOutputs(store, key, context.now)), context)
@@ -213,8 +216,10 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
             ? respent
             : planPayment(request, context, credit ? { authorityOnly: credit.authority } : undefined),
         })
-      } catch {
-        if (!controller.signal.aborted) dispatch({ type: 'unreadable' })
+      } catch (error) {
+        if (controller.signal.aborted) return
+        console.warn(`scan failed at ${step}: ${error instanceof Error ? error.name : typeof error}`)
+        dispatch({ type: 'unreadable', step })
       }
     })()
   }, [abort, domains, medium, session, slot])
