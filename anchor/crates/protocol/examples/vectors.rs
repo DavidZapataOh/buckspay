@@ -4,6 +4,7 @@ use buckspay_protocol::device::{
     device_binding_body, device_binding_envelope, device_rotation_body, device_rotation_envelope,
 };
 use buckspay_protocol::hash::{content, domain, envelope, message_id, output_id, purpose};
+use buckspay_protocol::payword::{self, Commitment, WordProof};
 use buckspay_protocol::profile::{PRODUCTION_DEVNET_PROGRAM_ID, SHORT_PROGRAM_ID};
 use buckspay_protocol::reclaim::{reclaim_body, reclaim_envelope, record_content};
 use buckspay_protocol::slash::{covers, exposure, min_bond, payment_limit, penalty};
@@ -2048,10 +2049,96 @@ fn vectors() -> Value {
             device_rotation("alice_after_seven_rotations", &device_domain, (&[0xb5; 32], &[0xa1; 32]), 7, &alice, alice.public),
             device_rotation("uncompressed_key", &device_domain, (&[0xa1; 32], &[0xb5; 32]), 0, &alice, uncompressed),
         ],
+        "payword": payword(),
         "profiles": profiles(),
         "reclaims": reclaims(&derived_reclaim_domain),
         "secp256r1_layouts": secp256r1_layouts(),
         "slash": slash(),
+    })
+}
+
+/// HMAC-SHA256 with a 32-byte key, as the words of a channel are derived from its seed.
+fn hmac_sha256(key: &[u8; 32], message: &[u8]) -> [u8; 32] {
+    use sha2::Sha256;
+    let (mut inner, mut outer) = ([0x36u8; 64], [0x5cu8; 64]);
+    for i in 0..32 {
+        inner[i] ^= key[i];
+        outer[i] ^= key[i];
+    }
+    let digest = |parts: &[&[u8]]| -> [u8; 32] {
+        let mut h = Sha256::new();
+        for part in parts {
+            h.update(part);
+        }
+        h.finalize().into()
+    };
+    digest(&[&outer, &digest(&[&inner, message])])
+}
+
+fn payword_word(seed: &[u8; 32], index: u16) -> [u8; 32] {
+    let mut message = b"buckspay/word".to_vec();
+    message.extend_from_slice(&index.to_be_bytes());
+    hmac_sha256(seed, &message)
+}
+
+fn payword_proof(words: &[[u8; 32]], index: u16) -> WordProof {
+    let mut level: Vec<[u8; 32]> = words
+        .iter()
+        .enumerate()
+        .map(|(i, w)| payword::leaf(i as u16, w))
+        .collect();
+    let (mut at, mut path) = (usize::from(index), vec![]);
+    while level.len() > 1 {
+        path.push(level[at ^ 1]);
+        level = level
+            .chunks(2)
+            .map(|p| payword::node(&p[0], &p[1]))
+            .collect();
+        at /= 2;
+    }
+    WordProof {
+        index,
+        word: words[usize::from(index)],
+        path,
+    }
+}
+
+/// A channel commitment, its words, roots and word proofs, byte for byte what the app derives.
+fn payword() -> Value {
+    let domain = domain(purpose::PAYWORD, &DEVNET_GENESIS_HASH, &PROGRAM_ID);
+    let seed = [0x11u8; 32];
+    let words = |depth: u8| -> Vec<[u8; 32]> {
+        (0..1u16 << depth).map(|i| payword_word(&seed, i)).collect()
+    };
+    let (words3, words6) = (words(3), words(6));
+    let commitment = Commitment {
+        mint: MINT,
+        lock_seq: 3,
+        cum_end: 10_000_000,
+        depth: 6,
+        word_value: 50_000,
+        root: payword::root(&words6),
+        expiry: EXPIRY,
+    };
+    let proofs: Vec<Value> = [0u16, 5, 63]
+        .into_iter()
+        .map(|i| json!({ "index": i, "proof": hex(&payword_proof(&words6, i).encode()) }))
+        .collect();
+    let exps: Vec<Value> = [2u32, 6, 126, 128, 130, 254, 256]
+        .into_iter()
+        .map(|m| json!({ "words": m, "exps": payword::canonical_exps(m) }))
+        .collect();
+    json!({
+        "seed": hex(&seed),
+        "word5": hex(&words6[5]),
+        "leaf5": hex(&payword::leaf(5, &words6[5])),
+        "root3": hex(&payword::root(&words3)),
+        "root6": hex(&commitment.root),
+        "commitment": hex(&commitment.encode()),
+        "commitment_hash": hex(&commitment.hash()),
+        "envelope": hex(&payword::payword_signing(&domain, &commitment).unwrap()),
+        "proofs6": proofs,
+        "exps": exps,
     })
 }
 

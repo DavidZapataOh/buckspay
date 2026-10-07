@@ -7,9 +7,13 @@
  */
 
 export * from './attester'
+export * from './channel'
 export * from './device'
 export * from './ledger'
 export * from './lock'
 export * from './proofBuffer'
+export * from './rewardConfig'
+export * from './rewardMint'
+export * from './rewardTree'
 export * from './rotation'
 export * from './zkConfig'

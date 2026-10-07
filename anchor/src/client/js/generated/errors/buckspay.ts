@@ -156,6 +156,38 @@ export const BUCKSPAY_ERROR__LOCK_CAP_TOO_HIGH = 0x17b4 // 6068
 export const BUCKSPAY_ERROR__TEST_KEYS_ON_MAINNET = 0x17b5 // 6069
 /** WrongFeeAccount: The fee account is not the one configured for the mint */
 export const BUCKSPAY_ERROR__WRONG_FEE_ACCOUNT = 0x17b6 // 6070
+/** WordRejected: The word does not verify against the root of its channel */
+export const BUCKSPAY_ERROR__WORD_REJECTED = 0x17b7 // 6071
+/** WordAlreadySettled: The word was already settled */
+export const BUCKSPAY_ERROR__WORD_ALREADY_SETTLED = 0x17b8 // 6072
+/** ChannelWindowClosed: The settlement window of the channel has closed */
+export const BUCKSPAY_ERROR__CHANNEL_WINDOW_CLOSED = 0x17b9 // 6073
+/** WordValueMismatch: The commitment does not price its words as the mint does */
+export const BUCKSPAY_ERROR__WORD_VALUE_MISMATCH = 0x17ba // 6074
+/** InnersDoNotMatchWords: The inners are not one per leaf of the words' canonical decomposition */
+export const BUCKSPAY_ERROR__INNERS_DO_NOT_MATCH_WORDS = 0x17bb // 6075
+/** NonCanonicalInner: An inner is not a canonical field element */
+export const BUCKSPAY_ERROR__NON_CANONICAL_INNER = 0x17bc // 6076
+/** TooManyChannels: Too many channels in one transaction */
+export const BUCKSPAY_ERROR__TOO_MANY_CHANNELS = 0x17bd // 6077
+/** ChannelStillOpen: The channel cannot be closed yet */
+export const BUCKSPAY_ERROR__CHANNEL_STILL_OPEN = 0x17be // 6078
+/** ChannelAboveBondQuarter: The commitment is above a quarter of the lock's bond */
+export const BUCKSPAY_ERROR__CHANNEL_ABOVE_BOND_QUARTER = 0x17bf // 6079
+/** CommitmentInvalid: The commitment is malformed or its depth is out of range */
+export const BUCKSPAY_ERROR__COMMITMENT_INVALID = 0x17c0 // 6080
+/** NotRewardAdmin: The signer is not allowed to change the reward configuration */
+export const BUCKSPAY_ERROR__NOT_REWARD_ADMIN = 0x17c1 // 6081
+/** NotRewardPool: The ledger is not a reward pool */
+export const BUCKSPAY_ERROR__NOT_REWARD_POOL = 0x17c2 // 6082
+/** FeeAboveValue: The fees do not fit the value of a word */
+export const BUCKSPAY_ERROR__FEE_ABOVE_VALUE = 0x17c3 // 6083
+/** TreeFull: The reward tree of this epoch cannot take another batch */
+export const BUCKSPAY_ERROR__TREE_FULL = 0x17c4 // 6084
+/** TreeNotFull: The reward tree of this epoch still has room */
+export const BUCKSPAY_ERROR__TREE_NOT_FULL = 0x17c5 // 6085
+/** HashFailed: Poseidon failed on canonical inputs */
+export const BUCKSPAY_ERROR__HASH_FAILED = 0x17c6 // 6086
 
 export type BuckspayError =
   | typeof BUCKSPAY_ERROR__ALREADY_CLAIMED
@@ -172,9 +204,13 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__BUFFER_WRITE
   | typeof BUCKSPAY_ERROR__CHAIN_INVALID
   | typeof BUCKSPAY_ERROR__CHAIN_VERIFICATION
+  | typeof BUCKSPAY_ERROR__CHANNEL_ABOVE_BOND_QUARTER
+  | typeof BUCKSPAY_ERROR__CHANNEL_STILL_OPEN
+  | typeof BUCKSPAY_ERROR__CHANNEL_WINDOW_CLOSED
   | typeof BUCKSPAY_ERROR__CLAIM_TOO_LATE
   | typeof BUCKSPAY_ERROR__CLOCK_OUT_OF_RANGE
   | typeof BUCKSPAY_ERROR__CLOSE_TOO_EARLY
+  | typeof BUCKSPAY_ERROR__COMMITMENT_INVALID
   | typeof BUCKSPAY_ERROR__CONFLICTING_SPEND
   | typeof BUCKSPAY_ERROR__CONFLICT_PROOF
   | typeof BUCKSPAY_ERROR__DEVICE_BINDING
@@ -182,8 +218,11 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__DEVICE_REQUIRED
   | typeof BUCKSPAY_ERROR__ESCROW_OPEN
   | typeof BUCKSPAY_ERROR__EXIT_NOT_READY
+  | typeof BUCKSPAY_ERROR__FEE_ABOVE_VALUE
   | typeof BUCKSPAY_ERROR__FEE_NOT_ALLOWED
   | typeof BUCKSPAY_ERROR__FEE_TOO_HIGH
+  | typeof BUCKSPAY_ERROR__HASH_FAILED
+  | typeof BUCKSPAY_ERROR__INNERS_DO_NOT_MATCH_WORDS
   | typeof BUCKSPAY_ERROR__INSUFFICIENT_ESCROW
   | typeof BUCKSPAY_ERROR__LOCK_CAP_TOO_HIGH
   | typeof BUCKSPAY_ERROR__LOCK_ENDED
@@ -193,11 +232,14 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__LOCK_TOO_SHORT
   | typeof BUCKSPAY_ERROR__MINT_NOT_ENABLED
   | typeof BUCKSPAY_ERROR__NO_BOND
+  | typeof BUCKSPAY_ERROR__NON_CANONICAL_INNER
   | typeof BUCKSPAY_ERROR__NON_CANONICAL_PUBLIC
   | typeof BUCKSPAY_ERROR__NO_RECORD
   | typeof BUCKSPAY_ERROR__NOT_CLAIMABLE
   | typeof BUCKSPAY_ERROR__NOT_CONFLICTING
   | typeof BUCKSPAY_ERROR__NOT_MIGRATABLE
+  | typeof BUCKSPAY_ERROR__NOT_REWARD_ADMIN
+  | typeof BUCKSPAY_ERROR__NOT_REWARD_POOL
   | typeof BUCKSPAY_ERROR__NOT_WITHDRAWN
   | typeof BUCKSPAY_ERROR__NOT_ZK_ADMIN
   | typeof BUCKSPAY_ERROR__OVER_COVERAGE
@@ -219,11 +261,17 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__TEST_KEYS_ON_MAINNET
   | typeof BUCKSPAY_ERROR__TICKET_BINDING
   | typeof BUCKSPAY_ERROR__TICKET_NOT_PROVABLY_FALSE
+  | typeof BUCKSPAY_ERROR__TOO_MANY_CHANNELS
   | typeof BUCKSPAY_ERROR__TOO_MANY_SPENDS
+  | typeof BUCKSPAY_ERROR__TREE_FULL
+  | typeof BUCKSPAY_ERROR__TREE_NOT_FULL
   | typeof BUCKSPAY_ERROR__UNKNOWN_SIGNER
   | typeof BUCKSPAY_ERROR__UNRECORDABLE_OUTPUT
   | typeof BUCKSPAY_ERROR__UNSUPPORTED_MINT_EXTENSION
   | typeof BUCKSPAY_ERROR__WITHDRAW_TOO_EARLY
+  | typeof BUCKSPAY_ERROR__WORD_ALREADY_SETTLED
+  | typeof BUCKSPAY_ERROR__WORD_REJECTED
+  | typeof BUCKSPAY_ERROR__WORD_VALUE_MISMATCH
   | typeof BUCKSPAY_ERROR__WRONG_FEE_ACCOUNT
   | typeof BUCKSPAY_ERROR__WRONG_LOCK
   | typeof BUCKSPAY_ERROR__WRONG_PAYEE
@@ -247,9 +295,13 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__BUFFER_WRITE]: `The write does not fit the buffer or leaves a gap`,
     [BUCKSPAY_ERROR__CHAIN_INVALID]: `The messages are not a valid chain`,
     [BUCKSPAY_ERROR__CHAIN_VERIFICATION]: `The transaction does not carry the secp256r1 verification of exactly this chain`,
+    [BUCKSPAY_ERROR__CHANNEL_ABOVE_BOND_QUARTER]: `The commitment is above a quarter of the lock's bond`,
+    [BUCKSPAY_ERROR__CHANNEL_STILL_OPEN]: `The channel cannot be closed yet`,
+    [BUCKSPAY_ERROR__CHANNEL_WINDOW_CLOSED]: `The settlement window of the channel has closed`,
     [BUCKSPAY_ERROR__CLAIM_TOO_LATE]: `The claim deadline of the output has passed`,
     [BUCKSPAY_ERROR__CLOCK_OUT_OF_RANGE]: `The cluster clock is outside the supported range`,
     [BUCKSPAY_ERROR__CLOSE_TOO_EARLY]: `The lock cannot be closed yet`,
+    [BUCKSPAY_ERROR__COMMITMENT_INVALID]: `The commitment is malformed or its depth is out of range`,
     [BUCKSPAY_ERROR__CONFLICTING_SPEND]: `The output was already consumed by another message`,
     [BUCKSPAY_ERROR__CONFLICT_PROOF]: `The proof does not match its body, signer or lock`,
     [BUCKSPAY_ERROR__DEVICE_BINDING]: `Missing or malformed secp256r1 verification of the device binding`,
@@ -257,8 +309,11 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__DEVICE_REQUIRED]: `A claim on a spend that named no lock needs the device of the lock owner`,
     [BUCKSPAY_ERROR__ESCROW_OPEN]: `The escrow is still open`,
     [BUCKSPAY_ERROR__EXIT_NOT_READY]: `The attester cannot withdraw its stake yet`,
+    [BUCKSPAY_ERROR__FEE_ABOVE_VALUE]: `The fees do not fit the value of a word`,
     [BUCKSPAY_ERROR__FEE_NOT_ALLOWED]: `A sponsor fee is only allowed on a sponsored first lock`,
     [BUCKSPAY_ERROR__FEE_TOO_HIGH]: `The sponsor fee is above its cap`,
+    [BUCKSPAY_ERROR__HASH_FAILED]: `Poseidon failed on canonical inputs`,
+    [BUCKSPAY_ERROR__INNERS_DO_NOT_MATCH_WORDS]: `The inners are not one per leaf of the words' canonical decomposition`,
     [BUCKSPAY_ERROR__INSUFFICIENT_ESCROW]: `The escrow holds less than the ledger owes`,
     [BUCKSPAY_ERROR__LOCK_CAP_TOO_HIGH]: `A lock's cap may not exceed a tenth of the mint's cap`,
     [BUCKSPAY_ERROR__LOCK_ENDED]: `The lock has ended`,
@@ -268,11 +323,14 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__LOCK_TOO_SHORT]: `lock_until is too close`,
     [BUCKSPAY_ERROR__MINT_NOT_ENABLED]: `The mint is not enabled for private settlement`,
     [BUCKSPAY_ERROR__NO_BOND]: `The lock has no free bond to slash`,
+    [BUCKSPAY_ERROR__NON_CANONICAL_INNER]: `An inner is not a canonical field element`,
     [BUCKSPAY_ERROR__NON_CANONICAL_PUBLIC]: `A value of the proof's public inputs is not a canonical field element`,
     [BUCKSPAY_ERROR__NO_RECORD]: `The output has no record`,
     [BUCKSPAY_ERROR__NOT_CLAIMABLE]: `The loss cannot be claimed from this lock`,
     [BUCKSPAY_ERROR__NOT_CONFLICTING]: `The two messages do not conflict`,
     [BUCKSPAY_ERROR__NOT_MIGRATABLE]: `The account is not a device account to migrate`,
+    [BUCKSPAY_ERROR__NOT_REWARD_ADMIN]: `The signer is not allowed to change the reward configuration`,
+    [BUCKSPAY_ERROR__NOT_REWARD_POOL]: `The ledger is not a reward pool`,
     [BUCKSPAY_ERROR__NOT_WITHDRAWN]: `The lock has not been withdrawn`,
     [BUCKSPAY_ERROR__NOT_ZK_ADMIN]: `The signer is not allowed to change the private settlement configuration`,
     [BUCKSPAY_ERROR__OVER_COVERAGE]: `The output is larger than the lock's bond covers`,
@@ -294,11 +352,17 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__TEST_KEYS_ON_MAINNET]: `The keys of a throwaway ceremony cannot be used on mainnet`,
     [BUCKSPAY_ERROR__TICKET_BINDING]: `The instruction before this one is not the Ed25519 verification of this ticket`,
     [BUCKSPAY_ERROR__TICKET_NOT_PROVABLY_FALSE]: `The chain does not contradict the ticket`,
+    [BUCKSPAY_ERROR__TOO_MANY_CHANNELS]: `Too many channels in one transaction`,
     [BUCKSPAY_ERROR__TOO_MANY_SPENDS]: `Too many spends for one instruction`,
+    [BUCKSPAY_ERROR__TREE_FULL]: `The reward tree of this epoch cannot take another batch`,
+    [BUCKSPAY_ERROR__TREE_NOT_FULL]: `The reward tree of this epoch still has room`,
     [BUCKSPAY_ERROR__UNKNOWN_SIGNER]: `The key that signed the ticket is not one the attester answers for`,
     [BUCKSPAY_ERROR__UNRECORDABLE_OUTPUT]: `An output of the chain has no record address or no claim address`,
     [BUCKSPAY_ERROR__UNSUPPORTED_MINT_EXTENSION]: `The mint has an extension the program does not support`,
     [BUCKSPAY_ERROR__WITHDRAW_TOO_EARLY]: `The lock cannot be withdrawn yet`,
+    [BUCKSPAY_ERROR__WORD_ALREADY_SETTLED]: `The word was already settled`,
+    [BUCKSPAY_ERROR__WORD_REJECTED]: `The word does not verify against the root of its channel`,
+    [BUCKSPAY_ERROR__WORD_VALUE_MISMATCH]: `The commitment does not price its words as the mint does`,
     [BUCKSPAY_ERROR__WRONG_FEE_ACCOUNT]: `The fee account is not the one configured for the mint`,
     [BUCKSPAY_ERROR__WRONG_LOCK]: `The issue does not match the lock it names`,
     [BUCKSPAY_ERROR__WRONG_PAYEE]: `The destination does not belong to the account the note pays`,

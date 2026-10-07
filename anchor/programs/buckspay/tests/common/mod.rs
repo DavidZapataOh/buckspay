@@ -57,7 +57,9 @@ const PROGRAM: &[u8] = include_bytes!(concat!(
     "/../deploy/buckspay.so"
 ));
 
+pub mod channel;
 mod notes;
+pub mod poseidon;
 mod settle;
 pub mod zk;
 pub use notes::*;

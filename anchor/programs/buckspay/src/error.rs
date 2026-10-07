@@ -147,4 +147,36 @@ pub enum BuckspayError {
     TestKeysOnMainnet,
     #[msg("The fee account is not the one configured for the mint")]
     WrongFeeAccount,
+    #[msg("The word does not verify against the root of its channel")]
+    WordRejected,
+    #[msg("The word was already settled")]
+    WordAlreadySettled,
+    #[msg("The settlement window of the channel has closed")]
+    ChannelWindowClosed,
+    #[msg("The commitment does not price its words as the mint does")]
+    WordValueMismatch,
+    #[msg("The inners are not one per leaf of the words' canonical decomposition")]
+    InnersDoNotMatchWords,
+    #[msg("An inner is not a canonical field element")]
+    NonCanonicalInner,
+    #[msg("Too many channels in one transaction")]
+    TooManyChannels,
+    #[msg("The channel cannot be closed yet")]
+    ChannelStillOpen,
+    #[msg("The commitment is above a quarter of the lock's bond")]
+    ChannelAboveBondQuarter,
+    #[msg("The commitment is malformed or its depth is out of range")]
+    CommitmentInvalid,
+    #[msg("The signer is not allowed to change the reward configuration")]
+    NotRewardAdmin,
+    #[msg("The ledger is not a reward pool")]
+    NotRewardPool,
+    #[msg("The fees do not fit the value of a word")]
+    FeeAboveValue,
+    #[msg("The reward tree of this epoch cannot take another batch")]
+    TreeFull,
+    #[msg("The reward tree of this epoch still has room")]
+    TreeNotFull,
+    #[msg("Poseidon failed on canonical inputs")]
+    HashFailed,
 }

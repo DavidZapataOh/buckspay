@@ -9,6 +9,7 @@ use buckspay_protocol::{
 pub mod accounting;
 mod attestation;
 pub mod burn;
+pub mod channel;
 mod clock;
 pub mod error;
 mod filing;
@@ -18,6 +19,7 @@ pub mod payout;
 mod pda;
 pub mod records;
 pub mod refund;
+pub mod rewards;
 pub mod rules;
 mod settlement;
 mod spent;
@@ -25,8 +27,13 @@ pub mod state;
 mod verification;
 pub mod zk;
 
+pub use channel::{Channel, CHANNEL_CLOSE_DELAY, CHANNEL_SEED, MAX_CHANNELS_PER_TX};
 pub use error::BuckspayError;
 pub use instructions::*;
+pub use rewards::{
+    LeafAppended, RewardConfig, RewardMint, RewardPolicy, RewardTree, REWARD_CONFIG_SEED,
+    REWARD_LEDGER_MARKER, REWARD_MINT_SEED, REWARD_TREE_SEED, ROOT_HISTORY, TREE_DEPTH,
+};
 pub use settlement::Link;
 pub use state::{
     Attester, Claim, Device, Ledger, Lock, Rotation, Spent, ATTESTER_SEED, CLAIM_SEED, DEVICE_SEED,
@@ -294,6 +301,51 @@ pub mod buckspay {
         ctx.accounts.process()
     }
 
+    /// Settles words of delivery channels into the reward pool: each pays `word_value` out of its
+    /// lock, the leaves of what the pool owes are computed here, never taken from the caller.
+    pub fn settle_channel<'info>(
+        ctx: Context<'info, SettleChannel<'info>>,
+        args: SettleChannelArgs,
+    ) -> Result<()> {
+        ctx.accounts.process(args, ctx.remaining_accounts)
+    }
+
+    /// Closes a channel whose words can no longer be settled and returns its rent to its payer.
+    pub fn close_channel(ctx: Context<CloseChannel>) -> Result<()> {
+        ctx.accounts.process()
+    }
+
+    pub fn init_reward_config(
+        ctx: Context<InitRewardConfig>,
+        admin: Pubkey,
+        pauser: Pubkey,
+    ) -> Result<()> {
+        ctx.accounts.process(&ctx.bumps, admin, pauser)
+    }
+
+    /// The pauser may only pause; the admin may do either. Settling words is never paused.
+    pub fn set_rewards_paused(ctx: Context<RewardAdmin>, paused: bool) -> Result<()> {
+        ctx.accounts.set_paused(paused)
+    }
+
+    pub fn init_reward_mint(ctx: Context<InitRewardMint>, policy: RewardPolicy) -> Result<()> {
+        ctx.accounts.process(&ctx.bumps, policy)
+    }
+
+    pub fn set_reward_policy(
+        ctx: Context<SetRewardPolicy>,
+        claim_fee: u64,
+        fee_account: Pubkey,
+        claim_cap: u64,
+    ) -> Result<()> {
+        ctx.accounts.process(claim_fee, fee_account, claim_cap)
+    }
+
+    /// Starts the next epoch's tree once the current one is full. Anyone may call it.
+    pub fn rotate_reward_tree(ctx: Context<RotateRewardTree>) -> Result<()> {
+        ctx.accounts.process(&ctx.bumps)
+    }
+
     /// Destroys the whole stake of the attester that signed a ticket the chain contradicts.
     pub fn report_false_ticket(
         ctx: Context<ReportFalseTicket>,
@@ -311,6 +363,11 @@ pub fn note_domain() -> [u8; 32] {
 /// The domain of bond tickets on this cluster and program.
 pub fn ticket_domain() -> [u8; 32] {
     domain(purpose::TICKET, &GENESIS_HASH, &ID.to_bytes())
+}
+
+/// The domain of delivery-word commitments on this cluster and program.
+pub fn payword_domain() -> [u8; 32] {
+    domain(purpose::PAYWORD, &GENESIS_HASH, &ID.to_bytes())
 }
 
 /// The domain of reclaims on this cluster and program.

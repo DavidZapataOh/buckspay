@@ -1,5 +1,7 @@
 #![no_std]
 
+extern crate alloc;
+
 pub mod attest;
 pub mod caveats;
 pub mod chain;
@@ -9,6 +11,7 @@ pub mod device;
 pub mod error;
 pub use conflict::{IssueClaim, IssueConflict, SpendConflict};
 pub mod message;
+pub mod payword;
 pub mod reclaim;
 pub mod record;
 pub mod secp256r1;

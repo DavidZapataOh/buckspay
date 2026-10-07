@@ -30,6 +30,8 @@ buckspay-protocol = { path = "../../crates/protocol" }
 buckspay-zk-verify = { path = "../../crates/zk-verify", default-features = false }
 solana-curve25519 = "4.0.1"
 solana-instructions-sysvar = "3.0.1"
+solana-poseidon = "4.0.0"
+bytemuck = { version = "1.20.0", features = ["derive", "min_const_generics"] }
 solana-sdk-ids = "3.1.0"
 
 [dev-dependencies]

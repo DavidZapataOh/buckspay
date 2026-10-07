@@ -2786,6 +2786,88 @@
       ]
     }
   ],
+  "payword": {
+    "commitment": "014003030303030303030303030303030303030303030303030303030303030303030300000080969800000000000650c3000000000000a2b4a29e05be28d4b51770439f0a36ed2b4c151face6ed15dff035be14e7e8f200b33f71",
+    "commitment_hash": "fe6c83100b91bc2f0eb05969aa6b29d22ea1c9bcf376d88319e49df9d889bcc3",
+    "envelope": "db441f1d920c96dc1304369fc47ffb95c88a559d6f9b42bccdca9c7e99d395e677b82d30ca380cb16d90cd90de6c920c6b57d1bf0a5d44981b8e2a81f9be0724fe6c83100b91bc2f0eb05969aa6b29d22ea1c9bcf376d88319e49df9d889bcc3",
+    "exps": [
+      {
+        "exps": [
+          1
+        ],
+        "words": 2
+      },
+      {
+        "exps": [
+          2,
+          1
+        ],
+        "words": 6
+      },
+      {
+        "exps": [
+          6,
+          5,
+          4,
+          3,
+          2,
+          1
+        ],
+        "words": 126
+      },
+      {
+        "exps": [
+          7
+        ],
+        "words": 128
+      },
+      {
+        "exps": [
+          7,
+          1
+        ],
+        "words": 130
+      },
+      {
+        "exps": [
+          7,
+          6,
+          5,
+          4,
+          3,
+          2,
+          1
+        ],
+        "words": 254
+      },
+      {
+        "exps": [
+          7,
+          7
+        ],
+        "words": 256
+      }
+    ],
+    "leaf5": "afd1cc9cbf0e39f62de206a4e0e5a26cf2bb7c225b45613b34993eba902fb665",
+    "proofs6": [
+      {
+        "index": 0,
+        "proof": "00005115951c7fd79768887bcc34ad10f0a464c0333a1be6496ca757b9fdeb5cdf26ba169083c429fc2fa04053e1d2c73dd0350b4da4c4b8b3aae6562717b62b038a7320159bbe450c5f8dd4646f5d1dd30f18dcb5ac85d707dc1f0320a3921ea66915ab1d820a47a35ee66ebb4c0925889d19152ef0bb53485cacf491b1bcc11c2a5852b64d7d3df8464e1299498fa5d9c12913477e256bade3d12728efacbeb1a6b83f55c5ed1f0e70e22fe174602334cb5b9fad952e89083c110a29dd424a5d70b790ea8d74bcae5b3367b6722d3a79551cccd57c64657d647889153c2e1a970c"
+      },
+      {
+        "index": 5,
+        "proof": "0005112718995680dbea60c170053c38d21fa5939e401a9c28c63525744c7c29b7e59580266bdb236589e1b7ccfd97d9d566622340ebde01fb9fd079145637f74000588462ee8927dcf79e7aa89df34f55f1376488da04352dd2adeee93d92cd914778be8ad92183f6be9b5a162b7e7f2ae88ab09f83db32ddcb7fb91f0a3fa0acd75852b64d7d3df8464e1299498fa5d9c12913477e256bade3d12728efacbeb1a6b83f55c5ed1f0e70e22fe174602334cb5b9fad952e89083c110a29dd424a5d70b790ea8d74bcae5b3367b6722d3a79551cccd57c64657d647889153c2e1a970c"
+      },
+      {
+        "index": 63,
+        "proof": "003f153d0d0bbff073a78cc4aedd880a3f272de3da68519984118d23b85c75b0e94017c3285181b3a78963b972b4cd9377f737299c8442722a01e5e533c6f4efcadbd146e671dab20c0da11f199fe2025c26f66e7abf9738c6b77a918bcf666e92977398d2f79d88a7b763c54e5b71f60468c6f84b33f467ccaab055225c75debca8ec5fba63316ab9fcdb6f57bc6d0ffd49e84a99810f8fc5f6ca10f8b72c869f09fb9125d494f16e17b3ed16340f58b2aac8846f1a8ab40e57828f23bf1aa7fe05cc87e92b44a27d9a2c08f78fba1ec597cab7f705fc544b7ee152724005c4598c"
+      }
+    ],
+    "root3": "b14cc86582b1e2451d06a575126c7e67a0d8f4a90769d1b377be38dd59b09ba6",
+    "root6": "a2b4a29e05be28d4b51770439f0a36ed2b4c151face6ed15dff035be14e7e8f2",
+    "seed": "1111111111111111111111111111111111111111111111111111111111111111",
+    "word5": "112718995680dbea60c170053c38d21fa5939e401a9c28c63525744c7c29b7e5"
+  },
   "profiles": {
     "production": {
       "programIds": {

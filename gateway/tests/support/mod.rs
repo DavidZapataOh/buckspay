@@ -937,7 +937,7 @@ pub async fn send_v1_as(payer: &Keypair, instructions: &[Instruction]) {
     let config = solana_message::v1::TransactionConfig {
         priority_fee: Some(0),
         compute_unit_limit: Some(200_000),
-        loaded_accounts_data_size_limit: Some(1_024 * 1_024),
+        loaded_accounts_data_size_limit: Some(2 * 1_024 * 1_024),
         heap_size: None,
     };
     let message = solana_message::VersionedMessage::V1(

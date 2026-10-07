@@ -36,14 +36,20 @@ import {
 } from '@solana/kit/program-client-core'
 import {
   getAttesterCodec,
+  getChannelCodec,
   getDeviceCodec,
   getLedgerCodec,
   getLockCodec,
   getProofBufferCodec,
+  getRewardConfigCodec,
+  getRewardMintCodec,
+  getRewardTreeCodec,
   getRotationCodec,
   getZkConfigCodec,
   type Attester,
   type AttesterArgs,
+  type Channel,
+  type ChannelArgs,
   type Device,
   type DeviceArgs,
   type Ledger,
@@ -52,6 +58,12 @@ import {
   type LockArgs,
   type ProofBuffer,
   type ProofBufferArgs,
+  type RewardConfig,
+  type RewardConfigArgs,
+  type RewardMint,
+  type RewardMintArgs,
+  type RewardTree,
+  type RewardTreeArgs,
   type Rotation,
   type RotationArgs,
   type ZkConfig,
@@ -63,11 +75,14 @@ import {
   getCancelWalletRotationInstruction,
   getClaimLostSpendInstructionAsync,
   getClaimUnbackedInstructionAsync,
+  getCloseChannelInstruction,
   getCloseLockInstructionAsync,
   getCloseProofBufferInstruction,
   getCloseRecordsInstruction,
   getCloseSpentInstruction,
   getCreateLockInstructionAsync,
+  getInitRewardConfigInstructionAsync,
+  getInitRewardMintInstructionAsync,
   getInitZkConfigInstructionAsync,
   getMigrateDeviceInstruction,
   getOpenProofBufferInstructionAsync,
@@ -81,8 +96,12 @@ import {
   getRequestWalletRotationInstruction,
   getRevokePreviousVkInstructionAsync,
   getRotateAttesterKeyInstruction,
+  getRotateRewardTreeInstruction,
   getRotateVkInstructionAsync,
+  getSetRewardPolicyInstructionAsync,
+  getSetRewardsPausedInstructionAsync,
   getSettleChainProofInstructionAsync,
+  getSettleChannelInstructionAsync,
   getSettleNoteInstructionAsync,
   getSetZkAuthoritiesInstructionAsync,
   getSetZkMintInstructionAsync,
@@ -96,11 +115,14 @@ import {
   parseCancelWalletRotationInstruction,
   parseClaimLostSpendInstruction,
   parseClaimUnbackedInstruction,
+  parseCloseChannelInstruction,
   parseCloseLockInstruction,
   parseCloseProofBufferInstruction,
   parseCloseRecordsInstruction,
   parseCloseSpentInstruction,
   parseCreateLockInstruction,
+  parseInitRewardConfigInstruction,
+  parseInitRewardMintInstruction,
   parseInitZkConfigInstruction,
   parseMigrateDeviceInstruction,
   parseOpenProofBufferInstruction,
@@ -114,8 +136,12 @@ import {
   parseRequestWalletRotationInstruction,
   parseRevokePreviousVkInstruction,
   parseRotateAttesterKeyInstruction,
+  parseRotateRewardTreeInstruction,
   parseRotateVkInstruction,
+  parseSetRewardPolicyInstruction,
+  parseSetRewardsPausedInstruction,
   parseSettleChainProofInstruction,
+  parseSettleChannelInstruction,
   parseSettleNoteInstruction,
   parseSetZkAuthoritiesInstruction,
   parseSetZkMintInstruction,
@@ -129,11 +155,14 @@ import {
   type CancelWalletRotationInput,
   type ClaimLostSpendAsyncInput,
   type ClaimUnbackedAsyncInput,
+  type CloseChannelInput,
   type CloseLockAsyncInput,
   type CloseProofBufferInput,
   type CloseRecordsInput,
   type CloseSpentInput,
   type CreateLockAsyncInput,
+  type InitRewardConfigAsyncInput,
+  type InitRewardMintAsyncInput,
   type InitZkConfigAsyncInput,
   type MigrateDeviceInput,
   type OpenProofBufferAsyncInput,
@@ -142,11 +171,14 @@ import {
   type ParsedCancelWalletRotationInstruction,
   type ParsedClaimLostSpendInstruction,
   type ParsedClaimUnbackedInstruction,
+  type ParsedCloseChannelInstruction,
   type ParsedCloseLockInstruction,
   type ParsedCloseProofBufferInstruction,
   type ParsedCloseRecordsInstruction,
   type ParsedCloseSpentInstruction,
   type ParsedCreateLockInstruction,
+  type ParsedInitRewardConfigInstruction,
+  type ParsedInitRewardMintInstruction,
   type ParsedInitZkConfigInstruction,
   type ParsedMigrateDeviceInstruction,
   type ParsedOpenProofBufferInstruction,
@@ -160,8 +192,12 @@ import {
   type ParsedRequestWalletRotationInstruction,
   type ParsedRevokePreviousVkInstruction,
   type ParsedRotateAttesterKeyInstruction,
+  type ParsedRotateRewardTreeInstruction,
   type ParsedRotateVkInstruction,
+  type ParsedSetRewardPolicyInstruction,
+  type ParsedSetRewardsPausedInstruction,
   type ParsedSettleChainProofInstruction,
+  type ParsedSettleChannelInstruction,
   type ParsedSettleNoteInstruction,
   type ParsedSetZkAuthoritiesInstruction,
   type ParsedSetZkMintInstruction,
@@ -180,8 +216,12 @@ import {
   type RequestWalletRotationInput,
   type RevokePreviousVkAsyncInput,
   type RotateAttesterKeyInput,
+  type RotateRewardTreeInput,
   type RotateVkAsyncInput,
+  type SetRewardPolicyAsyncInput,
+  type SetRewardsPausedAsyncInput,
   type SettleChainProofAsyncInput,
+  type SettleChannelAsyncInput,
   type SettleNoteAsyncInput,
   type SetZkAuthoritiesAsyncInput,
   type SetZkMintAsyncInput,
@@ -196,8 +236,13 @@ import {
   findConfigPda,
   findEscrowPda,
   findLedgerPda,
+  findPoolEscrowPda,
+  findPoolLedgerPda,
   findRegisterAttesterEscrowPda,
   findRegisterAttesterLedgerPda,
+  findRewardConfigPda,
+  findRewardMintPda,
+  findTreePda,
 } from '../pdas'
 
 export const BUCKSPAY_PROGRAM_ADDRESS =
@@ -205,10 +250,14 @@ export const BUCKSPAY_PROGRAM_ADDRESS =
 
 export enum BuckspayAccount {
   Attester,
+  Channel,
   Device,
   Ledger,
   Lock,
   ProofBuffer,
+  RewardConfig,
+  RewardMint,
+  RewardTree,
   Rotation,
   ZkConfig,
 }
@@ -223,6 +272,15 @@ export function identifyBuckspayAccount(account: { data: ReadonlyUint8Array } | 
     )
   ) {
     return BuckspayAccount.Attester
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([49, 159, 99, 106, 220, 87, 219, 88])),
+      0,
+    )
+  ) {
+    return BuckspayAccount.Channel
   }
   if (
     containsBytes(
@@ -263,6 +321,33 @@ export function identifyBuckspayAccount(account: { data: ReadonlyUint8Array } | 
   if (
     containsBytes(
       data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([163, 174, 98, 80, 230, 119, 69, 64])),
+      0,
+    )
+  ) {
+    return BuckspayAccount.RewardConfig
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([233, 63, 191, 22, 229, 91, 74, 155])),
+      0,
+    )
+  ) {
+    return BuckspayAccount.RewardMint
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([255, 38, 153, 166, 208, 59, 189, 114])),
+      0,
+    )
+  ) {
+    return BuckspayAccount.RewardTree
+  }
+  if (
+    containsBytes(
+      data,
       fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([185, 58, 166, 143, 105, 11, 94, 53])),
       0,
     )
@@ -284,17 +369,38 @@ export function identifyBuckspayAccount(account: { data: ReadonlyUint8Array } | 
   })
 }
 
+export enum BuckspayEvent {
+  LeafAppended,
+}
+
+export function identifyBuckspayEvent(event: { data: ReadonlyUint8Array } | ReadonlyUint8Array): BuckspayEvent {
+  const data = 'data' in event ? event.data : event
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([253, 59, 85, 246, 117, 213, 27, 175])),
+      0,
+    )
+  ) {
+    return BuckspayEvent.LeafAppended
+  }
+  throw new Error('The provided event could not be identified as a buckspay event.')
+}
+
 export enum BuckspayInstruction {
   ApplyWalletRotation,
   CancelAttesterExit,
   CancelWalletRotation,
   ClaimLostSpend,
   ClaimUnbacked,
+  CloseChannel,
   CloseLock,
   CloseProofBuffer,
   CloseRecords,
   CloseSpent,
   CreateLock,
+  InitRewardConfig,
+  InitRewardMint,
   InitZkConfig,
   MigrateDevice,
   OpenProofBuffer,
@@ -308,11 +414,15 @@ export enum BuckspayInstruction {
   RequestWalletRotation,
   RevokePreviousVk,
   RotateAttesterKey,
+  RotateRewardTree,
   RotateVk,
+  SetRewardPolicy,
+  SetRewardsPaused,
   SetZkAuthorities,
   SetZkMint,
   SetZkPaused,
   SettleChainProof,
+  SettleChannel,
   SettleNote,
   TopUpAttester,
   WithdrawAttesterStake,
@@ -372,6 +482,15 @@ export function identifyBuckspayInstruction(
   if (
     containsBytes(
       data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([0, 104, 36, 1, 66, 0, 103, 157])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.CloseChannel
+  }
+  if (
+    containsBytes(
+      data,
       fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([58, 254, 183, 130, 151, 238, 95, 54])),
       0,
     )
@@ -413,6 +532,24 @@ export function identifyBuckspayInstruction(
     )
   ) {
     return BuckspayInstruction.CreateLock
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([152, 188, 130, 236, 115, 237, 53, 159])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.InitRewardConfig
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([7, 81, 73, 12, 174, 180, 120, 165])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.InitRewardMint
   }
   if (
     containsBytes(
@@ -530,11 +667,38 @@ export function identifyBuckspayInstruction(
   if (
     containsBytes(
       data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([213, 11, 85, 50, 28, 154, 49, 42])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.RotateRewardTree
+  }
+  if (
+    containsBytes(
+      data,
       fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([154, 158, 209, 96, 215, 74, 232, 58])),
       0,
     )
   ) {
     return BuckspayInstruction.RotateVk
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([194, 18, 196, 2, 199, 36, 123, 235])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.SetRewardPolicy
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([237, 177, 240, 194, 143, 95, 101, 221])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.SetRewardsPaused
   }
   if (
     containsBytes(
@@ -571,6 +735,15 @@ export function identifyBuckspayInstruction(
     )
   ) {
     return BuckspayInstruction.SettleChainProof
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([206, 201, 217, 191, 233, 79, 47, 208])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.SettleChannel
   }
   if (
     containsBytes(
@@ -629,11 +802,14 @@ export type ParsedBuckspayInstruction<TProgram extends string = 'zkJoXgVrQ8kvJGv
   | ({ instructionType: BuckspayInstruction.CancelWalletRotation } & ParsedCancelWalletRotationInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.ClaimLostSpend } & ParsedClaimLostSpendInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.ClaimUnbacked } & ParsedClaimUnbackedInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.CloseChannel } & ParsedCloseChannelInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CloseLock } & ParsedCloseLockInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CloseProofBuffer } & ParsedCloseProofBufferInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CloseRecords } & ParsedCloseRecordsInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CloseSpent } & ParsedCloseSpentInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CreateLock } & ParsedCreateLockInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.InitRewardConfig } & ParsedInitRewardConfigInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.InitRewardMint } & ParsedInitRewardMintInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.InitZkConfig } & ParsedInitZkConfigInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.MigrateDevice } & ParsedMigrateDeviceInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.OpenProofBuffer } & ParsedOpenProofBufferInstruction<TProgram>)
@@ -647,11 +823,15 @@ export type ParsedBuckspayInstruction<TProgram extends string = 'zkJoXgVrQ8kvJGv
   | ({ instructionType: BuckspayInstruction.RequestWalletRotation } & ParsedRequestWalletRotationInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RevokePreviousVk } & ParsedRevokePreviousVkInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RotateAttesterKey } & ParsedRotateAttesterKeyInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.RotateRewardTree } & ParsedRotateRewardTreeInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RotateVk } & ParsedRotateVkInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.SetRewardPolicy } & ParsedSetRewardPolicyInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.SetRewardsPaused } & ParsedSetRewardsPausedInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.SetZkAuthorities } & ParsedSetZkAuthoritiesInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.SetZkMint } & ParsedSetZkMintInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.SetZkPaused } & ParsedSetZkPausedInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.SettleChainProof } & ParsedSettleChainProofInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.SettleChannel } & ParsedSettleChannelInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.SettleNote } & ParsedSettleNoteInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.TopUpAttester } & ParsedTopUpAttesterInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.WithdrawAttesterStake } & ParsedWithdrawAttesterStakeInstruction<TProgram>)
@@ -692,6 +872,10 @@ export function parseBuckspayInstruction<TProgram extends string>(
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.ClaimUnbacked, ...parseClaimUnbackedInstruction(instruction) }
     }
+    case BuckspayInstruction.CloseChannel: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.CloseChannel, ...parseCloseChannelInstruction(instruction) }
+    }
     case BuckspayInstruction.CloseLock: {
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.CloseLock, ...parseCloseLockInstruction(instruction) }
@@ -709,6 +893,14 @@ export function parseBuckspayInstruction<TProgram extends string>(
     case BuckspayInstruction.CreateLock: {
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.CreateLock, ...parseCreateLockInstruction(instruction) }
+    }
+    case BuckspayInstruction.InitRewardConfig: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.InitRewardConfig, ...parseInitRewardConfigInstruction(instruction) }
+    }
+    case BuckspayInstruction.InitRewardMint: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.InitRewardMint, ...parseInitRewardMintInstruction(instruction) }
     }
     case BuckspayInstruction.InitZkConfig: {
       assertIsInstructionWithAccounts(instruction)
@@ -774,9 +966,21 @@ export function parseBuckspayInstruction<TProgram extends string>(
         ...parseRotateAttesterKeyInstruction(instruction),
       }
     }
+    case BuckspayInstruction.RotateRewardTree: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.RotateRewardTree, ...parseRotateRewardTreeInstruction(instruction) }
+    }
     case BuckspayInstruction.RotateVk: {
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.RotateVk, ...parseRotateVkInstruction(instruction) }
+    }
+    case BuckspayInstruction.SetRewardPolicy: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.SetRewardPolicy, ...parseSetRewardPolicyInstruction(instruction) }
+    }
+    case BuckspayInstruction.SetRewardsPaused: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.SetRewardsPaused, ...parseSetRewardsPausedInstruction(instruction) }
     }
     case BuckspayInstruction.SetZkAuthorities: {
       assertIsInstructionWithAccounts(instruction)
@@ -793,6 +997,10 @@ export function parseBuckspayInstruction<TProgram extends string>(
     case BuckspayInstruction.SettleChainProof: {
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.SettleChainProof, ...parseSettleChainProofInstruction(instruction) }
+    }
+    case BuckspayInstruction.SettleChannel: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.SettleChannel, ...parseSettleChannelInstruction(instruction) }
     }
     case BuckspayInstruction.SettleNote: {
       assertIsInstructionWithAccounts(instruction)
@@ -836,10 +1044,14 @@ export type BuckspayPlugin = {
 
 export type BuckspayPluginAccounts = {
   attester: ReturnType<typeof getAttesterCodec> & SelfFetchFunctions<AttesterArgs, Attester>
+  channel: ReturnType<typeof getChannelCodec> & SelfFetchFunctions<ChannelArgs, Channel>
   device: ReturnType<typeof getDeviceCodec> & SelfFetchFunctions<DeviceArgs, Device>
   ledger: ReturnType<typeof getLedgerCodec> & SelfFetchFunctions<LedgerArgs, Ledger>
   lock: ReturnType<typeof getLockCodec> & SelfFetchFunctions<LockArgs, Lock>
   proofBuffer: ReturnType<typeof getProofBufferCodec> & SelfFetchFunctions<ProofBufferArgs, ProofBuffer>
+  rewardConfig: ReturnType<typeof getRewardConfigCodec> & SelfFetchFunctions<RewardConfigArgs, RewardConfig>
+  rewardMint: ReturnType<typeof getRewardMintCodec> & SelfFetchFunctions<RewardMintArgs, RewardMint>
+  rewardTree: ReturnType<typeof getRewardTreeCodec> & SelfFetchFunctions<RewardTreeArgs, RewardTree>
   rotation: ReturnType<typeof getRotationCodec> & SelfFetchFunctions<RotationArgs, Rotation>
   zkConfig: ReturnType<typeof getZkConfigCodec> & SelfFetchFunctions<ZkConfigArgs, ZkConfig>
 }
@@ -860,6 +1072,9 @@ export type BuckspayPluginInstructions = {
   claimUnbacked: (
     input: MakeOptional<ClaimUnbackedAsyncInput, 'payer'>,
   ) => ReturnType<typeof getClaimUnbackedInstructionAsync> & SelfPlanAndSendFunctions
+  closeChannel: (
+    input: MakeOptional<CloseChannelInput, 'payer'>,
+  ) => ReturnType<typeof getCloseChannelInstruction> & SelfPlanAndSendFunctions
   closeLock: (input: CloseLockAsyncInput) => ReturnType<typeof getCloseLockInstructionAsync> & SelfPlanAndSendFunctions
   closeProofBuffer: (
     input: MakeOptional<CloseProofBufferInput, 'payer'>,
@@ -869,6 +1084,12 @@ export type BuckspayPluginInstructions = {
   createLock: (
     input: MakeOptional<CreateLockAsyncInput, 'payer'>,
   ) => ReturnType<typeof getCreateLockInstructionAsync> & SelfPlanAndSendFunctions
+  initRewardConfig: (
+    input: InitRewardConfigAsyncInput,
+  ) => ReturnType<typeof getInitRewardConfigInstructionAsync> & SelfPlanAndSendFunctions
+  initRewardMint: (
+    input: InitRewardMintAsyncInput,
+  ) => ReturnType<typeof getInitRewardMintInstructionAsync> & SelfPlanAndSendFunctions
   initZkConfig: (
     input: InitZkConfigAsyncInput,
   ) => ReturnType<typeof getInitZkConfigInstructionAsync> & SelfPlanAndSendFunctions
@@ -908,7 +1129,16 @@ export type BuckspayPluginInstructions = {
   rotateAttesterKey: (
     input: RotateAttesterKeyInput,
   ) => ReturnType<typeof getRotateAttesterKeyInstruction> & SelfPlanAndSendFunctions
+  rotateRewardTree: (
+    input: MakeOptional<RotateRewardTreeInput, 'payer'>,
+  ) => ReturnType<typeof getRotateRewardTreeInstruction> & SelfPlanAndSendFunctions
   rotateVk: (input: RotateVkAsyncInput) => ReturnType<typeof getRotateVkInstructionAsync> & SelfPlanAndSendFunctions
+  setRewardPolicy: (
+    input: SetRewardPolicyAsyncInput,
+  ) => ReturnType<typeof getSetRewardPolicyInstructionAsync> & SelfPlanAndSendFunctions
+  setRewardsPaused: (
+    input: SetRewardsPausedAsyncInput,
+  ) => ReturnType<typeof getSetRewardsPausedInstructionAsync> & SelfPlanAndSendFunctions
   setZkAuthorities: (
     input: SetZkAuthoritiesAsyncInput,
   ) => ReturnType<typeof getSetZkAuthoritiesInstructionAsync> & SelfPlanAndSendFunctions
@@ -919,6 +1149,9 @@ export type BuckspayPluginInstructions = {
   settleChainProof: (
     input: MakeOptional<SettleChainProofAsyncInput, 'payer'>,
   ) => ReturnType<typeof getSettleChainProofInstructionAsync> & SelfPlanAndSendFunctions
+  settleChannel: (
+    input: MakeOptional<SettleChannelAsyncInput, 'payer'>,
+  ) => ReturnType<typeof getSettleChannelInstructionAsync> & SelfPlanAndSendFunctions
   settleNote: (
     input: MakeOptional<SettleNoteAsyncInput, 'payer'>,
   ) => ReturnType<typeof getSettleNoteInstructionAsync> & SelfPlanAndSendFunctions
@@ -939,6 +1172,11 @@ export type BuckspayPluginInstructions = {
 export type BuckspayPluginPdas = {
   ledger: typeof findLedgerPda
   escrow: typeof findEscrowPda
+  rewardConfig: typeof findRewardConfigPda
+  rewardMint: typeof findRewardMintPda
+  poolLedger: typeof findPoolLedgerPda
+  poolEscrow: typeof findPoolEscrowPda
+  tree: typeof findTreePda
   config: typeof findConfigPda
   buffer: typeof findBufferPda
   registerAttesterLedger: typeof findRegisterAttesterLedgerPda
@@ -956,10 +1194,14 @@ export function buckspayProgram() {
       buckspay: <BuckspayPlugin>{
         accounts: {
           attester: addSelfFetchFunctions(client, getAttesterCodec()),
+          channel: addSelfFetchFunctions(client, getChannelCodec()),
           device: addSelfFetchFunctions(client, getDeviceCodec()),
           ledger: addSelfFetchFunctions(client, getLedgerCodec()),
           lock: addSelfFetchFunctions(client, getLockCodec()),
           proofBuffer: addSelfFetchFunctions(client, getProofBufferCodec()),
+          rewardConfig: addSelfFetchFunctions(client, getRewardConfigCodec()),
+          rewardMint: addSelfFetchFunctions(client, getRewardMintCodec()),
+          rewardTree: addSelfFetchFunctions(client, getRewardTreeCodec()),
           rotation: addSelfFetchFunctions(client, getRotationCodec()),
           zkConfig: addSelfFetchFunctions(client, getZkConfigCodec()),
         },
@@ -978,6 +1220,11 @@ export function buckspayProgram() {
               client,
               getClaimUnbackedInstructionAsync({ ...input, payer: input.payer ?? client.payer }),
             ),
+          closeChannel: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getCloseChannelInstruction({ ...input, payer: input.payer ?? client.payer.address }),
+            ),
           closeLock: (input) => addSelfPlanAndSendFunctions(client, getCloseLockInstructionAsync(input)),
           closeProofBuffer: (input) =>
             addSelfPlanAndSendFunctions(
@@ -991,6 +1238,8 @@ export function buckspayProgram() {
               client,
               getCreateLockInstructionAsync({ ...input, payer: input.payer ?? client.payer }),
             ),
+          initRewardConfig: (input) => addSelfPlanAndSendFunctions(client, getInitRewardConfigInstructionAsync(input)),
+          initRewardMint: (input) => addSelfPlanAndSendFunctions(client, getInitRewardMintInstructionAsync(input)),
           initZkConfig: (input) => addSelfPlanAndSendFunctions(client, getInitZkConfigInstructionAsync(input)),
           migrateDevice: (input) =>
             addSelfPlanAndSendFunctions(
@@ -1033,7 +1282,14 @@ export function buckspayProgram() {
             ),
           revokePreviousVk: (input) => addSelfPlanAndSendFunctions(client, getRevokePreviousVkInstructionAsync(input)),
           rotateAttesterKey: (input) => addSelfPlanAndSendFunctions(client, getRotateAttesterKeyInstruction(input)),
+          rotateRewardTree: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getRotateRewardTreeInstruction({ ...input, payer: input.payer ?? client.payer }),
+            ),
           rotateVk: (input) => addSelfPlanAndSendFunctions(client, getRotateVkInstructionAsync(input)),
+          setRewardPolicy: (input) => addSelfPlanAndSendFunctions(client, getSetRewardPolicyInstructionAsync(input)),
+          setRewardsPaused: (input) => addSelfPlanAndSendFunctions(client, getSetRewardsPausedInstructionAsync(input)),
           setZkAuthorities: (input) => addSelfPlanAndSendFunctions(client, getSetZkAuthoritiesInstructionAsync(input)),
           setZkMint: (input) => addSelfPlanAndSendFunctions(client, getSetZkMintInstructionAsync(input)),
           setZkPaused: (input) => addSelfPlanAndSendFunctions(client, getSetZkPausedInstructionAsync(input)),
@@ -1041,6 +1297,11 @@ export function buckspayProgram() {
             addSelfPlanAndSendFunctions(
               client,
               getSettleChainProofInstructionAsync({ ...input, payer: input.payer ?? client.payer }),
+            ),
+          settleChannel: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getSettleChannelInstructionAsync({ ...input, payer: input.payer ?? client.payer }),
             ),
           settleNote: (input) =>
             addSelfPlanAndSendFunctions(
@@ -1060,6 +1321,11 @@ export function buckspayProgram() {
         pdas: {
           ledger: findLedgerPda,
           escrow: findEscrowPda,
+          rewardConfig: findRewardConfigPda,
+          rewardMint: findRewardMintPda,
+          poolLedger: findPoolLedgerPda,
+          poolEscrow: findPoolEscrowPda,
+          tree: findTreePda,
           config: findConfigPda,
           buffer: findBufferPda,
           registerAttesterLedger: findRegisterAttesterLedgerPda,

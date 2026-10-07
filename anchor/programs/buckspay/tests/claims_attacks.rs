@@ -837,6 +837,13 @@ fn the_program_has_no_instruction_that_pays_a_claimant() {
             "request_attester_exit",
             "cancel_attester_exit",
             "withdraw_attester_stake",
+            "settle_channel",
+            "close_channel",
+            "init_reward_config",
+            "set_rewards_paused",
+            "init_reward_mint",
+            "set_reward_policy",
+            "rotate_reward_tree",
             "report_false_ticket",
         ]
     );

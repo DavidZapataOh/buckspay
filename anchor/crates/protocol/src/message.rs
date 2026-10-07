@@ -8,6 +8,8 @@ pub mod kind {
     pub const REVOCATION: u8 = 0x11;
     pub const SPEND_CONFLICT: u8 = 0x20;
     pub const ISSUE_CONFLICT: u8 = 0x21;
+    pub const CHANNEL_CONFLICT: u8 = 0x22;
+    pub const PAYWORD: u8 = 0x40;
     pub const DEVICE_BINDING: u8 = 0x50;
     pub const ROTATION: u8 = 0x51;
     pub const RECLAIM: u8 = 0x60;

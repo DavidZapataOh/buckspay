@@ -1,7 +1,10 @@
 use anchor_lang::prelude::*;
 
 use crate::error::BuckspayError;
-use crate::state::{Ledger, ATTESTER_LEDGER_MARKER};
+use crate::{
+    rewards::REWARD_LEDGER_MARKER,
+    state::{Ledger, ATTESTER_LEDGER_MARKER},
+};
 
 /// The ledger's authorisation of one payout out of an escrow.
 ///
@@ -115,6 +118,20 @@ impl Ledger {
         require!(amount > 0, BuckspayError::AmountZero);
         self.bond_free = self
             .bond_free
+            .checked_add(amount)
+            .ok_or_else(|| error!(BuckspayError::AmountOverflow))?;
+        Ok(())
+    }
+
+    /// Records what a settlement paid into a reward pool's escrow.
+    pub fn credit_reward(&mut self, amount: u64) -> Result<()> {
+        require!(
+            self.key[0] == REWARD_LEDGER_MARKER,
+            BuckspayError::NotRewardPool
+        );
+        require!(amount > 0, BuckspayError::AmountZero);
+        self.backing_left = self
+            .backing_left
             .checked_add(amount)
             .ok_or_else(|| error!(BuckspayError::AmountOverflow))?;
         Ok(())

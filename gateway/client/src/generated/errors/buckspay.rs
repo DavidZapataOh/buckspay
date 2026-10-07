@@ -223,6 +223,54 @@ pub enum BuckspayError {
     /// 6070 - The fee account is not the one configured for the mint
     #[error("The fee account is not the one configured for the mint")]
     WrongFeeAccount = 0x17B6,
+    /// 6071 - The word does not verify against the root of its channel
+    #[error("The word does not verify against the root of its channel")]
+    WordRejected = 0x17B7,
+    /// 6072 - The word was already settled
+    #[error("The word was already settled")]
+    WordAlreadySettled = 0x17B8,
+    /// 6073 - The settlement window of the channel has closed
+    #[error("The settlement window of the channel has closed")]
+    ChannelWindowClosed = 0x17B9,
+    /// 6074 - The commitment does not price its words as the mint does
+    #[error("The commitment does not price its words as the mint does")]
+    WordValueMismatch = 0x17BA,
+    /// 6075 - The inners are not one per leaf of the words' canonical decomposition
+    #[error("The inners are not one per leaf of the words' canonical decomposition")]
+    InnersDoNotMatchWords = 0x17BB,
+    /// 6076 - An inner is not a canonical field element
+    #[error("An inner is not a canonical field element")]
+    NonCanonicalInner = 0x17BC,
+    /// 6077 - Too many channels in one transaction
+    #[error("Too many channels in one transaction")]
+    TooManyChannels = 0x17BD,
+    /// 6078 - The channel cannot be closed yet
+    #[error("The channel cannot be closed yet")]
+    ChannelStillOpen = 0x17BE,
+    /// 6079 - The commitment is above a quarter of the lock's bond
+    #[error("The commitment is above a quarter of the lock's bond")]
+    ChannelAboveBondQuarter = 0x17BF,
+    /// 6080 - The commitment is malformed or its depth is out of range
+    #[error("The commitment is malformed or its depth is out of range")]
+    CommitmentInvalid = 0x17C0,
+    /// 6081 - The signer is not allowed to change the reward configuration
+    #[error("The signer is not allowed to change the reward configuration")]
+    NotRewardAdmin = 0x17C1,
+    /// 6082 - The ledger is not a reward pool
+    #[error("The ledger is not a reward pool")]
+    NotRewardPool = 0x17C2,
+    /// 6083 - The fees do not fit the value of a word
+    #[error("The fees do not fit the value of a word")]
+    FeeAboveValue = 0x17C3,
+    /// 6084 - The reward tree of this epoch cannot take another batch
+    #[error("The reward tree of this epoch cannot take another batch")]
+    TreeFull = 0x17C4,
+    /// 6085 - The reward tree of this epoch still has room
+    #[error("The reward tree of this epoch still has room")]
+    TreeNotFull = 0x17C5,
+    /// 6086 - Poseidon failed on canonical inputs
+    #[error("Poseidon failed on canonical inputs")]
+    HashFailed = 0x17C6,
 }
 
 impl From<BuckspayError> for solana_program_error::ProgramError {
