@@ -47,4 +47,7 @@ export interface NearbyNative {
 }
 
 /** An established, accepted connection to one other phone. */
-export type NearbyLink = { endpointId: string; native: NearbyNative }
+export type NearbyLink = { endpointId: string; native: NearbyNative; role: NearbyRole }
+
+/** The receiver shows the request and the payer answers it. */
+export type NearbyRole = 'receiver' | 'payer'

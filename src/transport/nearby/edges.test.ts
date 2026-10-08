@@ -93,8 +93,8 @@ describe('transport edges', () => {
     return {
       a,
       b,
-      ta: createNearbyTransport({ endpointId: b.id, native: a }),
-      tb: createNearbyTransport({ endpointId: a.id, native: b }),
+      ta: createNearbyTransport({ endpointId: b.id, native: a, role: 'receiver' }),
+      tb: createNearbyTransport({ endpointId: a.id, native: b, role: 'payer' }),
     }
   }
 

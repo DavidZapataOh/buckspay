@@ -1,3 +1,4 @@
+import { equalBytes } from '@noble/curves/utils.js'
 import { TransportBase } from '../base'
 import {
   type Availability,
@@ -10,9 +11,13 @@ import {
   TransportError,
 } from '../types'
 import type { Deliver, Fail } from '../wait'
-import type { NearbyLink, NearbyNative, NearbySupport } from './types'
+import type { NearbyLink, NearbyNative, NearbyRole, NearbySupport } from './types'
 
 const WIRE_VERSION = 1
+
+/** Link-layer control, outside the message kinds: the payer's "my side of the link is up". */
+const READY = 0xf0
+const READY_WIRE = Uint8Array.of(WIRE_VERSION, READY)
 const KINDS: readonly number[] = Object.values(MessageKind)
 
 /** Messages that may arrive before anyone asks for them: the receipt can beat the payer's `receive`. */
@@ -21,6 +26,9 @@ export const QUEUE_LIMIT = 8
 /** How long a phone waits for the other one's request or payment over Nearby before it says so. */
 export const NEARBY_WAIT_MS = 30_000
 
+/** How often the link layer repeats what the other phone may have missed while it was still connecting. */
+export const LINK_RETRY_MS = 3_000
+
 export function nearbyAvailability(support: NearbySupport): Availability {
   if (!support.playServices) return { ready: false, reason: 'unsupported' }
   if (!support.permissions) return { ready: false, reason: 'permission-denied' }
@@ -28,7 +36,8 @@ export function nearbyAvailability(support: NearbySupport): Availability {
   return { ready: true }
 }
 
-function decode(wire: Uint8Array): Message | null {
+function decode(wire: Uint8Array): Message | 'ready' | null {
+  if (wire.length === 2 && wire[0] === WIRE_VERSION && wire[1] === READY) return 'ready'
   if (wire.length < 2 || wire[0] !== WIRE_VERSION || !KINDS.includes(wire[1])) return null
   return { kind: wire[1] as MessageKind, payload: wire.slice(2) }
 }
@@ -48,17 +57,24 @@ class NearbyTransport extends TransportBase implements Transport {
   private dead = false
   private disconnected = false
   private chain: Promise<void> = Promise.resolve()
+  private readonly role: NearbyRole
+  private peerReady = false
+  private readyWaiters: { resolve: () => void; reject: (error: TransportError) => void }[] = []
+  private retry: ReturnType<typeof setInterval> | undefined
+  private lastRequest: Uint8Array | undefined
 
   constructor(link: NearbyLink) {
     super()
     this.native = link.native
     this.endpointId = link.endpointId
+    this.role = link.role
     this.unlisten = this.native.addListener((event) => {
       if (event.endpointId !== this.endpointId) return
       if (event.type === 'message') this.chain = this.chain.then(() => this.pull().then(() => {}))
       else if (event.type === 'disconnected') this.end('Interrupted', false)
     })
     this.chain = this.chain.then(() => this.drain())
+    if (this.role === 'payer') this.repeat(() => this.raw(READY_WIRE), true)
   }
 
   async check() {
@@ -85,9 +101,13 @@ class NearbyTransport extends TransportBase implements Transport {
     this.sending = true
     this.setShown(true)
     progress(0)
+    this.stopRepeating()
     try {
+      if (this.role === 'receiver' && message.kind === MessageKind.Request) await this.untilReady(options?.signal)
       await this.native.sendBytes(this.endpointId, wire)
-    } catch {
+      if (this.role === 'receiver' && message.kind === MessageKind.Request) this.repeat(() => this.raw(wire), false)
+    } catch (error) {
+      if (error instanceof TransportError) throw error
       throw new TransportError('Interrupted')
     } finally {
       this.sending = false
@@ -120,6 +140,8 @@ class NearbyTransport extends TransportBase implements Transport {
     this.unlisten()
     this.queue = []
     this.dead = true
+    this.stopRepeating()
+    this.failReadyWaiters(new TransportError('Cancelled'))
     this.disconnect()
   }
 
@@ -142,6 +164,18 @@ class NearbyTransport extends TransportBase implements Transport {
     if (!message) {
       this.end('Malformed', true)
       return false
+    }
+    if (message === 'ready') {
+      if (this.role === 'receiver' && !this.peerReady) {
+        this.peerReady = true
+        for (const { resolve } of this.readyWaiters.splice(0)) resolve()
+      }
+      return true
+    }
+    this.stopRepeating()
+    if (this.role === 'payer' && message.kind === MessageKind.Request) {
+      if (this.lastRequest && equalBytes(this.lastRequest, wire)) return true
+      this.lastRequest = wire
     }
     const waiter = this.waiter
     if (waiter) {
@@ -168,9 +202,55 @@ class NearbyTransport extends TransportBase implements Transport {
     if (this.dead) return
     this.dead = true
     this.queue = []
+    this.stopRepeating()
+    this.failReadyWaiters(new TransportError(code))
     this.waiter?.fail(new TransportError(code))
     if (hangUp) this.disconnect()
     else this.disconnected = true
+  }
+
+  private raw(wire: Uint8Array) {
+    if (!this.dead) void this.native.sendBytes(this.endpointId, wire).catch(() => {})
+  }
+
+  /** Runs `action` now (when asked to) and every `LINK_RETRY_MS` until the other phone is heard or the wait budget is spent. */
+  private repeat(action: () => void, now: boolean) {
+    this.stopRepeating()
+    let left = NEARBY_WAIT_MS / LINK_RETRY_MS
+    if (now) action()
+    this.retry = setInterval(() => {
+      if (left-- <= 0 || this.dead) this.stopRepeating()
+      else action()
+    }, LINK_RETRY_MS)
+  }
+
+  private stopRepeating() {
+    clearInterval(this.retry)
+    this.retry = undefined
+  }
+
+  private untilReady(signal?: AbortSignal) {
+    if (this.peerReady) return Promise.resolve()
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => settle(() => reject(new TransportError('Timeout'))), NEARBY_WAIT_MS)
+      const onAbort = () => settle(() => reject(new TransportError('Cancelled')))
+      const waiter = {
+        resolve: () => settle(resolve),
+        reject: (error: TransportError) => settle(() => reject(error)),
+      }
+      const settle = (finish: () => void) => {
+        clearTimeout(timer)
+        signal?.removeEventListener('abort', onAbort)
+        this.readyWaiters = this.readyWaiters.filter((entry) => entry !== waiter)
+        finish()
+      }
+      signal?.addEventListener('abort', onAbort)
+      this.readyWaiters.push(waiter)
+    })
+  }
+
+  private failReadyWaiters(error: TransportError) {
+    for (const { reject } of this.readyWaiters.splice(0)) reject(error)
   }
 
   private disconnect() {

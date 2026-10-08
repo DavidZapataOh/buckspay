@@ -39,7 +39,7 @@ class NearbyModule : Module() {
   private val inbox = ConcurrentHashMap<String, ConcurrentLinkedQueue<ByteArray>>()
   private val sends = ConcurrentHashMap<Long, PendingSend>()
   private val main = Handler(Looper.getMainLooper())
-  private val stopWhenAway = Runnable { stopAll() }
+  private val stopWhenAway = Runnable { stopAll("the app stayed in the background") }
 
   private val nearby: ConnectionsClient
     get() = client ?: Nearby.getConnectionsClient(context).also { client = it }
@@ -170,6 +170,7 @@ class NearbyModule : Module() {
       }
 
       AsyncFunction("stopAdvertising") {
+        Log.i(TAG, "stopAdvertising requested")
         advertising.set(false)
         nearby.stopAdvertising()
       }
@@ -187,6 +188,7 @@ class NearbyModule : Module() {
       }
 
       AsyncFunction("stopDiscovery") {
+        Log.i(TAG, "stopDiscovery requested")
         discovering.set(false)
         nearby.stopDiscovery()
       }
@@ -240,19 +242,21 @@ class NearbyModule : Module() {
         forget(endpointId)
       }
 
-      AsyncFunction("stopAll") { stopAll() }
+      AsyncFunction("stopAll") { stopAll("stopAll requested") }
 
       OnActivityEntersBackground { main.postDelayed(stopWhenAway, BACKGROUND_GRACE_MS) }
 
       OnActivityEntersForeground { main.removeCallbacks(stopWhenAway) }
 
       OnDestroy {
+        Log.i(TAG, "module destroyed; stopping all endpoints")
         main.removeCallbacks(stopWhenAway)
         client?.stopAllEndpoints()
       }
     }
 
-  private fun stopAll() {
+  private fun stopAll(reason: String) {
+    Log.i(TAG, "stopping all endpoints: $reason connected=${connected.size}")
     client?.stopAllEndpoints()
     advertising.set(false)
     discovering.set(false)
@@ -261,6 +265,7 @@ class NearbyModule : Module() {
 
   private fun forget(endpointId: String) {
     val wasConnected = connected.remove(endpointId)
+    Log.i(TAG, "forget endpoint=$endpointId wasConnected=$wasConnected")
     inbox.remove(endpointId)
     sends.entries.removeIf { (_, pending) ->
       (pending.endpointId == endpointId).also {

@@ -1,4 +1,4 @@
-import { NearbyError, type NearbyEvent, type NearbyLink, type NearbyNative } from './types'
+import { NearbyError, type NearbyEvent, type NearbyLink, type NearbyNative, type NearbyRole } from './types'
 
 export const TAG_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 export const TAG_LENGTH = 4
@@ -82,6 +82,7 @@ abstract class Pairing {
   }
 
   protected onOther(_event: NearbyEvent) {}
+  protected abstract readonly role: NearbyRole
   protected abstract stopRadio(): Promise<void>
   protected abstract onInitiated(event: Extract<NearbyEvent, { type: 'initiated' }>): void
 
@@ -140,7 +141,7 @@ abstract class Pairing {
   private async succeed(endpointId: string) {
     this.close()
     await attempt(() => this.stopRadio())
-    this.resolve({ endpointId, native: this.native })
+    this.resolve({ endpointId, native: this.native, role: this.role })
   }
 
   private close() {
@@ -177,6 +178,7 @@ abstract class Pairing {
 
 /** The receiver: advertises a fresh tag and shows the first request that arrives. */
 export class NearbyHost extends Pairing {
+  protected readonly role = 'receiver'
   readonly tag: string
 
   private constructor(native: NearbyNative, options: PairingOptions) {
@@ -202,6 +204,7 @@ export class NearbyHost extends Pairing {
 
 /** The payer: lists the receivers nearby by tag and asks one of them to connect. */
 export class NearbyFinder extends Pairing {
+  protected readonly role = 'payer'
   peers: Peer[] = []
   private readonly peerWatchers = new Set<(peers: Peer[]) => void>()
 
