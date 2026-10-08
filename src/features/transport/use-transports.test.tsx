@@ -1,6 +1,7 @@
 import AsyncStorage, { resetAsyncStorage } from '../../test-support/async-storage'
 import { act } from 'react'
 import { create } from 'react-test-renderer'
+import { AppState } from 'react-native'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createLoopbackPair } from '../../transport/testing/loopback'
 import type { TransportEntry } from './registry'
@@ -51,12 +52,39 @@ describe('the How control appears only with a choice', () => {
         entry: entry((['qr', 'nfc', 'nearby'] as const)[i], ready),
         availability: ready ? { ready: true } : { ready: false, reason: 'disabled' },
       }))
-    expect(showHow(offered([true, false, false]))).toBe(false)
+    expect(showHow(offered([true, false, false]))).toBe(true)
     expect(showHow(offered([true, true, false]))).toBe(true)
+  })
+
+  it('stays hidden when the other media are not available on this phone', () => {
+    const unsupported: Offered[] = [
+      { entry: entry('qr'), availability: { ready: true } },
+      { entry: entry('nearby', false), availability: { ready: false, reason: 'unsupported' } },
+    ]
+    expect(showHow(unsupported)).toBe(false)
   })
 })
 
 describe('useTransports', () => {
+  it('asks again when the app returns to the foreground, so a fixed setting turns the medium ready', async () => {
+    let bluetooth = false
+    const nearby: TransportEntry = {
+      ...entry('nearby'),
+      check: async () => (bluetooth ? { ready: true } : { ready: false, reason: 'disabled' }),
+    }
+    const entries = [entry('qr'), nearby]
+    let onChange: (status: string) => void = () => {}
+    vi.spyOn(AppState, 'addEventListener').mockImplementation(((_: string, handler: (status: string) => void) => {
+      onChange = handler
+      return { remove: () => {} }
+    }) as never)
+    const { seen } = await probe(() => useTransports(entries))
+    expect(seen.current.ready.map((e) => e.id)).toEqual(['qr'])
+    bluetooth = true
+    await act(async () => onChange('active'))
+    expect(seen.current.ready.map((e) => e.id)).toEqual(['qr', 'nearby'])
+  })
+
   it('asks every entry and lists the ready ones', async () => {
     const entries = [entry('qr'), entry('nfc', false), entry('nearby')]
     const { seen } = await probe(() => useTransports(entries))

@@ -48,7 +48,12 @@ export default function Receive() {
   return (
     <Screen testID="receive">
       <AppText variant="headline">{copy.receive.title}</AppText>
-      <HowControl offered={flow.how.offered} chosen={flow.how.chosen} onChoose={flow.how.choose} />
+      <HowControl
+        offered={flow.how.offered}
+        chosen={flow.how.chosen}
+        onChoose={flow.how.choose}
+        onRecheck={flow.how.refresh}
+      />
       {step !== 'ready' ? (
         <View className="gap-4">
           <AppText variant="body">{copy.receive.setup}</AppText>

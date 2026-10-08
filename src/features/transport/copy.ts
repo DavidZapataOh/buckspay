@@ -10,7 +10,12 @@ export const howCopy = {
     },
     nearby: { disabled: nearbyCopy.bluetoothOff, 'permission-denied': nearbyCopy.needsPermission },
   },
-  fix: { nfc: 'Open NFC settings', bluetooth: nearbyCopy.openBluetooth, permission: 'Open app settings' },
+  fix: {
+    nfc: 'Open NFC settings',
+    bluetooth: nearbyCopy.openBluetooth,
+    allow: nearbyCopy.allow,
+    permission: 'Open app settings',
+  },
   waiting: { nfc: 'Hold the phones together', nearby: 'Waiting for the other phone' },
   waitingForRequest: 'Waiting for the request',
 } as const

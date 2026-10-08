@@ -68,7 +68,10 @@ export type ReceiveFlow = {
   expire: () => void
   finish: () => void
   /** The media this phone can receive on, and the one chosen. */
-  how: Pick<ReturnType<typeof useTransports>, 'offered'> & { chosen: TransportId; choose: (id: TransportId) => void }
+  how: Pick<ReturnType<typeof useTransports>, 'offered' | 'refresh'> & {
+    chosen: TransportId
+    choose: (id: TransportId) => void
+  }
   /** The nearby check of the payment on screen, or undefined when the request did not ask for one. */
   witness: () => { policy: WitnessPolicy; band: Band; port: WitnessPort } | undefined
 }
@@ -90,7 +93,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
   const { deviceKey } = useDeviceIdentity()
   const session = useQrSession()
   const entries = useMemo(() => [qrEntry({ transport: session.transport }), nfcEntry, nearbyEntry], [session.transport])
-  const { offered, ready } = useTransports(entries)
+  const { offered, ready, refresh } = useTransports(entries)
   const { chosen, choose } = useTransportChoice('receiver', ready)
   const medium = chosen ?? entries[0]
   const [slot] = useState(createTransportSlot)
@@ -255,7 +258,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
       back,
       expire,
       finish,
-      how: { offered, chosen: medium.id, choose },
+      how: { offered, refresh, chosen: medium.id, choose },
       witness: () => (asked.current && witnessPort ? { ...asked.current, port: witnessPort } : undefined),
     }),
     [
@@ -274,6 +277,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
       expire,
       finish,
       offered,
+      refresh,
       medium.id,
       choose,
       witnessPort,

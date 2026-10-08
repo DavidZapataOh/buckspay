@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useCallback, useEffect, useState } from 'react'
 import { AppState } from 'react-native'
 import type { Availability, TransportId } from '../../transport/types'
+import { hintFor } from './copy'
 import type { PairingRole, TransportEntry } from './registry'
 
 export type Offered = { entry: TransportEntry; availability: Availability }
@@ -27,8 +28,13 @@ export function useTransports(entries: readonly TransportEntry[]) {
   return { offered, ready: offered.filter((o) => o.availability.ready).map((o) => o.entry), refresh }
 }
 
-/** The control is worth showing only when there is a choice. */
-export const showHow = (offered: readonly Offered[]) => offered.filter((o) => o.availability.ready).length >= 2
+/** Whether a medium that is off could be turned on, which is worth a line of explanation. */
+export const fixable = ({ entry, availability }: Offered) =>
+  !availability.ready && hintFor(entry.id, availability.reason) !== undefined
+
+/** The control is worth showing when there is a choice, or a medium the person can still turn on. */
+export const showHow = (offered: readonly Offered[]) =>
+  offered.filter((o) => o.availability.ready).length >= 2 || offered.some(fixable)
 
 const storeKey = (role: PairingRole) => `how.${role}`
 
