@@ -58,7 +58,7 @@ export async function person(
     async signIou(body) {
       if (body[1] === Kind.NettingJoin) {
         log.push('join')
-        return signedJoin(new Uint8Array(body.subarray(2, 34))).signature
+        return device.sign(envelope(IOU_DOMAIN, joinSlot(new Uint8Array(body.subarray(2, 34))), content(body)))
       }
       log.push('state')
       return device.sign(iouEnvelope(decodeIou(body), IOU_DOMAIN))

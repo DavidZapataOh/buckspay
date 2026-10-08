@@ -463,3 +463,33 @@ export async function mineFrom(
     signedBases: new Map(bases.map((b) => [`${bytesToHex(b.tab)}:${b.base_seq}`, bytesToHex(b.session)])),
   }
 }
+
+/** Ends a session that signed nothing: status 6, the secret wiped and the tabs unlocked. */
+export async function abandonSession(db: NoteDb, session: Uint8Array, now: number): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.run('UPDATE netting_sessions SET status = 6, updated_at = ? WHERE session = ? AND status IN (0, 1)', [
+      now,
+      session,
+    ])
+    await wipe(tx, session)
+    await tx.run('UPDATE tabs SET locked_by = NULL WHERE locked_by = ?', [session])
+  })
+}
+
+/** Keeps the proof of an agreed session once it exists. */
+export async function storeProof(db: NoteDb, session: Uint8Array, proof: Uint8Array): Promise<void> {
+  await db.run('UPDATE netting_sessions SET proof = ? WHERE session = ? AND status IN (3, 4)', [proof, session])
+}
+
+/** The agreed sessions this phone hosted that list `deviceKey`, newest first. */
+export async function agreedWith(db: NoteDb, deviceKey: Uint8Array, limit: number): Promise<SessionRow[]> {
+  const rows = await listSessions(db, 50)
+  return rows
+    .filter(
+      (r) =>
+        r.role === Role.Host &&
+        r.status === Status.Agreed &&
+        r.joins.some((j) => equalBytes(j.join.body.subarray(66, 99), deviceKey)),
+    )
+    .slice(0, limit)
+}

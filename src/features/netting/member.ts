@@ -1,8 +1,11 @@
+import { ed25519 } from '@noble/curves/ed25519.js'
 import { equalBytes } from '@noble/curves/utils.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import {
   type CoSignedIou,
   decodeJoin,
+  decodeStatement,
+  encodeJoin,
   encodeStatement,
   type NettingStatement,
   nettingAddress,
@@ -16,7 +19,26 @@ import {
 import { fromCanonical, toBytes32 } from '../rewards/secrets-poseidon'
 import { rootBytes } from './build'
 import { digest, type Slot, saltFor, SLOTS, slotIndex } from './digest'
-import type { Proposal, SignedRosterEntry } from './messages'
+import { lockTabs } from '../debts/store'
+import type { NoteDb } from '../notes/db'
+import type { GroupWire } from '../../transport/nearby/group'
+import { type Invite, JOINING, SessionChannel } from './channel'
+import { AbortReason, type Proposal, type SessionMessage, type SignedRosterEntry } from './messages'
+import { Inbox, sealMessage } from './session-io'
+import {
+  abandonSession,
+  adoptFinal,
+  BaseTaken,
+  createSession,
+  listSessions,
+  markApproved,
+  markProposed,
+  mineFrom,
+  pursueRecord,
+  type RecordPorts,
+  Role,
+  Status,
+} from './session-store'
 
 export const SIGN_MARGIN_SECS = 600
 export const EXPIRES_SECS = 72 * 3600
@@ -292,5 +314,282 @@ export async function checkFinal(
     return { setComplete: true, proof: (await deps.verifyProof(statement, proof)) ? 'valid' : 'invalid' }
   } catch {
     return { setComplete: true, proof: 'invalid' }
+  }
+}
+
+export type SessionTimeouts = { tabs: number; consent: number; final: number }
+export const DEFAULT_TIMEOUTS: SessionTimeouts = { tabs: 60_000, consent: 600_000, final: 300_000 }
+
+export type SessionEvent =
+  | { type: 'joined'; count: number }
+  | { type: 'phase'; status: number }
+  | { type: 'grind'; tries: number }
+  | { type: 'consent'; view: ProposalView }
+  | { type: 'agreed'; proof: FinalCheck['proof'] }
+  | { type: 'final'; proof: FinalCheck['proof'] }
+  | { type: 'refused'; refusal: NettingRefusal['code'] }
+  | { type: 'ended'; outcome: SessionOutcome }
+
+export type SessionOutcome =
+  | { status: 'agreed'; proof: FinalCheck['proof']; view: ProposalView }
+  | { status: 'pending'; expires: number }
+  | { status: 'abandoned'; reason: number }
+  | { status: 'nothing' }
+  | { status: 'refused'; refusal: RefusalCode }
+
+export type SessionDeps = {
+  db: NoteDb
+  now: () => number
+  random: (n: number) => Uint8Array
+  domains: SessionDomains
+  programId: Uint8Array
+  mint: Uint8Array
+  /** The P-256 device key of this phone, compressed. */
+  deviceKey: Uint8Array
+  signIou: (body: Uint8Array) => Promise<Uint8Array>
+  verifyProof: (statement: NettingStatement, proof: Uint8Array) => Promise<boolean>
+  consent: (view: ProposalView) => Promise<boolean>
+  onEvent: (event: SessionEvent) => void
+  timeouts: SessionTimeouts
+  /** When set, an agreed session is sent to the gateway as soon as it exists. */
+  record?: RecordPorts
+}
+
+export type Reviewed =
+  { ok: true; signature: Uint8Array; view: ProposalView } | { ok: false; outcome: SessionOutcome; refused: boolean }
+
+/**
+ * Checks the proposal against this phone's own tabs, shows it, and signs the Ed25519 approval only after the person
+ * said yes and the clock still leaves the margin. The bases, effects and signature are stored before the caller
+ * sends anything (one transaction).
+ */
+export async function review(
+  deps: SessionDeps,
+  invite: { session: Uint8Array },
+  index: number,
+  proposal: Proposal,
+  roster: SignedRosterEntry[],
+  ephemeralSecret: Uint8Array,
+): Promise<Reviewed> {
+  const { db } = deps
+  const abandon = async (outcome: SessionOutcome, refused: boolean): Promise<Reviewed> => {
+    await abandonSession(db, invite.session, deps.now())
+    return { ok: false, outcome, refused }
+  }
+  const mine = await mineFrom(db, {
+    index,
+    session: invite.session,
+    mint: deps.mint,
+    deviceKey: deps.deviceKey,
+    ephemeral: ed25519.getPublicKey(ephemeralSecret),
+  })
+  let view: ProposalView
+  try {
+    view = checkProposal(proposal, roster, mine, deps.now(), deps)
+  } catch (error) {
+    if (!(error instanceof NettingRefusal)) throw error
+    deps.onEvent({ type: 'refused', refusal: error.code })
+    return abandon({ status: 'refused', refusal: error.code }, true)
+  }
+  const { statement } = proposal
+  const slotted = proposal.slots.map((slot) => {
+    const [i, j] = pairOf(slot.slot)
+    const peer = mine.tabs.find((t) => t.peer && specifiesPeer(t, statement, roster, i === index ? j : i))!
+    return { slot, tab: peer }
+  })
+  await lockTabs(
+    db,
+    invite.session,
+    slotted.map((s) => s.tab.tab),
+  )
+  await markProposed(db, invite.session, {
+    statement: encodeStatement(statement),
+    joins: roster,
+    digests: proposal.digests,
+    leaves: [],
+    myIndex: index,
+    now: deps.now(),
+  })
+  deps.onEvent({ type: 'consent', view })
+  const said = await withTimeout(deps.consent(view), deps.timeouts.consent)
+  if (said !== true) return abandon({ status: 'abandoned', reason: AbortReason.Refused }, false)
+  if (deps.now() >= statement.expires - SIGN_MARGIN_SECS) {
+    deps.onEvent({ type: 'refused', refusal: 'Expired' })
+    return abandon({ status: 'refused', refusal: 'Expired' }, true)
+  }
+  const signature = ed25519.sign(statementEnvelope(statement, deps.domains.netting), ephemeralSecret)
+  const effects = slotted.map(({ slot, tab }) => ({
+    tab: tab.tab,
+    baseSeq: slot.baseSeq,
+    debtor: tab.balance > 0n ? tab.peer : deps.deviceKey,
+    cancel: slot.cancel,
+  }))
+  try {
+    await markApproved(deps.db, invite.session, statementContent(statement), effects, signature, deps.now())
+  } catch (error) {
+    if (!(error instanceof BaseTaken)) throw error
+    deps.onEvent({ type: 'refused', refusal: 'BaseSigned' })
+    return abandon({ status: 'refused', refusal: 'BaseSigned' }, true)
+  }
+  deps.onEvent({ type: 'phase', status: Status.Approved })
+  return { ok: true, signature, view }
+}
+
+function specifiesPeer(
+  tab: MyTab,
+  statement: NettingStatement,
+  roster: SignedRosterEntry[],
+  peerIndex: number,
+): boolean {
+  const entry = roster.find((e) => e.index === peerIndex)
+  return !!entry && equalBytes(decodeJoin(entry.join.body).key, tab.peer) && statement.participants > peerIndex
+}
+
+export async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | 'timeout'> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const late = new Promise<'timeout'>((resolve) => {
+    timer = setTimeout(() => resolve('timeout'), ms)
+  })
+  try {
+    return await Promise.race([promise, late])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** The member's side of a session; see `runHost` for the table's host. */
+export async function runMember(
+  deps: SessionDeps & { wire: GroupWire },
+  invite: Invite,
+  signal: AbortSignal,
+): Promise<SessionOutcome> {
+  const { db, wire } = deps
+  const channel = new SessionChannel(invite, JOINING, () => deps.now() * 1000)
+  const approved = async () => (await listSessions(db, 20)).filter((r) => r.status === Status.Approved && r.statement)
+  let known = 0
+  const pendingSizes = (await approved()).map((r) => decodeStatement(r.statement!).participants)
+  const inbox = new Inbox(wire, channel, () => (known ? [known] : pendingSizes))
+  const finish = (outcome: SessionOutcome): SessionOutcome => {
+    inbox.close()
+    deps.onEvent({ type: 'ended', outcome })
+    return outcome
+  }
+  const secret = deps.random(32)
+  await createSession(db, {
+    session: invite.session,
+    role: Role.Member,
+    myIndex: 0,
+    ephemeralSecret: secret,
+    now: deps.now(),
+  })
+  const ephemeral = ed25519.getPublicKey(secret)
+  const body = encodeJoin({ session: invite.session, ephemeral, key: deps.deviceKey })
+  const join = { body, signature: await deps.signIou(body) }
+  const send = async (message: SessionMessage) => wire.send(await sealMessage(channel, message))
+  const mine = await mineFrom(db, {
+    index: 0,
+    session: invite.session,
+    mint: deps.mint,
+    deviceKey: deps.deviceKey,
+    ephemeral,
+  })
+  await send({ type: 'Join', join })
+  await send({
+    type: 'Tabs',
+    tabs: mine.tabs.map((t) => ({
+      state: t.state,
+      salt: toBytes32(saltFor(t.secret, invite.session)),
+      debt: t.balance < 0n ? -t.balance : t.balance,
+      peerOwesSender: t.balance > 0n,
+      pending: t.pending,
+    })),
+  })
+
+  const aborted = async (reason: number) => {
+    await abandonSession(db, invite.session, deps.now())
+    return finish({ status: 'abandoned', reason })
+  }
+  let roster: SignedRosterEntry[] | null = null
+  let index = 0
+  let proposal: Proposal | null = null
+  while (!proposal) {
+    const got = await inbox.take(
+      (m) => ['Roster', 'Proposal', 'Abort', 'Final'].includes(m.message.type),
+      deps.timeouts.consent,
+      signal,
+    )
+    if (got === 'timeout' || got === 'aborted') return aborted(AbortReason.Timeout)
+    if ('gone' in got) return aborted(AbortReason.MemberLeft)
+    const { message } = got
+    if (message.type === 'Final') {
+      for (const row of await approved()) {
+        const statement = decodeStatement(row.statement!)
+        if (statement.participants !== message.signatures.length) continue
+        try {
+          await adoptFinal(
+            db,
+            { domains: deps.domains, now: deps.now, verify: deps.verifyProof },
+            row.session,
+            row.statement!,
+            {
+              signatures: message.signatures,
+              proof: message.proof,
+            },
+          )
+          break
+        } catch (error) {
+          if (!(error instanceof NettingRefusal)) throw error
+        }
+      }
+      continue
+    }
+    if (message.type === 'Abort') {
+      return message.reason === AbortReason.NothingToNet
+        ? (await abandonSession(db, invite.session, deps.now()), finish({ status: 'nothing' }))
+        : aborted(message.reason)
+    }
+    if (message.type === 'Roster') {
+      const own = message.entries.find((e) => equalBytes(decodeJoin(e.join.body).key, deps.deviceKey))
+      if (!own) return aborted(AbortReason.Refused)
+      index = own.index
+      channel.assign(index)
+      roster = message.entries
+    } else if (roster && message.type === 'Proposal') {
+      proposal = message.proposal
+      known = proposal.statement.participants
+    }
+  }
+  const reviewed = await review(deps, invite, index, proposal, roster!, secret)
+  if (!reviewed.ok) {
+    await send({ type: 'Abort', reason: AbortReason.Refused })
+    return finish(reviewed.outcome)
+  }
+  await send({ type: 'Approve', signature: reviewed.signature })
+  const statement = proposal.statement
+  const pending: SessionOutcome = { status: 'pending', expires: statement.expires }
+  for (;;) {
+    const got = await inbox.take(() => true, deps.timeouts.consent + deps.timeouts.final, signal)
+    if (got === 'timeout' || got === 'aborted' || 'gone' in got) return finish(pending)
+    const { message } = got
+    if (message.type === 'Abort') return finish(pending)
+    if (message.type !== 'Final') continue
+    try {
+      const check = await adoptFinal(
+        db,
+        { domains: deps.domains, now: deps.now, verify: deps.verifyProof },
+        invite.session,
+        encodeStatement(statement),
+        {
+          signatures: message.signatures,
+          proof: message.proof,
+        },
+      )
+      deps.onEvent({ type: 'agreed', proof: check.proof })
+      if (deps.record) await pursueRecord(db, {}, invite.session, deps.record)
+      return finish({ status: 'agreed', proof: check.proof, view: reviewed.view })
+    } catch (error) {
+      if (!(error instanceof NettingRefusal)) throw error
+      deps.onEvent({ type: 'refused', refusal: error.code })
+    }
   }
 }
