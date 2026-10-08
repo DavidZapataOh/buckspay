@@ -848,6 +848,8 @@ fn the_program_has_no_instruction_that_pays_a_claimant() {
             "init_reward_mint",
             "set_reward_policy",
             "rotate_reward_tree",
+            "record_netting",
+            "close_netting",
             "report_false_ticket",
         ]
     );

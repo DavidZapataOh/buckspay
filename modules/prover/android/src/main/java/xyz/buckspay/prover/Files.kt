@@ -126,6 +126,50 @@ internal class ProverFiles(
     File(root, "claim-proofs").listFiles()?.forEach { File(it, checkNoteId(claimId)).delete() }
   }
 
+  fun nettingWitness(sessionId: String) = File(File(root, "netting-witnesses"), checkNoteId(sessionId))
+
+  fun putNettingWitness(
+    sessionId: String,
+    witness: ByteArray,
+  ) = atomicWrite(nettingWitness(sessionId), witness)
+
+  /** Overwrites the witness with zeros before deleting it, with any half-written copy. */
+  fun dropNettingWitness(sessionId: String) {
+    val file = nettingWitness(sessionId)
+    listOf(file, File(file.path + ".part")).filter { it.exists() }.forEach {
+      it.writeBytes(ByteArray(it.length().toInt()))
+      it.delete()
+    }
+  }
+
+  private fun nettingProofFile(
+    sessionId: String,
+    vkSha256: String,
+  ) = File(File(File(root, "netting-proofs"), checkHash(vkSha256)), checkNoteId(sessionId))
+
+  fun nettingProof(
+    sessionId: String,
+    vkSha256: String,
+  ): ByteArray? = nettingProofFile(sessionId, vkSha256).takeIf { it.exists() }?.readBytes()
+
+  fun putNettingProof(
+    sessionId: String,
+    vkSha256: String,
+    bytes: ByteArray,
+  ) {
+    require(bytes.size == Native.NETTING_PROOF) { "invalid netting proof" }
+    atomicWrite(nettingProofFile(sessionId, vkSha256), bytes)
+  }
+
+  /** Forgets a netting's witness and its proofs under every key. */
+  fun forgetNetting(sessionId: String) {
+    dropNettingWitness(sessionId)
+    File(root, "netting-proofs").listFiles()?.forEach { File(it, checkNoteId(sessionId)).delete() }
+  }
+
+  /** The verifying key of a netting key, beside its proving files. */
+  fun verifyingKey(vkSha256: String) = File(keyDir(vkSha256), "vk.bin")
+
   fun keyDir(vkSha256: String) = File(File(root, "keys"), checkHash(vkSha256))
 
   fun keyReady(vkSha256: String) = File(keyDir(vkSha256), READY).exists()

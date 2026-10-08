@@ -15,6 +15,7 @@ pub mod error;
 mod filing;
 mod instructions;
 mod mint;
+pub mod netting;
 pub mod payout;
 mod pda;
 pub mod records;
@@ -30,6 +31,7 @@ pub mod zk;
 pub use channel::{Channel, CHANNEL_CLOSE_DELAY, CHANNEL_SEED, MAX_CHANNELS_PER_TX};
 pub use error::BuckspayError;
 pub use instructions::*;
+pub use netting::{Netting, NETTING_KEEP_SECS, NETTING_SEED};
 pub use rewards::{
     scope as reward_scope, LeafAppended, RewardConfig, RewardMint, RewardPolicy, RewardTree,
     CLAIM_KEY_OVERLAP_SECS, MAX_CLAIMS_PER_TX, REWARD_CONFIG_SEED, REWARD_LEDGER_MARKER,
@@ -379,6 +381,20 @@ pub mod buckspay {
         ctx.accounts.process(&ctx.bumps)
     }
 
+    /// Records a circular netting every participant signed and one proof covers.
+    pub fn record_netting(
+        ctx: Context<RecordNetting>,
+        statement: Vec<u8>,
+        proof: [u8; 256],
+    ) -> Result<()> {
+        ctx.accounts.process(&statement, &proof)
+    }
+
+    /// Closes a netting record after its keep window and returns the rent to its payer.
+    pub fn close_netting(ctx: Context<CloseNetting>) -> Result<()> {
+        ctx.accounts.process()
+    }
+
     /// Destroys the whole stake of the attester that signed a ticket the chain contradicts.
     pub fn report_false_ticket(
         ctx: Context<ReportFalseTicket>,
@@ -401,6 +417,11 @@ pub fn ticket_domain() -> [u8; 32] {
 /// The domain of delivery-word commitments on this cluster and program.
 pub fn payword_domain() -> [u8; 32] {
     domain(purpose::PAYWORD, &GENESIS_HASH, &ID.to_bytes())
+}
+
+/// The domain the participants of a netting sign under on this cluster and program.
+pub fn netting_domain() -> [u8; 32] {
+    domain(purpose::NETTING, &GENESIS_HASH, &ID.to_bytes())
 }
 
 /// The domain of reclaims on this cluster and program.

@@ -20,7 +20,11 @@ import (
 
 	"github.com/DavidZapataOh/buckspay/prover/circuit"
 	"github.com/DavidZapataOh/buckspay/prover/claim"
+	"github.com/DavidZapataOh/buckspay/prover/netting"
 )
+
+// VKFile is the name of the verifying key in a key directory.
+const VKFile = "vk.bin"
 
 // Manifest lists the artifacts of one setup and how they were made. Hashes are SHA-256 in hex.
 type Manifest struct {
@@ -65,7 +69,7 @@ func Store(dir string, ccs constraint.ConstraintSystem, pk groth16.ProvingKey, v
 	if m.PKDumpSHA256, err = write("pk.dump", pk.WriteDump); err != nil {
 		return m, err
 	}
-	if m.VKSHA256, err = write("vk.bin", func(w io.Writer) error { _, err := vk.WriteTo(w); return err }); err != nil {
+	if m.VKSHA256, err = write(VKFile, func(w io.Writer) error { _, err := vk.WriteTo(w); return err }); err != nil {
 		return m, err
 	}
 	m.Constraints = ccs.GetNbConstraints()
@@ -94,6 +98,12 @@ func defaultExport() exportOptions {
 // one and the public inputs, and the commitment constants are not written.
 func Claim() ExportOption {
 	return func(o *exportOptions) { o.name, o.numPublic, o.commitments = "claim", claim.NumPublic, 0 }
+}
+
+// Netting exports the key of the netting circuit, which has no BSB22 commitment: IC holds the constant one and the
+// four public inputs.
+func Netting() ExportOption {
+	return func(o *exportOptions) { o.name, o.numPublic, o.commitments = "netting", netting.NumPublic, 0 }
 }
 
 // TestKeys marks the exported key as a test key: TEST_KEYS is true in the generated file, so that

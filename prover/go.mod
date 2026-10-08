@@ -3,6 +3,7 @@ module github.com/DavidZapataOh/buckspay/prover
 go 1.27.1
 
 require (
+	filippo.io/edwards25519 v1.2.0
 	github.com/consensys/gnark v0.16.3
 	github.com/consensys/gnark-crypto v0.21.0
 )

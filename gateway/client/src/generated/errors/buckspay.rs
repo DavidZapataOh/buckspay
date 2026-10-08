@@ -307,6 +307,28 @@ pub enum BuckspayError {
     /// 6098 - The account is not the nullifier account of the claim
     #[error("The account is not the nullifier account of the claim")]
     WrongNullifierAccount = 0x17D2,
+    /// 6099 - The netting statement is malformed
+    #[error("The netting statement is malformed")]
+    NettingStatement = 0x17D3,
+    /// 6100 - The netting statement has expired
+    #[error("The netting statement has expired")]
+    NettingExpired = 0x17D4,
+    /// 6101 - The instruction before this one is not every participant's signature over the statement
+    #[error(
+        "The instruction before this one is not every participant's signature over the statement"
+    )]
+    NettingSignatures = 0x17D5,
+    /// 6102 - The netting proof does not verify
+    #[error("The netting proof does not verify")]
+    NettingProof = 0x17D6,
+    /// 6103 - The account is not the record address of this netting, or the netting is already recorded
+    #[error(
+        "The account is not the record address of this netting, or the netting is already recorded"
+    )]
+    NettingAddress = 0x17D7,
+    /// 6104 - The netting record cannot be closed yet
+    #[error("The netting record cannot be closed yet")]
+    NettingOpen = 0x17D8,
 }
 
 impl From<BuckspayError> for solana_program_error::ProgramError {

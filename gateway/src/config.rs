@@ -3,6 +3,7 @@ use crate::{
     hpke::HpkeKeys,
     sponsor::{Caps, Escalation, FeeMode, Step},
 };
+use buckspay_client::types::KeyHashes;
 use buckspay_protocol::{
     cluster::{DEVNET_GENESIS_HASH, MAINNET_GENESIS_HASH},
     profile::{PRODUCTION_DEVNET_PROGRAM_ID, SHORT_PROGRAM_ID},
@@ -132,6 +133,11 @@ pub struct Config {
     pub zk_verifications_per_minute: NonZeroU32,
     /// Where the key files of private settlement are published, under `/zk/<vkSha256>/`.
     pub zk_keys_url: Option<String>,
+    /// Free-lane netting records sponsored in a day, and per network in an hour.
+    pub netting_daily_cap: u32,
+    pub netting_ip_hourly: u32,
+    /// The netting key files offered to apps; none, and the offer answers `404`.
+    pub netting_keys: Option<KeyHashes>,
     /// The longest random wait, in seconds, before a relayed settlement is sent.
     pub relay_delay_max_secs: u32,
     /// Relayed settlements sponsored in one day, all relayers together.
@@ -203,6 +209,28 @@ fn var<T: std::str::FromStr>(name: &str, default: &str) -> Result<T, String> {
         .map_err(|_| format!("{name} is not valid"))
 }
 
+/// `NETTING_KEYS`: the hashes of the verifying key, the proving key, its dump and the constraint
+/// system, hex, comma-separated.
+fn netting_keys(value: Option<&str>) -> Result<Option<KeyHashes>, String> {
+    let Some(value) = value.filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    let invalid = || "NETTING_KEYS is not valid".to_owned();
+    let hashes: Vec<[u8; 32]> = value
+        .split(',')
+        .map(|hash| {
+            hex::decode(hash.trim())
+                .ok()
+                .and_then(|bytes| bytes.try_into().ok())
+                .ok_or_else(invalid)
+        })
+        .collect::<Result<_, _>>()?;
+    match hashes[..] {
+        [vk, pk, dump, ccs] => Ok(Some(KeyHashes { vk, pk, dump, ccs })),
+        _ => Err(invalid()),
+    }
+}
+
 fn min_bond(value: Option<&str>) -> Result<u64, String> {
     match value.unwrap_or("10000000").parse::<u64>() {
         Ok(bond) if bond > 0 => Ok(bond),
@@ -269,6 +297,9 @@ impl Config {
             requests_per_minute: var("REQUESTS_PER_MINUTE", "30")?,
             zk_verifications_per_minute: var("ZK_VERIFICATIONS_PER_MINUTE", "6")?,
             zk_keys_url: env::var("ZK_KEYS_URL").ok().filter(|url| !url.is_empty()),
+            netting_daily_cap: var("NETTING_DAILY_CAP", "100")?,
+            netting_ip_hourly: var("NETTING_IP_HOURLY", "5")?,
+            netting_keys: netting_keys(env::var("NETTING_KEYS").ok().as_deref())?,
             relay_delay_max_secs: var("RELAY_DELAY_MAX_SECS", "30")?,
             relay_daily_cap: var("RELAY_DAILY_CAP", "1000")?,
             max_open_channels: var("MAX_OPEN_CHANNELS", "1000")?,
@@ -492,6 +523,25 @@ mod tests {
         );
         fs::remove_file(&elsewhere).unwrap();
         fs::remove_dir_all(&credentials).unwrap();
+    }
+
+    #[test]
+    fn netting_keys_are_four_hashes_or_nothing() {
+        let hash = |b: u8| hex::encode([b; 32]);
+        assert!(netting_keys(None).unwrap().is_none());
+        assert!(netting_keys(Some("")).unwrap().is_none());
+        let keys = netting_keys(Some(&format!(
+            "{}, {},{},{}",
+            hash(1),
+            hash(2),
+            hash(3),
+            hash(4)
+        )))
+        .unwrap()
+        .unwrap();
+        assert_eq!((keys.vk, keys.ccs), ([1; 32], [4; 32]));
+        assert!(netting_keys(Some(&hash(1))).is_err());
+        assert!(netting_keys(Some("zz,zz,zz,zz")).is_err());
     }
 
     #[test]

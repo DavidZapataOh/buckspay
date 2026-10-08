@@ -9,6 +9,7 @@ use crate::{
     chain::{self, TokenAccount, associated_token_address},
     claims::{CLAIM_CLOSABLE_OFFSET, CLAIM_LEN, CLAIM_PAYER_OFFSET, claim_discriminator},
     float::{Found, Read},
+    nettings::NETTING_DISCRIMINATOR,
     onboard::{chain_now, read},
     server::{Error, Gateway},
     settlements::{RECORD_LEN, RECORD_PAYER_OFFSET, resume, spent_discriminator},
@@ -17,7 +18,7 @@ use crate::{
     zk::{STALE_BUFFER_SECS, account_discriminator},
 };
 use base64::{Engine, prelude::BASE64_STANDARD};
-use buckspay_client::accounts::{Channel, Device, Ledger, Lock, Rotation};
+use buckspay_client::accounts::{Channel, Device, Ledger, Lock, Netting, Rotation};
 use buckspay_protocol::lock::Windows;
 use solana_account::Account;
 use solana_account_decoder_client_types::UiDataSliceConfig;
@@ -70,6 +71,8 @@ pub struct Report {
     pub settlements_closed: u32,
     pub settlements_forgotten: u32,
     pub settlements_adopted: u32,
+    /// Netting records closed: the rent the gateway fronted for them is back.
+    pub nettings_closed: u32,
     /// Claims closed: the rent the gateway fronted for them is back.
     pub claims_closed: u32,
     /// Settlements of several transactions that were looked at again.
@@ -423,6 +426,9 @@ pub async fn run_once(state: &Gateway, rotation_grace: Duration) -> Result<Repor
     if let Err(error) = close_claims(state, now, &mut report).await {
         warn!(?error, "the claims could not be tended");
     }
+    if let Err(error) = close_nettings(state, now, &mut report).await {
+        warn!(?error, "the netting records could not be tended");
+    }
     for job in state.jobs.pending().iter().take(JOBS_PER_RUN) {
         resume(state, job).await;
         report.jobs_resumed += 1;
@@ -479,6 +485,54 @@ async fn close_claims(state: &Gateway, now: u64, report: &mut Report) -> Result<
         info!(claims = pairs.len(), "returned the rent of claims");
     } else {
         warn!("a claim close did not land");
+    }
+    Ok(())
+}
+
+/// Where a netting record says its payer and when it can be closed.
+const NETTING_PAYER_OFFSET: usize = 8;
+const NETTING_CLOSABLE_OFFSET: usize = 44;
+
+/// The netting records among `found` that can be closed at `now`.
+pub fn closable_nettings(found: &[(Pubkey, u32)], now: u32) -> Vec<Pubkey> {
+    found
+        .iter()
+        .filter(|(_, closable_at)| *closable_at <= now)
+        .map(|(address, _)| *address)
+        .collect()
+}
+
+/// Closes the netting records the gateway paid for once their statements' retention has passed,
+/// with the rent going back to the fee payer.
+async fn close_nettings(state: &Gateway, now: u64, report: &mut Report) -> Result<(), Error> {
+    let program = state.settings.program;
+    let fee_payer = state.fee_payer.pubkey();
+    let found: Vec<(Pubkey, u32)> = paid_by_us(state, Netting::LEN as u64, NETTING_PAYER_OFFSET)
+        .await?
+        .into_iter()
+        .filter(|(_, account)| account.data[..8] == NETTING_DISCRIMINATOR)
+        .filter_map(|(address, account)| {
+            let closable = account.data[NETTING_CLOSABLE_OFFSET..].try_into().ok()?;
+            Some((address, u32::from_le_bytes(closable)))
+        })
+        .collect();
+    let due: Vec<Pubkey> =
+        closable_nettings(&found, u32::try_from(now).map_err(|_| Error::Upstream)?)
+            .into_iter()
+            .take(CLOSE_BATCH)
+            .collect();
+    if due.is_empty() {
+        return Ok(());
+    }
+    let closes: Vec<Instruction> = due
+        .iter()
+        .map(|netting| transactions::close_netting(&program, netting, &fee_payer))
+        .collect();
+    if send_with_limit(state, &closes, CLOSE_COMPUTE_UNIT_LIMIT).await {
+        report.nettings_closed += u32::try_from(due.len()).unwrap_or(u32::MAX);
+        info!(nettings = due.len(), "returned the rent of netting records");
+    } else {
+        warn!("a netting close did not land");
     }
     Ok(())
 }
@@ -760,5 +814,19 @@ mod tests {
                 Due::Nothing
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod janitor_tests {
+    #[test]
+    fn janitor_selects_nettings_past_closable_at() {
+        let (a, b) = (
+            solana_pubkey::Pubkey::new_unique(),
+            solana_pubkey::Pubkey::new_unique(),
+        );
+        let found = [(a, 1_000), (b, 2_000)];
+        assert_eq!(crate::janitor::closable_nettings(&found, 1_999), vec![a]);
+        assert_eq!(crate::janitor::closable_nettings(&found, 2_000), vec![a, b]);
     }
 }

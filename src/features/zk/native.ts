@@ -4,12 +4,13 @@ import Prover, {
   type KeyFiles,
   type KeyState,
   type KeyStatus,
+  type NettingProver,
   type ProveProgress,
   type StoredProof,
 } from '../../../modules/prover/src/ProverModule'
 import type { ProvingMode } from './types'
 
-export type { ClaimProof, ClaimState, KeyFiles, KeyState, KeyStatus, ProveProgress, StoredProof }
+export type { ClaimProof, ClaimState, KeyFiles, KeyState, KeyStatus, NettingProver, ProveProgress, StoredProof }
 
 export interface ProverNative {
   keyStatus(vkSha256: string): Promise<KeyStatus>
@@ -33,3 +34,6 @@ export type ClaimProverNative = Pick<ProverNative, 'keyStatus' | 'ensureKey'> & 
 export const proverNative: ProverNative = Prover
 
 export const claimProverNative: ClaimProverNative = Prover
+
+/** What the netting proofs need of the prover: its job and the check of a finished proof. */
+export const nettingProverNative: NettingProver = Prover

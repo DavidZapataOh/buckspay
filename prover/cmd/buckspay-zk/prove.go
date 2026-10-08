@@ -162,15 +162,18 @@ func exportVK(args []string) error {
 		return err
 	}
 	if !rust || fs.NArg() != 1 {
-		return fmt.Errorf("usage: buckspay-zk export-vk --rust [--circuit chain|claim] [--test-keys] vk.bin")
+		return fmt.Errorf("usage: buckspay-zk export-vk --rust [--circuit chain|claim|netting] [--test-keys] vk.bin")
 	}
 	vk := groth16.NewVerifyingKey(ecc.BN254)
 	if err := readFile(fs.Arg(0), vk); err != nil {
 		return err
 	}
 	var opts []keys.ExportOption
-	if name == "claim" {
+	switch name {
+	case "claim":
 		opts = append(opts, keys.Claim())
+	case "netting":
+		opts = append(opts, keys.Netting())
 	}
 	if raw, err := os.ReadFile(filepath.Join(filepath.Dir(fs.Arg(0)), "manifest.json")); err == nil {
 		var m keys.Manifest

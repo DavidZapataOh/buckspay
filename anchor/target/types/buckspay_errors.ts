@@ -98,7 +98,13 @@ export const BuckspayErrorCode = {
   StaleClaimKey: 6095,
   ClaimCount: 6096,
   WrongRewardTree: 6097,
-  WrongNullifierAccount: 6098
+  WrongNullifierAccount: 6098,
+  NettingStatement: 6099,
+  NettingExpired: 6100,
+  NettingSignatures: 6101,
+  NettingProof: 6102,
+  NettingAddress: 6103,
+  NettingOpen: 6104
 };
 
 export type BuckspayErrorName = keyof typeof BuckspayErrorCode;

@@ -203,4 +203,20 @@ pub enum BuckspayError {
     WrongRewardTree,
     #[msg("The account is not the nullifier account of the claim")]
     WrongNullifierAccount,
+    #[msg("The netting statement is malformed")]
+    NettingStatement,
+    #[msg("The netting statement has expired")]
+    NettingExpired,
+    #[msg(
+        "The instruction before this one is not every participant's signature over the statement"
+    )]
+    NettingSignatures,
+    #[msg("The netting proof does not verify")]
+    NettingProof,
+    #[msg(
+        "The account is not the record address of this netting, or the netting is already recorded"
+    )]
+    NettingAddress,
+    #[msg("The netting record cannot be closed yet")]
+    NettingOpen,
 }

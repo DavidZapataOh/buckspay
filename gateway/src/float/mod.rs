@@ -117,7 +117,7 @@ impl SettlementLimits {
         let mut s = self.state.lock().unwrap();
         self.sweep(&mut s, request.now);
         let priced = priced.max(request.records.len() as u32);
-        self.admit(&s, &request, request.bond, None, priced)?;
+        self.admit(&s, &request, request.bond, &[], priced)?;
         let id = s.next_id;
         s.next_id += 1;
         let expires_at = request.now.saturating_add(self.caps.reservation_ttl);
@@ -136,14 +136,14 @@ impl SettlementLimits {
         })
     }
 
-    /// Every limit, for `request` with the lock's `bond` as the gateway reads it now. `own` is the
-    /// reservation being checked again before its send, which must not count against itself.
+    /// Every limit, for `request` with the lock's `bond` as the gateway reads it now. `own` are
+    /// the reservations being checked again before their send, which must not count against it.
     fn admit(
         &self,
         s: &State,
         request: &Request,
         bond: u64,
-        own: Option<u64>,
+        own: &[u64],
         priced: u32,
     ) -> Result<(), Refusal> {
         let c = &self.caps;
@@ -154,7 +154,7 @@ impl SettlementLimits {
         let others: Vec<&Pending> = s
             .pending
             .iter()
-            .filter(|(id, _)| Some(**id) != own)
+            .filter(|(id, _)| !own.contains(id))
             .map(|(_, p)| p)
             .collect();
         if s.ledger.requests_today + others.len() as u32 >= c.daily_cap {
@@ -314,14 +314,14 @@ impl SettlementLimits {
     pub fn status(&self, now: u32) -> Status {
         let mut s = self.state.lock().unwrap();
         self.sweep(&mut s, now);
-        self.pressure(&s, None)
+        self.pressure(&s, &[])
     }
 
-    fn pressure(&self, s: &State, own: Option<u64>) -> Status {
+    fn pressure(&self, s: &State, own: &[u64]) -> Status {
         let pending = || {
             s.pending
                 .iter()
-                .filter(move |(id, _)| Some(**id) != own)
+                .filter(move |(id, _)| !own.contains(id))
                 .map(|(_, p)| p)
         };
         let reserved: u64 = pending()
@@ -454,6 +454,86 @@ impl SettlementLimits {
             .sum()
     }
 
+    /// Counts a request that is about to be sent against the network, the key, the lock and the day,
+    /// and opens its records with an intent that the janitor resolves.
+    fn write_down(&self, s: &mut State, r: &Request, now: u32, slot: u64) {
+        let day = day_of(r.now);
+        let ledger = &mut s.ledger;
+        ledger.requests_today += 1;
+        for (table, key) in [
+            (&mut ledger.networks, r.prefix.to_string()),
+            (&mut ledger.keys, key_id(&r.key)),
+            (&mut ledger.locks, hex::encode(r.lock)),
+        ] {
+            *table.entry(key).or_default().entry(day).or_insert(0) += 1;
+        }
+        let intent = Intent {
+            sent_slot: slot,
+            until: now.saturating_add(self.caps.unknown_grace),
+        };
+        for record in &r.records {
+            ledger.open.insert(
+                hex::encode(record.address),
+                Open {
+                    lock: Some(hex::encode(r.lock)),
+                    issuer: Some(hex::encode(r.issuer)),
+                    lamports: r.rent,
+                    closable_at: record.closable_at,
+                    intent: Some(intent),
+                    seen_slot: None,
+                    missing: 0,
+                },
+            );
+        }
+    }
+
+    /// Begins the reservations of one transaction, or none. `bonds` are the locks' bonds as the
+    /// gateway reads them now, one per reservation. Each is admitted with the ones before it
+    /// already counted, as if they had begun one after the other, and one ledger write records
+    /// them all. A refusal names the reservation it is for; every reservation is released.
+    pub fn begin_all(
+        self: &Arc<Self>,
+        reservations: Vec<Reservation>,
+        now: u32,
+        slot: u64,
+        bonds: &[u64],
+    ) -> Result<Sending, (usize, Refusal)> {
+        assert_eq!(
+            reservations.len(),
+            bonds.len(),
+            "one bond for each reservation"
+        );
+        let mut s = self.state.lock().unwrap();
+        self.sweep(&mut s, now);
+        if let Some(missing) = reservations
+            .iter()
+            .position(|r| !s.pending.contains_key(&r.id))
+        {
+            return Err((missing, Refusal::Expired));
+        }
+        for (i, r) in reservations.iter().enumerate() {
+            let not_yet: Vec<u64> = reservations[i..].iter().map(|r| r.id).collect();
+            self.admit(&s, &r.request, bonds[i], &not_yet, r.priced)
+                .map_err(|refusal| (i, refusal))?;
+        }
+        let backup = s.ledger.clone();
+        for r in &reservations {
+            s.pending.remove(&r.id);
+            self.write_down(&mut s, &r.request, now, slot);
+        }
+        if self.write(&mut s).is_err() {
+            s.ledger = backup;
+            return Err((0, Refusal::Unwritable));
+        }
+        Ok(Sending {
+            limits: Arc::clone(self),
+            addresses: reservations
+                .iter()
+                .flat_map(|r| r.request.records.iter().map(|record| record.address))
+                .collect(),
+        })
+    }
+
     /// Drops what has expired: reservations after their time to live, counter days after 30,
     /// and rolls the day.
     fn sweep(&self, s: &mut State, now: u32) {
@@ -500,45 +580,17 @@ impl Reservation {
         if !s.pending.contains_key(&self.id) {
             return Err(Refusal::Expired);
         }
-        limits.admit(&s, &self.request, bond, Some(self.id), self.priced)?;
+        limits.admit(&s, &self.request, bond, &[self.id], self.priced)?;
         s.pending.remove(&self.id);
         let backup = s.ledger.clone();
-        let r = &self.request;
-        let day = day_of(r.now);
-        let ledger = &mut s.ledger;
-        ledger.requests_today += 1;
-        for (table, key) in [
-            (&mut ledger.networks, r.prefix.to_string()),
-            (&mut ledger.keys, key_id(&r.key)),
-            (&mut ledger.locks, hex::encode(r.lock)),
-        ] {
-            *table.entry(key).or_default().entry(day).or_insert(0) += 1;
-        }
-        let intent = Intent {
-            sent_slot: slot,
-            until: now.saturating_add(limits.caps.unknown_grace),
-        };
-        for record in &r.records {
-            s.ledger.open.insert(
-                hex::encode(record.address),
-                Open {
-                    lock: Some(hex::encode(r.lock)),
-                    issuer: Some(hex::encode(r.issuer)),
-                    lamports: r.rent,
-                    closable_at: record.closable_at,
-                    intent: Some(intent),
-                    seen_slot: None,
-                    missing: 0,
-                },
-            );
-        }
+        limits.write_down(&mut s, &self.request, now, slot);
         if limits.write(&mut s).is_err() {
             s.ledger = backup;
             return Err(Refusal::Unwritable);
         }
         Ok(Sending {
             limits: Arc::clone(&limits),
-            addresses: r.records.iter().map(|r| r.address).collect(),
+            addresses: self.request.records.iter().map(|r| r.address).collect(),
         })
     }
 }

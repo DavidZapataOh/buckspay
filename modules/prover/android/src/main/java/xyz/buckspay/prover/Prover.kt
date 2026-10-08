@@ -19,6 +19,19 @@ internal interface Prover {
   /** The compressed claim proof (128 bytes) followed by the seven public inputs (224 bytes). */
   fun proveClaim(request: ByteArray): ByteArray
 
+  /** The raw netting proof (256 bytes); loads the key in `keyDir` itself. */
+  fun proveNetting(
+    witness: ByteArray,
+    keyDir: String,
+  ): ByteArray
+
+  /** Whether the proof verifies; a negative native code is thrown as [ProverException]. */
+  fun verifyNetting(
+    proof: ByteArray,
+    publicInputs: ByteArray,
+    vkPath: String,
+  ): Boolean
+
   fun expand(
     pkBin: String,
     pkDump: String,
@@ -48,6 +61,22 @@ internal object NativeProver : Prover {
     if (code != Native.OK) throw ProverException(code)
     return out
   }
+
+  override fun proveNetting(
+    witness: ByteArray,
+    keyDir: String,
+  ) = Native.proveNetting(witness, keyDir)
+
+  override fun verifyNetting(
+    proof: ByteArray,
+    publicInputs: ByteArray,
+    vkPath: String,
+  ): Boolean =
+    when (val code = Native.verifyNetting(proof, publicInputs, vkPath)) {
+      1 -> true
+      0 -> false
+      else -> throw ProverException(code)
+    }
 
   override fun expand(
     pkBin: String,

@@ -28,6 +28,26 @@ tasks.register("buildProverLibrary", Exec) {
 
 tasks.matching { it.name ==~ /merge.*JniLibFolders/ }.configureEach { dependsOn "buildProverLibrary" }
 
+// The netting fixtures of the instrumented tests come from the shared vectors file, never by hand.
+def nettingAssets = layout.buildDirectory.dir("generated/nettingAssets")
+tasks.register("generateNettingAssets") {
+  def vectors = file("../../../prover/netting/testdata/vectors.json")
+  inputs.file(vectors)
+  outputs.dir(nettingAssets)
+  doLast {
+    def hex = { String h -> (0..<h.length().intdiv(2)).collect { Integer.parseInt(h.substring(it * 2, it * 2 + 2), 16) as byte } as byte[] }
+    def c = new groovy.json.JsonSlurper().parse(vectors).cases.find { it.name == "n8" }
+    def dir = new File(nettingAssets.get().asFile, "netting")
+    dir.mkdirs()
+    new File(dir, "w8.bin").bytes = hex(c.witness)
+    def publics = new ByteArrayOutputStream()
+    c.public.each { publics.write(hex(it)) }
+    new File(dir, "public8.bin").bytes = publics.toByteArray()
+  }
+}
+android.sourceSets.androidTest.assets.srcDir(nettingAssets)
+tasks.matching { it.name ==~ /merge.*AndroidTestAssets/ }.configureEach { dependsOn "generateNettingAssets" }
+
 dependencies {
   implementation "androidx.work:work-runtime-ktx:2.11.2"
   implementation "androidx.work:work-multiprocess:2.11.2"

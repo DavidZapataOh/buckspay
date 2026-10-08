@@ -9,9 +9,12 @@ internal class FakeProver(
   private val expandCode: Int = Native.OK,
   private val onProve: (Int) -> Unit = {},
   private val claimFailure: Int? = null,
+  private val nettingFailure: Int? = null,
+  private val nettingVerifies: Boolean = true,
 ) : Prover {
   val proved = mutableListOf<Int>()
   val claimed = mutableListOf<ByteArray>()
+  val netted = mutableListOf<ByteArray>()
   var loads = 0
   var releases = 0
 
@@ -40,6 +43,21 @@ internal class FakeProver(
     claimed += request.copyOf()
     return ByteArray(Native.CLAIM_PROOF_AND_PUBLIC) { 9 }
   }
+
+  override fun proveNetting(
+    witness: ByteArray,
+    keyDir: String,
+  ): ByteArray {
+    nettingFailure?.let { throw ProverException(it) }
+    netted += witness.copyOf()
+    return ByteArray(Native.NETTING_PROOF) { 5 }
+  }
+
+  override fun verifyNetting(
+    proof: ByteArray,
+    publicInputs: ByteArray,
+    vkPath: String,
+  ) = nettingVerifies
 
   override fun expand(
     pkBin: String,

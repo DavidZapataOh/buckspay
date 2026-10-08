@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import expo.modules.kotlin.exception.Exceptions
+import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
@@ -14,6 +15,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class KeyRecord : Record {
@@ -138,6 +141,49 @@ class ProverModule : Module() {
       AsyncFunction("forgetClaim") { claimId: String ->
         work.cancelUniqueWork(ClaimWorker.uniqueName(claimId))
         files.forgetClaim(claimId)
+      }
+
+      AsyncFunction("enqueueNetting") { sessionId: String, witness: ByteArray, vkSha256: String ->
+        files.putNettingWitness(sessionId, witness)
+        work.enqueueUniqueWork(
+          NettingWorker.uniqueName(sessionId),
+          NettingWorker.POLICY,
+          NettingWorker.request(context.packageName, sessionId, vkSha256, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S),
+        )
+      }
+
+      AsyncFunction("collectNetting") { sessionId: String, vkSha256: String ->
+        files.nettingProof(sessionId, vkSha256)
+      }
+
+      AsyncFunction("nettingState") { sessionId: String ->
+        val info = work.getWorkInfosForUniqueWork(NettingWorker.uniqueName(sessionId)).get().firstOrNull()
+        mapOf(
+          "state" to (info?.state?.name?.lowercase() ?: "unknown"),
+          "reason" to (info?.outputData?.getString(ProveWorker.REASON) ?: ""),
+        )
+      }
+
+      AsyncFunction("forgetNetting") { sessionId: String ->
+        work.cancelUniqueWork(NettingWorker.uniqueName(sessionId))
+        files.forgetNetting(sessionId)
+      }
+
+      AsyncFunction("verifyNetting") Coroutine { proof: ByteArray, publicInputs: ByteArray, vkSha256: String ->
+        val request =
+          NettingVerifyWorker.request(
+            context.packageName,
+            proof,
+            publicInputs,
+            vkSha256,
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+          )
+        work.enqueue(request)
+        val done = work.getWorkInfoByIdFlow(request.id).filterNotNull().first { it.state.isFinished }
+        if (done.state != WorkInfo.State.SUCCEEDED) {
+          throw IllegalStateException(done.outputData.getString(ProveWorker.REASON) ?: done.state.name.lowercase())
+        }
+        done.outputData.getBoolean(NettingVerifyWorker.VERIFIED, false)
       }
 
       AsyncFunction("acknowledge") { noteId: String, vkSha256: String, indices: IntArray ->

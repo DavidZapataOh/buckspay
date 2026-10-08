@@ -665,6 +665,33 @@
       ]
     },
     {
+      "name": "close_netting",
+      "docs": [
+        "Closes a netting record after its keep window and returns the rent to its payer."
+      ],
+      "discriminator": [
+        113,
+        144,
+        228,
+        207,
+        163,
+        77,
+        66,
+        168
+      ],
+      "accounts": [
+        {
+          "name": "netting",
+          "writable": true
+        },
+        {
+          "name": "payer",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "close_proof_buffer",
       "docs": [
         "Closes a buffer nobody settled within `STALE_BUFFER_SECS` and returns its rent."
@@ -1443,6 +1470,59 @@
         {
           "name": "deadline",
           "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "record_netting",
+      "docs": [
+        "Records a circular netting every participant signed and one proof covers."
+      ],
+      "discriminator": [
+        201,
+        229,
+        189,
+        202,
+        33,
+        206,
+        161,
+        112
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Pays the rent of the record and gets it back when the record is closed."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "netting",
+          "writable": true
+        },
+        {
+          "name": "instructions",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "statement",
+          "type": "bytes"
+        },
+        {
+          "name": "proof",
+          "type": {
+            "array": [
+              "u8",
+              256
+            ]
+          }
         }
       ]
     },
@@ -3705,6 +3785,19 @@
       ]
     },
     {
+      "name": "Netting",
+      "discriminator": [
+        237,
+        55,
+        184,
+        224,
+        67,
+        21,
+        71,
+        170
+      ]
+    },
+    {
       "name": "ProofBuffer",
       "discriminator": [
         71,
@@ -4293,6 +4386,36 @@
       "code": 6098,
       "name": "WrongNullifierAccount",
       "msg": "The account is not the nullifier account of the claim"
+    },
+    {
+      "code": 6099,
+      "name": "NettingStatement",
+      "msg": "The netting statement is malformed"
+    },
+    {
+      "code": 6100,
+      "name": "NettingExpired",
+      "msg": "The netting statement has expired"
+    },
+    {
+      "code": 6101,
+      "name": "NettingSignatures",
+      "msg": "The instruction before this one is not every participant's signature over the statement"
+    },
+    {
+      "code": 6102,
+      "name": "NettingProof",
+      "msg": "The netting proof does not verify"
+    },
+    {
+      "code": 6103,
+      "name": "NettingAddress",
+      "msg": "The account is not the record address of this netting, or the netting is already recorded"
+    },
+    {
+      "code": 6104,
+      "name": "NettingOpen",
+      "msg": "The netting record cannot be closed yet"
     }
   ],
   "types": [
@@ -4848,6 +4971,35 @@
           },
           {
             "name": "lock_seq",
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Netting",
+      "docs": [
+        "A netting that landed before its statement expired."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payer",
+            "docs": [
+              "Gets the rent back."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "recorded_at",
+            "type": "u32"
+          },
+          {
+            "name": "closable_at",
+            "docs": [
+              "`expires + NETTING_KEEP_SECS`, saturating."
+            ],
             "type": "u32"
           }
         ]

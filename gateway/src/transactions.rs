@@ -6,10 +6,10 @@ use buckspay_client::{
     Program,
     instructions::{
         ApplyWalletRotationBuilder, CancelWalletRotationBuilder, ClaimLostSpendBuilder,
-        ClaimUnbackedBuilder, CloseLockBuilder, CloseProofBufferBuilder, CloseRecordsBuilder,
-        CloseSpentBuilder, CreateLockBuilder, ReclaimOutputBuilder, RecordPrefixBuilder,
-        RegisterDeviceBuilder, ReleaseLockBuilder, RequestWalletRotationBuilder, SettleNoteBuilder,
-        WithdrawLockBuilder,
+        ClaimUnbackedBuilder, CloseLockBuilder, CloseNettingBuilder, CloseProofBufferBuilder,
+        CloseRecordsBuilder, CloseSpentBuilder, CreateLockBuilder, ReclaimOutputBuilder,
+        RecordNettingBuilder, RecordPrefixBuilder, RegisterDeviceBuilder, ReleaseLockBuilder,
+        RequestWalletRotationBuilder, SettleNoteBuilder, WithdrawLockBuilder,
     },
     types::Link,
 };
@@ -357,6 +357,30 @@ pub fn close_spent(program: &Program, pairs: &[(Pubkey, Pubkey)]) -> Instruction
         .collect();
     let mut builder = CloseSpentBuilder::new();
     builder.add_remaining_accounts(&metas);
+    program.target(builder.instruction())
+}
+
+/// `record_netting` for the statement and proof, paid by `payer`, creating the record at `netting`.
+pub fn record_netting(
+    program: &Program,
+    payer: &Pubkey,
+    netting: &Pubkey,
+    statement: &[u8],
+    proof: &[u8; 256],
+) -> Instruction {
+    let mut builder = RecordNettingBuilder::new();
+    builder
+        .payer(*payer)
+        .netting(*netting)
+        .statement(statement.to_vec())
+        .proof(*proof);
+    program.target(builder.instruction())
+}
+
+/// `close_netting` for the record at `netting`, whose rent goes back to `payer`.
+pub fn close_netting(program: &Program, netting: &Pubkey, payer: &Pubkey) -> Instruction {
+    let mut builder = CloseNettingBuilder::new();
+    builder.netting(*netting).payer(*payer);
     program.target(builder.instruction())
 }
 

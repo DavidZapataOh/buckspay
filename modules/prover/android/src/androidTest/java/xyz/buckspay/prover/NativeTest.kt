@@ -2,6 +2,8 @@ package xyz.buckspay.prover
 
 import android.content.ComponentName
 import android.content.pm.PackageManager
+import android.os.SystemClock
+import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.WorkInfo
@@ -9,6 +11,7 @@ import androidx.work.WorkManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -24,6 +27,53 @@ class NativeTest {
     assertEquals(Native.FAILED, Native.proveInto(ByteArray(8), 0, ByteArray(Native.PROOF_AND_PUBLIC)))
     assertEquals(Native.BAD_ARGS, Native.proveInto(ByteArray(8), 0, ByteArray(4)))
     Native.release()
+  }
+
+  private val keys = File("/data/local/tmp/keys-0803/netting")
+
+  private fun installTestNettingKey(): File =
+    File(context.cacheDir, "netting-keys").apply {
+      mkdirs()
+      keys.listFiles()?.forEach { it.copyTo(File(this, it.name), overwrite = true) }
+    }
+
+  private fun assetBytes(name: String) =
+    InstrumentationRegistry
+      .getInstrumentation()
+      .context.assets
+      .open(name)
+      .use { it.readBytes() }
+
+  private fun vmHwmKb() =
+    File("/proc/self/status")
+      .readLines()
+      .first { it.startsWith("VmHWM:") }
+      .filter { it.isDigit() }
+      .toLong()
+
+  @Test
+  fun proveAndVerifyNettingFixture() {
+    val dir = installTestNettingKey()
+    val witness = assetBytes("netting/w8.bin")
+    val proof = Native.proveNetting(witness, dir.path)
+    assertEquals(Native.NETTING_PROOF, proof.size)
+    val publics = assetBytes("netting/public8.bin")
+    assertEquals(1, Native.verifyNetting(proof, publics, File(dir, "vk.bin").path))
+    proof[40] = (proof[40].toInt() xor 1).toByte()
+    assertEquals(0, Native.verifyNetting(proof, publics, File(dir, "vk.bin").path))
+    Native.release()
+  }
+
+  @Test
+  fun measureNetting() {
+    val dir = installTestNettingKey()
+    val witness = assetBytes("netting/w8.bin")
+    repeat(3) {
+      val start = SystemClock.elapsedRealtime()
+      Native.proveNetting(witness.copyOf(), dir.path)
+      Log.i("M3", "netting prove ms=${SystemClock.elapsedRealtime() - start} vmhwm_kb=${vmHwmKb()}")
+      Native.release()
+    }
   }
 
   @Test

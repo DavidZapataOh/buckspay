@@ -42,12 +42,20 @@ pub const CLAIM_PROOF_RAW: usize = 256;
 pub const PROOF_COMPRESSED: usize = 192;
 /// `A 64 ‖ B 128 ‖ C 64 ‖ D 64 ‖ Pok 64`, uncompressed big-endian.
 pub const PROOF_RAW: usize = 384;
+/// Public inputs of a netting: session field, participants, total and root.
+pub const NETTING_NUM_PUBLIC: usize = 4;
+/// `A 32 ‖ B 64 ‖ C 32`, compressed big-endian.
+pub const NETTING_PROOF_COMPRESSED: usize = 128;
+/// `A 64 ‖ B 128 ‖ C 64`, uncompressed big-endian.
+pub const NETTING_PROOF_RAW: usize = 256;
 /// The deepest chain has `MAX_DEPTH` spends and its issue.
 pub const MAX_PROOFS: usize = 17;
 /// Public inputs of one proof, each a canonical big-endian field element.
 pub type Public = [[u8; 32]; NUM_PUBLIC];
 /// Public inputs of one blind claim, each a canonical big-endian field element.
 pub type ClaimPublic = [[u8; 32]; CLAIM_NUM_PUBLIC];
+/// Public inputs of one netting, each a canonical big-endian field element.
+pub type NettingPublic = [[u8; 32]; NETTING_NUM_PUBLIC];
 /// The widest public input list of any key this verifier takes.
 const MAX_PUBLIC: usize = NUM_PUBLIC;
 
@@ -330,6 +338,24 @@ pub fn verify_claims_raw_with(
     vk: &Vk,
     proofs: &[[u8; CLAIM_PROOF_RAW]],
     publics: &[ClaimPublic],
+) -> Result<(), VerifyError> {
+    verify(vk, proofs, publics)
+}
+
+/// Verifies compressed netting proofs under `vk`.
+pub fn verify_netting_with(
+    vk: &Vk,
+    proofs: &[[u8; NETTING_PROOF_COMPRESSED]],
+    publics: &[NettingPublic],
+) -> Result<(), VerifyError> {
+    verify(vk, proofs, publics)
+}
+
+/// Verifies uncompressed netting proofs under `vk`.
+pub fn verify_netting_raw_with(
+    vk: &Vk,
+    proofs: &[[u8; NETTING_PROOF_RAW]],
+    publics: &[NettingPublic],
 ) -> Result<(), VerifyError> {
     verify(vk, proofs, publics)
 }

@@ -40,6 +40,7 @@ import {
   getDeviceCodec,
   getLedgerCodec,
   getLockCodec,
+  getNettingCodec,
   getProofBufferCodec,
   getRewardConfigCodec,
   getRewardMintCodec,
@@ -56,6 +57,8 @@ import {
   type LedgerArgs,
   type Lock,
   type LockArgs,
+  type Netting,
+  type NettingArgs,
   type ProofBuffer,
   type ProofBufferArgs,
   type RewardConfig,
@@ -78,6 +81,7 @@ import {
   getClaimUnbackedInstructionAsync,
   getCloseChannelInstruction,
   getCloseLockInstructionAsync,
+  getCloseNettingInstruction,
   getCloseProofBufferInstruction,
   getCloseRecordsInstruction,
   getCloseSpentInstruction,
@@ -88,6 +92,7 @@ import {
   getMigrateDeviceInstruction,
   getOpenProofBufferInstructionAsync,
   getReclaimOutputInstructionAsync,
+  getRecordNettingInstruction,
   getRecordPrefixInstruction,
   getRegisterAttesterInstructionAsync,
   getRegisterDeviceInstruction,
@@ -122,6 +127,7 @@ import {
   parseClaimUnbackedInstruction,
   parseCloseChannelInstruction,
   parseCloseLockInstruction,
+  parseCloseNettingInstruction,
   parseCloseProofBufferInstruction,
   parseCloseRecordsInstruction,
   parseCloseSpentInstruction,
@@ -132,6 +138,7 @@ import {
   parseMigrateDeviceInstruction,
   parseOpenProofBufferInstruction,
   parseReclaimOutputInstruction,
+  parseRecordNettingInstruction,
   parseRecordPrefixInstruction,
   parseRegisterAttesterInstruction,
   parseRegisterDeviceInstruction,
@@ -166,6 +173,7 @@ import {
   type ClaimUnbackedAsyncInput,
   type CloseChannelInput,
   type CloseLockAsyncInput,
+  type CloseNettingInput,
   type CloseProofBufferInput,
   type CloseRecordsInput,
   type CloseSpentInput,
@@ -183,6 +191,7 @@ import {
   type ParsedClaimUnbackedInstruction,
   type ParsedCloseChannelInstruction,
   type ParsedCloseLockInstruction,
+  type ParsedCloseNettingInstruction,
   type ParsedCloseProofBufferInstruction,
   type ParsedCloseRecordsInstruction,
   type ParsedCloseSpentInstruction,
@@ -193,6 +202,7 @@ import {
   type ParsedMigrateDeviceInstruction,
   type ParsedOpenProofBufferInstruction,
   type ParsedReclaimOutputInstruction,
+  type ParsedRecordNettingInstruction,
   type ParsedRecordPrefixInstruction,
   type ParsedRegisterAttesterInstruction,
   type ParsedRegisterDeviceInstruction,
@@ -220,6 +230,7 @@ import {
   type ParsedWithdrawLockInstruction,
   type ParsedWriteProofBufferInstruction,
   type ReclaimOutputAsyncInput,
+  type RecordNettingInput,
   type RecordPrefixInput,
   type RegisterAttesterAsyncInput,
   type RegisterDeviceInput,
@@ -270,6 +281,7 @@ export enum BuckspayAccount {
   Device,
   Ledger,
   Lock,
+  Netting,
   ProofBuffer,
   RewardConfig,
   RewardMint,
@@ -324,6 +336,15 @@ export function identifyBuckspayAccount(account: { data: ReadonlyUint8Array } | 
     )
   ) {
     return BuckspayAccount.Lock
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([237, 55, 184, 224, 67, 21, 71, 170])),
+      0,
+    )
+  ) {
+    return BuckspayAccount.Netting
   }
   if (
     containsBytes(
@@ -412,6 +433,7 @@ export enum BuckspayInstruction {
   ClaimUnbacked,
   CloseChannel,
   CloseLock,
+  CloseNetting,
   CloseProofBuffer,
   CloseRecords,
   CloseSpent,
@@ -422,6 +444,7 @@ export enum BuckspayInstruction {
   MigrateDevice,
   OpenProofBuffer,
   ReclaimOutput,
+  RecordNetting,
   RecordPrefix,
   RegisterAttester,
   RegisterDevice,
@@ -529,6 +552,15 @@ export function identifyBuckspayInstruction(
   if (
     containsBytes(
       data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([113, 144, 228, 207, 163, 77, 66, 168])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.CloseNetting
+  }
+  if (
+    containsBytes(
+      data,
       fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([130, 150, 6, 35, 193, 34, 243, 87])),
       0,
     )
@@ -615,6 +647,15 @@ export function identifyBuckspayInstruction(
     )
   ) {
     return BuckspayInstruction.ReclaimOutput
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([201, 229, 189, 202, 33, 206, 161, 112])),
+      0,
+    )
+  ) {
+    return BuckspayInstruction.RecordNetting
   }
   if (
     containsBytes(data, fixEncoderSize(getBytesEncoder(), 8).encode(new Uint8Array([35, 56, 0, 37, 93, 11, 86, 45])), 0)
@@ -861,6 +902,7 @@ export type ParsedBuckspayInstruction<TProgram extends string = 'zkJoXgVrQ8kvJGv
   | ({ instructionType: BuckspayInstruction.ClaimUnbacked } & ParsedClaimUnbackedInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CloseChannel } & ParsedCloseChannelInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CloseLock } & ParsedCloseLockInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.CloseNetting } & ParsedCloseNettingInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CloseProofBuffer } & ParsedCloseProofBufferInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CloseRecords } & ParsedCloseRecordsInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.CloseSpent } & ParsedCloseSpentInstruction<TProgram>)
@@ -871,6 +913,7 @@ export type ParsedBuckspayInstruction<TProgram extends string = 'zkJoXgVrQ8kvJGv
   | ({ instructionType: BuckspayInstruction.MigrateDevice } & ParsedMigrateDeviceInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.OpenProofBuffer } & ParsedOpenProofBufferInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.ReclaimOutput } & ParsedReclaimOutputInstruction<TProgram>)
+  | ({ instructionType: BuckspayInstruction.RecordNetting } & ParsedRecordNettingInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RecordPrefix } & ParsedRecordPrefixInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RegisterAttester } & ParsedRegisterAttesterInstruction<TProgram>)
   | ({ instructionType: BuckspayInstruction.RegisterDevice } & ParsedRegisterDeviceInstruction<TProgram>)
@@ -944,6 +987,10 @@ export function parseBuckspayInstruction<TProgram extends string>(
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.CloseLock, ...parseCloseLockInstruction(instruction) }
     }
+    case BuckspayInstruction.CloseNetting: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.CloseNetting, ...parseCloseNettingInstruction(instruction) }
+    }
     case BuckspayInstruction.CloseProofBuffer: {
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.CloseProofBuffer, ...parseCloseProofBufferInstruction(instruction) }
@@ -981,6 +1028,10 @@ export function parseBuckspayInstruction<TProgram extends string>(
     case BuckspayInstruction.ReclaimOutput: {
       assertIsInstructionWithAccounts(instruction)
       return { instructionType: BuckspayInstruction.ReclaimOutput, ...parseReclaimOutputInstruction(instruction) }
+    }
+    case BuckspayInstruction.RecordNetting: {
+      assertIsInstructionWithAccounts(instruction)
+      return { instructionType: BuckspayInstruction.RecordNetting, ...parseRecordNettingInstruction(instruction) }
     }
     case BuckspayInstruction.RecordPrefix: {
       assertIsInstructionWithAccounts(instruction)
@@ -1130,6 +1181,7 @@ export type BuckspayPluginAccounts = {
   device: ReturnType<typeof getDeviceCodec> & SelfFetchFunctions<DeviceArgs, Device>
   ledger: ReturnType<typeof getLedgerCodec> & SelfFetchFunctions<LedgerArgs, Ledger>
   lock: ReturnType<typeof getLockCodec> & SelfFetchFunctions<LockArgs, Lock>
+  netting: ReturnType<typeof getNettingCodec> & SelfFetchFunctions<NettingArgs, Netting>
   proofBuffer: ReturnType<typeof getProofBufferCodec> & SelfFetchFunctions<ProofBufferArgs, ProofBuffer>
   rewardConfig: ReturnType<typeof getRewardConfigCodec> & SelfFetchFunctions<RewardConfigArgs, RewardConfig>
   rewardMint: ReturnType<typeof getRewardMintCodec> & SelfFetchFunctions<RewardMintArgs, RewardMint>
@@ -1161,6 +1213,9 @@ export type BuckspayPluginInstructions = {
     input: MakeOptional<CloseChannelInput, 'payer'>,
   ) => ReturnType<typeof getCloseChannelInstruction> & SelfPlanAndSendFunctions
   closeLock: (input: CloseLockAsyncInput) => ReturnType<typeof getCloseLockInstructionAsync> & SelfPlanAndSendFunctions
+  closeNetting: (
+    input: MakeOptional<CloseNettingInput, 'payer'>,
+  ) => ReturnType<typeof getCloseNettingInstruction> & SelfPlanAndSendFunctions
   closeProofBuffer: (
     input: MakeOptional<CloseProofBufferInput, 'payer'>,
   ) => ReturnType<typeof getCloseProofBufferInstruction> & SelfPlanAndSendFunctions
@@ -1187,6 +1242,9 @@ export type BuckspayPluginInstructions = {
   reclaimOutput: (
     input: MakeOptional<ReclaimOutputAsyncInput, 'payer'>,
   ) => ReturnType<typeof getReclaimOutputInstructionAsync> & SelfPlanAndSendFunctions
+  recordNetting: (
+    input: MakeOptional<RecordNettingInput, 'payer'>,
+  ) => ReturnType<typeof getRecordNettingInstruction> & SelfPlanAndSendFunctions
   recordPrefix: (
     input: MakeOptional<RecordPrefixInput, 'payer'>,
   ) => ReturnType<typeof getRecordPrefixInstruction> & SelfPlanAndSendFunctions
@@ -1292,6 +1350,7 @@ export function buckspayProgram() {
           device: addSelfFetchFunctions(client, getDeviceCodec()),
           ledger: addSelfFetchFunctions(client, getLedgerCodec()),
           lock: addSelfFetchFunctions(client, getLockCodec()),
+          netting: addSelfFetchFunctions(client, getNettingCodec()),
           proofBuffer: addSelfFetchFunctions(client, getProofBufferCodec()),
           rewardConfig: addSelfFetchFunctions(client, getRewardConfigCodec()),
           rewardMint: addSelfFetchFunctions(client, getRewardMintCodec()),
@@ -1325,6 +1384,11 @@ export function buckspayProgram() {
               getCloseChannelInstruction({ ...input, payer: input.payer ?? client.payer.address }),
             ),
           closeLock: (input) => addSelfPlanAndSendFunctions(client, getCloseLockInstructionAsync(input)),
+          closeNetting: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getCloseNettingInstruction({ ...input, payer: input.payer ?? client.payer.address }),
+            ),
           closeProofBuffer: (input) =>
             addSelfPlanAndSendFunctions(
               client,
@@ -1354,6 +1418,11 @@ export function buckspayProgram() {
             addSelfPlanAndSendFunctions(
               client,
               getReclaimOutputInstructionAsync({ ...input, payer: input.payer ?? client.payer }),
+            ),
+          recordNetting: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getRecordNettingInstruction({ ...input, payer: input.payer ?? client.payer }),
             ),
           recordPrefix: (input) =>
             addSelfPlanAndSendFunctions(

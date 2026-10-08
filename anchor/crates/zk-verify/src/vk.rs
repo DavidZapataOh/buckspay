@@ -108,3 +108,22 @@ pub const CLAIM_PREVIOUS: Option<Vk<'static>> = Some(Vk {
 });
 #[cfg(not(feature = "test-keys"))]
 pub const CLAIM_PREVIOUS: Option<Vk<'static>> = None;
+
+#[cfg(feature = "test-keys")]
+keys!(netting_current, "vk/netting_test.rs");
+
+/// Whether the netting key comes from a throwaway ceremony.
+#[cfg(feature = "test-keys")]
+pub const NETTING_TEST_KEYS: bool = netting_current::TEST_KEYS;
+
+/// The key netting proofs are verified against. A new key is a program upgrade.
+#[cfg(feature = "test-keys")]
+pub const NETTING_VK: Vk<'static> = Vk {
+    sha256: &netting_current::VK_SHA256,
+    alpha_g1: &netting_current::ALPHA_G1,
+    beta_g2: &netting_current::BETA_G2,
+    gamma_g2: &netting_current::GAMMA_G2,
+    delta_g2: &netting_current::DELTA_G2,
+    ic: &netting_current::IC,
+    commitment: None,
+};

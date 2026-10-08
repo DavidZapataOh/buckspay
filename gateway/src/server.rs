@@ -3,9 +3,11 @@ use crate::{
     channels::{self, Channels},
     claims,
     float::SettlementLimits,
+    group_settlements,
     hpke::{HpkeKeys, PublishedKey},
     jobs::Jobs,
     limits::{Prefix, RateLimited, RequestLimits},
+    nettings::{self, Nettings},
     onboard, operations,
     relay::{self, MAX_RELAY_BYTES, Relay},
     rewards::{self, Rewards},
@@ -103,6 +105,8 @@ pub struct Gateway {
     /// What bounds the reward claims and sweeps the gateway pays for, and their jobs.
     pub rewards: Rewards,
     pub zk: crate::zk::Zk,
+    /// What bounds the netting records the gateway pays for.
+    pub nettings: Nettings,
     /// What the program's accounts cost, as last read from the cluster.
     pub(crate) rents: Mutex<Rents>,
     /// Prepared transactions by device key.
@@ -151,6 +155,11 @@ impl Gateway {
         self
     }
 
+    pub fn with_nettings(mut self, nettings: Nettings) -> Self {
+        self.nettings = nettings;
+        self
+    }
+
     /// Keeps the jobs in `jobs`, which survives a restart, in place of the ones in memory.
     pub fn with_jobs(mut self, jobs: Jobs) -> Self {
         self.jobs = jobs;
@@ -179,6 +188,7 @@ impl Gateway {
             channels: Channels::default(),
             rewards: Rewards::default(),
             zk: crate::zk::Zk::default(),
+            nettings: Nettings::default(),
             rents: Mutex::new(rents),
             pending: Mutex::default(),
             rotation_keys: Mutex::default(),
@@ -240,8 +250,16 @@ pub fn router(state: Arc<Gateway>, client: ClientAddress) -> Router {
                 .route("/v1/settlements/quote", get(settlements::quote))
                 .route("/v1/reclaims", post(settlements::reclaim))
                 .route("/v1/fraud/claim", post(claims::claim))
+                .route("/v1/settlements/group", post(group_settlements::post))
                 .layer(DefaultBodyLimit::max(settlements::BODY_LIMIT)),
         )
+        .merge(
+            Router::new()
+                .route("/v1/nettings", post(nettings::post))
+                .layer(DefaultBodyLimit::max(nettings::BODY_LIMIT)),
+        )
+        .route("/v1/nettings/quote", get(nettings::quote))
+        .route("/v1/nettings/key", get(nettings::key))
         .merge(
             Router::new()
                 .route("/v1/relay", post(relay::relay))

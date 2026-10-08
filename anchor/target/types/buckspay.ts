@@ -671,6 +671,33 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "closeNetting",
+      "docs": [
+        "Closes a netting record after its keep window and returns the rent to its payer."
+      ],
+      "discriminator": [
+        113,
+        144,
+        228,
+        207,
+        163,
+        77,
+        66,
+        168
+      ],
+      "accounts": [
+        {
+          "name": "netting",
+          "writable": true
+        },
+        {
+          "name": "payer",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "closeProofBuffer",
       "docs": [
         "Closes a buffer nobody settled within `STALE_BUFFER_SECS` and returns its rent."
@@ -1449,6 +1476,59 @@ export type Buckspay = {
         {
           "name": "deadline",
           "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "recordNetting",
+      "docs": [
+        "Records a circular netting every participant signed and one proof covers."
+      ],
+      "discriminator": [
+        201,
+        229,
+        189,
+        202,
+        33,
+        206,
+        161,
+        112
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Pays the rent of the record and gets it back when the record is closed."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "netting",
+          "writable": true
+        },
+        {
+          "name": "instructions",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "statement",
+          "type": "bytes"
+        },
+        {
+          "name": "proof",
+          "type": {
+            "array": [
+              "u8",
+              256
+            ]
+          }
         }
       ]
     },
@@ -3711,6 +3791,19 @@ export type Buckspay = {
       ]
     },
     {
+      "name": "netting",
+      "discriminator": [
+        237,
+        55,
+        184,
+        224,
+        67,
+        21,
+        71,
+        170
+      ]
+    },
+    {
       "name": "proofBuffer",
       "discriminator": [
         71,
@@ -4299,6 +4392,36 @@ export type Buckspay = {
       "code": 6098,
       "name": "wrongNullifierAccount",
       "msg": "The account is not the nullifier account of the claim"
+    },
+    {
+      "code": 6099,
+      "name": "nettingStatement",
+      "msg": "The netting statement is malformed"
+    },
+    {
+      "code": 6100,
+      "name": "nettingExpired",
+      "msg": "The netting statement has expired"
+    },
+    {
+      "code": 6101,
+      "name": "nettingSignatures",
+      "msg": "The instruction before this one is not every participant's signature over the statement"
+    },
+    {
+      "code": 6102,
+      "name": "nettingProof",
+      "msg": "The netting proof does not verify"
+    },
+    {
+      "code": 6103,
+      "name": "nettingAddress",
+      "msg": "The account is not the record address of this netting, or the netting is already recorded"
+    },
+    {
+      "code": 6104,
+      "name": "nettingOpen",
+      "msg": "The netting record cannot be closed yet"
     }
   ],
   "types": [
@@ -4854,6 +4977,35 @@ export type Buckspay = {
           },
           {
             "name": "lockSeq",
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "netting",
+      "docs": [
+        "A netting that landed before its statement expired."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payer",
+            "docs": [
+              "Gets the rent back."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "recordedAt",
+            "type": "u32"
+          },
+          {
+            "name": "closableAt",
+            "docs": [
+              "`expires + NETTING_KEEP_SECS`, saturating."
+            ],
             "type": "u32"
           }
         ]

@@ -1250,3 +1250,4 @@ pub fn migrate_ix(payer: &Pubkey, key: [u8; 33]) -> Instruction {
 
 pub mod attesters;
 pub mod claims;
+pub mod netting;

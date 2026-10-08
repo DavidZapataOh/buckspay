@@ -212,6 +212,18 @@ export const BUCKSPAY_ERROR__CLAIM_COUNT = 0x17d0 // 6096
 export const BUCKSPAY_ERROR__WRONG_REWARD_TREE = 0x17d1 // 6097
 /** WrongNullifierAccount: The account is not the nullifier account of the claim */
 export const BUCKSPAY_ERROR__WRONG_NULLIFIER_ACCOUNT = 0x17d2 // 6098
+/** NettingStatement: The netting statement is malformed */
+export const BUCKSPAY_ERROR__NETTING_STATEMENT = 0x17d3 // 6099
+/** NettingExpired: The netting statement has expired */
+export const BUCKSPAY_ERROR__NETTING_EXPIRED = 0x17d4 // 6100
+/** NettingSignatures: The instruction before this one is not every participant's signature over the statement */
+export const BUCKSPAY_ERROR__NETTING_SIGNATURES = 0x17d5 // 6101
+/** NettingProof: The netting proof does not verify */
+export const BUCKSPAY_ERROR__NETTING_PROOF = 0x17d6 // 6102
+/** NettingAddress: The account is not the record address of this netting, or the netting is already recorded */
+export const BUCKSPAY_ERROR__NETTING_ADDRESS = 0x17d7 // 6103
+/** NettingOpen: The netting record cannot be closed yet */
+export const BUCKSPAY_ERROR__NETTING_OPEN = 0x17d8 // 6104
 
 export type BuckspayError =
   | typeof BUCKSPAY_ERROR__ALREADY_CLAIMED
@@ -260,6 +272,12 @@ export type BuckspayError =
   | typeof BUCKSPAY_ERROR__LOCK_TOO_LONG
   | typeof BUCKSPAY_ERROR__LOCK_TOO_SHORT
   | typeof BUCKSPAY_ERROR__MINT_NOT_ENABLED
+  | typeof BUCKSPAY_ERROR__NETTING_ADDRESS
+  | typeof BUCKSPAY_ERROR__NETTING_EXPIRED
+  | typeof BUCKSPAY_ERROR__NETTING_OPEN
+  | typeof BUCKSPAY_ERROR__NETTING_PROOF
+  | typeof BUCKSPAY_ERROR__NETTING_SIGNATURES
+  | typeof BUCKSPAY_ERROR__NETTING_STATEMENT
   | typeof BUCKSPAY_ERROR__NO_BOND
   | typeof BUCKSPAY_ERROR__NON_CANONICAL_INNER
   | typeof BUCKSPAY_ERROR__NON_CANONICAL_NULLIFIER
@@ -363,6 +381,12 @@ if (process.env['NODE_ENV'] !== 'production') {
     [BUCKSPAY_ERROR__LOCK_TOO_LONG]: `lock_until is too far`,
     [BUCKSPAY_ERROR__LOCK_TOO_SHORT]: `lock_until is too close`,
     [BUCKSPAY_ERROR__MINT_NOT_ENABLED]: `The mint is not enabled for private settlement`,
+    [BUCKSPAY_ERROR__NETTING_ADDRESS]: `The account is not the record address of this netting, or the netting is already recorded`,
+    [BUCKSPAY_ERROR__NETTING_EXPIRED]: `The netting statement has expired`,
+    [BUCKSPAY_ERROR__NETTING_OPEN]: `The netting record cannot be closed yet`,
+    [BUCKSPAY_ERROR__NETTING_PROOF]: `The netting proof does not verify`,
+    [BUCKSPAY_ERROR__NETTING_SIGNATURES]: `The instruction before this one is not every participant's signature over the statement`,
+    [BUCKSPAY_ERROR__NETTING_STATEMENT]: `The netting statement is malformed`,
     [BUCKSPAY_ERROR__NO_BOND]: `The lock has no free bond to slash`,
     [BUCKSPAY_ERROR__NON_CANONICAL_INNER]: `An inner is not a canonical field element`,
     [BUCKSPAY_ERROR__NON_CANONICAL_NULLIFIER]: `A nullifier hash is not a canonical field element`,

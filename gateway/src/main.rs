@@ -8,6 +8,7 @@ use buckspay_gateway::{
     janitor,
     jobs::Jobs,
     limits::RequestLimits,
+    nettings::{NettingCaps, Nettings},
     relay::{self, Relay},
     rewards::{self, Pinned, Rate, RewardJobs, Rewards},
     server::{ClientAddress, Gateway, Limits, RPC_TIMEOUT, Settings, bind_unix, router},
@@ -149,6 +150,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(url) = config.zk_keys_url {
         zk = zk.with_keys_url(url);
     }
+    let mut nettings = Nettings::open(NettingCaps {
+        daily: config.netting_daily_cap,
+        ip_hourly: config.netting_ip_hourly,
+        store: config.state_directory.join("nettings.json"),
+        ..NettingCaps::default()
+    })?;
+    if let Some(keys) = config.netting_keys {
+        if keys.vk != *buckspay_zk_verify::vk::NETTING_VK.sha256 {
+            return Err("NETTING_KEYS is not the key the program verifies with".into());
+        }
+        nettings = nettings.with_keys(keys);
+    }
     let jobs = Jobs::open(&config.state_directory.join("jobs.json"))?;
     let words = Words::open(&config.state_directory.join("words.json"))?;
     let channel_jobs = ChannelJobs::open(&config.state_directory.join("channels.json"))?;
@@ -185,7 +198,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             channel_jobs,
         ))
         .with_rewards(rewards)
-        .with_zk(zk),
+        .with_zk(zk)
+        .with_nettings(nettings),
     );
     rewards::check_economics(&gateway).await?;
     relay::resume_pending(&gateway);

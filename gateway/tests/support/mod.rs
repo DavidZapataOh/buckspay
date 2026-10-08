@@ -17,7 +17,8 @@ use buckspay_gateway::{
     float::{Caps as FloatCaps, SettlementLimits},
     hpke::HpkeKeys,
     jobs::Jobs,
-    limits::RequestLimits,
+    limits::{Prefix, RequestLimits},
+    nettings::Nettings,
     relay::Relay,
     server::{ClientAddress, Gateway, Limits, Settings, router},
     sponsor::{Caps, Escalation, FeeMode, SponsorLimits},
@@ -55,6 +56,7 @@ use std::{
 use tower::ServiceExt;
 
 pub mod channels;
+pub mod netting;
 mod notes;
 pub mod relay;
 pub mod rewards;
@@ -68,6 +70,8 @@ const SHORT_PROGRAM: &str = concat!(
 /// Nothing listens here: any read of Solana fails, and the gateway answers `502`.
 pub const NOWHERE: &str = "http://127.0.0.1:9";
 pub const PEER: &str = "203.0.113.7:4000";
+/// The network `PEER` belongs to.
+pub const PEER_PREFIX: Prefix = Prefix::V4([203, 0, 113]);
 
 pub fn program() -> Program {
     Program::new(Pubkey::from_str(SHORT_PROGRAM_ID).unwrap())
@@ -687,6 +691,40 @@ impl Sponsor {
         relay: Relay,
         channels: Channels,
     ) -> Self {
+        Self::on_nettings(
+            rpc,
+            fee_payer,
+            limits,
+            float,
+            settings,
+            client,
+            rents,
+            per_minute,
+            jobs,
+            relay,
+            channels,
+            Nettings::default(),
+            buckspay_gateway::zk::Zk::default(),
+        )
+    }
+
+    /// The same, with the netting records bounded by `nettings` and the key files published as `zk`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn on_nettings(
+        rpc: RpcClient,
+        fee_payer: Keypair,
+        limits: Arc<SponsorLimits>,
+        float: Arc<SettlementLimits>,
+        settings: Settings,
+        client: ClientAddress,
+        rents: Rents,
+        per_minute: u32,
+        jobs: Jobs,
+        relay: Relay,
+        channels: Channels,
+        nettings: Nettings,
+        zk: buckspay_gateway::zk::Zk,
+    ) -> Self {
         let fee_payer_address = fee_payer.pubkey();
         let gateway = Arc::new(
             Gateway::new(
@@ -703,7 +741,9 @@ impl Sponsor {
             )
             .with_jobs(jobs)
             .with_relay(relay)
-            .with_channels(channels),
+            .with_channels(channels)
+            .with_nettings(nettings)
+            .with_zk(zk),
         );
         Self {
             fee_payer: fee_payer_address,
@@ -1266,4 +1306,48 @@ pub async fn close_token_account(wallet: &Wallet) {
         &[&wallet.keypair],
     )
     .await;
+}
+
+/// A legacy transaction paid and signed by `payer`, confirmed; its signature.
+pub async fn send_as_signed(payer: &Keypair, instructions: &[Instruction]) -> Signature {
+    let rpc = rpc(&cluster().url);
+    let transaction = Transaction::new_signed_with_payer(
+        instructions,
+        Some(&payer.pubkey()),
+        &[payer],
+        rpc.get_latest_blockhash().await.unwrap(),
+    );
+    rpc.send_and_confirm_transaction(&transaction)
+        .await
+        .unwrap()
+}
+
+/// A transaction v1 of `instructions` paid and signed by `payer`, with a fresh blockhash, as wire bytes.
+pub async fn signed_v1(payer: &Keypair, instructions: &[Instruction]) -> Vec<u8> {
+    let rpc = rpc(&cluster().url);
+    let config = solana_message::v1::TransactionConfig {
+        priority_fee: Some(0),
+        compute_unit_limit: Some(200_000),
+        loaded_accounts_data_size_limit: Some(2 * 1_024 * 1_024),
+        heap_size: None,
+    };
+    let message = solana_message::VersionedMessage::V1(
+        solana_message::v1::Message::try_compile_with_config(
+            &payer.pubkey(),
+            instructions,
+            rpc.get_latest_blockhash().await.unwrap(),
+            config,
+        )
+        .unwrap(),
+    );
+    let transaction = solana_transaction::versioned::VersionedTransaction {
+        signatures: vec![payer.sign_message(&message.serialize())],
+        message,
+    };
+    // A transaction v1 is its message, then its signatures with no count.
+    let mut wire = transaction.message.serialize();
+    for signature in &transaction.signatures {
+        wire.extend_from_slice(signature.as_ref());
+    }
+    wire
 }

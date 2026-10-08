@@ -74,6 +74,38 @@ func BuckspayProveClaim(req *C.uint8_t, n C.size_t, out *C.uint8_t) C.int {
 	return okCode
 }
 
+//export BuckspayProveNetting
+func BuckspayProveNetting(witness *C.uint8_t, n C.size_t, keyDir *C.char, out *C.uint8_t) C.int {
+	if witness == nil || keyDir == nil || out == nil || n == 0 {
+		return badArgsCode
+	}
+	res, err := mobile.ProveNetting(C.GoBytes(unsafe.Pointer(witness), C.int(n)), C.GoString(keyDir))
+	if err != nil {
+		return code(err)
+	}
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(out)), len(res)), res)
+	return okCode
+}
+
+// BuckspayVerifyNetting returns 1 when the proof verifies, 0 when a well-formed proof does not, and a negative
+// code otherwise.
+//
+//export BuckspayVerifyNetting
+func BuckspayVerifyNetting(proof, public *C.uint8_t, vkPath *C.char) C.int {
+	if proof == nil || public == nil || vkPath == nil {
+		return badArgsCode
+	}
+	ok, err := mobile.VerifyNetting(C.GoBytes(unsafe.Pointer(proof), C.int(mobile.NettingProofLen)),
+		C.GoBytes(unsafe.Pointer(public), C.int(4*32)), C.GoString(vkPath))
+	switch {
+	case err != nil:
+		return failCode
+	case ok:
+		return 1
+	}
+	return 0
+}
+
 //export BuckspayExpand
 func BuckspayExpand(pkBin, pkDump *C.char) C.int {
 	if pkBin == nil || pkDump == nil {
@@ -86,6 +118,7 @@ func BuckspayExpand(pkBin, pkDump *C.char) C.int {
 func BuckspayRelease() {
 	mobile.Release()
 	mobile.ReleaseClaim()
+	mobile.ReleaseNetting()
 }
 
 func main() {}

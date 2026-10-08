@@ -17,6 +17,7 @@ import (
 
 	"github.com/DavidZapataOh/buckspay/prover/circuit"
 	"github.com/DavidZapataOh/buckspay/prover/claim"
+	"github.com/DavidZapataOh/buckspay/prover/netting"
 )
 
 func flags(name string, args []string, define func(*flag.FlagSet)) (*flag.FlagSet, error) {
@@ -53,7 +54,7 @@ func readFile(path string, r io.ReaderFrom) error {
 
 // circuitFlag registers --circuit, which selects the circuit a command works on.
 func circuitFlag(fs *flag.FlagSet, name *string) {
-	fs.StringVar(name, "circuit", "chain", "circuit: chain or claim")
+	fs.StringVar(name, "circuit", "chain", "circuit: chain, claim or netting")
 }
 
 func compile(name string) (*cs_bn254.R1CS, error) {
@@ -63,6 +64,8 @@ func compile(name string) (*cs_bn254.R1CS, error) {
 		c = &circuit.Message{}
 	case "claim":
 		c = &claim.Claim{}
+	case "netting":
+		c = &netting.Netting{}
 	default:
 		return nil, fmt.Errorf("unknown circuit %q", name)
 	}

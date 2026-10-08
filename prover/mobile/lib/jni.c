@@ -6,6 +6,8 @@
 
 #define PROOF_AND_PUBLIC 512
 #define CLAIM_PROOF_AND_PUBLIC 352
+#define NETTING_PROOF 256
+#define NETTING_PUBLIC 128
 
 static jint load(JNIEnv *env, jclass cls, jstring dir) {
   const char *path = (*env)->GetStringUTFChars(env, dir, NULL);
@@ -50,6 +52,40 @@ static jint proveClaim(JNIEnv *env, jclass cls, jbyteArray request, jbyteArray o
   return rc;
 }
 
+static jint proveNetting(JNIEnv *env, jclass cls, jbyteArray witness, jstring dir, jbyteArray out) {
+  if ((*env)->GetArrayLength(env, out) < NETTING_PROOF) return -2;
+  const char *path = (*env)->GetStringUTFChars(env, dir, NULL);
+  if (path == NULL) return -2;
+  jsize n = (*env)->GetArrayLength(env, witness);
+  jbyte *in = (*env)->GetByteArrayElements(env, witness, NULL);
+  if (in == NULL) {
+    (*env)->ReleaseStringUTFChars(env, dir, path);
+    return -2;
+  }
+  uint8_t result[NETTING_PROOF];
+  jint rc = BuckspayProveNetting((uint8_t *)in, (size_t)n, (char *)path, result);
+  memset(in, 0, (size_t)n);
+  (*env)->ReleaseByteArrayElements(env, witness, in, 0);
+  (*env)->ReleaseStringUTFChars(env, dir, path);
+  if (rc == 0) (*env)->SetByteArrayRegion(env, out, 0, NETTING_PROOF, (jbyte *)result);
+  memset(result, 0, sizeof result);
+  return rc;
+}
+
+static jint verifyNetting(JNIEnv *env, jclass cls, jbyteArray proof, jbyteArray pub, jstring vk) {
+  if ((*env)->GetArrayLength(env, proof) != NETTING_PROOF || (*env)->GetArrayLength(env, pub) != NETTING_PUBLIC) return -2;
+  const char *path = (*env)->GetStringUTFChars(env, vk, NULL);
+  if (path == NULL) return -2;
+  jbyte *p = (*env)->GetByteArrayElements(env, proof, NULL);
+  jbyte *q = (*env)->GetByteArrayElements(env, pub, NULL);
+  jint rc = -2;
+  if (p != NULL && q != NULL) rc = BuckspayVerifyNetting((uint8_t *)p, (uint8_t *)q, (char *)path);
+  if (p != NULL) (*env)->ReleaseByteArrayElements(env, proof, p, JNI_ABORT);
+  if (q != NULL) (*env)->ReleaseByteArrayElements(env, pub, q, JNI_ABORT);
+  (*env)->ReleaseStringUTFChars(env, vk, path);
+  return rc;
+}
+
 static jint expand(JNIEnv *env, jclass cls, jstring bin, jstring dump) {
   const char *from = (*env)->GetStringUTFChars(env, bin, NULL);
   const char *to = (*env)->GetStringUTFChars(env, dump, NULL);
@@ -67,6 +103,8 @@ static const JNINativeMethod methods[] = {
     {"proveInto", "([BI[B)I", (void *)prove},
     {"loadClaim", "(Ljava/lang/String;)I", (void *)loadClaim},
     {"proveClaimInto", "([B[B)I", (void *)proveClaim},
+    {"proveNettingInto", "([BLjava/lang/String;[B)I", (void *)proveNetting},
+    {"verifyNetting", "([B[BLjava/lang/String;)I", (void *)verifyNetting},
     {"expand", "(Ljava/lang/String;Ljava/lang/String;)I", (void *)expand},
     {"release", "()V", (void *)release},
 };
