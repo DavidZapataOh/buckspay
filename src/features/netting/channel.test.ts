@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { seeded } from '../../transport/testing/random'
 import {
-  ChannelError, decodeInvite, encodeInvite, HOST, INVITE_PREFIX, JOINING, newInvite, SessionChannel, sessionTag,
+  ChannelError,
+  decodeInvite,
+  encodeInvite,
+  HOST,
+  INVITE_PREFIX,
+  JOINING,
+  newInvite,
+  SessionChannel,
+  sessionTag,
 } from './channel'
 
 const rng = (seed: number) => {
@@ -119,7 +127,8 @@ describe('frames', () => {
   it('counter_starts_above_previous_run_and_never_repeats_in_one_run', async () => {
     const first = new SessionChannel(invite, HOST, at(5_000))
     const seen = new Set<string>()
-    for (let i = 0; i < 50; i++) seen.add(Buffer.from((await first.seal(0x16, Uint8Array.of(i))).slice(1, 9)).toString('hex'))
+    for (let i = 0; i < 50; i++)
+      seen.add(Buffer.from((await first.seal(0x16, Uint8Array.of(i))).slice(1, 9)).toString('hex'))
     expect(seen.size).toBe(50)
     const receiver = member(1)
     const last = await first.seal(0x16, Uint8Array.of(1))

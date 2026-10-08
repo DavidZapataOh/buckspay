@@ -30,7 +30,10 @@ const tabEntry = (seed: number): TabEntry => {
 const proposal = (n: number): Proposal => ({
   statement: statement(n),
   digests: Array.from({ length: 8 }, (_, i) => filled(32, 0x10 + i)),
-  slots: [{ slot: 0, baseSeq: 1, cancel: 1_000_000n }, { slot: 5, baseSeq: 3, cancel: 2n }],
+  slots: [
+    { slot: 0, baseSeq: 1, cancel: 1_000_000n },
+    { slot: 5, baseSeq: 3, cancel: 2n },
+  ],
 })
 
 /** Fixed instances of every live message type, built with the real codecs. */
@@ -40,7 +43,10 @@ export const sample = {
     type: 'Roster',
     entries: Array.from({ length: n }, (_, i) => ({ index: i, join: signedJoin(20 + i) })),
   }),
-  tabs: (c: number): SessionMessage => ({ type: 'Tabs', tabs: Array.from({ length: c }, (_, i) => tabEntry(30 + 2 * i)) }),
+  tabs: (c: number): SessionMessage => ({
+    type: 'Tabs',
+    tabs: Array.from({ length: c }, (_, i) => tabEntry(30 + 2 * i)),
+  }),
   proposal: (n: number): SessionMessage & { type: 'Proposal' } => ({ type: 'Proposal', proposal: proposal(n) }),
   final: (n: number): SessionMessage => ({
     type: 'Final',

@@ -1,5 +1,17 @@
 import { concatBytes } from '@noble/hashes/utils.js'
-import { type CoSignedIou, decodeCoSigned, decodeStatement, encodeCoSigned, encodeStatement, IOU_WIRE_LEN, JOIN_BODY_LEN, MAX_PARTICIPANTS, type NettingStatement, ProtocolError, STATEMENT_BASE_LEN } from '../../protocol'
+import {
+  type CoSignedIou,
+  decodeCoSigned,
+  decodeStatement,
+  encodeCoSigned,
+  encodeStatement,
+  IOU_WIRE_LEN,
+  JOIN_BODY_LEN,
+  MAX_PARTICIPANTS,
+  type NettingStatement,
+  ProtocolError,
+  STATEMENT_BASE_LEN,
+} from '../../protocol'
 import { MessageKind } from '../../transport/types'
 import { NETTING_PROOF_LEN } from './prove'
 import { SLOTS } from './digest'
@@ -143,7 +155,10 @@ export function encodeMessage(message: SessionMessage): { type: number; body: Ui
       check(message.signature.length === SIGNATURE_LEN, 'signature length')
       return { type, body: message.signature }
     case 'Final':
-      check(message.proof.length === NETTING_PROOF_LEN && message.signatures.every((s) => s.length === SIGNATURE_LEN), 'final length')
+      check(
+        message.proof.length === NETTING_PROOF_LEN && message.signatures.every((s) => s.length === SIGNATURE_LEN),
+        'final length',
+      )
       return { type, body: concatBytes(...message.signatures, message.proof) }
     case 'Abort':
       return { type, body: Uint8Array.of(message.reason) }
@@ -245,11 +260,14 @@ export function decodeMessage(type: number, body: Uint8Array, participants?: num
       check(body.length === SIGNATURE_LEN, 'approve length')
       return { type: 'Approve', signature: body.slice() }
     case SessionType.Final: {
-      if (participants === undefined || participants < 2 || participants > MAX_PARTICIPANTS) throw new MessageError('participants')
+      if (participants === undefined || participants < 2 || participants > MAX_PARTICIPANTS)
+        throw new MessageError('participants')
       check(body.length === SIGNATURE_LEN * participants + NETTING_PROOF_LEN, 'final length')
       return {
         type: 'Final',
-        signatures: Array.from({ length: participants }, (_, i) => body.slice(i * SIGNATURE_LEN, (i + 1) * SIGNATURE_LEN)),
+        signatures: Array.from({ length: participants }, (_, i) =>
+          body.slice(i * SIGNATURE_LEN, (i + 1) * SIGNATURE_LEN),
+        ),
         proof: body.slice(SIGNATURE_LEN * participants),
       }
     }
@@ -264,7 +282,10 @@ export function decodeMessage(type: number, body: Uint8Array, participants?: num
     case SessionType.SimplifyApprove: {
       check(body.length >= 1 && body[0] <= MAX_TABS && body.length === 1 + body[0], 'approve list')
       const approved = Array.from(body.slice(1))
-      check(approved.every((i) => i < MAX_TABS), 'approved index')
+      check(
+        approved.every((i) => i < MAX_TABS),
+        'approved index',
+      )
       return { type: 'SimplifyApprove', approved }
     }
     default:

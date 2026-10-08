@@ -62,7 +62,8 @@ export function newInvite(random: (n: number) => Uint8Array): Invite {
   return { session: random(32), secret: random(32) }
 }
 
-export const encodeInvite = (invite: Invite): string => INVITE_PREFIX + toBase64Url(concatBytes(invite.session, invite.secret))
+export const encodeInvite = (invite: Invite): string =>
+  INVITE_PREFIX + toBase64Url(concatBytes(invite.session, invite.secret))
 
 export function decodeInvite(text: string): Invite {
   if (!text.startsWith(INVITE_PREFIX)) throw new ChannelError('BadInvite')
@@ -105,7 +106,8 @@ export class SessionChannel {
 
   /** Gives a joining channel its roster index, once. */
   assign(index: number): void {
-    if (this.#me !== JOINING || !Number.isInteger(index) || index < 1 || index > MAX_MEMBERS) throw new ChannelError('Malformed')
+    if (this.#me !== JOINING || !Number.isInteger(index) || index < 1 || index > MAX_MEMBERS)
+      throw new ChannelError('Malformed')
     this.#me = index
   }
 
@@ -135,7 +137,13 @@ export class SessionChannel {
   #key(sender: number): Uint8Array {
     let key = this.#keys.get(sender)
     if (!key) {
-      key = hkdf(sha256, this.invite.secret, new Uint8Array(0), concatBytes(KEY_INFO, this.invite.session, Uint8Array.of(sender)), 32)
+      key = hkdf(
+        sha256,
+        this.invite.secret,
+        new Uint8Array(0),
+        concatBytes(KEY_INFO, this.invite.session, Uint8Array.of(sender)),
+        32,
+      )
       this.#keys.set(sender, key)
     }
     return key

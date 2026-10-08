@@ -35,6 +35,7 @@ class NearbyModule : Module() {
   private var client: ConnectionsClient? = null
   private val advertising = AtomicBoolean(false)
   private val discovering = AtomicBoolean(false)
+  private val guard = ModeGuard()
   private val connected: MutableSet<String> = ConcurrentHashMap.newKeySet()
   private val inbox = ConcurrentHashMap<String, ConcurrentLinkedQueue<ByteArray>>()
   private val sends = ConcurrentHashMap<Long, PendingSend>()
@@ -157,14 +158,16 @@ class NearbyModule : Module() {
         )
       }
 
-      AsyncFunction("startAdvertising") { infoHex: String, promise: Promise ->
-        if (!advertising.compareAndSet(false, true)) throw NearbyException("AlreadyActive")
+      AsyncFunction("startAdvertising") { infoHex: String, mode: String?, promise: Promise ->
+        val parsed = Mode.parse(mode)
+        if (!guard.enter(parsed) || !advertising.compareAndSet(false, true)) throw NearbyException("AlreadyActive")
         nearby
-          .startAdvertising(infoHex.hexToBytes(), Options.SERVICE_ID, lifecycle, Options.advertising())
+          .startAdvertising(infoHex.hexToBytes(), parsed.serviceId, lifecycle, Options.advertising(parsed))
           .addOnSuccessListener { promise.resolve(null) }
           .addOnFailureListener {
             warn("startAdvertising", it)
             advertising.set(false)
+            releaseIfIdle()
             promise.reject(failure(it))
           }
       }
@@ -173,16 +176,19 @@ class NearbyModule : Module() {
         Log.i(TAG, "stopAdvertising requested")
         advertising.set(false)
         nearby.stopAdvertising()
+        releaseIfIdle()
       }
 
-      AsyncFunction("startDiscovery") { promise: Promise ->
-        if (!discovering.compareAndSet(false, true)) throw NearbyException("AlreadyActive")
+      AsyncFunction("startDiscovery") { mode: String?, promise: Promise ->
+        val parsed = Mode.parse(mode)
+        if (!guard.enter(parsed) || !discovering.compareAndSet(false, true)) throw NearbyException("AlreadyActive")
         nearby
-          .startDiscovery(Options.SERVICE_ID, discovery, Options.discovery())
+          .startDiscovery(parsed.serviceId, discovery, Options.discovery(parsed))
           .addOnSuccessListener { promise.resolve(null) }
           .addOnFailureListener {
             warn("startDiscovery", it)
             discovering.set(false)
+            releaseIfIdle()
             promise.reject(failure(it))
           }
       }
@@ -191,6 +197,7 @@ class NearbyModule : Module() {
         Log.i(TAG, "stopDiscovery requested")
         discovering.set(false)
         nearby.stopDiscovery()
+        releaseIfIdle()
       }
 
       AsyncFunction("requestConnection") { endpointId: String, infoHex: String, promise: Promise ->
@@ -261,6 +268,12 @@ class NearbyModule : Module() {
     advertising.set(false)
     discovering.set(false)
     connected.toList().forEach { forget(it) }
+    guard.leave()
+  }
+
+  /** A pairing stops its radio once connected and the connection keeps the mode; the mode is free when nothing is left. */
+  private fun releaseIfIdle() {
+    if (!advertising.get() && !discovering.get() && connected.isEmpty()) guard.leave()
   }
 
   private fun forget(endpointId: String) {
@@ -276,6 +289,7 @@ class NearbyModule : Module() {
       }
     }
     if (wasConnected) emit("disconnected", endpointId)
+    releaseIfIdle()
   }
 
   private fun emit(
