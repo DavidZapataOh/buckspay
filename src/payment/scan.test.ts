@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createLoopbackPair } from '../transport/testing/loopback'
-import { MessageKind } from '../transport/types'
+import { MessageKind, type TransportError } from '../transport/types'
 import { encodeRequest, type PaymentRequest } from './messages'
 import { awaitRequest } from './scan'
 import { MINT, party } from './testing/world'
@@ -19,6 +19,24 @@ const request: PaymentRequest = {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 describe('awaitRequest', () => {
+  it('gives up with Timeout when nothing arrives within timeoutMs', async () => {
+    vi.useFakeTimers()
+    try {
+      const [payer] = createLoopbackPair()
+      const outcome = awaitRequest(payer, { onWrongCode: () => {}, timeoutMs: 30_000 }).catch(
+        (error: TransportError) => error.code,
+      )
+      let settled = false
+      void outcome.then(() => (settled = true))
+      await vi.advanceTimersByTimeAsync(29_999)
+      expect(settled).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(await outcome).toBe('Timeout')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('returns the request it scans', async () => {
     const [payer, shop] = createLoopbackPair()
     const waiting = awaitRequest(payer, { onWrongCode: () => {} })

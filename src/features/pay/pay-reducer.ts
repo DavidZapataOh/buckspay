@@ -9,7 +9,7 @@ export type ScanStep = 'E_READ' | 'E_STORE' | 'E_PLAN'
 
 export type PayState =
   | { name: 'idle' }
-  | { name: 'scanning'; wrongCode: boolean; unreadable?: ScanStep }
+  | { name: 'scanning'; wrongCode: boolean; unreadable?: ScanStep; timedOut?: true }
   | { name: 'reviewing'; request: PaymentRequest; plan: Plan | RespendPlan }
   | { name: 'refused'; reason: PlanRefusal; lockSeq?: number; request: PaymentRequest }
   | { name: 'confirming'; request: PaymentRequest; plan: Plan | RespendPlan }
@@ -24,6 +24,7 @@ export type PayEvent =
   | { type: 'planned'; request: PaymentRequest; planned: Planned | { ok: true; plan: RespendPlan } }
   | { type: 'wrong-code' }
   | { type: 'unreadable'; step: ScanStep }
+  | { type: 'timed-out' }
   | { type: 'confirm' }
   | { type: 'sent'; payment: SentPayment }
   | { type: 'resumed'; payment: SentPayment }
@@ -54,6 +55,7 @@ export function payReducer(state: PayState, event: PayEvent): PayState {
       }
       if (event.type === 'wrong-code') return state.wrongCode ? state : { name: 'scanning', wrongCode: true }
       if (event.type === 'unreadable') return { name: 'scanning', wrongCode: false, unreadable: event.step }
+      if (event.type === 'timed-out') return { name: 'scanning', wrongCode: false, timedOut: true }
       if (event.type === 'back') return initialPayState
       return state
     case 'reviewing':

@@ -1,5 +1,6 @@
 package xyz.buckspay.nearby
 
+import android.util.Log
 import com.google.android.gms.common.api.ApiException
 import expo.modules.kotlin.exception.CodedException
 
@@ -19,3 +20,16 @@ internal fun failureCode(statusCode: Int): String =
 
 internal fun failure(error: Throwable): NearbyException =
   NearbyException(if (error is ApiException) failureCode(error.statusCode) else "Failed")
+
+internal const val TAG = "BuckspayNearby"
+
+/** The status Nearby reported, for the log: a code and its message, never payload bytes or keys. */
+internal fun statusOf(error: Throwable): String =
+  if (error is ApiException) "status=${error.statusCode} (${error.statusMessage})" else "error=${error.javaClass.simpleName}"
+
+internal fun warn(
+  what: String,
+  error: Throwable,
+) {
+  Log.w(TAG, "$what failed: ${statusOf(error)}")
+}

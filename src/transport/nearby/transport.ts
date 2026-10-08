@@ -18,6 +18,9 @@ const KINDS: readonly number[] = Object.values(MessageKind)
 /** Messages that may arrive before anyone asks for them: the receipt can beat the payer's `receive`. */
 export const QUEUE_LIMIT = 8
 
+/** How long a phone waits for the other one's request or payment over Nearby before it says so. */
+export const NEARBY_WAIT_MS = 30_000
+
 export function nearbyAvailability(support: NearbySupport): Availability {
   if (!support.playServices) return { ready: false, reason: 'unsupported' }
   if (!support.permissions) return { ready: false, reason: 'permission-denied' }
@@ -52,9 +55,10 @@ class NearbyTransport extends TransportBase implements Transport {
     this.endpointId = link.endpointId
     this.unlisten = this.native.addListener((event) => {
       if (event.endpointId !== this.endpointId) return
-      if (event.type === 'message') this.chain = this.chain.then(() => this.pull())
+      if (event.type === 'message') this.chain = this.chain.then(() => this.pull().then(() => {}))
       else if (event.type === 'disconnected') this.end('Interrupted', false)
     })
+    this.chain = this.chain.then(() => this.drain())
   }
 
   async check() {
@@ -119,22 +123,32 @@ class NearbyTransport extends TransportBase implements Transport {
     this.disconnect()
   }
 
-  private async pull() {
-    if (this.dead) return
+  /** Payloads that arrived while the pairing handed the link over were announced to nobody. */
+  private async drain() {
+    while (await this.pull()) continue
+  }
+
+  private async pull(): Promise<boolean> {
+    if (this.dead) return false
     let wire: Uint8Array | null
     try {
       wire = await this.native.takeMessage(this.endpointId)
     } catch {
-      return this.end('Interrupted', true)
+      this.end('Interrupted', true)
+      return false
     }
-    if (!wire || this.dead) return
+    if (!wire || this.dead) return false
     const message = decode(wire)
-    if (!message) return this.end('Malformed', true)
+    if (!message) {
+      this.end('Malformed', true)
+      return false
+    }
     const waiter = this.waiter
     if (waiter) {
       if (!waiter.accept || waiter.accept.includes(message.kind)) this.handOver(waiter.deliver, message)
     } else if (this.queue.length >= QUEUE_LIMIT) this.end('Malformed', true)
     else this.queue.push(message)
+    return !this.dead
   }
 
   private handOver(deliver: Deliver, message: Message) {

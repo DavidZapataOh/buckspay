@@ -2,6 +2,7 @@ package xyz.buckspay.nearby
 
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.ConnectionInfo
 import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback
@@ -48,24 +49,34 @@ class NearbyModule : Module() {
       override fun onConnectionInitiated(
         endpointId: String,
         info: ConnectionInfo,
-      ) = emit(
-        "initiated",
-        endpointId,
-        "digits" to info.authenticationDigits,
-        "incoming" to info.isIncomingConnection,
-        "infoHex" to info.endpointInfo.toHex(),
-      )
+      ) {
+        Log.i(TAG, "connection initiated endpoint=$endpointId incoming=${info.isIncomingConnection}")
+        emit(
+          "initiated",
+          endpointId,
+          "digits" to info.authenticationDigits,
+          "incoming" to info.isIncomingConnection,
+          "infoHex" to info.endpointInfo.toHex(),
+        )
+      }
 
       override fun onConnectionResult(
         endpointId: String,
         result: ConnectionResolution,
       ) {
         val ok = result.status.statusCode == ConnectionsStatusCodes.STATUS_OK
+        Log.i(
+          TAG,
+          "connection result endpoint=$endpointId status=${result.status.statusCode} (${result.status.statusMessage})",
+        )
         if (ok) connected.add(endpointId)
         emit("result", endpointId, "ok" to ok)
       }
 
-      override fun onDisconnected(endpointId: String) = forget(endpointId)
+      override fun onDisconnected(endpointId: String) {
+        Log.i(TAG, "disconnected endpoint=$endpointId")
+        forget(endpointId)
+      }
     }
 
   private val discovery =
@@ -73,9 +84,15 @@ class NearbyModule : Module() {
       override fun onEndpointFound(
         endpointId: String,
         info: DiscoveredEndpointInfo,
-      ) = emit("found", endpointId, "infoHex" to info.endpointInfo.toHex())
+      ) {
+        Log.i(TAG, "endpoint found endpoint=$endpointId")
+        emit("found", endpointId, "infoHex" to info.endpointInfo.toHex())
+      }
 
-      override fun onEndpointLost(endpointId: String) = emit("lost", endpointId)
+      override fun onEndpointLost(endpointId: String) {
+        Log.i(TAG, "endpoint lost endpoint=$endpointId")
+        emit("lost", endpointId)
+      }
     }
 
   private val payloads =
@@ -86,9 +103,11 @@ class NearbyModule : Module() {
       ) {
         val bytes = if (payload.type == Payload.Type.BYTES) payload.asBytes() else null
         if (bytes == null) {
+          Log.w(TAG, "payload of type ${payload.type} from endpoint=$endpointId is not bytes; disconnecting")
           nearby.disconnectFromEndpoint(endpointId)
           return
         }
+        Log.i(TAG, "payload received endpoint=$endpointId size=${bytes.size}")
         inbox.getOrPut(endpointId) { ConcurrentLinkedQueue() }.add(bytes)
         emit("message", endpointId)
       }
@@ -97,13 +116,20 @@ class NearbyModule : Module() {
         endpointId: String,
         update: PayloadTransferUpdate,
       ) {
-        val pending = sends[update.payloadId] ?: return
+        val pending = sends[update.payloadId]
+        Log.i(
+          TAG,
+          "payload transfer endpoint=$endpointId status=${update.status} " +
+            "${update.bytesTransferred}/${update.totalBytes} outgoing=${pending != null}",
+        )
+        if (pending == null) return
         when (update.status) {
           PayloadTransferUpdate.Status.SUCCESS -> {
             pending.promise.resolve(null)
           }
 
           PayloadTransferUpdate.Status.FAILURE, PayloadTransferUpdate.Status.CANCELED -> {
+            Log.w(TAG, "payload send to endpoint=$endpointId ended with status=${update.status}")
             pending.promise.reject(NearbyException("Failed"))
           }
 
@@ -137,6 +163,7 @@ class NearbyModule : Module() {
           .startAdvertising(infoHex.hexToBytes(), Options.SERVICE_ID, lifecycle, Options.advertising())
           .addOnSuccessListener { promise.resolve(null) }
           .addOnFailureListener {
+            warn("startAdvertising", it)
             advertising.set(false)
             promise.reject(failure(it))
           }
@@ -153,6 +180,7 @@ class NearbyModule : Module() {
           .startDiscovery(Options.SERVICE_ID, discovery, Options.discovery())
           .addOnSuccessListener { promise.resolve(null) }
           .addOnFailureListener {
+            warn("startDiscovery", it)
             discovering.set(false)
             promise.reject(failure(it))
           }
@@ -167,27 +195,38 @@ class NearbyModule : Module() {
         nearby
           .requestConnection(infoHex.hexToBytes(), endpointId, lifecycle, Options.connection())
           .addOnSuccessListener { promise.resolve(null) }
-          .addOnFailureListener { promise.reject(failure(it)) }
+          .addOnFailureListener {
+            warn("requestConnection", it)
+            promise.reject(failure(it))
+          }
       }
 
       AsyncFunction("acceptConnection") { endpointId: String, promise: Promise ->
         nearby
           .acceptConnection(endpointId, payloads)
           .addOnSuccessListener { promise.resolve(null) }
-          .addOnFailureListener { promise.reject(failure(it)) }
+          .addOnFailureListener {
+            warn("acceptConnection", it)
+            promise.reject(failure(it))
+          }
       }
 
       AsyncFunction("rejectConnection") { endpointId: String, promise: Promise ->
         nearby
           .rejectConnection(endpointId)
           .addOnSuccessListener { promise.resolve(null) }
-          .addOnFailureListener { promise.reject(failure(it)) }
+          .addOnFailureListener {
+            warn("rejectConnection", it)
+            promise.reject(failure(it))
+          }
       }
 
       AsyncFunction("sendBytes") { endpointId: String, bytes: ByteArray, promise: Promise ->
         val payload = Payload.fromBytes(bytes)
         sends[payload.id] = PendingSend(endpointId, promise)
+        Log.i(TAG, "sending endpoint=$endpointId size=${bytes.size} connected=${connected.contains(endpointId)}")
         nearby.sendPayload(endpointId, payload).addOnFailureListener {
+          warn("sendPayload", it)
           sends.remove(payload.id)
           promise.reject(failure(it))
         }
@@ -196,6 +235,7 @@ class NearbyModule : Module() {
       AsyncFunction("takeMessage") { endpointId: String -> inbox[endpointId]?.poll() }
 
       AsyncFunction("disconnect") { endpointId: String ->
+        Log.i(TAG, "disconnect requested endpoint=$endpointId")
         nearby.disconnectFromEndpoint(endpointId)
         forget(endpointId)
       }
@@ -223,7 +263,12 @@ class NearbyModule : Module() {
     val wasConnected = connected.remove(endpointId)
     inbox.remove(endpointId)
     sends.entries.removeIf { (_, pending) ->
-      (pending.endpointId == endpointId).also { if (it) pending.promise.reject(NearbyException("Failed")) }
+      (pending.endpointId == endpointId).also {
+        if (it) {
+          Log.w(TAG, "send to endpoint=$endpointId dropped: the link ended first")
+          pending.promise.reject(NearbyException("Failed"))
+        }
+      }
     }
     if (wasConnected) emit("disconnected", endpointId)
   }

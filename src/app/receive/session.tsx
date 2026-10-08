@@ -157,15 +157,20 @@ export default function ReceiveSession() {
             {copy.receive.payerSeesCode}
           </AppText>
         </View>
+        {flow.timedOut ? (
+          <AppText variant="body" tone="danger" accessibilityLiveRegion="polite">
+            {copy.receive.paymentTimedOut}
+          </AppText>
+        ) : null}
         <AppText testID="receive-countdown" variant="body" tone="muted">
           {text(copy.receive.countdown, { time: formatCountdown(left) })}
         </AppText>
         <View className="gap-3">
-          {flow.how.chosen === 'qr' ? (
+          {flow.how.chosen === 'qr' || flow.timedOut ? (
             <Button
               testID="receive-scan-payment"
               variant="filled"
-              label={copy.receive.scanPayment}
+              label={flow.how.chosen === 'qr' ? copy.receive.scanPayment : copy.receive.waitAgain}
               onPress={flow.scanPayment}
             />
           ) : null}

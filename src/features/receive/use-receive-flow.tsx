@@ -18,7 +18,7 @@ import type { ReceiveContext } from '../../payment/receive'
 import { receivePayment, showRequest } from '../../payment/receive-flow'
 import { attesterFresh } from '../../protocol'
 import { ACTIVE_PROFILE } from '../../protocol/active-profile'
-import type { Transport, TransportId } from '../../transport/types'
+import { type Transport, TransportError, type TransportId } from '../../transport/types'
 import { parseAmount } from '../../utils/format-amount'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { copy } from '../payment/copy'
@@ -34,6 +34,7 @@ import { type WitnessPolicy, witnessPolicy } from '../witness/policy'
 import type { WitnessPort } from '../witness/port'
 import { nearbyEntry, nfcEntry, qrEntry } from '../transport/registry'
 import { createTransportSlot } from '../transport/slot'
+import { waitBudget } from '../transport/wait-budget'
 import { useTransportChoice, useTransports } from '../transport/use-transports'
 import { MIN_WINDOW, PAY_LIMITS } from '../pay/limits'
 import { BUILD_MINT_BYTES, BUILD_TOKEN } from '../pay/tokens'
@@ -51,6 +52,8 @@ export type ReceiveFlow = {
   progress: ReturnType<typeof useQrSession>['progress']
   /** Whether the other phone's last code was not a payment: the screen says so. */
   wrongCode: boolean
+  /** Whether the payment did not arrive over Nearby in time: the screen says so and offers to wait again. */
+  timedOut: boolean
   /** Why a request cannot be made now, in words; empty when it can. */
   blocked: string
   /**
@@ -80,6 +83,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
     stateRef.current = state
   })
   const [wrongCode, setWrongCode] = useState(false)
+  const [timedOut, setTimedOut] = useState(false)
   const { db, domains, attesters, hasTrustedAttesters, witnessSettings, witnessPort } = usePayments()
   const { client } = useMobileWallet()
   const recordFees = useMemo(() => recordFeeSource(client.rpc, PROGRAM_ADDRESS), [client.rpc])
@@ -160,6 +164,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
     const { request } = current
     dispatch({ type: 'scan-payment' })
     setWrongCode(false)
+    setTimedOut(false)
     abort()
     const controller = new AbortController()
     pending.current = controller
@@ -181,6 +186,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
     }
     void receivePayment(context, transport.current, {
       signal: controller.signal,
+      timeoutMs: waitBudget(used.current),
       onWrongCode: () => setWrongCode(true),
     }).then(
       (outcome) => {
@@ -189,8 +195,10 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
           void entriesSince(db, point.pairing.eventId, startedAt - 1).then((entries) => point.sync.push(entries))
         }
       },
-      () => {
-        if (!controller.signal.aborted) dispatch({ type: 'back' })
+      (error) => {
+        if (controller.signal.aborted) return
+        if (error instanceof TransportError && error.code === 'Timeout') setTimedOut(true)
+        dispatch({ type: 'back' })
       },
     )
   }, [abort, attesters, db, domains, key, point, recordFees])
@@ -238,6 +246,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
       texts: session.texts,
       progress: session.progress,
       wrongCode,
+      timedOut,
       blocked: hasTrustedAttesters ? blocked : copy.receive.connectOnce,
       create,
       scanPayment,
@@ -254,6 +263,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
       session.texts,
       session.progress,
       wrongCode,
+      timedOut,
       hasTrustedAttesters,
       blocked,
       create,

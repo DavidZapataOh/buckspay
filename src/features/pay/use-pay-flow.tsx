@@ -25,7 +25,7 @@ import { type PayContext, planPayment } from '../../payment/preflight'
 import { planRespend } from '../../payment/respend'
 import { withoutFlagged } from '../mesh/gossip'
 import { awaitRequest } from '../../payment/scan'
-import { MessageKind, type Transport, type TransportId } from '../../transport/types'
+import { MessageKind, type Transport, TransportError, type TransportId } from '../../transport/types'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { useOfflineLocks } from '../attesters/use-offline-locks'
 import { listEvents, type StoredEvent } from '../event/store'
@@ -39,6 +39,7 @@ import type { WitnessPort } from '../witness/port'
 import { payerAnswer } from '../witness/request-witness'
 import { nearbyEntry, nfcEntry, qrEntry } from '../transport/registry'
 import { createTransportSlot } from '../transport/slot'
+import { waitBudget } from '../transport/wait-budget'
 import { useTransportChoice, useTransports } from '../transport/use-transports'
 import { formatMoney } from '../../utils/format-amount'
 import { PAY_LIMITS } from './limits'
@@ -189,6 +190,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         used.current = medium.id
         const request = await awaitRequest(opened, {
           signal: controller.signal,
+          timeoutMs: waitBudget(medium.id),
           onWrongCode: () => dispatch({ type: 'wrong-code' }),
         })
         const { offline: current, db: store, key, creditEvent: credit } = latest.current
@@ -218,6 +220,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         })
       } catch (error) {
         if (controller.signal.aborted) return
+        if (error instanceof TransportError && error.code === 'Timeout') return dispatch({ type: 'timed-out' })
         console.warn(`scan failed at ${step}: ${error instanceof Error ? error.name : typeof error}`)
         dispatch({ type: 'unreadable', step })
       }

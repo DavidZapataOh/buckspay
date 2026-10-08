@@ -6,12 +6,14 @@ import { ScanScreen } from '../../features/qr/scan-screen'
 import { howCopy } from '../../features/transport/copy'
 import { WaitingScreen } from '../../features/transport/waiting'
 
-const scanNotice = (state: { wrongCode: boolean; unreadable?: string }) =>
-  state.unreadable
-    ? text(copy.scan.unreadable, { code: state.unreadable })
-    : state.wrongCode
-      ? copy.scan.wrongCode
-      : undefined
+const scanNotice = (state: { wrongCode: boolean; unreadable?: string; timedOut?: true }) =>
+  state.timedOut
+    ? copy.scan.timedOut
+    : state.unreadable
+      ? text(copy.scan.unreadable, { code: state.unreadable })
+      : state.wrongCode
+        ? copy.scan.wrongCode
+        : undefined
 
 export default function PayScan() {
   const flow = usePayFlow()
@@ -38,8 +40,8 @@ export default function PayScan() {
     return (
       <WaitingScreen
         medium={flow.how.chosen}
-        title={howCopy.waitingForRequest}
-        notice={state.name === 'scanning' && state.wrongCode ? copy.scan.wrongCode : undefined}
+        title={state.name === 'scanning' && state.timedOut ? copy.scan.timedOutTitle : howCopy.waitingForRequest}
+        notice={state.name === 'scanning' ? scanNotice(state) : undefined}
         onCancel={flow.back}
         cancelLabel={copy.review.cancel}
       />

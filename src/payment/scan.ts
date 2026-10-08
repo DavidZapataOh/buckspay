@@ -7,10 +7,10 @@ import { decodeRequest, PaymentError, type PaymentRequest } from './messages'
  */
 export async function awaitRequest(
   transport: Transport,
-  { signal, onWrongCode }: { signal?: AbortSignal; onWrongCode: () => void },
+  { signal, timeoutMs, onWrongCode }: { signal?: AbortSignal; timeoutMs?: number; onWrongCode: () => void },
 ): Promise<PaymentRequest> {
   for (;;) {
-    const message = await transport.receive({ signal })
+    const message = await transport.receive({ signal, timeoutMs })
     if (message.kind === MessageKind.Request) {
       try {
         return decodeRequest(message.payload)

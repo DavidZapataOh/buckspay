@@ -32,6 +32,16 @@ describe('the Nearby transport', () => {
     expect(await code(tb.receive({ timeoutMs: 30 }))).toBe('Timeout')
   })
 
+  it('hands over a message that landed before the transport was built', async () => {
+    const air = new FakeAir()
+    const [a, b] = air.connectedPair()
+    const ta = createNearbyTransport({ endpointId: b.id, native: a })
+    await ta.send({ kind: MessageKind.Request, payload: bytes(50, 1) })
+    await new Promise((r) => setTimeout(r, 10))
+    const tb = createNearbyTransport({ endpointId: a.id, native: b })
+    expect((await tb.receive({ timeoutMs: 200 })).payload).toEqual(bytes(50, 1))
+  })
+
   it('keeps messages in the order they were sent', async () => {
     const { ta, tb } = pair()
     for (const kind of [MessageKind.Request, MessageKind.Payment, MessageKind.Receipt])
