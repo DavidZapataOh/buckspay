@@ -19,7 +19,6 @@ internal object Options {
     AdvertisingOptions
       .Builder()
       .setStrategy(strategy)
-      .setLowPower(true)
       .setConnectionType(ConnectionType.NON_DISRUPTIVE)
       .build()
 
@@ -27,13 +26,11 @@ internal object Options {
     DiscoveryOptions
       .Builder()
       .setStrategy(strategy)
-      .setLowPower(true)
       .build()
 
   fun connection(): ConnectionOptions =
     ConnectionOptions
       .Builder()
-      .setLowPower(true)
       .setConnectionType(ConnectionType.NON_DISRUPTIVE)
       .build()
 }
