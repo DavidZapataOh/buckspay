@@ -27,7 +27,7 @@ export default function ReceiveSession() {
   const { mode: point } = usePointMode()
   const settlement = useSettlementRunner()
   const { state } = flow
-  const expiresAt = state.name === 'requesting' ? state.expiresAt : undefined
+  const expiresAt = state.name === 'requesting' || state.name === 'scanning' ? state.expiresAt : undefined
   const left = useSecondsLeft(expiresAt)
 
   useEffect(() => {
@@ -61,6 +61,7 @@ export default function ReceiveSession() {
         medium={flow.how.chosen}
         title={copy.receive.waitingForPayment}
         notice={flow.wrongCode ? copy.scan.wrongPayment : undefined}
+        detail={text(copy.receive.countdown, { time: formatCountdown(left) })}
         onCancel={flow.back}
         cancelLabel={copy.review.cancel}
       />
@@ -157,20 +158,15 @@ export default function ReceiveSession() {
             {copy.receive.payerSeesCode}
           </AppText>
         </View>
-        {flow.timedOut ? (
-          <AppText variant="body" tone="danger" accessibilityLiveRegion="polite">
-            {copy.receive.paymentTimedOut}
-          </AppText>
-        ) : null}
         <AppText testID="receive-countdown" variant="body" tone="muted">
           {text(copy.receive.countdown, { time: formatCountdown(left) })}
         </AppText>
         <View className="gap-3">
-          {flow.how.chosen === 'qr' || flow.timedOut ? (
+          {flow.how.chosen === 'qr' ? (
             <Button
               testID="receive-scan-payment"
               variant="filled"
-              label={flow.how.chosen === 'qr' ? copy.receive.scanPayment : copy.receive.waitAgain}
+              label={copy.receive.scanPayment}
               onPress={flow.scanPayment}
             />
           ) : null}

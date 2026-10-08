@@ -13,7 +13,7 @@ export type PayState =
   | { name: 'reviewing'; request: PaymentRequest; plan: Plan | RespendPlan }
   | { name: 'refused'; reason: PlanRefusal; lockSeq?: number; request: PaymentRequest }
   | { name: 'confirming'; request: PaymentRequest; plan: Plan | RespendPlan }
-  | { name: 'presenting'; payment: SentPayment; otherReceipt?: boolean }
+  | { name: 'presenting'; payment: SentPayment; otherReceipt?: boolean; unconfirmed?: true }
   | { name: 'awaiting-receipt'; payment: SentPayment }
   | { name: 'confirmed'; payment: SentPayment }
   | { name: 'rejected'; payment: SentPayment; reason: Reason }
@@ -31,6 +31,7 @@ export type PayEvent =
   | { type: 'failed'; error: PayError }
   | { type: 'scan-receipt' }
   | { type: 'receipt'; result: ReceiptResult }
+  | { type: 'receipt-timed-out' }
   | { type: 'cancel' }
   | { type: 'show-again' }
   | { type: 'back' }
@@ -76,6 +77,7 @@ export function payReducer(state: PayState, event: PayEvent): PayState {
     case 'awaiting-receipt':
       if (event.type === 'resumed') return { name: 'presenting', payment: event.payment }
       if (event.type === 'cancel') return { name: 'presenting', payment: state.payment }
+      if (event.type === 'receipt-timed-out') return { name: 'presenting', payment: state.payment, unconfirmed: true }
       if (event.type !== 'receipt') return state
       if (event.result.status === 'confirmed') return { name: 'confirmed', payment: state.payment }
       if (event.result.status === 'rejected') {

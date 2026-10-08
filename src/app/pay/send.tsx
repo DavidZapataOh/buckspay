@@ -46,9 +46,10 @@ export default function PaySend() {
     }
   }, [state])
 
+  const unconfirmed = state.name === 'presenting' && state.unconfirmed === true
   useEffect(() => {
-    if (state.name === 'presenting' && flow.how.chosen !== 'qr') flow.scanReceipt()
-  }, [state.name, flow])
+    if (state.name === 'presenting' && !unconfirmed && flow.how.chosen !== 'qr') flow.scanReceipt()
+  }, [state.name, unconfirmed, flow])
 
   const check = flow.witness()
   const nearby =
@@ -98,13 +99,24 @@ export default function PaySend() {
           />
         ) : null}
         <AppText testID="pay-status" variant="body" accessibilityLiveRegion="polite">
-          {state.otherReceipt ? copy.send.otherPayment : copy.send.waiting}
+          {state.unconfirmed ? copy.send.unconfirmed : state.otherReceipt ? copy.send.otherPayment : copy.send.waiting}
         </AppText>
         <AppText variant="body" tone="muted">
           {copy.send.keepUp}
         </AppText>
         {nearby}
         <View className="gap-3">
+          {state.unconfirmed ? (
+            <>
+              <Button testID="pay-wait-again" variant="tonal" label={copy.send.waitAgain} onPress={flow.scanReceipt} />
+              <Button
+                testID="pay-send-again"
+                variant="tonal"
+                label={copy.send.resume}
+                onPress={() => void flow.resume()}
+              />
+            </>
+          ) : null}
           {flow.how.chosen === 'qr' ? (
             <Button
               testID="pay-scan-receipt"

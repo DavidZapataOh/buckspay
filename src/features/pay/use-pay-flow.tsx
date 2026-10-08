@@ -39,7 +39,7 @@ import type { WitnessPort } from '../witness/port'
 import { payerAnswer } from '../witness/request-witness'
 import { nearbyEntry, nfcEntry, qrEntry } from '../transport/registry'
 import { createTransportSlot } from '../transport/slot'
-import { waitBudget } from '../transport/wait-budget'
+import { receiptBudget, waitBudget } from '../transport/wait-budget'
 import { useTransportChoice, useTransports } from '../transport/use-transports'
 import { formatMoney } from '../../utils/format-amount'
 import { PAY_LIMITS } from './limits'
@@ -260,13 +260,21 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
     abort()
     const controller = new AbortController()
     pending.current = controller
-    void awaitReceipt(current.payment, depsFor(), { signal: controller.signal }).then(
+    void awaitReceipt(current.payment, depsFor(), {
+      signal: controller.signal,
+      timeoutMs: receiptBudget(used.current),
+    }).then(
       async (result) => {
         dispatch({ type: 'receipt', result })
         await reloadUnfinished()
       },
-      () => {
-        if (!controller.signal.aborted) dispatch({ type: 'cancel' })
+      (error) => {
+        if (controller.signal.aborted) return
+        dispatch(
+          error instanceof TransportError && error.code === 'Timeout'
+            ? { type: 'receipt-timed-out' }
+            : { type: 'cancel' },
+        )
       },
     )
   }, [abort, depsFor, reloadUnfinished])

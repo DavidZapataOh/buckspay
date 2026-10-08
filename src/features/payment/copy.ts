@@ -109,6 +109,9 @@ export const copy = {
     title: 'Show this to the other phone',
     codeLabel: "QR code for your payment of {amount} {symbol}. Hold it in front of the other phone's camera.",
     waiting: 'Waiting for the other phone…',
+    unconfirmed:
+      "The other phone hasn't confirmed. The payment may have reached it: check that phone before you try again. Your allowance for this payment stays used until it is confirmed or discarded.",
+    waitAgain: 'Wait again',
     keepUp: 'Keep this screen up until the other phone says Received.',
     scanReceipt: 'Scan confirmation',
     done: 'Done',
@@ -155,8 +158,6 @@ export const copy = {
     payerSeesCode: 'The payer sees this code too',
     countdown: 'Valid for {time}',
     scanPayment: 'Scan payment',
-    paymentTimedOut: 'No payment arrived. Ask the payer to try again, then wait again.',
-    waitAgain: 'Wait again',
     cancelRequest: 'Cancel request',
     expired: 'This request expired.',
     newRequest: 'New request',

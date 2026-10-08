@@ -10,12 +10,14 @@ export function WaitingScreen({
   medium,
   title,
   notice,
+  detail,
   onCancel,
   cancelLabel,
 }: {
   medium: Exclude<TransportId, 'qr'>
   title: string
   notice?: string
+  detail?: string
   onCancel: () => void
   cancelLabel: string
 }) {
@@ -26,6 +28,11 @@ export function WaitingScreen({
           {title}
         </AppText>
         <AppText variant="body">{howCopy.waiting[medium]}</AppText>
+        {detail ? (
+          <AppText variant="body" tone="muted">
+            {detail}
+          </AppText>
+        ) : null}
         {notice ? (
           <AppText variant="body" tone="danger" accessibilityLiveRegion="polite">
             {notice}

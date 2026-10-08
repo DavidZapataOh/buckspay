@@ -26,6 +26,9 @@ export const QUEUE_LIMIT = 8
 /** How long a phone waits for the other one's request or payment over Nearby before it says so. */
 export const NEARBY_WAIT_MS = 30_000
 
+/** How long the payer waits for the receiver's confirmation after it sent the payment over Nearby. */
+export const RECEIPT_WAIT_MS = 60_000
+
 /** How often the link layer repeats what the other phone may have missed while it was still connecting. */
 export const LINK_RETRY_MS = 3_000
 
