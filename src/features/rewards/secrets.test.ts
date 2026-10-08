@@ -12,7 +12,7 @@ import {
   scheduleClaims,
 } from './secrets'
 import { BN254_R, fromCanonical, poseidon2, toBytes32 } from './secrets-poseidon'
-import { REWARDS_SCHEMA_VERSION } from './secrets-store'
+import { DEBTS_SCHEMA_VERSION } from '../debts/store'
 import { leafOf } from './secrets-tree'
 
 const store = async () => {
@@ -71,9 +71,9 @@ describe('leaf secrets', () => {
     expect(stored.exp).toBe(4)
   })
 
-  it('is part of the note store at the version after the words', async () => {
+  it('is part of the note store at its newest version', async () => {
     const db = await store()
-    expect((await db.all<{ user_version: number }>('PRAGMA user_version'))[0].user_version).toBe(REWARDS_SCHEMA_VERSION)
+    expect((await db.all<{ user_version: number }>('PRAGMA user_version'))[0].user_version).toBe(DEBTS_SCHEMA_VERSION)
     await migrate(db)
     await expect(
       db.run(

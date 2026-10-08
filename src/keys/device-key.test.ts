@@ -260,6 +260,7 @@ describe('device key', () => {
   it('exports structured signing and the confirmed reset, and signs no device message over a caller digest', async () => {
     expect(Object.keys(keys).filter((name) => name.startsWith('sign'))).toEqual([
       'signDeviceBinding',
+      'signIou',
       'signIssue',
       'signPayword',
       'signReclaim',
@@ -270,6 +271,7 @@ describe('device key', () => {
     const signers = Object.keys(internal).filter((name) => name.startsWith('sign'))
     expect(signers.sort()).toEqual([
       'signDeviceBinding',
+      'signIou',
       'signIssue',
       'signPayword',
       'signReclaim',

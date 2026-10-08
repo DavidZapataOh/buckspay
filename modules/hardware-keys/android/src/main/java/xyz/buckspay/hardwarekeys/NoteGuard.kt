@@ -27,6 +27,15 @@ internal class NoteGuardUnavailableException(
   cause: Throwable? = null,
 ) : CodedException(message, cause)
 
+internal fun <T> SQLiteDatabase.inTransaction(block: () -> T): T {
+  beginTransaction()
+  try {
+    return block().also { setTransactionSuccessful() }
+  } finally {
+    endTransaction()
+  }
+}
+
 /**
  * The lock that lets one process at a time use the note guards of a key alias. It is taken on a
  * file that is never renamed or deleted, so every opener contends for the same inode, and at most
@@ -91,6 +100,9 @@ internal class NoteGuard private constructor(
   private val outputExpiry = database.compileStatement("SELECT expiry FROM outputs WHERE id = ?")
   private val journal = File("${database.path}-journal")
   private var journalSeen = journal.exists()
+
+  /** The tab states and netting joins signed with this key, in the same database. */
+  val ious = IouGuard(database, ::requireJournal)
 
   val size: Long get() = DatabaseUtils.queryNumEntries(database, "spends") + DatabaseUtils.queryNumEntries(database, "issues")
 
@@ -178,6 +190,7 @@ internal class NoteGuard private constructor(
 
   override fun close() {
     listOf(spend, insertSpend, deleteSpend, insertOutput, outputExpiry).forEach { it.close() }
+    ious.close()
     database.close()
   }
 
@@ -244,14 +257,7 @@ internal class NoteGuard private constructor(
     database.insertWithOnConflict("issues", null, row, SQLiteDatabase.CONFLICT_REPLACE)
   }
 
-  private fun <T> transaction(block: () -> T): T {
-    database.beginTransaction()
-    try {
-      return block().also { database.setTransactionSuccessful() }
-    } finally {
-      database.endTransaction()
-    }
-  }
+  private fun <T> transaction(block: () -> T): T = database.inTransaction(block)
 
   companion object {
     private const val JOURNAL_MODE = "TRUNCATE"
@@ -264,15 +270,19 @@ internal class NoteGuard private constructor(
         "CREATE TABLE IF NOT EXISTS spends (slot BLOB PRIMARY KEY, content BLOB NOT NULL) WITHOUT ROWID",
         "CREATE TABLE IF NOT EXISTS issues (lock_seq INTEGER PRIMARY KEY, slot BLOB NOT NULL, content BLOB NOT NULL)",
         OUTPUTS,
+        IOUS,
       )
     private const val UINT_MAX = 0xffff_ffffL
 
     // The outputs the device holds and their expiries. Guards made before reclaims existed get it when opened.
     private const val OUTPUTS = "CREATE TABLE IF NOT EXISTS outputs (id BLOB PRIMARY KEY, expiry INTEGER NOT NULL) WITHOUT ROWID"
+
+    // Tab states and netting joins signed with this key. Guards made before debts existed get it when opened.
+    private const val IOUS = "CREATE TABLE IF NOT EXISTS ious (slot BLOB PRIMARY KEY, content BLOB NOT NULL) WITHOUT ROWID"
     private val ISSUE_TAG = "ISSU".toByteArray(Charsets.US_ASCII)
 
     // Admissions are serialised across every guard in the process, so a removal never races another admission.
-    private val ADMISSIONS = Any()
+    internal val ADMISSIONS = Any()
 
     /** What a guard is bound to: one device key (its X.509 encoding) and one note domain. */
     fun binding(
@@ -332,6 +342,7 @@ internal class NoteGuard private constructor(
           throw NoteGuardUnavailableException("The note guard belongs to another key or domain")
         }
         database.execSQL(OUTPUTS)
+        database.execSQL(IOUS)
         return NoteGuard(database)
       } catch (e: Throwable) {
         database.close()

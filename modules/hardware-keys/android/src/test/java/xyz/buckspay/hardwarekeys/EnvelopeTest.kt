@@ -27,17 +27,107 @@ class EnvelopeTest {
   private val genesisHash = domains.bytes("genesis_hash")
   private val programId = domains.bytes("program_id")
 
+  private val iou = vectors.getValue("iou").jsonObject
+  private val iouStates = iou.getValue("states").jsonArray.map { it.jsonObject }
+  private val joins =
+    vectors
+      .getValue("nettingJoin")
+      .jsonObject
+      .getValue("joins")
+      .jsonArray
+      .map { it.jsonObject }
+  private val statements =
+    vectors
+      .getValue("netting")
+      .jsonObject
+      .getValue("statements")
+      .jsonArray
+      .map { it.jsonObject }
+  private val iouDomain = iou.getValue("domain").jsonObject.bytes("devnet")
+
+  private fun sha256(vararg parts: ByteArray) =
+    java.security.MessageDigest.getInstance("SHA-256").run {
+      parts.forEach(::update)
+      digest()
+    }
+
+  @Test
+  fun signsNotesWitnessesChannelCommitmentsAndIous() {
+    assertEquals(setOf("note", "witness", "payword", "iou"), Envelope.SIGNED)
+    assertTrue(Envelope.PURPOSES.containsAll(Envelope.SIGNED))
+    assertFalse("netting is signed with ephemeral Ed25519 keys, never by the device", "netting" in Envelope.PURPOSES)
+  }
+
+  @Test
+  fun iouEnvelopeMatchesVectors() {
+    assertArrayEquals(Domains(genesisHash, programId).of("iou"), iouDomain)
+    for (state in iouStates) {
+      val body = state.bytes("body")
+      val envelope = Envelope.build(iouDomain, Envelope.iouSlot(body), sha256(body))
+      assertArrayEquals(state.getValue("name").jsonPrimitive.content, state.getValue("envelope").jsonObject.bytes("devnet"), envelope)
+    }
+    for (join in joins) {
+      val body = join.bytes("body")
+      assertArrayEquals(join.bytes("envelope"), Envelope.build(iouDomain, Envelope.iouSlot(body), sha256(body)))
+    }
+  }
+
+  @Test
+  fun slotDerivedFromBody() {
+    for (state in iouStates) assertArrayEquals(state.bytes("slot"), Envelope.iouSlot(state.bytes("body")))
+    for (join in joins) assertArrayEquals(join.bytes("slot"), Envelope.iouSlot(join.bytes("body")))
+    val body = iouStates.first().bytes("body")
+    assertArrayEquals(sha256("IOUS".toByteArray(), body.copyOfRange(2, 38)), Envelope.iouSlot(body))
+    val nextSeq = body.copyOf().also { it[34] = (it[34] + 1).toByte() }
+    assertFalse(Envelope.iouSlot(nextSeq).contentEquals(Envelope.iouSlot(body)))
+    val otherAmount = body.copyOf().also { it[136] = (it[136] + 1).toByte() }
+    assertArrayEquals("the slot ignores the amount; the content does not", Envelope.iouSlot(body), Envelope.iouSlot(otherAmount))
+    assertArrayEquals("one join slot per session", Envelope.iouSlot(joins[0].bytes("body")), Envelope.iouSlot(joins[1].bytes("body")))
+  }
+
+  @Test
+  fun refusesUnknownKindAndBadLength() {
+    val body = iouStates.first().bytes("body")
+    val join = joins.first().bytes("body")
+    val bad =
+      listOf(
+        body.copyOf(212),
+        body.copyOf(214),
+        body.copyOf().also { it[0] = 2 },
+        body.copyOf().also { it[1] = 0x40 },
+        body.copyOf().also { it[1] = 0x31 },
+        body.copyOf().also { for (i in 34 until 38) it[i] = 0 },
+        body.copyOf().also { it[148] = 3 },
+        body.copyOf().also { it[148] = 0 },
+        body.copyOf().also { it[148] = 5 },
+        join.copyOf(98),
+        join.copyOf().also { it[1] = 0x30 },
+        ByteArray(0),
+      ) + statements.map { it.bytes("body") }
+    for ((i, b) in bad.withIndex()) {
+      assertThrows("case $i", IllegalArgumentException::class.java) { Envelope.iouSlot(b) }
+    }
+  }
+
+  @Test
+  fun signersAreThePartiesOfTheBody() {
+    val keys = iou.getValue("keys").jsonObject
+    val open = iouStates.first { it.getValue("name").jsonPrimitive.content == "open" }.bytes("body")
+    val signers = Envelope.iouSigners(open)
+    assertEquals(2, signers.size)
+    assertArrayEquals(keys.bytes("debtor"), signers[0])
+    assertArrayEquals(keys.bytes("creditor"), signers[1])
+    val join = joins.first().bytes("body")
+    assertArrayEquals(join.copyOfRange(66, 99), Envelope.iouSigners(join).single())
+    val uncompressed = open.copyOf().also { it[38] = 0x04 }
+    assertThrows(IllegalArgumentException::class.java) { Envelope.iouSigners(uncompressed) }
+  }
+
   @Test
   fun purposesAreTheProtocolPurposesExceptTicket() {
     val expected = setOf("note", "device", "witness", "reclaim", "payword", "iou", "voice", "claim", "revoke")
     assertEquals(expected, Envelope.PURPOSES)
     assertEquals(expected, domains.keys - setOf("genesis_hash", "program_id", "ticket"))
-  }
-
-  @Test
-  fun signsNotesWitnessesAndChannelCommitmentsOnly() {
-    assertEquals(setOf("note", "witness", "payword"), Envelope.SIGNED)
-    assertTrue(Envelope.PURPOSES.containsAll(Envelope.SIGNED))
   }
 
   @Test

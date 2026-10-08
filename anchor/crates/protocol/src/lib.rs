@@ -23,7 +23,9 @@ pub mod verify;
 pub use caveats::{flags, Caveats, Owner, ScopeKind, MAX_DEPTH};
 pub use message::{kind, BondTicket, Issue, Outputs, Signed, Spend, CHALLENGE, GRACE, NO_LOCK};
 pub mod hash;
+pub mod iou;
 pub mod lock;
+pub mod netting;
 pub mod profile;
 pub mod window;
 

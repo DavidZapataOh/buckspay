@@ -10,7 +10,10 @@ import {
   DEVNET_GENESIS_HASH,
   domain,
   envelope,
+  iouSlot,
+  joinSlot,
   MAINNET_GENESIS_HASH,
+  Purpose,
   reclaimBody,
 } from '../../protocol'
 
@@ -23,6 +26,8 @@ let created = false
 let signatures: Uint8Array[] = []
 /** The expiry of every output the guard was told about, by output id. */
 let outputs = new Map<string, number>()
+/** The content signed in every tab or join slot, by slot: one body per slot, for good. */
+let iouSlots = new Map<string, Uint8Array>()
 
 const DAY = 24 * 60 * 60
 
@@ -33,10 +38,27 @@ export function resetHardwareKeys() {
   created = false
   signatures = []
   outputs = new Map()
+  iouSlots = new Map()
 }
 
 export const nativeSignatures = () => signatures
 export const configuredProgramId = () => config?.programId
+
+/** The slot and the keys allowed to sign a tab state (0x30) or a netting join (0x31), as the module derives them. */
+function iouParts(body: Uint8Array): { slot: Uint8Array; signers: Uint8Array[] } {
+  const compressed = (key: Uint8Array) => key[0] === 0x02 || key[0] === 0x03
+  const view = new DataView(body.buffer, body.byteOffset, body.byteLength)
+  if (body.length === 213 && body[0] === 1 && body[1] === 0x30) {
+    const seq = view.getUint32(34, true)
+    const signers = [body.slice(38, 71), body.slice(71, 104)]
+    if (seq !== 0 && [1, 2, 4].includes(body[148]) && signers.every(compressed))
+      return { slot: iouSlot(body.slice(2, 34), seq), signers }
+  } else if (body.length === 99 && body[0] === 1 && body[1] === 0x31) {
+    const signers = [body.slice(66, 99)]
+    if (signers.every(compressed)) return { slot: joinSlot(body.slice(2, 34)), signers }
+  }
+  throw coded('ERR_INVALID_ENVELOPE')
+}
 
 function signMessage(message: Uint8Array) {
   const der = p256.sign(message, SECRET_KEY, { prehash: true, lowS: false, format: 'der' })
@@ -73,6 +95,7 @@ export default {
   },
   async resetKey(): Promise<void> {
     created = false
+    iouSlots = new Map()
   },
   async recordOutput(output: Uint8Array, expiry: number): Promise<void> {
     if (output.length !== 32) throw coded('ERR_INVALID_ENVELOPE')
@@ -96,6 +119,20 @@ export default {
   async sign(purpose: SignedPurpose, slot: Uint8Array, content: Uint8Array): Promise<Uint8Array> {
     if (purpose !== 'witness' && purpose !== 'payword') throw coded('ERR_INVALID_ENVELOPE')
     return sign(purpose, slot, content)
+  },
+  /** Like the guard: a body must name this key, and a slot is signed with one body only. */
+  async signIou(body: Uint8Array): Promise<Uint8Array> {
+    if (!config) throw coded('ERR_NOT_CONFIGURED')
+    const { slot, signers } = iouParts(body)
+    if (!created) throw coded('ERR_KEY_NOT_FOUND')
+    const own = p256.getPublicKey(SECRET_KEY, true)
+    if (!signers.some((signer) => equalBytes(signer, own))) throw coded('ERR_IOU_SIGNER')
+    const bodyContent = content(body)
+    const key = bytesToHex(slot)
+    const used = iouSlots.get(key)
+    if (used && !equalBytes(used, bodyContent)) throw coded('ERR_EQUIVOCATION')
+    iouSlots.set(key, bodyContent)
+    return signMessage(envelope(domain(Purpose.Iou, GENESIS_HASH[config.cluster], config.programId), slot, bodyContent))
   },
   async signDeviceBinding(wallet: Uint8Array): Promise<Uint8Array> {
     if (!config) throw coded('ERR_NOT_CONFIGURED')

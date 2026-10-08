@@ -1,0 +1,15 @@
+# The answerer of a debt: waits for an offer, signs it and shows the tab.
+# Run with `-e THEME=light` while the other phone runs debts-offer.yaml.
+appId: xyz.buckspay.app
+---
+- openLink: buckspay://debts/accept
+- extendedWaitUntil:
+    visible: Sign this debt?
+    timeout: 120000
+- takeScreenshot: debts-accept-${THEME}
+- tapOn: Sign
+- extendedWaitUntil:
+    visible:
+      id: tab
+    timeout: 20000
+- takeScreenshot: debts-tab-${THEME}

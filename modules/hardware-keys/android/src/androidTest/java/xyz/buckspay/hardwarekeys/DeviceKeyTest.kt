@@ -9,6 +9,10 @@ import android.security.keystore.KeyProperties
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -44,6 +48,7 @@ import java.security.interfaces.ECPublicKey
 import java.security.spec.X509EncodedKeySpec
 import java.util.Date
 import java.util.Enumeration
+import java.util.HexFormat
 import javax.crypto.KeyGenerator
 
 @RunWith(AndroidJUnit4::class)
@@ -196,7 +201,8 @@ class DeviceKeyTest {
   @Test
   fun signsOnlyUnderItsOwnPurpose() {
     val publicKey = key.create(domains, challenge).publicKey
-    for (purpose in Envelope.SIGNED) {
+    // Tab states and joins are signed through signIou, which signatureVerifiesWithVectorsPublicKey covers.
+    for (purpose in Envelope.SIGNED - "iou") {
       val signature = if (purpose == "note") key.signNote(domains, slot, content) else key.sign(domains, purpose, slot, content)
       for (other in Envelope.PURPOSES) {
         val envelope = Envelope.build(domains.of(other), slot, content)
@@ -733,6 +739,189 @@ class DeviceKeyTest {
         password: CharArray?,
       ) = Unit
     }
+  }
+
+  private val peer = Envelope.compressed(softwareKey())
+  private val other = Envelope.compressed(softwareKey())
+
+  private fun softwareKey(): ByteArray =
+    java.security.KeyPairGenerator.getInstance("EC").run {
+      initialize(java.security.spec.ECGenParameterSpec("secp256r1"))
+      generateKeyPair().public.encoded
+    }
+
+  private fun own(): ByteArray = Envelope.compressed(key.create(domains, challenge).publicKey)
+
+  private fun tabState(
+    seq: Int,
+    debtor: ByteArray,
+    creditor: ByteArray,
+    amount: Long = 10,
+    tab: Byte = 0x7a,
+  ): ByteArray =
+    ByteBuffer.allocate(213).order(ByteOrder.LITTLE_ENDIAN).run {
+      put(1.toByte())
+        .put(0x30.toByte())
+        .put(ByteArray(32) { tab })
+        .putInt(seq)
+        .put(debtor)
+        .put(creditor)
+        .put(ByteArray(32) { 3 })
+      putLong(amount)
+        .putInt(0)
+        .put(1.toByte())
+        .put(ByteArray(32))
+        .put(ByteArray(32))
+      array()
+    }
+
+  private fun join(
+    session: Byte,
+    ephemeral: Byte,
+    signer: ByteArray,
+  ): ByteArray = byteArrayOf(1, 0x31) + ByteArray(32) { session } + ByteArray(32) { ephemeral } + signer
+
+  private fun iouEnvelope(body: ByteArray): ByteArray {
+    val digest = { parts: List<ByteArray> ->
+      java.security.MessageDigest.getInstance("SHA-256").run {
+        parts.forEach(::update)
+        digest()
+      }
+    }
+    val slot =
+      if (body[1] ==
+        0x30.toByte()
+      ) {
+        digest(listOf("IOUS".toByteArray(), body.copyOfRange(2, 38)))
+      } else {
+        digest(listOf("NETJ".toByteArray(), body.copyOfRange(2, 34)))
+      }
+    return domains.of("iou") + slot + digest(listOf(body))
+  }
+
+  @Test
+  fun signIouRefusesSecondBodyForSlotAcrossRestart() {
+    val me = own()
+    val first = tabState(5, me, peer, amount = 10)
+    key.signIou(domains, first)
+    key.close()
+    DeviceKey(context, ALIAS).use { restarted ->
+      assertThrows(EquivocationException::class.java) { restarted.signIou(domains, tabState(5, me, peer, amount = 11)) }
+      assertThrows(EquivocationException::class.java) { restarted.signIou(domains, tabState(5, peer, me, amount = 10)) }
+      restarted.signIou(domains, first)
+      restarted.signIou(domains, tabState(6, me, peer, amount = 11))
+    }
+  }
+
+  @Test
+  fun signIouAcceptsSameBodyTwice() {
+    val publicKey = key.create(domains, challenge).publicKey
+    val body = tabState(3, Envelope.compressed(publicKey), peer)
+    val first = key.signIou(domains, body)
+    val again = key.signIou(domains, body)
+    assertTrue(verifies(publicKey, iouEnvelope(body), first))
+    assertTrue(verifies(publicKey, iouEnvelope(body), again))
+  }
+
+  @Test
+  fun aBurntSeqNeverFreezesTheTab() {
+    val me = own()
+    key.signIou(domains, tabState(5, me, peer, amount = 10))
+    assertThrows(EquivocationException::class.java) { key.signIou(domains, tabState(5, me, peer, amount = 12)) }
+    key.signIou(domains, tabState(6, me, peer, amount = 12))
+    key.signIou(domains, tabState(9, peer, me, amount = 1))
+  }
+
+  @Test
+  fun resetKeyGivesNewKeyEmptyIouGuard() {
+    val before = own()
+    key.signIou(domains, tabState(5, before, peer))
+    key.reset()
+    val after = own()
+    assertFalse(before.contentEquals(after))
+    key.signIou(domains, tabState(5, after, peer, amount = 99))
+    val guards = context.noBackupFilesDir.listFiles { file -> file.name.startsWith("$ALIAS.") && file.name.endsWith(".notes") }
+    assertEquals("the old key's guard is kept, the new key has its own", 2, guards?.size)
+  }
+
+  @Test
+  fun signatureVerifiesWithVectorsPublicKey() {
+    val vectors =
+      Json
+        .parseToJsonElement(
+          instrumentation.context.assets
+            .open("v1.json")
+            .bufferedReader()
+            .readText(),
+        ).jsonObject
+    val open =
+      vectors
+        .getValue("iou")
+        .jsonObject
+        .getValue("states")
+        .jsonArray
+        .first()
+        .jsonObject
+    val vectorBody = HexFormat.of().parseHex(open.getValue("body").jsonPrimitive.content)
+    val publicKey = key.create(domains, challenge).publicKey
+    assertThrows(IouSignerException::class.java) { key.signIou(domains, vectorBody) }
+    val mine = vectorBody.copyOf().also { Envelope.compressed(publicKey).copyInto(it, 38) }
+    val signature = key.signIou(domains, mine)
+    assertTrue(verifies(publicKey, iouEnvelope(mine), signature))
+    assertFalse(
+      verifies(
+        publicKey,
+        Envelope.build(domains.of("note"), iouEnvelope(mine).copyOfRange(32, 64), iouEnvelope(mine).copyOfRange(64, 96)),
+        signature,
+      ),
+    )
+  }
+
+  @Test
+  fun signIouRefusesBodyNotNamingThisKey() {
+    val me = own()
+    assertThrows(IouSignerException::class.java) { key.signIou(domains, tabState(1, peer, other)) }
+    assertThrows(IouSignerException::class.java) { key.signIou(domains, join(0x5e, 0x51, peer)) }
+    assertThrows(InvalidEnvelopeException::class.java) { key.signIou(domains, tabState(0, me, peer)) }
+    assertThrows(InvalidEnvelopeException::class.java) { key.signIou(domains, tabState(1, me, peer).copyOf(212)) }
+  }
+
+  @Test
+  fun joinSlotSignsOneEphemeralPerSession() {
+    val me = own()
+    val first = join(0x5e, 0x51, me)
+    key.signIou(domains, first)
+    assertThrows(EquivocationException::class.java) { key.signIou(domains, join(0x5e, 0x52, me)) }
+    key.signIou(domains, first)
+    key.signIou(domains, join(0x5f, 0x52, me))
+  }
+
+  @Test
+  fun iouGuardIsSeparateFromTheNoteGuard() {
+    val me = own()
+    val body = tabState(4, me, peer)
+    val sameSlot = iouEnvelope(body).copyOfRange(32, 64)
+    key.signNote(domains, sameSlot, content)
+    key.signIou(domains, body)
+    assertThrows(EquivocationException::class.java) { key.signNote(domains, sameSlot, ByteArray(32) { 9 }) }
+    assertThrows(EquivocationException::class.java) { key.signIou(domains, tabState(4, me, peer, amount = 11)) }
+  }
+
+  @Test
+  fun refusesIouWithoutAKey() {
+    assertThrows(KeyNotFoundException::class.java) { key.signIou(domains, tabState(1, peer, other)) }
+  }
+
+  @Test
+  fun measuresIouSigning() {
+    val publicKey = key.create(domains, challenge).publicKey
+    val me = Envelope.compressed(publicKey)
+    val millis =
+      (1..SIGNATURES * 4).map { seq ->
+        val body = tabState(seq, me, peer)
+        timed { assertTrue(verifies(publicKey, iouEnvelope(body), key.signIou(domains, body))) }
+      }
+    Log.i(TAG, "signIou, new slot: ${percentiles(millis)} over ${millis.size}")
   }
 
   private companion object {

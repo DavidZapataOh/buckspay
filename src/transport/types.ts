@@ -5,6 +5,7 @@ export const MessageKind = {
   EventInvite: 3,
   PointPairing: 4,
   EventSync: 5,
+  Debts: 6,
 } as const
 // A value and its type share the name, as an enum does.
 // eslint-disable-next-line @typescript-eslint/no-redeclare

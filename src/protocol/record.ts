@@ -6,11 +6,12 @@ import { checkBytes } from './codec'
 
 export const SPENT_SEED = utf8ToBytes('spent')
 export const CLAIM_SEED = utf8ToBytes('claim')
+export const NETTING_SEED = utf8ToBytes('netting')
 /** The only bump a record or claim address is derived with. */
 export const RECORD_BUMP = 255
 const DERIVED_ADDRESS = utf8ToBytes('ProgramDerivedAddress')
 
-function derive(seed: Uint8Array, program: Uint8Array, output: Uint8Array): Uint8Array | undefined {
+export function derive(seed: Uint8Array, program: Uint8Array, output: Uint8Array): Uint8Array | undefined {
   checkBytes(program, 32)
   checkBytes(output, 32)
   const address = sha256(concatBytes(seed, output, Uint8Array.of(RECORD_BUMP), program, DERIVED_ADDRESS))

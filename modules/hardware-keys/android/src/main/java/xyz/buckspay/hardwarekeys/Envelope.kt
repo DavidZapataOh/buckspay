@@ -14,11 +14,18 @@ internal object Envelope {
   val PURPOSES = setOf("note", "device", "witness", "reclaim", "payword", "iou", "voice", "claim", "revoke")
 
   /** The purposes this device signs; the others are signed once their messages are defined. */
-  val SIGNED = setOf("note", "witness", "payword")
+  val SIGNED = setOf("note", "witness", "payword", "iou")
   private val TAG = "BUCKSPAY:v1:".toByteArray(Charsets.US_ASCII)
   private const val VERSION: Byte = 1
   private const val DEVICE_BINDING: Byte = 0x50
   private const val RECLAIM: Byte = 0x60
+  private const val TAB_STATE: Byte = 0x30
+  private const val NETTING_JOIN: Byte = 0x31
+  private const val TAB_STATE_LEN = 213
+  private const val JOIN_LEN = 99
+  private val SIGNED_CAUSES = setOf(1, 2, 4)
+  private val IOU_TAG = "IOUS".toByteArray(Charsets.US_ASCII)
+  private val JOIN_TAG = "NETJ".toByteArray(Charsets.US_ASCII)
   private const val UINT_MAX = 0xffff_ffffL
   private val SPKI_P256_PREFIX = hex("3059301306072a8648ce3d020106082a8648ce3d030107034200")
 
@@ -89,6 +96,52 @@ internal object Envelope {
         .putInt(deadline.toInt())
     return build(reclaimDomain, output, MessageDigest.getInstance("SHA-256").digest(body.array()))
   }
+
+  /**
+   * The guard slot of a tab state (0x30, `SHA-256("IOUS" ‖ tab ‖ seq)`) or a netting join (0x31,
+   * `SHA-256("NETJ" ‖ session)`); `IllegalArgumentException` for any other body, a state with
+   * `seq = 0`, and a cause other than Open, Repay or Outside (a netting is never signed as a state).
+   */
+  fun iouSlot(body: ByteArray): ByteArray =
+    MessageDigest.getInstance("SHA-256").run {
+      when {
+        isTabState(body) -> {
+          update(IOU_TAG)
+          update(body, 2, 36)
+        }
+
+        isJoin(body) -> {
+          update(JOIN_TAG)
+          update(body, 2, 32)
+        }
+
+        else -> {
+          throw IllegalArgumentException("not a tab state or a netting join")
+        }
+      }
+      digest()
+    }
+
+  /** The keys allowed to sign `body`, SEC1 compressed: `[debtor, creditor]` of a tab state or `[key]` of a join. */
+  fun iouSigners(body: ByteArray): List<ByteArray> {
+    val keys =
+      when {
+        isTabState(body) -> listOf(body.copyOfRange(38, 71), body.copyOfRange(71, 104))
+        isJoin(body) -> listOf(body.copyOfRange(66, 99))
+        else -> throw IllegalArgumentException("not a tab state or a netting join")
+      }
+    require(keys.all { it[0] == 0x02.toByte() || it[0] == 0x03.toByte() }) { "a signer is a compressed point" }
+    return keys
+  }
+
+  private fun isTabState(body: ByteArray) =
+    body.size == TAB_STATE_LEN &&
+      body[0] == VERSION &&
+      body[1] == TAB_STATE &&
+      ByteBuffer.wrap(body).order(ByteOrder.LITTLE_ENDIAN).getInt(34) != 0 &&
+      body[148].toInt() in SIGNED_CAUSES
+
+  private fun isJoin(body: ByteArray) = body.size == JOIN_LEN && body[0] == VERSION && body[1] == NETTING_JOIN
 
   /** The SEC1 compressed point of a P-256 X.509 public key in the encoding Keystore returns. */
   fun compressed(spki: ByteArray): ByteArray {

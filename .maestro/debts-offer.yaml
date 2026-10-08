@@ -1,0 +1,21 @@
+# The proposer of a debt: opens the list, offers `AMOUNT` as lent and waits until both phones signed.
+# Run with `-e AMOUNT=25 -e THEME=light` while the other phone runs debts-answer.yaml.
+appId: xyz.buckspay.app
+---
+- openLink: buckspay://debts
+- extendedWaitUntil:
+    visible:
+      id: debts
+    timeout: 20000
+- takeScreenshot: debts-list-${THEME}
+- tapOn: New debt
+- tapOn: I lent
+- tapOn: Amount
+- inputText: ${AMOUNT}
+- takeScreenshot: debts-new-${THEME}
+- tapOn: Send to sign
+- extendedWaitUntil:
+    visible:
+      id: tab
+    timeout: 120000
+- takeScreenshot: debts-signed-${THEME}

@@ -4,9 +4,14 @@ use buckspay_protocol::device::{
     device_binding_body, device_binding_envelope, device_rotation_body, device_rotation_envelope,
 };
 use buckspay_protocol::hash::{content, domain, envelope, message_id, output_id, purpose};
+use buckspay_protocol::iou::{cause, CoSigned, Iou, NettingJoin};
+use buckspay_protocol::netting::{
+    session_field, NettingStatement, BN254_R, MAX_PARTICIPANTS, STATEMENT_BASE_LEN,
+};
 use buckspay_protocol::payword::{self, Commitment, WordProof};
 use buckspay_protocol::profile::{PRODUCTION_DEVNET_PROGRAM_ID, SHORT_PROGRAM_ID};
 use buckspay_protocol::reclaim::{reclaim_body, reclaim_envelope, record_content};
+use buckspay_protocol::record::netting_address;
 use buckspay_protocol::slash::{covers, exposure, min_bond, payment_limit, penalty};
 use buckspay_protocol::ticket::TicketError;
 use buckspay_protocol::verify::{
@@ -29,6 +34,7 @@ use ed25519_dalek::Signer as _;
 use p256::ecdsa::{signature::Signer, Signature, SigningKey};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha512};
+use std::str::FromStr;
 
 const PROGRAM_ID: [u8; 32] = [0xb0; 32];
 const NOW: u32 = 1_800_000_000;
@@ -2049,6 +2055,11 @@ fn vectors() -> Value {
             device_rotation("alice_after_seven_rotations", &device_domain, (&[0xb5; 32], &[0xa1; 32]), 7, &alice, alice.public),
             device_rotation("uncompressed_key", &device_domain, (&[0xa1; 32], &[0xb5; 32]), 0, &alice, uncompressed),
         ],
+        "iou": iou_vectors(),
+        "netting": netting_vectors(),
+        "nettingBinding": netting_binding_vectors(),
+        "nettingInvalid": netting_invalid_vectors(),
+        "nettingJoin": netting_join_vectors(),
         "payword": payword(),
         "profiles": profiles(),
         "reclaims": reclaims(&derived_reclaim_domain),
@@ -2304,6 +2315,501 @@ fn issue_case<'a>(
         max_note_life: u32::MAX,
         reason: None,
     }
+}
+
+fn ed25519_public(seed: u8) -> [u8; 32] {
+    ed25519_dalek::SigningKey::from_bytes(&[seed; 32])
+        .verifying_key()
+        .to_bytes()
+}
+
+fn tab_state(
+    seq: u32,
+    (debtor, creditor): (&Key, &Key),
+    amount: u64,
+    cause: u8,
+    reference: [u8; 32],
+) -> Iou {
+    Iou {
+        tab: [0x7a; 32],
+        seq,
+        debtor: debtor.public,
+        creditor: creditor.public,
+        mint: MINT,
+        amount,
+        due: 0,
+        cause,
+        reference,
+        memo: [0; 32],
+    }
+}
+
+fn co_sign(iou: Iou, keys: [&Key; 2], iou_domain: &[u8; 32]) -> CoSigned {
+    let message = iou.envelope(iou_domain);
+    let by = |public: &[u8; 33]| {
+        keys.iter()
+            .find(|k| k.public == *public)
+            .unwrap()
+            .sign(&message)
+    };
+    CoSigned {
+        iou,
+        debtor_sig: by(&iou.debtor),
+        creditor_sig: by(&iou.creditor),
+    }
+}
+
+fn iou_vectors() -> Value {
+    let devnet = domain(purpose::IOU, &DEVNET_GENESIS_HASH, &PROGRAM_ID);
+    let mainnet = domain(purpose::IOU, &MAINNET_GENESIS_HASH, &PROGRAM_ID);
+    let (debtor, creditor) = (Key::new("debtor", 0xd1), Key::new("creditor", 0xc1));
+    let keys = [&debtor, &creditor];
+    let sha = |text: &str| -> [u8; 32] {
+        use sha2::Sha256;
+        Sha256::digest(text.as_bytes()).into()
+    };
+    let previous = |iou: &Iou| content(&iou.body());
+    let open = Iou {
+        memo: sha("Dinner"),
+        ..tab_state(1, (&debtor, &creditor), 25_000_000, cause::OPEN, [0; 32])
+    };
+    let outside_gap = Iou {
+        due: 1_900_000_000,
+        ..tab_state(
+            3,
+            (&debtor, &creditor),
+            10_000_000,
+            cause::OUTSIDE,
+            previous(&open),
+        )
+    };
+    let open_more = tab_state(
+        4,
+        (&debtor, &creditor),
+        5_000_000,
+        cause::OPEN,
+        previous(&outside_gap),
+    );
+    let outside_flip = tab_state(
+        5,
+        (&debtor, &creditor),
+        30_000_000,
+        cause::OUTSIDE,
+        previous(&open_more),
+    );
+    let repay = tab_state(6, (&creditor, &debtor), 2_000_000, cause::REPAY, [0x9e; 32]);
+    let states = [
+        ("open", open),
+        ("outside_gap", outside_gap),
+        ("open_more", open_more),
+        ("outside_flip", outside_flip),
+        ("repay", repay),
+    ];
+    let alternatives = [
+        tab_state(
+            7,
+            (&debtor, &creditor),
+            1_000_000,
+            cause::OPEN,
+            previous(&repay),
+        ),
+        tab_state(
+            8,
+            (&debtor, &creditor),
+            2_000_000,
+            cause::OPEN,
+            previous(&repay),
+        ),
+    ];
+    json!({
+        "domain": { "devnet": hex(&devnet), "mainnet": hex(&mainnet) },
+        "keys": { "debtor": hex(&debtor.public), "creditor": hex(&creditor.public) },
+        "tab": hex(&[0x7a; 32]),
+        "states": states.iter().map(|(name, iou)| {
+            let signed = co_sign(*iou, keys, &devnet);
+            json!({
+                "name": name,
+                "body": hex(&iou.body()),
+                "slot": hex(&iou.slot()),
+                "content": hex(&previous(iou)),
+                "envelope": { "devnet": hex(&iou.envelope(&devnet)), "mainnet": hex(&iou.envelope(&mainnet)) },
+                "debtor_sig": hex(&signed.debtor_sig),
+                "creditor_sig": hex(&signed.creditor_sig),
+                "wire": hex(&signed.encode()),
+            })
+        }).collect::<Vec<_>>(),
+        "alternatives": {
+            "predecessor": hex(&previous(&repay)),
+            "states": alternatives.iter().map(|iou| hex(&co_sign(*iou, keys, &devnet).encode())).collect::<Vec<_>>(),
+            "counted_seq": alternatives.iter().map(|iou| iou.seq).max().unwrap(),
+        },
+    })
+}
+
+fn netting_join_vectors() -> Value {
+    let iou_domain = domain(purpose::IOU, &DEVNET_GENESIS_HASH, &PROGRAM_ID);
+    let session = [0x5e; 32];
+    let joins = [
+        ("debtor", Key::new("debtor", 0xd1), 0x51),
+        ("creditor", Key::new("creditor", 0xc1), 0x52),
+    ];
+    json!({
+        "session": hex(&session),
+        "joins": joins.iter().map(|(name, key, seed)| {
+            let join = NettingJoin { session, ephemeral: ed25519_public(*seed), key: key.public };
+            let body = join.body();
+            let message = envelope(&iou_domain, &join.slot(), &content(&body));
+            json!({
+                "name": name,
+                "body": hex(&body),
+                "slot": hex(&join.slot()),
+                "content": hex(&content(&body)),
+                "envelope": hex(&message),
+                "signature": hex(&key.sign(&message)),
+            })
+        }).collect::<Vec<_>>(),
+    })
+}
+
+fn netting_statement(n: u8, root: [u8; 32]) -> NettingStatement {
+    let mut ephemeral = [[0; 32]; MAX_PARTICIPANTS];
+    for (i, key) in ephemeral.iter_mut().take(usize::from(n)).enumerate() {
+        *key = ed25519_public(0x51 + i as u8);
+    }
+    NettingStatement {
+        session: [0x50 + n; 32],
+        mint: MINT,
+        participants: n,
+        total: 1_000_000 * u64::from(n),
+        expires: EXPIRY,
+        root,
+        ephemeral,
+    }
+}
+
+fn statement_body(statement: &NettingStatement) -> Vec<u8> {
+    let mut out = [0; STATEMENT_BASE_LEN + 32 * MAX_PARTICIPANTS];
+    let len = statement.encode(&mut out);
+    out[..len].to_vec()
+}
+
+fn statement_roots() -> [(u8, [u8; 32]); 3] {
+    let mut five = [0; 32];
+    five[31] = 5;
+    let mut below_r = BN254_R;
+    below_r[31] -= 1;
+    [(2, [0x01; 32]), (5, five), (8, below_r)]
+}
+
+fn netting_vectors() -> Value {
+    let devnet = domain(purpose::NETTING, &DEVNET_GENESIS_HASH, &PROGRAM_ID);
+    let mainnet = domain(purpose::NETTING, &MAINNET_GENESIS_HASH, &PROGRAM_ID);
+    let production = solana_hash::Hash::from_str(PRODUCTION_DEVNET_PROGRAM_ID)
+        .unwrap()
+        .to_bytes();
+    let short = solana_hash::Hash::from_str(SHORT_PROGRAM_ID)
+        .unwrap()
+        .to_bytes();
+    let address = |program: &[u8; 32], statement: &NettingStatement| {
+        netting_address(program, &statement.content()).map_or(Value::Null, |a| json!(hex(&a)))
+    };
+    json!({
+        "domain": { "devnet": hex(&devnet), "mainnet": hex(&mainnet) },
+        "seeds": (0..MAX_PARTICIPANTS).map(|i| hex(&[0x51 + i as u8; 32])).collect::<Vec<_>>(),
+        "statements": statement_roots().iter().map(|(n, root)| {
+            let statement = netting_statement(*n, *root);
+            let message = statement.envelope(&devnet);
+            json!({
+                "n": n,
+                "body": hex(&statement_body(&statement)),
+                "content": hex(&statement.content()),
+                "envelope": { "devnet": hex(&message), "mainnet": hex(&statement.envelope(&mainnet)) },
+                "session_field": hex(&session_field(&statement)),
+                "public_inputs": statement.public_inputs().iter().map(|p| hex(p)).collect::<Vec<_>>(),
+                "netting_address": { "production": address(&production, &statement), "short": address(&short, &statement) },
+                "signatures": (0..*n).map(|i| {
+                    let key = ed25519_dalek::SigningKey::from_bytes(&[0x51 + i; 32]);
+                    hex(&key.sign(&message).to_bytes())
+                }).collect::<Vec<_>>(),
+            })
+        }).collect::<Vec<_>>(),
+    })
+}
+
+fn netting_binding_vectors() -> Value {
+    let mut root = [0; 32];
+    root[31] = 5;
+    let base = netting_statement(5, root);
+    let mut other_key = base;
+    other_key.ephemeral[4] = ed25519_public(0x60);
+    let case = |name: &str, statement: &NettingStatement| json!({ "name": name, "body": hex(&statement_body(statement)), "session_field": hex(&session_field(statement)) });
+    json!({
+        "base": { "body": hex(&statement_body(&base)), "session_field": hex(&session_field(&base)) },
+        "cases": [
+            case("other_key", &other_key),
+            case("other_expires", &NettingStatement { expires: base.expires + 1, ..base }),
+            case("other_mint", &NettingStatement { mint: [4; 32], ..base }),
+        ],
+    })
+}
+
+struct InvalidBody {
+    name: &'static str,
+    kind: &'static str,
+    body: Vec<u8>,
+    previous: Option<Vec<u8>>,
+    error: &'static str,
+}
+
+fn netting_invalid_vectors() -> Value {
+    let (debtor, third) = (Key::new("debtor", 0xd1), Key::new("third", 0xe1));
+    let ious = iou_vectors();
+    let state_body = |name: &str| -> Vec<u8> {
+        let state = ious["states"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["name"] == name)
+            .unwrap();
+        unhex(state["body"].as_str().unwrap())
+    };
+    let (open, outside_gap, open_more) = (
+        state_body("open"),
+        state_body("outside_gap"),
+        state_body("open_more"),
+    );
+    let wire = {
+        let state = ious["states"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["name"] == "open")
+            .unwrap();
+        unhex(state["wire"].as_str().unwrap())
+    };
+    let edit = |body: &[u8], f: &dyn Fn(&mut Vec<u8>)| {
+        let mut out = body.to_vec();
+        f(&mut out);
+        out
+    };
+    let join = NettingJoin {
+        session: [0x5e; 32],
+        ephemeral: ed25519_public(0x51),
+        key: debtor.public,
+    }
+    .body()
+    .to_vec();
+    let two = statement_body(&netting_statement(2, [0x01; 32]));
+    let five = statement_body(&netting_statement(5, statement_roots()[1].1));
+    let eight = statement_body(&netting_statement(8, statement_roots()[2].1));
+    let mut root_r = netting_statement(2, [0x01; 32]);
+    root_r.root = BN254_R;
+    let mut cases: Vec<InvalidBody> = Vec::new();
+    let mut add = |name, kind, body, previous, error| {
+        cases.push(InvalidBody {
+            name,
+            kind,
+            body,
+            previous,
+            error,
+        });
+    };
+    add("iou_short", "iou", open[..212].to_vec(), None, "Length");
+    add(
+        "iou_version",
+        "iou",
+        edit(&open, &|b| b[0] = 2),
+        None,
+        "Version",
+    );
+    add(
+        "iou_kind",
+        "iou",
+        edit(&open, &|b| b[1] = 0x31),
+        None,
+        "Kind",
+    );
+    add(
+        "iou_seq_zero",
+        "iou",
+        edit(&open, &|b| b[34..38].fill(0)),
+        None,
+        "Linkage",
+    );
+    add(
+        "iou_same_parties",
+        "iou",
+        edit(&open, &|b| {
+            let d = b[38..71].to_vec();
+            b[71..104].copy_from_slice(&d)
+        }),
+        None,
+        "Owner",
+    );
+    add(
+        "iou_bad_key_prefix",
+        "iou",
+        edit(&open, &|b| b[38] = 0x04),
+        None,
+        "Owner",
+    );
+    add(
+        "iou_unknown_cause_0",
+        "iou",
+        edit(&open, &|b| b[148] = 0),
+        None,
+        "Kind",
+    );
+    add(
+        "iou_unknown_cause_5",
+        "iou",
+        edit(&open, &|b| b[148] = 5),
+        None,
+        "Kind",
+    );
+    add(
+        "iou_cause_netting",
+        "iou",
+        edit(&open, &|b| {
+            b[148] = cause::NETTING;
+            b[149..181].fill(0x4e)
+        }),
+        None,
+        "Kind",
+    );
+    add(
+        "iou_amount_zero",
+        "iou",
+        edit(&open, &|b| b[136..144].fill(0)),
+        None,
+        "Amount",
+    );
+    add(
+        "iou_repay_without_reference",
+        "iou",
+        edit(&open, &|b| b[148] = cause::REPAY),
+        None,
+        "Kind",
+    );
+    add(
+        "cosigned_long",
+        "cosigned",
+        edit(&wire, &|b| b.push(0)),
+        None,
+        "Length",
+    );
+    add(
+        "follows_same_seq",
+        "follows",
+        outside_gap.clone(),
+        Some(outside_gap.clone()),
+        "Linkage",
+    );
+    add(
+        "follows_lower_seq",
+        "follows",
+        edit(&outside_gap, &|b| {
+            b[34..38].copy_from_slice(&2u32.to_le_bytes())
+        }),
+        Some(outside_gap.clone()),
+        "Linkage",
+    );
+    add(
+        "follows_other_tab",
+        "follows",
+        edit(&open_more, &|b| b[2..34].fill(0x7b)),
+        Some(outside_gap.clone()),
+        "Linkage",
+    );
+    add(
+        "follows_other_party",
+        "follows",
+        edit(&open_more, &|b| b[71..104].copy_from_slice(&third.public)),
+        Some(outside_gap.clone()),
+        "Linkage",
+    );
+    add(
+        "follows_other_mint",
+        "follows",
+        edit(&open_more, &|b| b[104..136].fill(4)),
+        Some(outside_gap.clone()),
+        "Linkage",
+    );
+    add("join_short", "join", join[..98].to_vec(), None, "Length");
+    add(
+        "join_bad_key",
+        "join",
+        edit(&join, &|b| b[66] = 0x05),
+        None,
+        "Owner",
+    );
+    add(
+        "statement_short",
+        "statement",
+        two[..two.len() - 1].to_vec(),
+        None,
+        "Length",
+    );
+    add(
+        "statement_n_1",
+        "statement",
+        edit(&two[..143], &|b| b[66] = 1),
+        None,
+        "Length",
+    );
+    add(
+        "statement_n_9",
+        "statement",
+        edit(&eight, &|b| {
+            b.extend_from_slice(&[0; 32]);
+            b[66] = 9
+        }),
+        None,
+        "Length",
+    );
+    add(
+        "statement_duplicate_key",
+        "statement",
+        edit(&five, &|b| {
+            let first = b[111..143].to_vec();
+            b[111 + 128..111 + 160].copy_from_slice(&first)
+        }),
+        None,
+        "Signer",
+    );
+    add(
+        "statement_root_r",
+        "statement",
+        statement_body(&root_r),
+        None,
+        "Amount",
+    );
+    add(
+        "statement_version",
+        "statement",
+        edit(&two, &|b| b[0] = 2),
+        None,
+        "Version",
+    );
+    Value::Array(
+        cases
+            .into_iter()
+            .map(|c| {
+                let mut case = json!({ "name": c.name, "type": c.kind, "body": hex(&c.body), "error": c.error });
+                if let Some(previous) = c.previous {
+                    case["previous"] = json!(hex(&previous));
+                }
+                case
+            })
+            .collect(),
+    )
+}
+
+fn unhex(s: &str) -> Vec<u8> {
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+        .collect()
 }
 
 pub fn render() -> String {

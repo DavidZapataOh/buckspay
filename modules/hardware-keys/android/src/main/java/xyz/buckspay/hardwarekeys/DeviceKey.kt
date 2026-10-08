@@ -54,6 +54,8 @@ internal class DeviceLockedException(
   cause: Throwable? = null,
 ) : CodedException("The device key is usable only while the device is unlocked", cause)
 
+internal class IouSignerException : CodedException("This device key is not a party to this body")
+
 internal class InvalidEnvelopeException(
   cause: Throwable,
 ) : CodedException("Invalid signing envelope", cause)
@@ -152,6 +154,29 @@ internal class DeviceKey(
     }
   }
 
+  /**
+   * DER `SHA256withECDSA` signature over `DOMAIN(iou) ‖ slot ‖ SHA-256(body)` for a tab state or a
+   * netting join that names this key, admitted first by the IOU guard: one body per slot, for good.
+   */
+  fun signIou(
+    domains: Domains,
+    body: ByteArray,
+  ): ByteArray {
+    val (slot, signers) =
+      try {
+        Envelope.iouSlot(body) to Envelope.iouSigners(body)
+      } catch (e: IllegalArgumentException) {
+        throw InvalidEnvelopeException(e)
+      }
+    val entry = signingEntry()
+    if (signers.none { it.contentEquals(Envelope.compressed(entry.publicKey)) }) throw IouSignerException()
+    if (keyguard.isDeviceLocked) throw DeviceLockedException()
+    val content = sha256(body)
+    val envelope = envelope(domains, IOU, slot, content)
+    val guard = guard(NoteGuard.binding(entry.publicKey, domains.of(NOTE)))
+    return guard.ious.admit(slot, content) { signature(entry.privateKey, envelope) }
+  }
+
   /** DER `SHA256withECDSA` signature over `DOMAIN(purpose) ‖ slot ‖ content` for `witness` and `payword`. */
   fun sign(
     domains: Domains,
@@ -159,7 +184,9 @@ internal class DeviceKey(
     slot: ByteArray,
     content: ByteArray,
   ): ByteArray {
-    if (purpose == NOTE) throw InvalidEnvelopeException(IllegalArgumentException("note envelopes are signed with signNote"))
+    if (purpose == NOTE || purpose == IOU) {
+      throw InvalidEnvelopeException(IllegalArgumentException("note and iou envelopes are signed with their own guarded functions"))
+    }
     val envelope = envelope(domains, purpose, slot, content)
     val entry = signingEntry()
     if (keyguard.isDeviceLocked) throw DeviceLockedException()
@@ -429,6 +456,7 @@ internal class DeviceKey(
   companion object {
     const val ALIAS = "buckspay-device"
     private const val NOTE = "note"
+    private const val IOU = "iou"
     private const val DEVICE = "device"
     private const val RECLAIM = "reclaim"
     private const val DAY = 24 * 60 * 60L

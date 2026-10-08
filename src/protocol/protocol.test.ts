@@ -123,7 +123,8 @@ describe('clusters and domains', () => {
     expect(bytesToHex(MAINNET_GENESIS_HASH)).toBe(vectors.clusters.mainnet)
   })
 
-  for (const purpose of Object.values(Purpose)) {
+  // the netting domain has its own vector section (netting.test.ts)
+  for (const purpose of Object.values(Purpose).filter((p) => p !== Purpose.Netting)) {
     it(`derives the ${purpose} domain like Rust`, () => {
       const genesisHash = hexToBytes(vectors.domain.genesis_hash)
       const derived = domain(purpose, genesisHash, hexToBytes(vectors.domain.program_id))

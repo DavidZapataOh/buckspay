@@ -11,6 +11,8 @@ import {
   checkIssueStep,
   checkSpendStep,
   content,
+  decodeIou,
+  decodeJoin,
   deviceBindingEnvelope,
   DEVNET_GENESIS_HASH,
   domain,
@@ -20,6 +22,9 @@ import {
   envelope,
   EXPIRY_STEP,
   interval,
+  iouSlot,
+  joinSlot,
+  Kind,
   type Commitment,
   commitmentTotal,
   decodeCommitment,
@@ -117,7 +122,7 @@ async function ownKey(): Promise<Uint8Array> {
 }
 
 function domainOf(
-  purpose: typeof Purpose.Note | typeof Purpose.Device | typeof Purpose.Reclaim | SignedPurpose,
+  purpose: typeof Purpose.Note | typeof Purpose.Device | typeof Purpose.Reclaim | typeof Purpose.Iou | SignedPurpose,
 ): Uint8Array {
   if (!genesisHash) throw new Error('configureDeviceKey must be called before signing')
   return domain(purpose, genesisHash, PROGRAM_ID)
@@ -125,7 +130,7 @@ function domainOf(
 
 /** Returns the native signature over `DOMAIN(purpose) ‖ slot ‖ body` as compact low-S, once it verifies. */
 async function verified(
-  purpose: typeof Purpose.Note | SignedPurpose,
+  purpose: typeof Purpose.Note | typeof Purpose.Iou | SignedPurpose,
   slot: Uint8Array,
   body: Uint8Array,
   sign: () => Promise<Uint8Array>,
@@ -135,6 +140,24 @@ async function verified(
   const signature = compactLowS(await sign())
   verifySignature(key, message, signature)
   return signature
+}
+
+/** The domain tab states and netting joins are signed under on `cluster`. */
+export const iouDomainOf = (cluster: Cluster): Uint8Array => domain(Purpose.Iou, GENESIS_HASH[cluster], PROGRAM_ID)
+
+/**
+ * Signs a tab state (kind 0x30) or a netting join (0x31) with this device key: compact low-S, verified against
+ * the key and the envelope before it returns. The device refuses a second body for the same slot, for good.
+ */
+export async function signIou(body: Uint8Array): Promise<Uint8Array> {
+  const slot = body[1] === Kind.NettingJoin ? joinSlot(decodeJoin(body).session) : tabSlot(body)
+  return verified(Purpose.Iou, slot, content(body), () => HardwareKeys.signIou(body))
+}
+
+function tabSlot(body: Uint8Array): Uint8Array {
+  if (body[1] !== Kind.Iou) throw new ProtocolError('Kind')
+  const iou = decodeIou(body)
+  return iouSlot(iou.tab, iou.seq)
 }
 
 /** A message and the signature of this device over it. */

@@ -9,6 +9,9 @@ pub mod kind {
     pub const SPEND_CONFLICT: u8 = 0x20;
     pub const ISSUE_CONFLICT: u8 = 0x21;
     pub const CHANNEL_CONFLICT: u8 = 0x22;
+    pub const IOU: u8 = 0x30;
+    pub const NETTING_JOIN: u8 = 0x31;
+    pub const NETTING: u8 = 0x32;
     pub const PAYWORD: u8 = 0x40;
     pub const DEVICE_BINDING: u8 = 0x50;
     pub const ROTATION: u8 = 0x51;
@@ -28,7 +31,7 @@ pub const CHALLENGE: u32 = 7 * 24 * 60 * 60;
 pub const CHALLENGE: u32 = 60;
 const ISSUE_SLOT_TAG: &[u8; 4] = b"ISSU";
 
-fn header(bytes: &[u8], expected_kind: u8) -> Result<()> {
+pub(crate) fn header(bytes: &[u8], expected_kind: u8) -> Result<()> {
     if bytes.first() != Some(&VERSION) {
         return Err(ProtocolError::Version);
     }
@@ -44,11 +47,11 @@ pub(crate) fn array<const N: usize>(bytes: &[u8], at: usize) -> [u8; N] {
     out
 }
 
-fn u32_at(bytes: &[u8], at: usize) -> u32 {
+pub(crate) fn u32_at(bytes: &[u8], at: usize) -> u32 {
     u32::from_le_bytes(array(bytes, at))
 }
 
-fn u64_at(bytes: &[u8], at: usize) -> u64 {
+pub(crate) fn u64_at(bytes: &[u8], at: usize) -> u64 {
     u64::from_le_bytes(array(bytes, at))
 }
 

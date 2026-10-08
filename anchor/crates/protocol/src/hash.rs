@@ -14,6 +14,7 @@ pub mod purpose {
     pub const VOICE: &[u8] = b"voice";
     pub const CLAIM: &[u8] = b"claim";
     pub const REVOKE: &[u8] = b"revoke";
+    pub const NETTING: &[u8] = b"netting";
 }
 
 pub fn domain(purpose: &[u8], genesis_hash: &[u8; 32], program_id: &[u8; 32]) -> [u8; 32] {
@@ -46,7 +47,7 @@ mod tests {
     use crate::cluster::{DEVNET_GENESIS_HASH, MAINNET_GENESIS_HASH};
 
     const PROGRAM: [u8; 32] = [7; 32];
-    const PURPOSES: [&[u8]; 10] = [
+    const PURPOSES: [&[u8]; 11] = [
         purpose::NOTE,
         purpose::TICKET,
         purpose::DEVICE,
@@ -57,6 +58,7 @@ mod tests {
         purpose::VOICE,
         purpose::CLAIM,
         purpose::REVOKE,
+        purpose::NETTING,
     ];
 
     #[test]

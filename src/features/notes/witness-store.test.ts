@@ -1,4 +1,4 @@
-import { REWARDS_SCHEMA_VERSION } from '../rewards/secrets-store'
+import { DEBTS_SCHEMA_VERSION } from '../debts/store'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { encodeBundle } from '../../payment/messages'
 import { makeTicket, MINT, party, signIssue } from '../../payment/testing/world'
@@ -90,13 +90,13 @@ describe('migrateWitness', () => {
     )
     expect(row).toEqual({ witness: null, witness_signed: 0 })
     expect((await fresh.all<{ user_version: number }>('PRAGMA user_version'))[0].user_version).toBe(
-      REWARDS_SCHEMA_VERSION,
+      DEBTS_SCHEMA_VERSION,
     )
   })
 
   it('runs twice without harm', async () => {
     await migrateWitness(db)
-    expect(await version()).toBe(REWARDS_SCHEMA_VERSION)
+    expect(await version()).toBe(DEBTS_SCHEMA_VERSION)
   })
 
   it('refuses a database that is not at version 1', async () => {

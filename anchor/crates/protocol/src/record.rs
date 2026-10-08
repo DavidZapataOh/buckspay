@@ -5,6 +5,7 @@
 //! message until it can, and every receiver refuses an output that cannot.
 pub const SPENT_SEED: &[u8] = b"spent";
 pub const CLAIM_SEED: &[u8] = b"claim";
+pub const NETTING_SEED: &[u8] = b"netting";
 /// The only bump a record or claim address is derived with.
 pub const RECORD_BUMP: u8 = 255;
 
@@ -71,6 +72,12 @@ pub fn address(program: &[u8; 32], output: &[u8; 32]) -> Option<[u8; 32]> {
 #[cfg(feature = "verify")]
 pub fn claim_address(program: &[u8; 32], output: &[u8; 32]) -> Option<[u8; 32]> {
     derive(CLAIM_SEED, program, output)
+}
+
+/// The address where a netting statement is recorded, or `None` when `content` is not recordable.
+#[cfg(feature = "verify")]
+pub fn netting_address(program: &[u8; 32], content: &[u8; 32]) -> Option<[u8; 32]> {
+    derive(NETTING_SEED, program, content)
 }
 
 /// Whether an output can be accepted from a payer: it has a record address, for the settlement of

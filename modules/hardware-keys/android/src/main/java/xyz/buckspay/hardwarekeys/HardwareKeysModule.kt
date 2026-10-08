@@ -35,6 +35,11 @@ class HardwareKeysModule : Module() {
         withContext(keystore) { deviceKey().signNote(domains, slot, content) }
       }
 
+      AsyncFunction("signIou") Coroutine { body: ByteArray ->
+        val domains = configuration.domains ?: throw NotConfiguredException()
+        withContext(keystore) { deviceKey().signIou(domains, body) }
+      }
+
       AsyncFunction("sign") Coroutine { purpose: String, slot: ByteArray, content: ByteArray ->
         val domains = configuration.domains ?: throw NotConfiguredException()
         withContext(keystore) { deviceKey().sign(domains, purpose, slot, content) }

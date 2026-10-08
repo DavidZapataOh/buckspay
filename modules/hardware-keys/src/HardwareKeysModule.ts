@@ -30,6 +30,12 @@ declare class HardwareKeysModule extends NativeModule {
   /** DER signature over `DOMAIN(purpose) ‖ slot ‖ content`. */
   sign(purpose: SignedPurpose, slot: Uint8Array, content: Uint8Array): Promise<Uint8Array>
   /**
+   * DER signature over `DOMAIN(iou) ‖ slot ‖ SHA-256(body)` for a tab state (kind 0x30) or a netting
+   * join (kind 0x31). The module checks the body's length, version and kind, derives the slot from it
+   * and signs one body per slot, for good; the same body again returns a fresh signature.
+   */
+  signIou(body: Uint8Array): Promise<Uint8Array>
+  /**
    * DER signature over this device key's consent to being bound to `wallet` (32 bytes), a message
    * the module builds from the key: `DOMAIN(device) ‖ wallet ‖ SHA-256(ver ‖ 0x50 ‖ wallet ‖ key)`.
    */
