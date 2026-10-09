@@ -45,12 +45,21 @@ export function createWitnessPort({
       const existing = running.get(key)
       if (existing) return existing.result
       const abort = new AbortController()
-      const result = run(messageId, role, abort.signal).finally(() => running.delete(key))
-      running.set(key, { result, abort })
-      return result
+      const entry = {
+        result: run(messageId, role, abort.signal).finally(() => {
+          if (running.get(key) === entry) running.delete(key)
+        }),
+        abort,
+      }
+      running.set(key, entry)
+      return entry.result
     },
     cancel(messageId) {
-      for (const role of ROLES) running.get(keyOf(messageId, role))?.abort.abort()
+      for (const role of ROLES) {
+        const key = keyOf(messageId, role)
+        running.get(key)?.abort.abort()
+        running.delete(key)
+      }
     },
   }
 }

@@ -80,6 +80,16 @@ describe('the witness port', () => {
     expect(r.kept.size).toBe(0)
   })
 
+  it('starts a new attempt when a screen cancels and attaches again in the same tick', async () => {
+    const { receiver, payerPort } = ports()
+    const first = payerPort.attach(PAYMENT_ID, 'payer')
+    payerPort.cancel(PAYMENT_ID)
+    const second = payerPort.attach(PAYMENT_ID, 'payer')
+    const [a, b, c] = await Promise.all([first, second, receiver.attach(PAYMENT_ID, 'receiver')])
+    expect(a.status).toBe('not-seen')
+    expect([b.status, c.status]).toEqual(['seen', 'seen'])
+  })
+
   it('cancel ends a running attempt as not seen', async () => {
     const { receiver } = ports()
     const pending = receiver.attach(PAYMENT_ID, 'receiver')
