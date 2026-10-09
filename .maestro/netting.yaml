@@ -1,0 +1,20 @@
+# Opens the netting entry from Activity, shows the host lobby with its code, and the join screen's
+# not-found state for a code nobody hosts. Run with -e INVITE_URL=buckspay-e2e://scan?text=<an invite, URL-encoded>.
+appId: xyz.buckspay.app
+---
+- launchApp
+- extendedWaitUntil: { visible: { id: device-ready }, timeout: 30000 }
+- tapOn: Activity
+- tapOn: { id: netting-entry }
+- extendedWaitUntil: { visible: { id: netting-index }, timeout: 10000 }
+- takeScreenshot: netting-index
+- tapOn: { id: netting-host }
+- extendedWaitUntil: { visible: { id: netting-qr }, timeout: 20000 }
+- assertVisible: 1 joined
+- takeScreenshot: netting-lobby
+- back
+- tapOn: { id: netting-join }
+- extendedWaitUntil: { visible: { id: netting-scan-hint }, timeout: 10000 }
+- openLink: ${INVITE_URL}
+- extendedWaitUntil: { visible: 'Could not find the host. Stay close and try again.', timeout: 45000 }
+- takeScreenshot: netting-not-found

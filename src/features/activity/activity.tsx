@@ -3,6 +3,7 @@ import { Pressable, View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Screen } from '../../components/screen'
 import { copy } from '../payment/copy'
+import { NettingEntries } from '../netting/entries'
 import { rewardsCopy } from '../rewards/copy'
 import type { ActivityRow } from '../notes/activity'
 import { activityId, sentence } from './format'
@@ -38,6 +39,7 @@ export function ActivityList({
   return (
     <Screen testID="activity">
       <AppText variant="headline">{copy.activity.title}</AppText>
+      <NettingEntries />
       {rewards ? (
         <Pressable
           testID="rewards-entry"
