@@ -419,4 +419,15 @@ describe('noteState: exactly these reads', () => {
     }
     expect(await noteState(s.input, deps)).toBe('settling')
   })
+
+  it('a_spent_shaped_account_owned_by_another_program_is_not_a_record', async () => {
+    const s = await setup()
+    s.setTime(999)
+    s.put(s.content, true)
+    const foreign = async (address: Uint8Array) => {
+      const account = await s.deps.chain.account(address)
+      return account && { ...account, owner: new Uint8Array(32).fill(7) }
+    }
+    expect(await noteState(s.input, { ...s.deps, chain: { ...s.deps.chain, account: foreign } })).toBe('settling')
+  })
 })

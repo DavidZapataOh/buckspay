@@ -310,7 +310,8 @@ async function makeRig(n: number, specs: TabSpec[], options: RigOptions = {}, sh
   const random = (len: number) => Uint8Array.from({ length: len }, () => Math.floor(rng() * 256))
   const invite = newInvite(random)
   const participants = active ?? people.map((_, i) => i)
-  const timeouts = { ...FAKE_TIMEOUTS, ...options.timeouts }
+  // A real proof takes seconds, not the fraction of a second the fakes need.
+  const timeouts = { ...FAKE_TIMEOUTS, ...(options.prove ? { final: 120_000 } : {}), ...options.timeouts }
   const events: SessionEvent[] = []
   const net = new Net(
     invite,

@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -18,9 +18,17 @@ export function realProver(bin: string, keys: string) {
       try {
         const file = join(dir, 'witness.bin')
         writeFileSync(file, witness)
-        const run = spawnSync(bin, ['netting', 'prove', '--keys', keys, '--witness', file], { encoding: 'utf8' })
-        if (run.status !== 0) throw new Error(`prover failed: ${run.stderr}`)
-        const raw = run.stdout.trim()
+        const raw = await new Promise<string>((resolve, reject) => {
+          const child = spawn(bin, ['netting', 'prove', '--keys', keys, '--witness', file])
+          let out = ''
+          let err = ''
+          child.stdout.on('data', (chunk) => (out += chunk))
+          child.stderr.on('data', (chunk) => (err += chunk))
+          child.on('error', reject)
+          child.on('close', (code) =>
+            code === 0 ? resolve(out.trim().split('\n').at(-1)!.trim()) : reject(new Error(`prover failed: ${err}`)),
+          )
+        })
         const statement = witnessStatement(witness)
         proved.set(keyOf(statement), raw)
         return hexToBytes(raw)

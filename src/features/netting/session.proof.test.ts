@@ -4,14 +4,16 @@ import { rig, week } from './testing/group'
 import { SessionType } from './messages'
 
 let prover: ReturnType<typeof realProver>
+const bin = process.env.BUCKSPAY_ZK_BIN
+const keys = process.env.BUCKSPAY_ZK_KEYS
+const available = !!bin && !!keys
+
 beforeAll(() => {
-  const bin = process.env.BUCKSPAY_ZK_BIN
-  const keys = process.env.BUCKSPAY_ZK_KEYS
-  if (!bin || !keys) throw new Error('set BUCKSPAY_ZK_BIN and BUCKSPAY_ZK_KEYS (08-03 netting test keys)')
-  prover = realProver(bin, keys)
+  if (available) prover = realProver(bin, keys)
 })
 
-describe('with the real Groth16 prover and verifier', () => {
+// Runs when BUCKSPAY_ZK_BIN (the buckspay-zk binary) and BUCKSPAY_ZK_KEYS (a netting test key directory) are set.
+describe.skipIf(!available)('with the real Groth16 prover and verifier', () => {
   it('five_members_net_a_week_and_every_member_verifies_a_valid_proof', async () => {
     const r = await rig(5, week(3), { prove: prover.prove, verify: prover.verify })
     const outcomes = await r.run()
