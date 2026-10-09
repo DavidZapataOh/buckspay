@@ -5,11 +5,11 @@ import { AppState } from 'react-native'
 import { deviceKeyCluster, signWitnessRecord } from '../../keys'
 import { paymentDomains } from '../../payment/domains'
 import { ACTIVE_PROFILE } from '../../protocol/active-profile'
-import type { Attester } from '../../protocol'
+import { type Attester, attesterFresh } from '../../protocol'
 import { formatError } from '../../utils/format-error'
 import { loadRegistry, parseTrusted, saveRegistry } from '../attesters/registry-cache'
 import { readRegistryEntry } from '../attesters/registry-read'
-import { syncRegistry } from '../attesters/registry-sync'
+import { syncRegistry, syncUntilUsable, withTimeout } from '../attesters/registry-sync'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import type { NoteDb } from '../notes/db'
 import { openNoteDb } from '../notes/key'
@@ -25,6 +25,8 @@ import type { PaymentDomains } from './receiver'
 const PROGRAM_ADDRESS = address(ACTIVE_PROFILE.programId)
 const TRUSTED = parseTrusted(process.env.EXPO_PUBLIC_ATTESTERS)
 const SECOND_RPC = process.env.EXPO_PUBLIC_SECOND_RPC_URL
+const REGISTRY_READ_TIMEOUT_MS = 10_000
+const REGISTRY_RETRY_DELAYS_MS = [3_000, 6_000, 12_000, 24_000, 48_000]
 
 export type Payments = {
   /** The note store, once it is open and has been reconciled with the device key. */
@@ -60,6 +62,7 @@ export function PaymentsProvider({ children }: { children: ReactNode }) {
   const [attesters, setAttesters] = useState<readonly Attester[]>([])
   const attestersRef = useRef(attesters)
   const syncing = useRef(false)
+  const cacheLoaded = useRef<Promise<void>>(Promise.resolve())
   const [witnessSettings, setSettings] = useState(DEFAULT_WITNESS_SETTINGS)
   const settingsRef = useRef(witnessSettings)
   const key = deviceKey?.publicKey
@@ -74,7 +77,7 @@ export function PaymentsProvider({ children }: { children: ReactNode }) {
     openNoteDb().then(setOpened, (failure: unknown) =>
       setError(`Couldn’t open the payments store. ${formatError(failure)}`),
     )
-    void loadRegistry().then((loaded) => {
+    cacheLoaded.current = loadRegistry().then((loaded) => {
       attestersRef.current = loaded
       setAttesters(loaded)
     })
@@ -122,8 +125,9 @@ export function PaymentsProvider({ children }: { children: ReactNode }) {
     if (TRUSTED.length === 0 || syncing.current) return
     syncing.current = true
     try {
-      const readers = [client.rpc, ...(SECOND_RPC ? [createSolanaRpc(SECOND_RPC)] : [])].map(
-        (rpc) => (id: number) => readRegistryEntry(rpc, PROGRAM_ADDRESS, id),
+      await cacheLoaded.current
+      const readers = [client.rpc, ...(SECOND_RPC ? [createSolanaRpc(SECOND_RPC)] : [])].map((rpc) =>
+        withTimeout((id: number) => readRegistryEntry(rpc, PROGRAM_ADDRESS, id), REGISTRY_READ_TIMEOUT_MS),
       )
       const believed = await syncRegistry({
         trusted: TRUSTED,
@@ -140,11 +144,36 @@ export function PaymentsProvider({ children }: { children: ReactNode }) {
   }, [client.rpc])
 
   useEffect(() => {
-    void syncAttesters().catch(() => {})
+    if (TRUSTED.length === 0) return
+    let current = true
+    let looping = false
+    const usable = () =>
+      attestersRef.current.some((attester) => attester.active && attesterFresh(attester, nowSeconds()))
+    const keepSyncing = async () => {
+      if (looping) return
+      looping = true
+      try {
+        await syncUntilUsable({
+          sync: syncAttesters,
+          usable,
+          delays: REGISTRY_RETRY_DELAYS_MS,
+          wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+          stopped: () => !current,
+          onError: (error) =>
+            console.warn(`registry sync failed: ${error instanceof Error ? error.message : typeof error}`),
+        })
+      } finally {
+        looping = false
+      }
+    }
+    void keepSyncing()
     const subscription = AppState.addEventListener('change', (status) => {
-      if (status === 'active') void syncAttesters().catch(() => {})
+      if (status === 'active') void keepSyncing()
     })
-    return () => subscription.remove()
+    return () => {
+      current = false
+      subscription.remove()
+    }
   }, [syncAttesters])
 
   const value = useMemo<Payments>(
