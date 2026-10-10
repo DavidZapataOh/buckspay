@@ -13,6 +13,12 @@ export function pause(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
+/** Writes one `PAYTRACE` line with what a decision looked at. End-to-end builds only: in any other build this does nothing. */
+export function trace(name: string, data: object) {
+  if (process.env.EXPO_PUBLIC_E2E !== '1') return
+  console.log(`PAYTRACE ${JSON.stringify({ name, ...data })}`)
+}
+
 /** Writes one `PAYTIME` line to the log: each mark's time since the first, never a key, an amount or an id. */
 export function report() {
   if (process.env.EXPO_PUBLIC_E2E !== '1' || marks.length === 0) return

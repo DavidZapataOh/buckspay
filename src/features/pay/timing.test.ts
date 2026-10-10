@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mark, pause, report } from './timing'
+import { mark, pause, report, trace } from './timing'
 
 afterEach(() => vi.unstubAllEnvs())
 
@@ -57,5 +57,27 @@ describe('timing marks', () => {
       expect(immediate).toBe(true)
     }
     vi.useRealTimers()
+  })
+
+  it('writes nothing for a trace in a build that is not an end-to-end build', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    trace('respend', { held: 1 })
+    expect(log).not.toHaveBeenCalled()
+    log.mockRestore()
+  })
+
+  it('writes one PAYTRACE line with the name and what was looked at, in an end-to-end build', () => {
+    vi.stubEnv('EXPO_PUBLIC_E2E', '1')
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    trace('respend', { held: 2, result: 'NoPassableNote' })
+    expect(log).toHaveBeenCalledTimes(1)
+    const [line] = log.mock.calls[0]
+    expect(line).toMatch(/^PAYTRACE /)
+    expect(JSON.parse(String(line).slice('PAYTRACE '.length))).toEqual({
+      name: 'respend',
+      held: 2,
+      result: 'NoPassableNote',
+    })
+    log.mockRestore()
   })
 })

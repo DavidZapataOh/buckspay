@@ -35,6 +35,7 @@ import { useTransportChoice, useTransports } from '../transport/use-transports'
 import { formatMoney } from '../../utils/format-amount'
 import { PAY_LIMITS } from './limits'
 import { useSyncReducer } from './use-sync-reducer'
+import { trace } from './timing'
 import { initialPayState, payReducer, type PayState, type ScanStep } from './pay-reducer'
 import { BUILD_TOKEN, BUILD_TOKENS } from './tokens'
 
@@ -207,9 +208,25 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
           ...(await paymentContext(store, startOfToday())),
         }
         step = 'E_PLAN'
-        const respent = credit
-          ? null
-          : planRespend(request, await withoutFlagged(store, await heldOutputs(store, key, context.now)), context)
+        const held = credit ? [] : await withoutFlagged(store, await heldOutputs(store, key, context.now))
+        const respent = credit ? null : planRespend(request, held, context)
+        if (process.env.EXPO_PUBLIC_E2E === '1') {
+          trace('respend', {
+            minHops: request.minHops,
+            amount: String(request.amount),
+            held: held.length,
+            notes: held.map(({ output, bundle }) => ({
+              amount: String(output.amount),
+              hopsLeft: output.caveats.hopsLeft,
+              expiresIn: output.caveats.expiry - context.now,
+              ticketsValidFor: bundle.tickets.map((ticket) => ticket.validUntil - context.now),
+            })),
+            states: await store.all<{ state: string; n: number }>(
+              'SELECT state, COUNT(*) AS n FROM received_note GROUP BY state',
+            ),
+            result: respent === null ? 'credit' : respent.ok ? 'ok' : respent.reason,
+          })
+        }
         dispatch({
           type: 'planned',
           request,
