@@ -28,7 +28,9 @@ export function whyWaiting(report: SettlementReport | undefined, outputId: Uint8
   if (refused) {
     if (refused.kind === 'no_token_account') return { text: copy.activity.noTokenAccount }
     if (refused.retryAt !== undefined) {
-      return { text: text(copy.activity.serverLater, { time: new Date(refused.retryAt * 1000).toLocaleString() }) }
+      const later = text(copy.activity.serverLater, { time: new Date(refused.retryAt * 1000).toLocaleString() })
+      const said = refused.reason ? copy.activity.serverReasons[refused.reason] : undefined
+      return { text: said ? `${said} ${later}` : later }
     }
     if (refused.kind === 'limited' || refused.kind === 'busy') return { text: busy(refused.reason ?? refused.kind) }
     if (refused.kind === 'below_minimum') return { text: copy.activity.serverMinimum }

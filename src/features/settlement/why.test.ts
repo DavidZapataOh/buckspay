@@ -58,6 +58,20 @@ describe('whyWaiting', () => {
     expect(said('limited', 'lock_limit')).toContain('(lock_limit)')
   })
 
+  it('says which limit was hit and when the server will take the note, together', () => {
+    const refused = { outputId: id, kind: 'limited', selfPay: false, reason: 'key_limit', retryAt: 1_800_086_460 }
+    const said = whyWaiting(report({ refused: [refused] }), id)?.text
+    expect(said).toContain("This payer's settlements for the day or month are used up (key_limit).")
+    expect(said).toContain('The server will take this one after')
+  })
+
+  it('says the phone asked too often when the request limiter answers in its own words', () => {
+    const refused = { outputId: id, kind: 'limited', selfPay: false, reason: 'too many requests' }
+    expect(whyWaiting(report({ refused: [refused] }), id)?.text).toBe(
+      'This phone asked the server too often (too many requests). This phone will try again.',
+    )
+  })
+
   it('keeps the generic sentence, with the code, for a reason it does not know', () => {
     const refused = { outputId: id, kind: 'busy', selfPay: true, reason: 'something_new' }
     expect(whyWaiting(report({ refused: [refused] }), id)?.text).toBe(

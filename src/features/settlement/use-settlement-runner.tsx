@@ -65,6 +65,7 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
   const [report, setReport] = useState<SettlementReport>()
   const [labelPending, setLabelPending] = useState(false)
   const attempts = useRef(new Map<string, number>())
+  const pauses = useRef(new Map<string, { reason: string; until: number }>())
   const running = useRef(false)
   const again = useRef(false)
   const [busy, setBusy] = useState(false)
@@ -102,6 +103,7 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
         noticeShown: isNoticeShown,
         random: Math.random,
         attempts: attempts.current,
+        pauses: pauses.current,
         queueRelay: cluster ? relayQueue(db, genesisHashOf(cluster), nowSeconds) : undefined,
         private: createDevicePrivateRoute({
           db,

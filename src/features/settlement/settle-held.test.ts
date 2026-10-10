@@ -366,6 +366,41 @@ describe('settleHeld', () => {
     expect(await stateOf(outputId)).toBe('settling')
   })
 
+  it('stops asking for a payer whose settlements of the day are used up, and says why until the day ends', async () => {
+    const first = await receive(5_000_000n)
+    const second = await receive(10_000_000n)
+    const pauses = new Map()
+    answers = [() => Promise.reject(new GatewayError(429, 'key_limit', {}))]
+    const tomorrow = (Math.floor(clock / 86_400) + 1) * 86_400 + 60
+
+    const report = await settleHeld(deps({ pauses }))
+    expect(sent).toHaveLength(1)
+    expect(report.settled).toBe(0)
+    expect(report.refused).toHaveLength(2)
+    for (const outputId of [first.outputId, second.outputId]) {
+      expect(report.refused).toContainEqual(
+        expect.objectContaining({ outputId, kind: 'limited', reason: 'key_limit', retryAt: tomorrow }),
+      )
+    }
+    expect(report.retryIn).toBe(tomorrow - clock)
+
+    await settleHeld(deps({ pauses }))
+    expect(sent).toHaveLength(1)
+
+    clock = tomorrow + 1
+    const after = await settleHeld(deps({ pauses }))
+    expect(sent.length).toBeGreaterThan(1)
+    expect(after.settled).toBeGreaterThan(0)
+  })
+
+  it('goes on asking for a payer that is not the one over the limit', async () => {
+    await receive()
+    const other = new Map([['ff'.repeat(33), { reason: 'key_limit', until: clock + 3_600 }]])
+    const report = await settleHeld(deps({ pauses: other }))
+    expect(sent).toHaveLength(1)
+    expect(report.settled).toBe(1)
+  })
+
   it('never settles a note of another key', async () => {
     const { outputId } = await receive()
     await db.run("UPDATE received_note SET state = 'lost' WHERE output_id = ?", [outputId])

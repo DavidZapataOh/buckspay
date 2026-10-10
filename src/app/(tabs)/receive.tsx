@@ -10,6 +10,7 @@ import { useDeviceIdentity } from '../../features/identity/use-device-identity'
 import { MIN_WINDOW, PAY_LIMITS } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { copy, text } from '../../features/payment/copy'
+import { useSettlementMinimum } from '../../features/settlement/use-settlement-minimum'
 import { eventCopy } from '../../features/event/copy'
 import { remoteCopy } from '../../features/remote/copy'
 import { HowControl } from '../../features/transport/how-control'
@@ -27,6 +28,7 @@ export default function Receive() {
   const [memo, setMemo] = useState('')
   const [passOn, setPassOn] = useState(false)
   const [error, setError] = useState<string>()
+  const minimum = useSettlementMinimum()
   const units = parseAmount(amount, BUILD_TOKEN.decimals)
   const valid = units !== undefined && units > 0n && units <= PAY_LIMITS.maxPayment
   const max = `${formatMoney(PAY_LIMITS.maxPayment, BUILD_TOKEN.decimals)} ${BUILD_TOKEN.symbol}`
@@ -96,6 +98,18 @@ export default function Receive() {
           <AppText variant="label" tone="muted">
             {copy.receive.bondLimit}
           </AppText>
+          {minimum !== undefined ? (
+            <AppText testID="receive-minimum" variant="label" tone="muted">
+              {text(copy.receive.minimum, {
+                amount: `${formatMoney(minimum, BUILD_TOKEN.decimals)} ${BUILD_TOKEN.symbol}`,
+              })}
+            </AppText>
+          ) : null}
+          {minimum !== undefined && units !== undefined && units > 0n && units < minimum ? (
+            <AppText testID="receive-below-minimum" variant="label">
+              {copy.receive.belowMinimum}
+            </AppText>
+          ) : null}
           <StatusNote tone="danger" message={error} />
           <Button
             testID="receive-create"

@@ -61,6 +61,8 @@ export type SettlementDeps = {
   random: () => number
   /** Failures so far per note (hex of its output id); the runner keeps it between runs. */
   attempts: Map<string, number>
+  /** Payers (hex of their key) the gateway stopped sponsoring for the day: the reason and when to ask again. The runner keeps it between runs. */
+  pauses?: Map<string, { reason: string; until: number }>
   /** Seals a note this phone cannot settle for lack of a connection and queues it for a phone nearby that has one. */
   queueRelay?: (note: { outputId: Uint8Array; chain: NoteChain; expiry: number }) => Promise<void>
   /**
@@ -126,6 +128,9 @@ export type SettlementReport = {
   /** Seconds until the next run is worth making, when something waits. */
   retryIn?: number
 }
+
+/** The gateway counts what it sponsors per payer key by UTC day: a minute past midnight, when the count starts again. */
+const startOfNextDay = (now: number) => (Math.floor(now / 86_400) + 1) * 86_400 + 60
 
 const reasonOf = (refusal: Refusal) =>
   'reason' in refusal ? refusal.reason : refusal.kind === 'invalid' ? refusal.message : undefined
@@ -253,6 +258,19 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
       }
       continue
     }
+    const issuer = bytesToHex(bundle.issue.message.issuer)
+    const paused = deps.pauses?.get(issuer)
+    if (paused && deps.now() < paused.until) {
+      report.refused.push({
+        outputId: note.outputId,
+        kind: 'limited',
+        selfPay: false,
+        retryAt: paused.until,
+        reason: paused.reason,
+      })
+      wait(paused.until - deps.now())
+      continue
+    }
     const request = settlementRequest(chain)
     const outcome = await settle(deps.gateway, request)
     if (outcome.kind === 'sent' || outcome.kind === 'settled') {
@@ -280,7 +298,10 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
         await setNoteState(db, note.outputId, 'expired', deps.now())
         report.failed++
       } else {
-        const retryAt = refusal.kind === 'horizon' ? refusal.retryAt : undefined
+        const pausedUntil =
+          refusal.kind === 'limited' && refusal.reason === 'key_limit' ? startOfNextDay(deps.now()) : undefined
+        if (pausedUntil !== undefined) deps.pauses?.set(issuer, { reason: 'key_limit', until: pausedUntil })
+        const retryAt = refusal.kind === 'horizon' ? refusal.retryAt : pausedUntil
         report.refused.push({
           outputId: note.outputId,
           kind: refusal.kind,
