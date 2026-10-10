@@ -18,7 +18,7 @@ import type { ReceiveContext } from '../../payment/receive'
 import { receivePayment, showRequest } from '../../payment/receive-flow'
 import { attesterFresh } from '../../protocol'
 import { ACTIVE_PROFILE } from '../../protocol/active-profile'
-import type { Transport, TransportId } from '../../transport/types'
+import { type Transport, TransportError, type TransportId } from '../../transport/types'
 import { parseAmount } from '../../utils/format-amount'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { copy } from '../payment/copy'
@@ -158,6 +158,23 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
     [key, medium, point, slot, usable, witnessSettings],
   )
 
+  /** The payer's link dropped before a payment arrived: open the session again for the same request while it lives. */
+  const advertiseAgain = useCallback(
+    async (request: PaymentRequest) => {
+      try {
+        const opened = await slot.open(medium, 'receiver')
+        if (stateRef.current.name !== 'requesting') return void slot.close()
+        transport.current = opened
+        void showRequest(request, opened).then(() => {
+          if (stateRef.current.name === 'requesting') scanAfterRequest.current?.()
+        })
+      } catch {
+        // The request stays up until it expires, and the person can cancel it and start again.
+      }
+    },
+    [medium, slot],
+  )
+
   const scanPayment = useCallback(() => {
     const current = stateRef.current
     if (current.name !== 'requesting' && current.name !== 'rejected') return
@@ -194,11 +211,14 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
           void entriesSince(db, point.pairing.eventId, startedAt - 1).then((entries) => point.sync.push(entries))
         }
       },
-      () => {
-        if (!controller.signal.aborted) dispatch({ type: 'back' })
+      (error: unknown) => {
+        if (controller.signal.aborted) return
+        dispatch({ type: 'back' })
+        const lost = error instanceof TransportError && (error.code === 'Interrupted' || error.code === 'Unavailable')
+        if (lost && used.current === 'nearby' && nowSeconds() < current.expiresAt) void advertiseAgain(request)
       },
     )
-  }, [abort, attesters, db, domains, key, point, recordFees])
+  }, [abort, advertiseAgain, attesters, db, domains, key, point, recordFees])
 
   useEffect(() => {
     scanAfterRequest.current = scanPayment

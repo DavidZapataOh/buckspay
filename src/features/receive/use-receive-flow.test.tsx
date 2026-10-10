@@ -1,13 +1,15 @@
 import { act, useEffect, useState } from 'react'
 import { create } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Transport } from '../../transport/types'
+import { receivePayment, showRequest } from '../../payment/receive-flow'
+import { type Transport, TransportError } from '../../transport/types'
 import { copy } from '../payment/copy'
 import { type ReceiveFlow, ReceiveFlowProvider, useReceiveFlow } from './use-receive-flow'
 
 const mocks = vi.hoisted(() => ({
   start: undefined as undefined | (() => Promise<unknown>),
   attesters: [] as unknown[],
+  nearby: false,
 }))
 
 vi.mock('./receive-gate', () => ({ receiveGate: vi.fn() }))
@@ -36,12 +38,15 @@ vi.mock('../payment/use-qr-session', () => ({
 vi.mock('../event/use-point-mode', () => ({ usePointMode: () => ({ mode: undefined }) }))
 vi.mock('../transport/use-transports', () => ({
   useTransports: (entries: unknown[]) => ({ offered: [], ready: entries }),
-  useTransportChoice: () => ({ chosen: undefined, choose: () => {} }),
+  useTransportChoice: (_role: string, ready: { id: string }[]) => ({
+    chosen: mocks.nearby ? ready.find((entry) => entry.id === 'nearby') : undefined,
+    choose: () => {},
+  }),
 }))
 vi.mock('../transport/registry', () => ({
   qrEntry: () => ({ id: 'qr', label: 'Code', check: async () => ({ ready: true }), start: () => mocks.start?.() }),
   nfcEntry: { id: 'nfc' },
-  nearbyEntry: { id: 'nearby' },
+  nearbyEntry: { id: 'nearby', label: 'Nearby', check: async () => ({ ready: true }), start: () => mocks.start?.() },
 }))
 vi.mock('../../payment/receive-flow', () => ({ showRequest: vi.fn(async () => {}), receivePayment: vi.fn() }))
 
@@ -92,6 +97,9 @@ const render = () =>
   })
 
 beforeEach(() => {
+  mocks.nearby = false
+  vi.mocked(showRequest).mockClear()
+  vi.mocked(receivePayment).mockReset()
   session = { mounted: false, popped: false }
   mocks.attesters = [attester]
   mocks.start = async () => {
@@ -139,5 +147,76 @@ describe('receive flow create', () => {
     expect(failure).toBe('transport')
     expect(flow.state.name).toBe('composing')
     expect(copy.receive.transportFailed).toContain('Try Code instead')
+  })
+})
+
+describe('receive flow when the link drops before a payment arrives', () => {
+  beforeEach(() => {
+    vi.mocked(showRequest).mockImplementation(async () => {
+      await delay(20)
+    })
+  })
+
+  const opens = () => {
+    let count = 0
+    mocks.start = async () => {
+      count++
+      return transport
+    }
+    return () => count
+  }
+  const lost = () => Promise.reject(new TransportError('Interrupted', 'disconnected'))
+  const waiting = () => new Promise<never>(() => {})
+
+  it('opens its session again over Nearby, shows the same request and waits again', async () => {
+    mocks.nearby = true
+    const opened = opens()
+    vi.mocked(receivePayment)
+      .mockImplementationOnce(lost as never)
+      .mockImplementation(waiting as never)
+    await render()
+    await act(async () => {
+      await tap()
+    })
+    await act(async () => {
+      await delay(150)
+    })
+    expect(opened()).toBe(2)
+    expect(vi.mocked(showRequest)).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(showRequest).mock.calls[1][0]).toBe(vi.mocked(showRequest).mock.calls[0][0])
+    expect(vi.mocked(receivePayment)).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not open a session again when the person cancelled', async () => {
+    mocks.nearby = true
+    const opened = opens()
+    let drop!: (error: unknown) => void
+    vi.mocked(receivePayment).mockImplementation((() => new Promise((_, reject) => (drop = reject))) as never)
+    await render()
+    await act(async () => {
+      await tap()
+    })
+    await act(async () => {
+      await delay(40)
+    })
+    await act(async () => {
+      flow.cancel()
+      drop(new TransportError('Interrupted', 'disconnected'))
+      await delay(30)
+    })
+    expect(opened()).toBe(1)
+  })
+
+  it('does not open a session again over a code, where there is no link to lose', async () => {
+    const opened = opens()
+    vi.mocked(receivePayment).mockImplementation(lost as never)
+    await render()
+    await act(async () => {
+      await tap()
+    })
+    await act(async () => {
+      await delay(60)
+    })
+    expect(opened()).toBe(1)
   })
 })
