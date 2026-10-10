@@ -1,6 +1,6 @@
 const path = require('path')
 
-const LAB = /(^|\/)features\/nfc\/nfc-lab$/
+const LAB = /(^|\/)features\/(nfc\/nfc|nearby\/nearby)-lab$/
 
 /**
  * End-to-end builds run the transport contract suite inside the app, so `vitest` resolves to the subset it uses.

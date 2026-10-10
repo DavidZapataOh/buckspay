@@ -16,6 +16,11 @@ describe('metro resolver', () => {
     expect(resolve(false, '../features/nfc/nfc-lab')).toEqual({ type: 'empty' })
   })
 
+  it('replaces the Nearby lab with an empty module in a normal build, and keeps it in an end-to-end build', () => {
+    expect(resolve(false, '../features/nearby/nearby-lab')).toEqual({ type: 'empty' })
+    expect(resolve(true, '../features/nearby/nearby-lab')).toBe(fallback)
+  })
+
   it('leaves vitest to the default resolution in a normal build', () => {
     expect(resolve(false, 'vitest')).toBe(fallback)
   })
