@@ -53,6 +53,7 @@ const table: [PayState['name'], string, Partial<PayState>][] = [
   ['scanning', 'wrongCode', { name: 'scanning', wrongCode: true }],
   ['scanning', 'unreadable', { name: 'scanning', unreadable: 'E_PLAN' }],
   ['scanning', 'timedOut', { name: 'scanning', timedOut: true }],
+  ['scanning', 'resumed', { name: 'presenting' }],
   ['scanning', 'back', { name: 'idle' }],
   ['reviewing', 'confirm', { name: 'confirming' }],
   ['reviewing', 'back', { name: 'idle' }],
@@ -98,5 +99,10 @@ describe('payReducer', () => {
   it('keeps a request that was taken: a scan in any state but idle changes nothing', () => {
     expect(payReducer(states.presenting, events.scan)).toBe(states.presenting)
     expect(payReducer(states.confirming, events.confirm)).toBe(states.confirming)
+  })
+
+  it('presents the payment that was finished when the request it was made for is read again', () => {
+    const scanning = payReducer({ name: 'idle' }, events.scan)
+    expect(payReducer(scanning, events.resumed)).toEqual({ name: 'presenting', payment })
   })
 })

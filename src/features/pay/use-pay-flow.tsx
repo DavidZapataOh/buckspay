@@ -19,6 +19,7 @@ import {
   confirmAndSendRespend,
   PayError,
   type PayDeps,
+  resumeForRequest,
   resumePayments,
 } from '../../payment/pay'
 import { type PayContext, planPayment } from '../../payment/preflight'
@@ -108,6 +109,8 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<readonly StoredEvent[]>([])
   const [creditEvent, setCreditEvent] = useState<StoredEvent | null>(null)
   const pending = useRef<AbortController>(undefined)
+  /** Set by Resume of a payment made over Nearby: the next scan finishes it if the receiver is the same one. */
+  const finishLeft = useRef(false)
   const key = deviceKey?.publicKey
   const latest = useRef({ offline, db, key, creditEvent })
   useEffect(() => {
@@ -182,6 +185,8 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
     }
     dispatch({ type: 'scan' })
     abort()
+    const finishing = finishLeft.current
+    finishLeft.current = false
     const controller = new AbortController()
     pending.current = controller
     void (async () => {
@@ -199,6 +204,8 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         const { offline: current, db: store, key, creditEvent: credit } = latest.current
         if (!store || !key) return
         step = 'E_STORE'
+        const finished = finishing && (await resumeForRequest(depsFor(), request))
+        if (finished) return dispatch({ type: 'resumed', payment: finished })
         const context: PayContext = {
           now: nowSeconds(),
           me: key,
@@ -228,7 +235,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'unreadable', step })
       }
     })()
-  }, [abort, domains, medium, session, slot])
+  }, [abort, depsFor, domains, medium, session, slot])
 
   const submitText = useCallback((value: string) => session.push(value), [session])
 
@@ -309,6 +316,13 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         }
         return
       }
+      const left = (db ? await unfinishedPayments(db) : []).find(
+        (row) => !messageId || equalBytes(row.messageId, messageId),
+      )
+      if (left?.transport === 'nearby') {
+        finishLeft.current = true
+        return scan()
+      }
       try {
         const [payment] = await resumePayments(depsFor(), messageId)
         if (payment) dispatch({ type: 'resumed', payment })
@@ -317,7 +331,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
       }
       await reloadUnfinished()
     },
-    [abort, depsFor, reloadUnfinished],
+    [abort, db, depsFor, reloadUnfinished, scan],
   )
 
   const discard = useCallback(

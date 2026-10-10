@@ -57,6 +57,7 @@ export function payReducer(state: PayState, event: PayEvent): PayState {
       if (event.type === 'wrong-code') return state.wrongCode ? state : { name: 'scanning', wrongCode: true }
       if (event.type === 'unreadable') return { name: 'scanning', wrongCode: false, unreadable: event.step }
       if (event.type === 'timed-out') return { name: 'scanning', wrongCode: false, timedOut: true }
+      if (event.type === 'resumed') return { name: 'presenting', payment: event.payment }
       if (event.type === 'back') return initialPayState
       return state
     case 'reviewing':

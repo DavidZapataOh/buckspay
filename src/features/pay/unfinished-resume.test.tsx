@@ -158,7 +158,7 @@ const lockOf = async () => ({
   }),
 })
 
-async function seedSignedPayment() {
+async function seedSignedPayment(transport = 'qr') {
   const signer = createSoftSigner(payer)
   mocks.sign = signer.sign as never
   const planned = planPayment(request, {
@@ -176,7 +176,7 @@ async function seedSignedPayment() {
   })
   if (!planned.ok) throw new Error(planned.reason)
   const [side, other] = createQrPair({ drop: 0, seed: 1 })
-  await confirmAndSend(planned.plan, request, 'qr', {
+  await confirmAndSend(planned.plan, request, transport, {
     db,
     sign: signer.sign,
     transport: side,
@@ -300,6 +300,32 @@ describe('an unfinished payment shown again', () => {
     expect(flow.state).toMatchObject({ name: 'refused', reason: 'AlreadyPaid' })
     expect(offline).not.toHaveBeenCalled()
     vi.unstubAllGlobals()
+    await act(async () => tree.unmount())
+  })
+
+  it('finishes a payment made over Nearby by reading the same request again, without signing', async () => {
+    const { signer, row } = await seedSignedPayment('nearby')
+    const signed = signer.signatures
+    let tree!: ReturnType<typeof create>
+    await act(async () => {
+      tree = create(
+        <PayFlowProvider>
+          <Harness />
+        </PayFlowProvider>,
+      )
+    })
+    await act(async () => flow.resume(row.messageId))
+    expect(flow.state).toMatchObject({ name: 'scanning' })
+    for (const text of encodeFrames(
+      { kind: MessageKind.Request, payload: encodeRequest(request) },
+      qrFrameLimits(),
+    ).map(frameToText)) {
+      await act(async () => flow.submitText(text))
+    }
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50)))
+    expect(flow.state).toMatchObject({ name: 'presenting' })
+    expect((flow.state as { payment: { messageId: Uint8Array } }).payment.messageId).toEqual(row.messageId)
+    expect(signer.signatures).toBe(signed)
     await act(async () => tree.unmount())
   })
 

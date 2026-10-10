@@ -115,6 +115,10 @@ export type Unfinished = {
   /** The held note this payment spends, for a re-spend; null for an issue. */
   input?: Uint8Array | null
   state: 'prepared' | 'signed'
+  /** The request this payment answers. */
+  requestId: Uint8Array
+  /** The transport it was made over. */
+  transport: string | null
   issueBody: Uint8Array
   ticket: Uint8Array
   bundle: Uint8Array | null
@@ -125,17 +129,21 @@ export async function unfinishedPayments(db: NoteDb): Promise<Unfinished[]> {
   const rows = await db.all<{
     message_id: Uint8Array
     state: 'prepared' | 'signed'
+    request_id: Uint8Array
+    transport: string | null
     issue_body: Uint8Array
     ticket: Uint8Array
     bundle: Uint8Array | null
     input: Uint8Array | null
   }>(
-    "SELECT message_id, state, issue_body, ticket, bundle, input FROM outgoing_payment WHERE state IN ('prepared', 'signed') AND NOT EXISTS (SELECT 1 FROM relay_outbox r WHERE r.message_id = outgoing_payment.message_id) ORDER BY created_at",
+    "SELECT message_id, state, request_id, transport, issue_body, ticket, bundle, input FROM outgoing_payment WHERE state IN ('prepared', 'signed') AND NOT EXISTS (SELECT 1 FROM relay_outbox r WHERE r.message_id = outgoing_payment.message_id) ORDER BY created_at",
   )
   return rows.map((r) => ({
     messageId: r.message_id,
     input: r.input,
     state: r.state,
+    requestId: r.request_id,
+    transport: r.transport,
     issueBody: r.issue_body,
     ticket: r.ticket,
     bundle: r.bundle,

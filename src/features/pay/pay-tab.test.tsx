@@ -35,6 +35,8 @@ const issue: Issue = {
 const row = (state: 'prepared' | 'signed', id = 1) => ({
   messageId: new Uint8Array(32).fill(id),
   state,
+  requestId: new Uint8Array(32).fill(7),
+  transport: 'qr',
   issueBody: encodeIssueBody(issue),
   ticket: new Uint8Array(161),
   bundle: state === 'signed' ? new Uint8Array(391) : null,

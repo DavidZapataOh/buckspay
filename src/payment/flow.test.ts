@@ -16,7 +16,7 @@ import {
   type PaymentRequest,
   requestIdOf,
 } from './messages'
-import { awaitReceipt, confirmAndSend, type PayDeps, PayError, resumePayments } from './pay'
+import { awaitReceipt, confirmAndSend, type PayDeps, PayError, resumeForRequest, resumePayments } from './pay'
 import { type OfflineLock, type PayContext, planPayment } from './preflight'
 import { Reason } from './reasons'
 import { receivePayment, showRequest } from './receive-flow'
@@ -237,6 +237,40 @@ describe('what happens when the app dies', () => {
     expect(encodeIssueBody(decodeBundle(resumed.bundle).issue.message)).toEqual(row.issueBody)
     expect(paymentId(NOTE_DOMAIN, decodeBundle(resumed.bundle))).toEqual(resumed.messageId)
     await Promise.all([payerSide.close(), shopSide.close()])
+  })
+
+  it('finishes the payment of a request when the same request is read again, and only then', async () => {
+    const req = request()
+    const failing = deps({
+      transport: { ...payerSide, send: () => Promise.reject(new Error('link died')) } as unknown as Transport,
+    })
+    await expect(confirmAndSend(await planFor(req), req, 'nearby', failing)).rejects.toMatchObject({
+      code: 'SendFailed',
+    })
+    const [stored] = await unfinishedPayments(payerDb)
+    expect(stored).toMatchObject({ state: 'signed', transport: 'nearby' })
+    expect(stored.requestId).toEqual(requestIdOf(req))
+    const before = signer.signatures
+
+    expect(await resumeForRequest(deps(), request({ memo: 'another' }))).toBeUndefined()
+
+    const shopWaits = receivePayment(shopContext(), shopSide, { timeoutMs: 5000 })
+    const resumed = await resumeForRequest(deps(), req)
+    expect(resumed?.messageId).toEqual(stored.messageId)
+    expect(resumed?.bundle).toEqual(stored.bundle)
+    expect(await shopWaits).toMatchObject({ accepted: true })
+    expect(signer.signatures).toBe(before)
+    expect(await rows(payerDb, 'outgoing_payment')).toBe(1)
+    await Promise.all([payerSide.close(), shopSide.close()])
+  })
+
+  it('does not send again a payment that was confirmed, and does nothing for a request never paid', async () => {
+    const req = request()
+    expect(await resumeForRequest(deps(), req)).toBeUndefined()
+    await confirmAndSend(await planFor(req), req, 'qr', deps())
+    const live = await paymentForRequest(payerDb, requestIdOf(req))
+    await setOutgoingState(payerDb, live!.messageId, 'confirmed', NOW + 5)
+    expect(await resumeForRequest(deps(), req)).toBeUndefined()
   })
 
   it('refuses to sign a stored issue that is no longer the one the payment id names', async () => {

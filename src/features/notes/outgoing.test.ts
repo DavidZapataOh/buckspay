@@ -92,6 +92,8 @@ describe('recovery after a restart', () => {
         messageId: bytes(1),
         input: null,
         state: 'prepared',
+        requestId: payment().requestId,
+        transport: 'qr',
         issueBody: bytes(4, 163),
         ticket: bytes(5, 161),
         bundle: null,

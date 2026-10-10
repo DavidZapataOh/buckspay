@@ -24,6 +24,7 @@ import {
   markRespendSigned,
   markSigned,
   OutputTaken,
+  paymentForRequest,
   preparePayment,
   prepareRespend,
   setOutgoingState,
@@ -243,6 +244,17 @@ export async function resumePayments(deps: SignDeps, only?: Uint8Array): Promise
     )
   }
   return resumed
+}
+
+/**
+ * The request was read again and a payment for it was left unfinished: sends that payment, byte for byte
+ * when it was signed, instead of making a new one. Nothing when the request has no unfinished payment.
+ */
+export async function resumeForRequest(deps: SignDeps, request: PaymentRequest): Promise<SentPayment | undefined> {
+  const live = await paymentForRequest(deps.db, requestIdOf(request))
+  if (!live || (live.state !== 'prepared' && live.state !== 'signed')) return undefined
+  const [payment] = await resumePayments(deps, live.messageId)
+  return payment
 }
 
 export type ReceiptResult =
