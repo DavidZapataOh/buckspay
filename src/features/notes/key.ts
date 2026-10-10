@@ -33,16 +33,34 @@ const secureStorage: KeyStorage = {
   set: (key) => SecureStore.setItemAsync(KEY_ITEM, key),
 }
 
-/** Opens the encrypted note store, creating and migrating it when it is new. */
-export async function openNoteDb(): Promise<NoteDb> {
+let store: Promise<NoteDb> | undefined
+
+/**
+ * The encrypted note store, opened once per process and shared by every caller. `expo-sqlite` on Android answers a
+ * second open of the same database with the same native object under a new JavaScript wrapper, and collecting any
+ * stale wrapper then destroys the connection that is still in use (expo/expo#48999).
+ */
+export function openNoteDb(): Promise<NoteDb> {
+  store ??= createStore().catch((failure: unknown) => {
+    store = undefined
+    throw failure
+  })
+  return store
+}
+
+async function createStore(): Promise<NoteDb> {
   const { key, created } = await noteKey(secureStorage)
   if (created) await SQLite.deleteDatabaseAsync(DATABASE).catch(() => undefined)
-  const database = await SQLite.openDatabaseAsync(DATABASE)
-  await database.execAsync(`PRAGMA key = "x'${key}'"`)
-  await database.execAsync('PRAGMA journal_mode = WAL')
-  await database.execAsync('PRAGMA synchronous = FULL')
-  await database.execAsync('PRAGMA foreign_keys = ON')
-  const db = createNoteDb(database)
+  const open = async (options?: SQLite.SQLiteOpenOptions) => {
+    const database = await SQLite.openDatabaseAsync(DATABASE, options)
+    await database.execAsync(`PRAGMA key = "x'${key}'"`)
+    await database.execAsync('PRAGMA journal_mode = WAL')
+    await database.execAsync('PRAGMA synchronous = FULL')
+    await database.execAsync('PRAGMA foreign_keys = ON')
+    return database
+  }
+  // A plain reopen would be served the dead native object again; only a new connection replaces it.
+  const db = createNoteDb(await open(), () => open({ useNewConnection: true }))
   await migrate(db)
   return db
 }

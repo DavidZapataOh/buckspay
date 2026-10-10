@@ -63,4 +63,60 @@ describe('the note store over expo-sqlite', () => {
     await db.run("INSERT INTO log (what) VALUES ('ok')")
     expect(await logged(db)).toEqual(['ok'])
   })
+
+  it('opens the connection again and retries a statement when the connection died', async () => {
+    const dead: SqliteConnection = {
+      execAsync: async () => undefined,
+      runAsync: async () => {
+        throw new Error(
+          "Call to function 'NativeDatabase.prepareAsync' has been rejected.\n→ Caused by: java.lang.NullPointerException",
+        )
+      },
+      getAllAsync: async () => {
+        throw new Error('java.lang.NullPointerException')
+      },
+    }
+    let reopened = 0
+    const db = createNoteDb(dead, async () => {
+      reopened++
+      return connection()
+    })
+    await db.run("INSERT INTO log (what) VALUES ('after')")
+    expect(await logged(db)).toEqual(['after'])
+    expect(reopened).toBe(1)
+  })
+
+  it('does not hide other errors behind a new connection', async () => {
+    let reopened = 0
+    const db = createNoteDb(connection(), async () => {
+      reopened++
+      return connection()
+    })
+    await expect(db.run('INSERT INTO missing VALUES (1)')).rejects.toThrow()
+    expect(reopened).toBe(0)
+  })
+
+  it('never moves a running transaction to a new connection', async () => {
+    const base = connection()
+    let broken = false
+    const flaky: SqliteConnection = {
+      ...base,
+      runAsync: async (sql, params) => {
+        if (broken) throw new Error('java.lang.NullPointerException')
+        return base.runAsync(sql, params)
+      },
+    }
+    const replacement = connection()
+    const db = createNoteDb(flaky, async () => replacement)
+    await expect(
+      db.transaction(async (tx) => {
+        await tx.run("INSERT INTO log (what) VALUES ('before')")
+        broken = true
+        await tx.run("INSERT INTO log (what) VALUES ('lost')")
+      }),
+    ).rejects.toThrow('NullPointerException')
+    broken = false
+    const rows = await replacement.getAllAsync<{ what: string }>('SELECT what FROM log', [])
+    expect(rows).toEqual([])
+  })
 })
