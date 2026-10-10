@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mark, report } from './timing'
+import { mark, pause, report } from './timing'
 
 afterEach(() => vi.unstubAllEnvs())
 
@@ -27,5 +27,35 @@ describe('timing marks', () => {
     expect(JSON.parse(String(line).slice('PAYTIME '.length))).toEqual({ prepared: 40, signed: 100 })
     log.mockRestore()
     now.mockRestore()
+  })
+
+  it('does not hold a payment in a build that is not an end-to-end build, whatever the pause says', async () => {
+    vi.stubEnv('EXPO_PUBLIC_E2E_PAUSE', '5000')
+    vi.useFakeTimers()
+    let resumed = false
+    void pause().then(() => (resumed = true))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(resumed).toBe(true)
+    vi.useRealTimers()
+  })
+
+  it('holds a payment for the pause in an end-to-end build, and not for a missing or invalid one', async () => {
+    vi.stubEnv('EXPO_PUBLIC_E2E', '1')
+    vi.useFakeTimers()
+    vi.stubEnv('EXPO_PUBLIC_E2E_PAUSE', '5000')
+    let resumed = false
+    void pause().then(() => (resumed = true))
+    await vi.advanceTimersByTimeAsync(4999)
+    expect(resumed).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(resumed).toBe(true)
+    for (const value of ['', 'soon', '-5']) {
+      vi.stubEnv('EXPO_PUBLIC_E2E_PAUSE', value)
+      let immediate = false
+      void pause().then(() => (immediate = true))
+      await vi.advanceTimersByTimeAsync(0)
+      expect(immediate).toBe(true)
+    }
+    vi.useRealTimers()
   })
 })

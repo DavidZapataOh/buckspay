@@ -18,7 +18,7 @@ import {
   type Spend,
 } from '../protocol'
 import type { NoteDb } from '../features/notes/db'
-import { mark, report } from '../features/pay/timing'
+import { mark, pause, report } from '../features/pay/timing'
 import {
   heldOutput,
   markRespendSigned,
@@ -112,6 +112,7 @@ export async function confirmAndSend(
     throw error
   }
   mark('prepared')
+  await pause()
   const sent = await signAndSend(id, issue, plan.lock.ticket, deps)
   mark('presented')
   report()
@@ -134,6 +135,7 @@ async function signAndSend(
   const bundle = encodeBundle({ issue: { message: issue, signature }, spends: [], tickets: [ticket] })
   await markSigned(deps.db, id, signature, bundle, deps.now())
   mark('signed')
+  await pause()
   await send(bundle, deps)
   return { messageId: id, bundle }
 }

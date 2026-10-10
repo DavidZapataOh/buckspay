@@ -6,6 +6,13 @@ export function mark(name: string) {
   marks.push([name, performance.now()])
 }
 
+/** Holds a payment for `EXPO_PUBLIC_E2E_PAUSE` milliseconds, so a test can stop the app between two stages. End-to-end builds only. */
+export function pause(): Promise<void> {
+  const milliseconds = Number(process.env.EXPO_PUBLIC_E2E_PAUSE)
+  if (process.env.EXPO_PUBLIC_E2E !== '1' || !(milliseconds > 0)) return Promise.resolve()
+  return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
 /** Writes one `PAYTIME` line to the log: each mark's time since the first, never a key, an amount or an id. */
 export function report() {
   if (process.env.EXPO_PUBLIC_E2E !== '1' || marks.length === 0) return
