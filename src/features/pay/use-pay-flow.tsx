@@ -1,14 +1,4 @@
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from 'react'
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { equalBytes } from '@noble/curves/utils.js'
 import { authenticate } from '../../payment/authenticate'
 import { signStoredIssue } from '../../payment/native-sign'
@@ -44,6 +34,7 @@ import { receiptBudget, waitBudget } from '../transport/wait-budget'
 import { useTransportChoice, useTransports } from '../transport/use-transports'
 import { formatMoney } from '../../utils/format-amount'
 import { PAY_LIMITS } from './limits'
+import { useSyncReducer } from './use-sync-reducer'
 import { initialPayState, payReducer, type PayState, type ScanStep } from './pay-reducer'
 import { BUILD_TOKEN, BUILD_TOKENS } from './tokens'
 
@@ -91,8 +82,7 @@ const startOfToday = () => Math.floor(new Date().setHours(0, 0, 0, 0) / 1000)
 
 /** Drives the payer's screens: scanning a request, confirming, showing the payment, reading the receipt. */
 export function PayFlowProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(payReducer, initialPayState)
-  const stateRef = useRef<PayState>(state)
+  const [state, dispatch, readState] = useSyncReducer(payReducer, initialPayState)
   const { db, domains, witnessSettings, witnessPort } = usePayments()
   const { deviceKey } = useDeviceIdentity()
   const offline = useOfflineLocks()
@@ -114,7 +104,6 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
   const key = deviceKey?.publicKey
   const latest = useRef({ offline, db, key, creditEvent })
   useEffect(() => {
-    stateRef.current = state
     latest.current = { offline, db, key, creditEvent }
   })
 
@@ -177,7 +166,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const scan = useCallback(() => {
-    const { name } = stateRef.current
+    const { name } = readState()
     if (name !== 'idle') {
       if (name !== 'presenting' && name !== 'confirmed' && name !== 'rejected' && name !== 'failed') return
       session.clear()
@@ -235,12 +224,12 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'unreadable', step })
       }
     })()
-  }, [abort, depsFor, domains, medium, session, slot])
+  }, [abort, depsFor, dispatch, domains, medium, readState, session, slot])
 
   const submitText = useCallback((value: string) => session.push(value), [session])
 
   const confirm = useCallback(async () => {
-    const current = stateRef.current
+    const current = readState()
     if (current.name !== 'reviewing') return
     dispatch({ type: 'confirm' })
     abort()
@@ -258,10 +247,10 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'failed', error: error instanceof PayError ? error : new PayError('SignFailed', error) })
     }
     await Promise.all([reloadUnfinished(), latest.current.offline.reload()])
-  }, [abort, depsFor, reloadUnfinished, witnessSettings])
+  }, [abort, depsFor, dispatch, readState, reloadUnfinished, witnessSettings])
 
   const scanReceipt = useCallback(() => {
-    const current = stateRef.current
+    const current = readState()
     if (current.name !== 'presenting') return
     dispatch({ type: 'scan-receipt' })
     abort()
@@ -284,26 +273,26 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         )
       },
     )
-  }, [abort, depsFor, reloadUnfinished])
+  }, [abort, depsFor, dispatch, readState, reloadUnfinished])
 
   const cancelReceipt = useCallback(() => {
     abort()
     dispatch({ type: 'cancel' })
-  }, [abort])
+  }, [abort, dispatch])
 
   const showAgain = useCallback(() => {
-    const current = stateRef.current
+    const current = readState()
     if (current.name !== 'rejected') return
     dispatch({ type: 'show-again' })
     void depsFor()
       .transport.send({ kind: MessageKind.Payment, payload: current.payment.bundle })
       .catch(() => undefined)
-  }, [depsFor])
+  }, [depsFor, dispatch, readState])
 
   const resume = useCallback(
     async (messageId?: Uint8Array) => {
       abort()
-      const current = stateRef.current
+      const current = readState()
       if (
         (current.name === 'presenting' || current.name === 'awaiting-receipt') &&
         (!messageId || equalBytes(current.payment.messageId, messageId))
@@ -331,7 +320,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
       }
       await reloadUnfinished()
     },
-    [abort, db, depsFor, reloadUnfinished, scan],
+    [abort, db, depsFor, dispatch, readState, reloadUnfinished, scan],
   )
 
   const discard = useCallback(
@@ -348,7 +337,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
     void slot.close()
     transport.current = session.transport
     dispatch({ type: 'back' })
-  }, [abort, session, slot])
+  }, [abort, dispatch, session, slot])
 
   const finish = useCallback(() => {
     abort()
@@ -358,7 +347,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'finish' })
     void reloadUnfinished()
     void latest.current.offline.reload()
-  }, [abort, reloadUnfinished, session, slot])
+  }, [abort, dispatch, reloadUnfinished, session, slot])
 
   useEffect(() => abort, [abort])
   useEffect(() => () => void slot.close(), [slot])
@@ -366,7 +355,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
   const value = useMemo<PayFlow>(
     () => ({
       state,
-      stateName: () => stateRef.current.name,
+      stateName: () => readState().name,
       texts: session.texts,
       progress: session.progress,
       offline,
@@ -390,6 +379,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
     }),
     [
       state,
+      readState,
       session.texts,
       session.progress,
       offline,

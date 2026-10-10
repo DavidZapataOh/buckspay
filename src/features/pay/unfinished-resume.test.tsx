@@ -125,9 +125,21 @@ function Harness() {
   return (
     <>
       <PayTabScreen />
+      {eager ? <WaitsForReceipt /> : null}
       {open ? <PaySend /> : null}
     </>
   )
+}
+
+let eager = false
+
+/** Stands for a send screen that is already mounted when the payment is shown: it waits for the receipt as soon as it can. */
+function WaitsForReceipt() {
+  const current = usePayFlow()
+  useEffect(() => {
+    if (current.state.name === 'presenting') current.scanReceipt()
+  }, [current])
+  return null
 }
 
 const limits = {
@@ -190,6 +202,7 @@ async function seedSignedPayment(transport = 'qr') {
 
 describe('an unfinished payment shown again', () => {
   beforeEach(async () => {
+    eager = false
     db = createNodeDb()
     await migrate(db)
     mocks.db = db
@@ -326,6 +339,29 @@ describe('an unfinished payment shown again', () => {
     expect(flow.state).toMatchObject({ name: 'presenting' })
     expect((flow.state as { payment: { messageId: Uint8Array } }).payment.messageId).toEqual(row.messageId)
     expect(signer.signatures).toBe(signed)
+    await act(async () => tree.unmount())
+  })
+
+  it('waits for the receipt of a payment finished over Nearby, on a send screen that is already mounted', async () => {
+    eager = true
+    const { row } = await seedSignedPayment('nearby')
+    let tree!: ReturnType<typeof create>
+    await act(async () => {
+      tree = create(
+        <PayFlowProvider>
+          <Harness />
+        </PayFlowProvider>,
+      )
+    })
+    await act(async () => flow.resume(row.messageId))
+    for (const text of encodeFrames(
+      { kind: MessageKind.Request, payload: encodeRequest(request) },
+      qrFrameLimits(),
+    ).map(frameToText)) {
+      await act(async () => flow.submitText(text))
+    }
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50)))
+    expect(flow.state).toMatchObject({ name: 'awaiting-receipt' })
     await act(async () => tree.unmount())
   })
 
