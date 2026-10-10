@@ -8,6 +8,8 @@ export const witnessCopy = {
   seen: 'Heard the other phone nearby.',
   notSeen: "Didn't hear the other phone nearby.",
   unavailable: 'The nearby check is off. Turn on the microphone for Buckspay in Settings.',
+  failed: "Couldn't finish the nearby check. Try again.",
+  lowVolume: 'Your volume is low. Turn it up and try again.',
   skipped: 'Nearby check skipped.',
   requiredChecking: 'Received. Checking that the other phone is nearby…',
   requiredNotSeen: "Received, but the other phone wasn't heard nearby. The payment is final.",

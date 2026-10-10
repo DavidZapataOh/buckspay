@@ -10,7 +10,8 @@ import {
 } from '../../protocol'
 
 export type ModemAvailability =
-  { ready: true } | { ready: false; reason: 'permission-denied' | 'hardware-missing' | 'disabled' | 'unsupported' }
+  | { ready: true; volumeLow?: boolean }
+  | { ready: false; reason: 'permission-denied' | 'hardware-missing' | 'disabled' | 'unsupported' }
 
 /** One acoustic message at a time: this phone's speaker and microphone. */
 export type Modem = {
@@ -19,6 +20,8 @@ export type Modem = {
   emit(payload: Uint8Array, options?: { signal?: AbortSignal }): Promise<void>
   /** Returns the stop function. */
   listen(onMessage: (payload: Uint8Array) => void): Promise<() => Promise<void>>
+  /** True while the microphone delivers only silence, as a system switch or another app can make it: a quiet room is not that. */
+  silenced?(): boolean
 }
 
 export type Clock = {
@@ -45,7 +48,7 @@ export const DEFAULT_CONFIG: WitnessConfig = {
   maxSignaturesPerPayment: 3,
 }
 
-export type WitnessStatus = 'seen' | 'not-seen' | 'unavailable'
+export type WitnessStatus = 'seen' | 'not-seen' | 'unavailable' | 'failed' | 'low-volume'
 /** `evidence` is the 176-byte evidence when seen. */
 export type WitnessResult = { status: WitnessStatus; evidence?: Uint8Array }
 export type PaymentFacts = { payerKey: Uint8Array; receiverKey: Uint8Array }
@@ -120,7 +123,10 @@ export async function runReceiver(
     signal.removeEventListener('abort', cancel)
     await stop()
   }
-  return evidence ? { status: 'seen', evidence } : { status: 'not-seen' }
+  if (evidence) return { status: 'seen', evidence }
+  if (modem.silenced?.()) return { status: 'unavailable' }
+  const now = await modem.check()
+  return now.ready && now.volumeLow ? { status: 'low-volume' } : { status: 'not-seen' }
 }
 
 export async function runPayer(
@@ -182,5 +188,6 @@ export async function runPayer(
   } finally {
     await stop()
   }
-  return evidence ? { status: 'seen', evidence } : { status: 'not-seen' }
+  if (evidence) return { status: 'seen', evidence }
+  return modem.silenced?.() ? { status: 'unavailable' } : { status: 'not-seen' }
 }

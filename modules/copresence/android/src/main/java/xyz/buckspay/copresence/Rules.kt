@@ -2,7 +2,7 @@ package xyz.buckspay.copresence
 
 import android.media.AudioDeviceInfo
 
-private const val LOW_VOLUME_PERCENT = 60
+private const val LOW_VOLUME_PERCENT = 20
 
 /** The media volume is below what a short high-pitched sound needs to carry. */
 fun volumeLow(

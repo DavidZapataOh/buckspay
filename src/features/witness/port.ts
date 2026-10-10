@@ -17,6 +17,8 @@ export type WitnessStore = {
   countSignature(messageId: Uint8Array): Promise<number>
 }
 
+const RECORD_ATTEMPTS = 3
+const RECORD_RETRY_MS = 250
 const ROLES: WitnessRole[] = ['payer', 'receiver']
 const keyOf = (messageId: Uint8Array, role: WitnessRole) => `${role}:${bytesToHex(messageId)}`
 
@@ -25,6 +27,18 @@ export function createWitnessPort({
   ...deps
 }: Omit<PayerDeps, 'countSignature'> & { store: WitnessStore }): WitnessPort {
   const running = new Map<string, { result: Promise<WitnessResult>; abort: AbortController }>()
+
+  async function keep(messageId: Uint8Array, role: WitnessRole, evidence: Uint8Array) {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await store.record(messageId, role, evidence)
+      } catch (error) {
+        if (attempt === RECORD_ATTEMPTS) throw error
+        console.warn(`witness ${role} could not record the evidence (attempt ${attempt}): ${String(error)}`)
+        await deps.clock.sleep(RECORD_RETRY_MS)
+      }
+    }
+  }
 
   async function run(messageId: Uint8Array, role: WitnessRole, signal: AbortSignal): Promise<WitnessResult> {
     const stored = await store.stored(messageId, role)
@@ -35,7 +49,7 @@ export function createWitnessPort({
       role === 'receiver'
         ? await runReceiver(messageId, facts, deps, signal)
         : await runPayer(messageId, facts, { ...deps, countSignature: store.countSignature }, signal)
-    if (result.status === 'seen' && result.evidence) await store.record(messageId, role, result.evidence)
+    if (result.status === 'seen' && result.evidence) await keep(messageId, role, result.evidence)
     return result
   }
 
@@ -57,7 +71,8 @@ export function createWitnessPort({
     cancel(messageId) {
       for (const role of ROLES) {
         const key = keyOf(messageId, role)
-        running.get(key)?.abort.abort()
+        const entry = running.get(key)
+        entry?.abort.abort()
         running.delete(key)
       }
     },

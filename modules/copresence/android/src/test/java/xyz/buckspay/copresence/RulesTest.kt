@@ -9,9 +9,9 @@ import org.junit.Test
 
 class VolumeTest {
   @Test
-  fun isLowBelowSixtyPercentOfTheMaximum() {
-    assertTrue(volumeLow(8, 15))
-    assertFalse(volumeLow(9, 15))
+  fun isLowBelowTwentyPercentOfTheMaximum() {
+    assertTrue(volumeLow(2, 15))
+    assertFalse(volumeLow(3, 15))
     assertTrue(volumeLow(0, 15))
     assertFalse(volumeLow(15, 15))
   }

@@ -35,6 +35,8 @@ export function WitnessRow({
     seen: copy.seen,
     'not-seen': held ? copy.requiredNotSeen : copy.notSeen,
     unavailable: copy.unavailable,
+    failed: copy.failed,
+    'low-volume': copy.lowVolume,
     skipped: copy.skipped,
     off: '',
   }[phase]
@@ -46,10 +48,10 @@ export function WitnessRow({
       {role === 'receiver' && phase === 'checking' && !held ? (
         <Button testID="witness-skip" variant="text" label={copy.skip} onPress={onSkip} />
       ) : null}
-      {role === 'receiver' && phase === 'not-seen' && canRetry(state) ? (
+      {role === 'receiver' && canRetry(state) ? (
         <Button testID="witness-retry" variant="tonal" label={copy.tryAgain} onPress={onRetry} />
       ) : null}
-      {held && phase === 'not-seen' ? (
+      {held && (phase === 'not-seen' || phase === 'failed' || phase === 'low-volume') ? (
         <Button testID="witness-continue" variant="text" label={copy.continueAnyway} onPress={onContinue} />
       ) : null}
       {phase === 'not-seen' ? (

@@ -217,6 +217,33 @@ describe('the receiver refuses', () => {
     expect((await pending).status).toBe('not-seen')
   })
 
+  it('is unavailable, not not-seen, when the microphone was silenced and nothing was heard', async () => {
+    const [a] = createRoom()
+    const silenced: Modem = { ...a, silenced: () => true }
+    expect(await runReceiver(PAYMENT_ID, facts, base(silenced), new AbortController().signal)).toEqual({
+      status: 'unavailable',
+    })
+  })
+
+  it('is low-volume, not not-seen, when nothing was heard and the volume is low', async () => {
+    const [a] = createRoom()
+    const quiet: Modem = { ...a, check: async () => ({ ready: true, volumeLow: true }) }
+    expect(await runReceiver(PAYMENT_ID, facts, base(quiet), new AbortController().signal)).toEqual({
+      status: 'low-volume',
+    })
+  })
+
+  it('is still seen when the volume is low but the other phone answered', async () => {
+    const [a, b] = createRoom()
+    const quiet: Modem = { ...a, check: async () => ({ ready: true, volumeLow: true }) }
+    const signal = new AbortController().signal
+    const [receiver] = await Promise.all([
+      runReceiver(PAYMENT_ID, facts, base(quiet), signal),
+      runPayer(PAYMENT_ID, facts, payerDeps(b), signal),
+    ])
+    expect(receiver.status).toBe('seen')
+  })
+
   it('is unavailable without a microphone permission, and plays nothing', async () => {
     const [a] = createRoom()
     const denied: Modem = { ...a, check: async () => ({ ready: false, reason: 'permission-denied' }) }
@@ -300,6 +327,14 @@ describe('the payer refuses', () => {
     expect(seen[0].paymentId).toEqual(PAYMENT_ID)
     expect(seen[0].payerKey).toEqual(payer.key)
     expect(seen[0].receiverKey).toEqual(shop.key)
+  })
+
+  it('is unavailable, not not-seen, when the microphone was silenced and nothing was heard', async () => {
+    const [, b] = createRoom()
+    const silenced: Modem = { ...b, silenced: () => true }
+    expect(await runPayer(PAYMENT_ID, facts, payerDeps(silenced), new AbortController().signal)).toEqual({
+      status: 'unavailable',
+    })
   })
 
   it('is unavailable without a microphone permission', async () => {

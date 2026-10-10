@@ -7,12 +7,16 @@ export const requestMicrophone = () => Copresence.requestPermission()
 /** This phone's speaker and microphone as a `Modem`, on one band. */
 export function createModem(band: Band = 'ultrasound'): Modem {
   let operations = 0
+  let silenced = false
   return {
+    silenced: () => silenced,
     async check() {
       let state = await Copresence.check()
       if (!state.ready && state.reason === 'permission-denied' && (await Copresence.requestPermission()))
         state = await Copresence.check()
-      return state.ready ? { ready: true } : { ready: false, reason: state.reason ?? 'unsupported' }
+      return state.ready
+        ? { ready: true, volumeLow: state.volumeLow }
+        : { ready: false, reason: state.reason ?? 'unsupported' }
     },
     async emit(payload, options) {
       const signal = options?.signal
@@ -27,9 +31,19 @@ export function createModem(band: Band = 'ultrasound'): Modem {
       }
     },
     async listen(onMessage) {
-      const subscription = Copresence.addListener('onMessage', () => {
+      silenced = false
+      const messages = Copresence.addListener('onMessage', () => {
         for (let payload = Copresence.take(); payload; payload = Copresence.take()) onMessage(payload)
       })
+      const states = Copresence.addListener('onState', (state) => {
+        silenced = state.silenced
+      })
+      const subscription = {
+        remove() {
+          messages.remove()
+          states.remove()
+        },
+      }
       try {
         await Copresence.start(band)
       } catch (error) {

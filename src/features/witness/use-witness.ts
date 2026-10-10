@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer } from 'react'
 import type { Band } from './app-port'
 import type { WitnessPort, WitnessRole } from './port'
+import type { WitnessResult } from './session'
 import type { WitnessPolicy } from './policy'
 import { canRetry, initialWitnessState, witnessReducer } from './witness-state'
 
@@ -28,7 +29,12 @@ export function useWitness({
   useEffect(() => {
     if (!attempt) return
     let current = true
-    void port.attach(messageId, role, band).then((result) => current && dispatch({ type: 'result', result }))
+    port
+      .attach(messageId, role, band)
+      .catch((): WitnessResult => ({ status: 'failed' }))
+      .then((result) => {
+        if (current) dispatch({ type: 'result', result })
+      })
     return () => {
       current = false
       port.cancel(messageId)

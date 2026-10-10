@@ -38,7 +38,7 @@ describe('witnessReducer', () => {
   })
 
   it('takes not-seen and unavailable as they come', () => {
-    for (const status of ['not-seen', 'unavailable'] as const) {
+    for (const status of ['not-seen', 'unavailable', 'failed', 'low-volume'] as const) {
       expect(
         run([
           { type: 'start', policy: 'auto' },
@@ -46,6 +46,16 @@ describe('witnessReducer', () => {
         ]).phase,
       ).toBe(status)
     }
+  })
+
+  it('lets the receiver try again after a low-volume check', () => {
+    const state = run([{ type: 'result', result: { status: 'low-volume' } }], run([{ type: 'start', policy: 'auto' }]))
+    expect(canRetry(state)).toBe(true)
+  })
+
+  it('lets the receiver try again after a failed check', () => {
+    const state = run([{ type: 'result', result: { status: 'failed' } }], run([{ type: 'start', policy: 'auto' }]))
+    expect(canRetry(state)).toBe(true)
   })
 
   it('lets the receiver try again after not-seen, up to the maximum, with a fresh attempt each time', () => {

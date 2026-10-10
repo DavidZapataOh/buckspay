@@ -3,7 +3,8 @@ import type { WitnessResult } from './session'
 
 export const MAX_ATTEMPTS = 3
 
-export type WitnessPhase = 'off' | 'checking' | 'seen' | 'not-seen' | 'unavailable' | 'skipped'
+export type WitnessPhase =
+  'off' | 'checking' | 'seen' | 'not-seen' | 'unavailable' | 'failed' | 'low-volume' | 'skipped'
 export type WitnessState = { phase: WitnessPhase; attempts: number; evidence?: Uint8Array; continued: boolean }
 export type WitnessEvent =
   | { type: 'start'; policy: WitnessPolicy }
@@ -14,7 +15,9 @@ export type WitnessEvent =
 
 export const initialWitnessState: WitnessState = { phase: 'off', attempts: 0, continued: false }
 
-export const canRetry = (state: WitnessState) => state.phase === 'not-seen' && state.attempts < MAX_ATTEMPTS
+export const canRetry = (state: WitnessState) =>
+  (state.phase === 'not-seen' || state.phase === 'failed' || state.phase === 'low-volume') &&
+  state.attempts < MAX_ATTEMPTS
 
 export function witnessReducer(state: WitnessState, event: WitnessEvent): WitnessState {
   switch (event.type) {

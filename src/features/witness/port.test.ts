@@ -90,6 +90,31 @@ describe('the witness port', () => {
     expect([b.status, c.status]).toEqual(['seen', 'seen'])
   })
 
+  it('keeps the evidence when the first write to the store fails', async () => {
+    const { receiver, payerPort, r } = ports()
+    const write = r.store.record
+    let failures = 1
+    r.store.record = async (...args) => {
+      if (failures-- > 0) throw new Error('write rejected')
+      return write(...args)
+    }
+    const [a] = await Promise.all([receiver.attach(PAYMENT_ID, 'receiver'), payerPort.attach(PAYMENT_ID, 'payer')])
+    expect(a.status).toBe('seen')
+    expect(r.kept.has(r.key(PAYMENT_ID, 'receiver'))).toBe(true)
+  })
+
+  it('rejects when the store keeps refusing the evidence', async () => {
+    const { receiver, payerPort, r } = ports()
+    r.store.record = async () => {
+      throw new Error('write rejected')
+    }
+    const [a] = await Promise.allSettled([
+      receiver.attach(PAYMENT_ID, 'receiver'),
+      payerPort.attach(PAYMENT_ID, 'payer'),
+    ])
+    expect(a.status).toBe('rejected')
+  })
+
   it('cancel ends a running attempt as not seen', async () => {
     const { receiver } = ports()
     const pending = receiver.attach(PAYMENT_ID, 'receiver')
