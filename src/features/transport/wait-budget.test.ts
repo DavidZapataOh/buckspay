@@ -57,7 +57,7 @@ describe('untilExpiry', () => {
   it('bounds the payer wait for the receipt', async () => {
     vi.useFakeTimers()
     const [payer] = createLoopbackPair()
-    const payment = { messageId: new Uint8Array(32), bundle: new Uint8Array(4) } as SentPayment
+    const payment = { messageId: new Uint8Array(32), bundle: new Uint8Array(4), amount: 1n } as SentPayment
     const outcome = awaitReceipt(payment, { transport: payer } as PayDeps, {
       timeoutMs: receiptBudget('nearby'),
     }).catch((error: TransportError) => error.code)

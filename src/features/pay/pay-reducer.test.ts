@@ -7,7 +7,7 @@ import { type PayEvent, payReducer, type PayState } from './pay-reducer'
 
 const request = { amount: 5n } as PaymentRequest
 const plan = { review: { amount: 5n } } as Plan
-const payment = { messageId: new Uint8Array(32), bundle: new Uint8Array(4) }
+const payment = { messageId: new Uint8Array(32), bundle: new Uint8Array(4), amount: 5_000_000n }
 const failure = new PayError('SignFailed')
 
 const states: Record<PayState['name'], PayState> = {

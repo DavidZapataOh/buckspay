@@ -39,9 +39,8 @@ export default function PaySend() {
 
   useEffect(() => {
     if (state.name === 'confirmed') {
-      const issue = issueOf(state.payment)
       AccessibilityInfo.announceForAccessibility(
-        text(copy.send.confirmedSpoken, { amount: issue ? money(issue.amount) : '', symbol: BUILD_TOKEN.symbol }),
+        text(copy.send.confirmedSpoken, { amount: money(state.payment.amount), symbol: BUILD_TOKEN.symbol }),
       )
     }
   }, [state])
@@ -85,7 +84,6 @@ export default function PaySend() {
   }
 
   if (state.name === 'presenting') {
-    const issue = issueOf(state.payment)
     return (
       <Screen testID="pay-presenting">
         <AppText variant="headline">{copy.send.title}</AppText>
@@ -93,7 +91,7 @@ export default function PaySend() {
           <QrPresenter
             texts={flow.texts}
             accessibilityLabel={text(copy.send.codeLabel, {
-              amount: issue ? money(issue.amount) : '',
+              amount: money(state.payment.amount),
               symbol: BUILD_TOKEN.symbol,
             })}
           />
@@ -132,12 +130,11 @@ export default function PaySend() {
   }
 
   if (state.name === 'confirmed') {
-    const issue = issueOf(state.payment)
     return (
       <Screen testID="pay-result-confirmed">
         <ResultMark ok />
         <AppText variant="headline" tone="success">
-          {text(copy.send.confirmed, { amount: issue ? money(issue.amount) : '', symbol: BUILD_TOKEN.symbol })}
+          {text(copy.send.confirmed, { amount: money(state.payment.amount), symbol: BUILD_TOKEN.symbol })}
         </AppText>
         {nearby}
         <Button testID="pay-done" variant="filled" label={copy.send.done} onPress={flow.finish} />
@@ -162,7 +159,7 @@ export default function PaySend() {
         </AppText>
         <AppText variant="body">
           {text(copy.send.rejectedNext, {
-            amount: issue ? money(issue.amount) : '',
+            amount: money(state.payment.amount),
             symbol: BUILD_TOKEN.symbol,
             date: lock ? new Date(lock.lockUntil * 1000).toLocaleDateString() : '',
           })}

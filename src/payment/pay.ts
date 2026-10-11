@@ -63,7 +63,8 @@ export class PayError extends Error {
   }
 }
 
-export type SentPayment = { messageId: Uint8Array; bundle: Uint8Array }
+/** `amount` is what the receiver gets: the issue's, or the first output of the last spend of a note passed on. */
+export type SentPayment = { messageId: Uint8Array; bundle: Uint8Array; amount: bigint }
 
 /** The id a receipt will name: the issue's message id, known before anything is signed. */
 export function issueMessageId(noteDomain: Uint8Array, issue: Issue): Uint8Array {
@@ -138,7 +139,7 @@ async function signAndSend(
   mark('signed')
   await pause()
   await send(bundle, deps)
-  return { messageId: id, bundle }
+  return { messageId: id, bundle, amount: issue.amount }
 }
 
 /**
@@ -212,7 +213,11 @@ async function signAndSendRespend(
   })
   mark('signed')
   await send(wire, deps)
-  return { messageId: id, bundle: wire }
+  return {
+    messageId: id,
+    bundle: wire,
+    amount: spend.outputs.type === 'one' ? input.output.amount : spend.outputs.amount0,
+  }
 }
 
 async function send(bundle: Uint8Array, deps: SignDeps) {
@@ -234,7 +239,7 @@ export async function resumePayments(deps: SignDeps, only?: Uint8Array): Promise
     if (only && !equalBytes(row.messageId, only)) continue
     if (row.bundle) {
       await send(row.bundle, deps)
-      resumed.push({ messageId: row.messageId, bundle: row.bundle })
+      resumed.push({ messageId: row.messageId, bundle: row.bundle, amount: row.amount })
       continue
     }
     resumed.push(

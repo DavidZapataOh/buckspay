@@ -144,6 +144,7 @@ describe('pay and receive over QR, half the frames missed', () => {
     const sent = await confirmAndSend(plan, scanned, 'qr', deps())
     const outcome = await shopWaits
     expect(outcome).toMatchObject({ accepted: true, duplicate: false })
+    expect(sent.amount).toBe(5_000_000n)
     expect(await awaitReceipt(sent, deps(), { timeoutMs: 5000 })).toEqual({ status: 'confirmed' })
     expect(await nextCumEnd(payerDb, payer.key, 3)).toBe(5_000_000n)
     expect((await payerDb.all<{ state: string }>('SELECT state FROM outgoing_payment'))[0].state).toBe('confirmed')
