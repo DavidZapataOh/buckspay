@@ -1,10 +1,9 @@
-import { DEBTS_SCHEMA_VERSION } from '../debts/store'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { encodeBundle } from '../../payment/messages'
 import { makeTicket, MINT, party, signIssue } from '../../payment/testing/world'
 import type { Issue } from '../../protocol'
 import type { NoteDb } from './db'
-import { migrate } from './schema'
+import { migrate, PASS_ON_SCHEMA_VERSION } from './schema'
 import { createNodeDb } from './testing/node-db'
 import { createWitnessStore, migrateWitness } from './witness-store'
 
@@ -90,13 +89,13 @@ describe('migrateWitness', () => {
     )
     expect(row).toEqual({ witness: null, witness_signed: 0 })
     expect((await fresh.all<{ user_version: number }>('PRAGMA user_version'))[0].user_version).toBe(
-      DEBTS_SCHEMA_VERSION,
+      PASS_ON_SCHEMA_VERSION,
     )
   })
 
   it('runs twice without harm', async () => {
     await migrateWitness(db)
-    expect(await version()).toBe(DEBTS_SCHEMA_VERSION)
+    expect(await version()).toBe(PASS_ON_SCHEMA_VERSION)
   })
 
   it('refuses a database that is not at version 1', async () => {

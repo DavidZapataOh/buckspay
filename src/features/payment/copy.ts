@@ -169,6 +169,8 @@ export const copy = {
     received: 'Received {amount} {symbol}',
     receivedSpoken: 'Received {amount} {symbol}.',
     yours: "It's yours now. It will settle to your wallet when this phone is online.",
+    yoursPassOn:
+      "It's yours now. You can pass it on in your next payment; if you don't, it settles to your wallet within a day.",
     bondNote:
       "The payer's locked bond is destroyed if they sign the same money twice. Uninstalling this app loses payments that haven't settled yet.",
     differs: 'You asked for {asked} {symbol}; {got} {symbol} arrived.',
@@ -218,6 +220,7 @@ export const copy = {
       rejected: 'Refused',
       abandoned: 'Cancelled',
       held: 'Received',
+      passable: 'Ready to pass on',
       settling: 'Settling',
       settled: 'Settled',
       spent: 'Passed on',
@@ -268,6 +271,7 @@ export const copy = {
     settling: 'Settling…',
     retryIn: 'Trying again in {seconds} s.',
     settleNow: 'Settle now',
+    passOnUntil: 'You can pass this on until {time}. Then it settles to your wallet.',
     noTokenAccount: 'Your wallet has no USDC account yet',
     serverLater: 'The server will take this one after {time}',
     walletOffer: 'Settle with your wallet',

@@ -431,6 +431,7 @@ describe('settleHeld', () => {
       change: changeOf(NOTE_DOMAIN, bundle, plan.lock?.ticket ?? null, clock),
       now: clock,
     })
+    await db.run("UPDATE received_note SET keep = 0 WHERE transport = 'change'")
     await settleHeld(deps())
     const [request] = sent
     const spends = request.spends.map((hex) => decodeSpend(Uint8Array.from(Buffer.from(hex, 'hex'))))

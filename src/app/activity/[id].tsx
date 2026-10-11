@@ -13,7 +13,7 @@ import { sentence, parseActivityId } from '../../features/activity/format'
 import { PAY_LIMITS, MIN_WINDOW } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { usePayFlow } from '../../features/pay/use-pay-flow'
-import { copy } from '../../features/payment/copy'
+import { copy, text } from '../../features/payment/copy'
 import { usePayments } from '../../features/payment/payments-provider'
 import { reasonText } from '../../features/payment/reason-text'
 import type { Reason } from '../../payment/reasons'
@@ -47,9 +47,14 @@ export default function ActivityDetailScreen() {
   const lost = settlement.report?.lost.find(
     ({ outputId }) => detail.outputId && bytesToHex(outputId) === bytesToHex(detail.outputId),
   )
-  const settleable = detail.kind === 'received' && (detail.state === 'held' || detail.state === 'settling')
+  const settleable =
+    detail.kind === 'received' &&
+    (detail.state === 'held' || detail.state === 'passable' || detail.state === 'settling')
   const why = settleable && detail.outputId ? whyWaiting(settlement.report, detail.outputId) : undefined
-  const waiting = why?.text ?? (detail.state === 'expired' ? copy.activity.expiredNote : undefined)
+  const waiting =
+    detail.keepUntil !== undefined
+      ? text(copy.activity.passOnUntil, { time: new Date(detail.keepUntil * 1000).toLocaleString() })
+      : (why?.text ?? (detail.state === 'expired' ? copy.activity.expiredNote : undefined))
 
   return (
     <Screen testID="activity-detail">

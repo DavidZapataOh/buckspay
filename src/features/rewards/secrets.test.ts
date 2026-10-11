@@ -1,6 +1,6 @@
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { describe, expect, it } from 'vitest'
-import { migrate } from '../notes/schema'
+import { migrate, PASS_ON_SCHEMA_VERSION } from '../notes/schema'
 import { createNodeDb } from '../notes/testing/node-db'
 import {
   claimDelay,
@@ -12,7 +12,6 @@ import {
   scheduleClaims,
 } from './secrets'
 import { BN254_R, fromCanonical, poseidon2, toBytes32 } from './secrets-poseidon'
-import { DEBTS_SCHEMA_VERSION } from '../debts/store'
 import { leafOf } from './secrets-tree'
 
 const store = async () => {
@@ -73,7 +72,7 @@ describe('leaf secrets', () => {
 
   it('is part of the note store at its newest version', async () => {
     const db = await store()
-    expect((await db.all<{ user_version: number }>('PRAGMA user_version'))[0].user_version).toBe(DEBTS_SCHEMA_VERSION)
+    expect((await db.all<{ user_version: number }>('PRAGMA user_version'))[0].user_version).toBe(PASS_ON_SCHEMA_VERSION)
     await migrate(db)
     await expect(
       db.run(

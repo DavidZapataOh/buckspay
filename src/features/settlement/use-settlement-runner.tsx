@@ -11,7 +11,7 @@ import { relayQueue } from '../relay/queue'
 import { registerSettler } from '../mesh/settle-flagged'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { BUILD_GATEWAY } from '../lock/gateway'
-import { unsettledSummary, type Unsettled } from '../notes/ledger'
+import { releaseHold, unsettledSummary, type Unsettled } from '../notes/ledger'
 import { nowSeconds, usePayments } from '../payment/payments-provider'
 import { isNoticeShown, markNoticeShown } from './clear-notice'
 import { acknowledgeLabel, isLabelAcknowledged } from './label'
@@ -164,10 +164,11 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
 
   const settleNow = useCallback(
     async (outputId: Uint8Array) => {
+      if (db) await releaseHold(db, outputId)
       asked.current.add(bytesToHex(outputId))
       await run()
     },
-    [run],
+    [db, run],
   )
 
   const notices = report?.notices ?? NO_NOTICES

@@ -115,6 +115,14 @@ describe('passing a received note on, and what happens when the app dies', () =>
     await Promise.all([mySide.close(), shopSide.close()])
   })
 
+  it('keeps the change for passing on, because it is money the person has not decided to settle', async () => {
+    const shopWaits = receivePayment(shopContext(), shopSide, { timeoutMs: 5000 })
+    await confirmAndSendRespend(plan, requestTo(shop, 2_000_000n), 'qr', deps())
+    await shopWaits
+    expect(await myDb.all("SELECT keep FROM received_note WHERE transport = 'change'")).toEqual([{ keep: 1 }])
+    await Promise.all([mySide.close(), shopSide.close()])
+  })
+
   it('sends nothing when the device signed another spend than the stored one', async () => {
     const other = deps({
       signSpend: async (input, spend) => ({

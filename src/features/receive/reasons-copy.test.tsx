@@ -26,7 +26,7 @@ const render = async (element: React.ReactElement) => (await act(async () => cre
 const refusals = Object.values(Reason).filter((reason) => reason !== Reason.Accepted)
 const limits = { window: 3600, max: 100_000_000n, symbol: 'USDC', decimals: 6 }
 
-const accepted = (over: { duplicate?: boolean; requestedAmount?: bigint | null } = {}) =>
+const accepted = (over: { duplicate?: boolean; requestedAmount?: bigint | null; keep?: boolean } = {}) =>
   ({
     accepted: true,
     duplicate: over.duplicate ?? false,
@@ -34,6 +34,7 @@ const accepted = (over: { duplicate?: boolean; requestedAmount?: bigint | null }
     note: {
       amount: 3_000_000n,
       requestedAmount: over.requestedAmount ?? 5_000_000n,
+      keep: over.keep ?? false,
       liable: [{ device: new Uint8Array(33), lockSeq: 1, bond: 777_777_777n, attester: 1 }],
     },
   }) as unknown as Extract<Outcome, { accepted: true }>
@@ -86,6 +87,14 @@ describe('what the receiver says', () => {
       ),
     ).join('\n')
     expect(same).not.toContain('You asked for')
+  })
+
+  it('says a note kept for passing on can be passed on, and settles later', async () => {
+    const shown = texts(
+      await render(<AcceptedResult outcome={accepted({ keep: true })} symbol="USDC" decimals={6} onDone={() => {}} />),
+    ).join('\n')
+    expect(shown).toContain('You can pass it on')
+    expect(shown).not.toContain("It's yours now. It will settle")
   })
 
   it('says a payment seen before was not added twice', async () => {

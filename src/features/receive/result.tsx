@@ -48,7 +48,7 @@ export function AcceptedResult({
           {text(copy.receive.differs, { asked: formatMoney(requestedAmount, decimals), got: shown, symbol })}
         </AppText>
       ) : null}
-      <AppText variant="body">{copy.receive.yours}</AppText>
+      <AppText variant="body">{outcome.note.keep ? copy.receive.yoursPassOn : copy.receive.yours}</AppText>
       <AppText variant="label" tone="muted">
         {copy.receive.bondNote}
       </AppText>

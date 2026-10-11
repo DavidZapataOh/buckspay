@@ -286,5 +286,6 @@ export function changeOf(
     memo: null,
     transport: 'change',
     receivedAt: now,
+    keep: true,
   }
 }

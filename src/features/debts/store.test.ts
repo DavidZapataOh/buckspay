@@ -101,10 +101,10 @@ describe('migration 12', () => {
     await expect(migrateDebts(await fresh())).resolves.toBeUndefined()
   })
 
-  it('12 is the newest version this app opens', async () => {
+  it('13 is the newest version this app opens', async () => {
     const db = createNodeDb()
-    await db.exec('PRAGMA user_version = 13')
-    await expect(migrate(db)).rejects.toThrow('The note store is version 13, newer than this app.')
+    await db.exec('PRAGMA user_version = 14')
+    await expect(migrate(db)).rejects.toThrow('The note store is version 14, newer than this app.')
     await expect(migrate(await fresh())).resolves.toBeUndefined()
   })
 })

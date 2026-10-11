@@ -1,5 +1,6 @@
 import { GRACE } from '../../protocol'
 import type { NoteDb } from './db'
+import { holdUntil } from './ledger'
 
 export type ActivityRow = {
   id: Uint8Array
@@ -43,6 +44,7 @@ export async function listActivity(db: NoteDb, limit: number, before?: number): 
        UNION ALL
        SELECT received_note.message_id, 'received', amount,
          CASE WHEN transport = 'change' AND received_note.state = 'held' THEN 'change'
+              WHEN keep = 1 AND received_note.state = 'held' THEN 'passable'
               WHEN received_note.state = 'held' AND o.ref IS NOT NULL THEN
                 CASE WHEN o.answer IN ('submitted', 'duplicate') THEN 'relay-sent'
                      WHEN o.answer IS NULL AND o.stored_by > 0 THEN 'relay-handed'
@@ -72,6 +74,8 @@ export type ActivityDetail = ActivityRow & {
   requestedAmount?: bigint | null
   /** A remote payment: where it stands and the last moment it can still be paid. */
   deadline?: number
+  /** A note kept for passing on: when the phone settles it if the person does not ask first. */
+  keepUntil?: number
 }
 
 /** One row of the list with what its screen shows besides: how it was shown, when it ends, which locks back it. */
@@ -127,11 +131,13 @@ export async function activityDetail(
     transport: string | null
     expiry: number
     requested_amount: number | null
+    keep: number
   }>(
-    'SELECT output_id, amount, state, received_at AS at, issuer, memo, transport, expiry, requested_amount FROM received_note WHERE message_id = ?',
+    'SELECT output_id, amount, state, received_at AS at, issuer, memo, transport, expiry, requested_amount, keep FROM received_note WHERE message_id = ?',
     [id],
   )
   if (!row) return undefined
+  const kept = row.keep === 1 && row.state === 'held' && row.transport !== 'change'
   const locks = await db.all<{ lock_seq: number }>(
     'SELECT DISTINCT lock_seq FROM note_liability WHERE output_id = ? ORDER BY lock_seq',
     [row.output_id],
@@ -140,7 +146,7 @@ export async function activityDetail(
     id,
     kind,
     amount: BigInt(row.amount),
-    state: row.state,
+    state: kept ? 'passable' : row.state,
     at: row.at,
     counterparty: row.issuer,
     memo: row.memo,
@@ -151,5 +157,6 @@ export async function activityDetail(
     outputId: row.output_id,
     locks: locks.map((lock) => lock.lock_seq),
     requestedAmount: row.requested_amount === null ? null : BigInt(row.requested_amount),
+    keepUntil: kept ? holdUntil(row.at, row.expiry) : undefined,
   }
 }

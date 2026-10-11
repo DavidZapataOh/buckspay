@@ -196,7 +196,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
         db,
         limits: { maxPayment: PAY_LIMITS.maxPayment },
         transport: used.current,
-        request: { amount: request.amount, memo: request.memo },
+        request: { amount: request.amount, memo: request.memo, passOn: request.minHops >= 2 },
         gate: receiveGate(db, point, domains.noteDomain, { fee: recordFees, expected: request.amount }),
       }
     }

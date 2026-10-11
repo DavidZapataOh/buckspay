@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { activityDetail, listActivity } from './activity'
 import type { NoteDb } from './db'
 import { bytesToHex } from '@noble/hashes/utils.js'
-import { commitReceived, type ReceivedNote } from './ledger'
+import { commitReceived, holdUntil, releaseHold, type ReceivedNote } from './ledger'
 import { queueSealed } from '../relay/outbox'
 import { sealedFixture } from '../relay/testing'
 import { preparePayment, setOutgoingState } from './outgoing'
@@ -129,6 +129,18 @@ describe('activityDetail', () => {
     expect(JSON.stringify(detail, (_, value) => (typeof value === 'bigint' ? value.toString() : value))).not.toContain(
       '900000000',
     )
+  })
+
+  it('lists a note kept for passing on as ready to pass on, with the moment it settles, until the person releases it', async () => {
+    await commitReceived(db, { ...received(2, 200), keep: true }, { maxPayment: 10n ** 12n })
+    expect((await listActivity(db, 10)).map((row) => row.state)).toEqual(['passable'])
+    expect(await activityDetail(db, 'received', bytes(52))).toMatchObject({
+      state: 'passable',
+      keepUntil: holdUntil(200, 2_000_000_000),
+    })
+    await releaseHold(db, bytes(102))
+    expect((await listActivity(db, 10)).map((row) => row.state)).toEqual(['held'])
+    expect((await activityDetail(db, 'received', bytes(52)))?.keepUntil).toBeUndefined()
   })
 
   it('lists the change of a re-spend as change and the note it came from as passed on', async () => {

@@ -27,8 +27,8 @@ export type ReceiveContext = {
   db: NoteDb
   limits: Limits
   transport: string
-  /** The request this phone is showing, if any: only for display, never a condition. */
-  request: { amount: bigint; memo: string } | null
+  /** The request this phone is showing, if any: for display, and whether it asked for money to pass on, which keeps the note unsettled for a while. Never a condition for accepting. */
+  request: { amount: bigint; memo: string; passOn?: boolean } | null
   gate?: ReceiveGate
 }
 
@@ -98,6 +98,7 @@ export async function acceptPayment(payload: Uint8Array, ctx: ReceiveContext): P
     memo: ctx.request?.memo ?? null,
     transport: ctx.transport,
     receivedAt: ctx.receiver.now,
+    keep: ctx.request?.passOn === true,
   }
   try {
     const commit = await commitReceived(ctx.db, note, ctx.limits)

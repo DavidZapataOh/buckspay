@@ -151,6 +151,26 @@ describe('pay and receive over QR, half the frames missed', () => {
     await Promise.all([payerSide.close(), shopSide.close()])
   })
 
+  it('keeps what a request for money to pass on received, and settles the rest as usual', async () => {
+    for (const passOn of [true, false]) {
+      const req = request({ memo: passOn ? 'pass' : 'settle' })
+      const [a, b] = createQrPair({ drop: 0, seed: 3 })
+      await showRequest(req, b)
+      const scanned = decodeRequest((await a.receive({ accept: [MessageKind.Request], timeoutMs: 5000 })).payload)
+      const shopWaits = receivePayment(shopContext({ request: { amount: req.amount, memo: req.memo, passOn } }), b, {
+        timeoutMs: 5000,
+      })
+      await confirmAndSend(await planFor(scanned), scanned, 'qr', deps({ transport: a }))
+      expect(await shopWaits).toMatchObject({ accepted: true })
+      await Promise.all([a.close(), b.close()])
+    }
+    const kept = await shopDb.all<{ memo: string; keep: number }>('SELECT memo, keep FROM received_note ORDER BY memo')
+    expect(kept).toEqual([
+      { memo: 'pass', keep: 1 },
+      { memo: 'settle', keep: 0 },
+    ])
+  })
+
   it("shows the receiver's reason when it refuses, and keeps the interval used", async () => {
     const plan = await planFor(request())
     const shopWaits = receivePayment(shopContext({ limits: { maxPayment: 1_000_000n } }), shopSide, { timeoutMs: 5000 })

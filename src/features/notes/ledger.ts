@@ -33,6 +33,8 @@ export type ReceivedNote = {
   memo: string | null
   transport: string
   receivedAt: number
+  /** Kept for passing on: the phone settles it only when the hold ends or the person asks. */
+  keep?: boolean
 }
 
 export type Commit = { status: 'accepted' } | { status: 'duplicate' } | { status: 'refused'; reason: Refusal }
@@ -79,7 +81,7 @@ export async function relianceByAttester(db: NoteDb): Promise<Record<string, str
 export async function insertReceived(tx: Statements, note: ReceivedNote): Promise<void> {
   await tx.run(
     `INSERT INTO received_note (output_id, message_id, owner, mint, amount, expiry, hops_left, caveats, issuer, lock_seq, bundle, state,
-         requested_amount, memo, transport, received_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'held', ?, ?, ?, ?, ?)`,
+         requested_amount, memo, transport, received_at, updated_at, keep) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'held', ?, ?, ?, ?, ?, ?)`,
     [
       note.outputId,
       note.messageId,
@@ -97,6 +99,7 @@ export async function insertReceived(tx: Statements, note: ReceivedNote): Promis
       note.transport,
       note.receivedAt,
       note.receivedAt,
+      note.keep ? 1 : 0,
     ],
   )
   for (const l of note.liable) {
@@ -216,7 +219,21 @@ export type Settleable = {
   settlementSpend: Uint8Array | null
 }
 
-/** Notes still to settle (held, or settling without an answer yet) whose window has not closed, soonest expiry first. */
+/** How long a note kept for passing on waits before the phone settles it. Older tickets make it impassable about then. */
+export const PASS_ON_HOLD_SECONDS = 24 * 3600
+/** A kept note is settled once this little of its life is left. */
+export const RELEASE_MARGIN_SECONDS = 12 * 3600
+
+/** The moment the phone settles a note kept for passing on, if the person does not ask first. */
+export const holdUntil = (receivedAt: number, expiry: number) =>
+  Math.min(receivedAt + PASS_ON_HOLD_SECONDS, expiry - RELEASE_MARGIN_SECONDS)
+
+/** Ends the wait of a kept note, so the next run settles it. */
+export async function releaseHold(db: NoteDb, outputId: Uint8Array): Promise<void> {
+  await db.run("UPDATE received_note SET keep = 0 WHERE output_id = ? AND state = 'held'", [outputId])
+}
+
+/** Notes still to settle (held, or settling without an answer yet) whose window has not closed, soonest expiry first. Kept notes wait for their hold to end. */
 export async function settleable(db: NoteDb, now: number, graceSeconds: number): Promise<Settleable[]> {
   const rows = await db.all<{
     output_id: Uint8Array
@@ -225,8 +242,8 @@ export async function settleable(db: NoteDb, now: number, graceSeconds: number):
     settlement_body: Uint8Array | null
     settlement_spend: Uint8Array | null
   }>(
-    "SELECT output_id, expiry, bundle, settlement_body, settlement_spend FROM received_note WHERE state IN ('held', 'settling') AND expiry + ? > ? ORDER BY expiry, received_at",
-    [graceSeconds, now],
+    "SELECT output_id, expiry, bundle, settlement_body, settlement_spend FROM received_note WHERE state IN ('held', 'settling') AND expiry + ? > ? AND (state = 'settling' OR keep = 0 OR received_at + ? <= ? OR expiry - ? <= ?) ORDER BY expiry, received_at",
+    [graceSeconds, now, PASS_ON_HOLD_SECONDS, now, RELEASE_MARGIN_SECONDS, now],
   )
   return rows.map((r) => ({
     outputId: r.output_id,
