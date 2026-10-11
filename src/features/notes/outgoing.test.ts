@@ -97,6 +97,8 @@ describe('recovery after a restart', () => {
         issueBody: bytes(4, 163),
         ticket: bytes(5, 161),
         bundle: null,
+        amount: payment().amount,
+        receiver: payment().receiver,
       },
     ])
   })

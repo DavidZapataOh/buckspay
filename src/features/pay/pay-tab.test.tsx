@@ -40,6 +40,8 @@ const row = (state: 'prepared' | 'signed', id = 1) => ({
   issueBody: encodeIssueBody(issue),
   ticket: new Uint8Array(161),
   bundle: state === 'signed' ? new Uint8Array(391) : null,
+  amount: issue.amount,
+  receiver: issue.owner.type === 'device' ? issue.owner.key : new Uint8Array(33),
 })
 
 const props = (over: Partial<Parameters<typeof PayTab>[0]> = {}): Parameters<typeof PayTab>[0] => ({
@@ -116,6 +118,23 @@ describe('PayTab', () => {
     expect(texts(renderer.root).join('\n')).toContain('This part of your allowance may stay used.')
     await act(async () => renderer.root.findByProps({ testID: 'pay-discard-confirm' }).props.onPress())
     expect(onDiscard).toHaveBeenCalledWith(new Uint8Array(32).fill(1))
+  })
+
+  it('shows a re-spend that was not finished, whose stored body is a spend and not an issue', () => {
+    const view = unfinishedView({
+      ...row('signed'),
+      input: new Uint8Array(32).fill(4),
+      issueBody: new Uint8Array(83).fill(9),
+      amount: 2_000_000n,
+    })
+    expect(view).toMatchObject({ amount: 2_000_000n, signed: true })
+    expect(view.code).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/)
+  })
+
+  it('shows a code for a payment to a wallet address as well', () => {
+    expect(unfinishedView({ ...row('prepared'), receiver: new Uint8Array(32).fill(5) }).code).toMatch(
+      /^[A-Z2-9]{4}-[A-Z2-9]{4}$/,
+    )
   })
 
   it('reads the amount and the other phone from the stored issue, and nothing else', () => {

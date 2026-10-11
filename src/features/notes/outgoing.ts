@@ -122,6 +122,8 @@ export type Unfinished = {
   issueBody: Uint8Array
   ticket: Uint8Array
   bundle: Uint8Array | null
+  amount: bigint
+  receiver: Uint8Array
 }
 
 /** Payments to resume after a restart: prepared (sign the same body again) or signed and not yet confirmed or rejected. */
@@ -135,8 +137,10 @@ export async function unfinishedPayments(db: NoteDb): Promise<Unfinished[]> {
     ticket: Uint8Array
     bundle: Uint8Array | null
     input: Uint8Array | null
+    amount: number
+    receiver: Uint8Array
   }>(
-    "SELECT message_id, state, request_id, transport, issue_body, ticket, bundle, input FROM outgoing_payment WHERE state IN ('prepared', 'signed') AND NOT EXISTS (SELECT 1 FROM relay_outbox r WHERE r.message_id = outgoing_payment.message_id) ORDER BY created_at",
+    "SELECT message_id, state, request_id, transport, issue_body, ticket, bundle, input, amount, receiver FROM outgoing_payment WHERE state IN ('prepared', 'signed') AND NOT EXISTS (SELECT 1 FROM relay_outbox r WHERE r.message_id = outgoing_payment.message_id) ORDER BY created_at",
   )
   return rows.map((r) => ({
     messageId: r.message_id,
@@ -147,6 +151,8 @@ export async function unfinishedPayments(db: NoteDb): Promise<Unfinished[]> {
     issueBody: r.issue_body,
     ticket: r.ticket,
     bundle: r.bundle,
+    amount: BigInt(r.amount),
+    receiver: r.receiver,
   }))
 }
 
