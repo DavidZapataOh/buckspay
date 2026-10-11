@@ -177,6 +177,7 @@ export async function confirmAndSendRespend(
     throw error
   }
   mark('prepared')
+  await pause()
   const sent = await signAndSendRespend(id, input, body, plan.lock ? encodeBondTicket(plan.lock.ticket) : null, deps)
   mark('presented')
   report()
@@ -212,6 +213,7 @@ async function signAndSendRespend(
     now: deps.now(),
   })
   mark('signed')
+  await pause()
   await send(wire, deps)
   return {
     messageId: id,
