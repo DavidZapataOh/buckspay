@@ -128,7 +128,7 @@ export const copy = {
   },
   payError: {
     Declined: 'Payment cancelled. Nothing was signed.',
-    NoScreenLock: 'Set a screen lock to pay more than {amount} {symbol}. Nothing was signed.',
+    NoScreenLock: 'Set a screen lock to pay {amount} {symbol} or more. Nothing was signed.',
     Locked: 'Unlock your phone, then tap Resume.',
     NoKey: "This phone can't sign payments. You can reset its identity; that loses payments you haven't settled.",
     SignFailed: "Couldn't sign the payment. Tap Resume to try again.",

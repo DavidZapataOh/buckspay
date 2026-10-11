@@ -7,6 +7,12 @@ const strings = (value: unknown): string[] =>
   typeof value === 'string' ? [value] : Object.values(value as object).flatMap(strings)
 
 describe('copy', () => {
+  it('says a screen lock is needed to pay the threshold or more, the rule the app applies', () => {
+    expect(text(copy.payError.NoScreenLock, { amount: '20.00', symbol: 'USDC' })).toBe(
+      'Set a screen lock to pay 20.00 USDC or more. Nothing was signed.',
+    )
+  })
+
   it('has no placeholder left unfilled in any rendered string', () => {
     for (const template of strings(copy)) {
       const names = [...template.matchAll(/\{(\w+)\}/g)].map((match) => match[1])
