@@ -62,6 +62,8 @@ export type PayContext = {
   paidToday: bigint
   /** Hex of `requestIdOf` for every request this phone already has a live payment for. */
   paidRequests: ReadonlySet<string>
+  /** What the settlement program withholds for each record of a private settlement, when this phone knows it. */
+  recordFee?: bigint
 }
 
 export type PlanRefusal =
@@ -93,6 +95,8 @@ export type Plan = {
     expiry: number
     memo: string
     biometric: boolean
+    /** The part of `amount` that covers the fees of settling the chain privately; nothing for a payment that starts a chain. */
+    fee: bigint
   }
 }
 
@@ -157,6 +161,7 @@ export function reviewOf(
     expiry,
     memo: sanitizeMemo(request.memo),
     biometric: amount >= limits.biometricFrom || ctx.paidToday + amount >= limits.biometricDaily,
+    fee: 0n,
   }
 }
 

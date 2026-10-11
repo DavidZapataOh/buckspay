@@ -31,6 +31,33 @@ describe('planRespend', () => {
     expect(outputs.owner1).toEqual({ type: 'device', key: me.key })
   })
 
+  it('adds the settlement fee of every record of the chain to what it pays, and shows it', () => {
+    const held = [heldNote({ from: issuer, to: me, amount: 5_000_000n })]
+    const ctx = { ...payCtx(me), recordFee: 10_000n }
+    const plan = ok(planRespend(requestTo(bob, 2_000_000n), held, ctx))
+    expect(plan.review).toMatchObject({ amount: 2_020_000n, fee: 20_000n, change: 2_980_000n })
+    const outputs = plan.spend.outputs
+    if (outputs.type !== 'two') throw new Error('expected two outputs')
+    expect(outputs.amount0).toBe(2_020_000n)
+  })
+
+  it('needs a note that covers the request and the fee, and pays it whole when it is exactly that', () => {
+    const ctx = { ...payCtx(me), recordFee: 10_000n }
+    const short = [heldNote({ from: issuer, to: me, amount: 1_000_000n })]
+    expect(planRespend(requestTo(bob, 1_000_000n), short, ctx)).toEqual({ ok: false, reason: 'NoPassableNote' })
+    const exact = [heldNote({ from: issuer, to: me, amount: 1_020_000n })]
+    const plan = ok(planRespend(requestTo(bob, 1_000_000n), exact, ctx))
+    expect(plan.review).toMatchObject({ kind: 'spend1', amount: 1_020_000n, fee: 20_000n, change: 0n })
+  })
+
+  it('adds no fee when none is known', () => {
+    const held = [heldNote({ from: issuer, to: me, amount: 5_000_000n })]
+    expect(ok(planRespend(requestTo(bob, 2_000_000n), held, payCtx(me))).review).toMatchObject({
+      amount: 2_000_000n,
+      fee: 0n,
+    })
+  })
+
   it('names my own lock and never NO_LOCK', () => {
     const held = [heldNote({ from: issuer, to: me, amount: 1_000_000n })]
     const plan = ok(planRespend(requestTo(bob, 1_000_000n), held, payCtx(me)))

@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => ({
   open: (_open: boolean) => {},
 }))
 
+vi.mock('@wallet-ui/react-native-kit', () => ({ useMobileWallet: () => ({ client: { rpc: {} } }) }))
 vi.mock('expo-linking', () => ({ addEventListener: vi.fn(() => ({ remove: vi.fn() })), openURL: vi.fn() }))
 vi.mock('../qr/paste-source', () => ({ pasteInto: vi.fn() }))
 vi.mock('../transport/how-control', () => ({ HowControl: () => null }))

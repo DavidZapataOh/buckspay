@@ -11,6 +11,7 @@ import { confirmAndSendRespend, type PayDeps, resumePayments } from './pay'
 import { planRespend, type RespendPlan } from './respend'
 import { receivePayment } from './receive-flow'
 import { createSoftSpendSigner } from './testing/soft-guard'
+import { feeGate } from '../features/zk/fee-gate'
 import { heldNote, NOTE_DOMAIN, NOW, party, payCtx, receiverFor, requestTo } from './testing/world'
 
 const issuer = party(1)
@@ -64,6 +65,28 @@ describe('passing a received note on, and what happens when the app dies', () =>
     const held = await heldOutputs(myDb, me.key)
     expect(held.map((h) => h.output.amount)).toEqual([3_000_000n])
     expect((await myDb.all("SELECT state FROM received_note WHERE state = 'spent'")).length).toBe(1)
+    await Promise.all([mySide.close(), shopSide.close()])
+  })
+
+  it('is refused by a receiver that checks what settling would pay after the fees, when the payer did not add them', async () => {
+    const gate = feeGate({ fee: async () => 10_000n, expected: 2_000_000n })
+    const shopRefuses = receivePayment({ ...shopContext(), gate }, shopSide, { timeoutMs: 5000 })
+    await confirmAndSendRespend(plan, requestTo(shop, 2_000_000n), 'qr', deps())
+    expect(await shopRefuses).toMatchObject({ accepted: false })
+    await Promise.all([mySide.close(), shopSide.close()])
+  })
+
+  it('is accepted by that receiver when the payer added the fees', async () => {
+    const fee = 10_000n
+    const planned = planRespend(requestTo(shop, 2_000_000n), await heldOutputs(myDb, me.key), {
+      ...payCtx(me),
+      recordFee: fee,
+    })
+    if (!planned.ok) throw new Error(planned.reason)
+    const gate = feeGate({ fee: async () => fee, expected: 2_000_000n })
+    const shopAccepts = receivePayment({ ...shopContext(), gate }, shopSide, { timeoutMs: 5000 })
+    await confirmAndSendRespend(planned.plan, requestTo(shop, 2_000_000n), 'qr', deps())
+    expect(await shopAccepts).toMatchObject({ accepted: true })
     await Promise.all([mySide.close(), shopSide.close()])
   })
 

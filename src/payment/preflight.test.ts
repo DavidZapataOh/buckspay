@@ -144,6 +144,7 @@ describe('planPayment', () => {
       expiry: planned.plan.issue.caveats.expiry,
       memo: 'Coffee x2',
       biometric: false,
+      fee: 0n,
     })
   })
 

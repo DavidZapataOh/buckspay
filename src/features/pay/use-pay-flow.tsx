@@ -1,5 +1,9 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { equalBytes } from '@noble/curves/utils.js'
+import { address } from '@solana/kit'
+import { useMobileWallet } from '@wallet-ui/react-native-kit'
+import { ACTIVE_PROFILE } from '../../protocol/active-profile'
+import { recordFeeSource } from '../zk/fee-gate'
 import { authenticate } from '../../payment/authenticate'
 import { signStoredIssue } from '../../payment/native-sign'
 import { signSpend } from '../../keys'
@@ -38,6 +42,8 @@ import { useSyncReducer } from './use-sync-reducer'
 import { trace } from './timing'
 import { initialPayState, payReducer, type PayState, type ScanStep } from './pay-reducer'
 import { BUILD_TOKEN, BUILD_TOKENS } from './tokens'
+
+const PROGRAM_ADDRESS = address(ACTIVE_PROFILE.programId)
 
 type Offline = ReturnType<typeof useOfflineLocks>
 
@@ -85,6 +91,8 @@ const startOfToday = () => Math.floor(new Date().setHours(0, 0, 0, 0) / 1000)
 export function PayFlowProvider({ children }: { children: ReactNode }) {
   const [state, dispatch, readState] = useSyncReducer(payReducer, initialPayState)
   const { db, domains, witnessSettings, witnessPort } = usePayments()
+  const { client } = useMobileWallet()
+  const recordFees = useMemo(() => recordFeeSource(client.rpc, PROGRAM_ADDRESS), [client.rpc])
   const { deviceKey } = useDeviceIdentity()
   const offline = useOfflineLocks()
   const session = useQrSession()
@@ -209,7 +217,8 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         }
         step = 'E_PLAN'
         const held = credit ? [] : await withoutFlagged(store, await heldOutputs(store, key, context.now))
-        const respent = credit ? null : planRespend(request, held, context)
+        const recordFee = held.length > 0 ? await recordFees(request.mint) : undefined
+        const respent = credit ? null : planRespend(request, held, { ...context, recordFee })
         if (process.env.EXPO_PUBLIC_E2E === '1') {
           trace('respend', {
             minHops: request.minHops,
@@ -241,7 +250,7 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'unreadable', step })
       }
     })()
-  }, [abort, depsFor, dispatch, domains, medium, readState, session, slot])
+  }, [abort, depsFor, dispatch, domains, medium, readState, recordFees, session, slot])
 
   const submitText = useCallback((value: string) => session.push(value), [session])
 

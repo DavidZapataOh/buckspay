@@ -179,6 +179,15 @@ describe('PayReview of a note passed on', () => {
     expect(shown).not.toMatch(/protected|insured|guarantee|allowance/i)
   })
 
+  it('says how much of the payment covers the fees of settling it, and nothing when there are none', async () => {
+    const base = respendPlan({ kind: 'spend2', change: 3_000_000n })
+    const withFee = { ...base, review: { ...base.review, amount: 2_020_000n, fee: 20_000n } }
+    expect(texts((await mount(withFee)).root).join('\n')).toContain(
+      'Includes 0.02 USDC to cover the fees of settling it.',
+    )
+    expect(texts((await mount(base)).root).join('\n')).not.toContain('Includes')
+  })
+
   it('shows no change line for a payment of the whole note', async () => {
     const shown = texts((await mount(respendPlan({ kind: 'spend1', change: 0n }))).root).join('\n')
     expect(shown).toContain('Paying from money you received')

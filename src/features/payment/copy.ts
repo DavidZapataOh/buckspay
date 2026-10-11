@@ -63,6 +63,7 @@ export const copy = {
     fromReceived: 'Paying from money you received',
     sourceReceived: 'Money you received',
     changeBack: '{change} {symbol} comes back to you',
+    includesFee: 'Includes {fee} {symbol} to cover the fees of settling it.',
     bondAnswers: 'Your bond answers for this payment',
     ifRefusedReceived:
       "If the other phone refuses it, you can show the same payment again, but it can't be sent to anyone else.",

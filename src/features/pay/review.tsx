@@ -89,6 +89,15 @@ export function PayReview({
         {'spend' in plan ? (
           <>
             <StatusNote tone="default" message={copy.review.fromReceived} />
+            {plan.review.fee > 0n ? (
+              <StatusNote
+                tone="default"
+                message={text(copy.review.includesFee, {
+                  fee: formatMoney(plan.review.fee, review.decimals),
+                  symbol: review.symbol,
+                })}
+              />
+            ) : null}
             {plan.review.change > 0n ? (
               <StatusNote
                 tone="default"

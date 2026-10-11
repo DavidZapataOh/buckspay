@@ -57,6 +57,10 @@ export type Respent = { ok: true; plan: RespendPlan } | { ok: false; reason: Res
 const paysItsAuthority = (output: Output, request: PaymentRequest) =>
   (output.caveats.flags & Flags.AuthorityOnly) !== 0 && request.owner.type === 'account'
 
+/** What the next receiver's fee gate wants on top of the request: one record fee per spend of the chain once this one is added, and the settling one. */
+const settlementFee = (note: HeldOutput, ctx: PayContext) =>
+  (ctx.recordFee ?? 0n) * BigInt(note.bundle.spends.length + 2)
+
 const sameLock = (a: BondTicket, b: BondTicket) => equalBytes(a.device, b.device) && a.lockSeq === b.lockSeq
 
 const withTicket = (tickets: readonly BondTicket[], own: BondTicket) => [
@@ -66,6 +70,7 @@ const withTicket = (tickets: readonly BondTicket[], own: BondTicket) => [
 
 /** Whether a held note can be passed on to this request at all, whatever my locks say. */
 function passable(note: HeldOutput, request: PaymentRequest, ctx: PayContext, minExpiry: number, wanted: number) {
+  const credit = paysItsAuthority(note.output, request)
   const { output, bundle } = note
   const { caveats } = output
   const rules = forHolder(caveats, output.owner)
@@ -73,7 +78,7 @@ function passable(note: HeldOutput, request: PaymentRequest, ctx: PayContext, mi
     output.owner.type === 'device' &&
     equalBytes(output.owner.key, ctx.me) &&
     equalBytes(bundle.issue.message.mint, request.mint) &&
-    output.amount >= request.amount &&
+    output.amount >= request.amount + (credit ? 0n : settlementFee(note, ctx)) &&
     (caveats.flags & Flags.Delegated) === 0 &&
     caveats.hopsLeft - 1 >= request.minHops &&
     admits(rules, request.owner) &&
@@ -120,6 +125,7 @@ function planFrom(
   const { output, bundle } = note
   if (bundle.tickets.some((ticket) => ticket.validUntil < lastArrival)) return { ok: false, reason: 'TicketStale' }
   if (paysItsAuthority(output, request)) return planCredit(note, request, ctx, token, wanted)
+  const fee = settlementFee(note, ctx)
   const locks = ctx.locks.filter((lock) => equalBytes(lock.mint, request.mint))
   if (locks.length === 0) return { ok: false, reason: 'NoLock' }
   const failure = (lock: OfflineLock) =>
@@ -149,7 +155,7 @@ function planFrom(
     scopeKind: rules.scopeKind,
     scope: rules.scope,
   }
-  const signed = signedSpend(note, request, ctx, lock.lockSeq, caveats)
+  const signed = signedSpend(note, request, request.amount + fee, ctx, lock.lockSeq, caveats)
   if (!signed.ok) return signed
   return {
     ok: true,
@@ -159,8 +165,9 @@ function planFrom(
       token,
       tickets: withTicket(bundle.tickets, lock.ticket),
       review: {
-        ...reviewOf(request, ctx, token, lock, request.amount, lock.backing - lock.nextCumEnd, caveats.expiry),
+        ...reviewOf(request, ctx, token, lock, request.amount + fee, lock.backing - lock.nextCumEnd, caveats.expiry),
         ...signed.plan.review,
+        fee,
       },
     },
   }
@@ -183,7 +190,7 @@ function planCredit(note: HeldOutput, request: PaymentRequest, ctx: PayContext, 
     scopeKind: rules.scopeKind,
     scope: rules.scope,
   }
-  const signed = signedSpend(note, request, ctx, NO_LOCK, caveats)
+  const signed = signedSpend(note, request, request.amount, ctx, NO_LOCK, caveats)
   if (!signed.ok) return signed
   return {
     ok: true,
@@ -206,19 +213,20 @@ type Drafted = {
 function signedSpend(
   note: HeldOutput,
   request: PaymentRequest,
+  pays: bigint,
   ctx: PayContext,
   lockSeq: number,
   caveats: Caveats,
 ): Drafted | { ok: false; reason: RespendRefusal } {
   const { output } = note
-  const whole = request.amount === output.amount
+  const whole = pays === output.amount
   const draft: Spend = {
     input: output.id,
     lockSeq,
     salt: ctx.salt(),
     outputs: whole
       ? { type: 'one', owner: request.owner, caveats }
-      : { type: 'two', owner0: request.owner, amount0: request.amount, caveats0: caveats, owner1: output.owner },
+      : { type: 'two', owner0: request.owner, amount0: pays, caveats0: caveats, owner1: output.owner },
   }
   try {
     const spend = withRecordableOutputs(
@@ -234,7 +242,7 @@ function signedSpend(
         spend,
         review: {
           kind: whole ? 'spend1' : 'spend2',
-          change: output.amount - request.amount,
+          change: output.amount - pays,
           hopsAfter: caveats.hopsLeft,
         },
       },
