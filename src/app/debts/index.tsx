@@ -26,6 +26,7 @@ export default function DebtsIndex() {
       decimals={BUILD_TOKEN.decimals}
       onOpen={(tab) => router.push({ pathname: '/debts/[tab]', params: { tab: bytesToHex(tab) } })}
       onNew={() => router.push('/debts/new')}
+      onReceive={() => router.push('/debts/accept')}
     />
   )
 }

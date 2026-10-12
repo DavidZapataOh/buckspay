@@ -98,7 +98,7 @@ describe('debt screens', () => {
       summary({ direction: 'settled', amount: 0n, peerLabel: 'Friend bbbbbb', locked: true }),
       summary({ peerLabel: 'Friend cccccc', orphaned: true }),
     ]
-    const r = await mount(<DebtsScreen tabs={tabs} {...money} onOpen={vi.fn()} onNew={vi.fn()} />)
+    const r = await mount(<DebtsScreen tabs={tabs} {...money} onOpen={vi.fn()} onNew={vi.fn()} onReceive={vi.fn()} />)
     const all = shown(r)
     expect(all).toContain(i18n.t('debts:intro'))
     expect(all).toContain(`${peerLabel(ben.key)} owes you 25.00 USDC`)
@@ -207,8 +207,17 @@ describe('debt screens', () => {
     expect([onSign.mock.calls.length, onDecline.mock.calls.length]).toEqual([1, 1])
   })
 
+  it('offers to receive a debt next to starting one', async () => {
+    const onReceive = vi.fn()
+    const r = await mount(<DebtsScreen tabs={[]} {...money} onOpen={vi.fn()} onNew={vi.fn()} onReceive={onReceive} />)
+    await press(r.root, 'Receive a debt')
+    expect(onReceive).toHaveBeenCalledTimes(1)
+  })
+
   it('every button has its label and the copy has no banned words', async () => {
-    const r = await mount(<DebtsScreen tabs={[summary()]} {...money} onOpen={vi.fn()} onNew={vi.fn()} />)
+    const r = await mount(
+      <DebtsScreen tabs={[summary()]} {...money} onOpen={vi.fn()} onNew={vi.fn()} onReceive={vi.fn()} />,
+    )
     expect(byLabel(r.root, 'New debt')).toBeTruthy()
     const strings = JSON.stringify(resources.en.debts)
     for (const banned of BANNED) expect(strings).not.toMatch(banned)

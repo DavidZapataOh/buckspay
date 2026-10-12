@@ -20,12 +20,14 @@ export function DebtsScreen({
   decimals,
   onOpen,
   onNew,
+  onReceive,
 }: {
   tabs: readonly TabSummary[]
   symbol: string
   decimals: number
   onOpen: (tab: Uint8Array) => void
   onNew: () => void
+  onReceive: () => void
 }) {
   const { t } = useTranslation(NAMESPACES)
 
@@ -71,6 +73,7 @@ export function DebtsScreen({
       })}
       <View className="gap-2">
         <Button variant="filled" label={t('debts:newDebt')} onPress={onNew} />
+        <Button variant="tonal" label={t('debts:receive')} onPress={onReceive} />
       </View>
     </Screen>
   )

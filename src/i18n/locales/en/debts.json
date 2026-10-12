@@ -65,5 +65,7 @@
     "open": "Added",
     "repay": "Paid with Buckspay",
     "outside": "Paid outside Buckspay"
-  }
+  },
+  "receive": "Receive a debt",
+  "showCode": "Your friend scans this code to send you a debt."
 }

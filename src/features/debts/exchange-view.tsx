@@ -66,7 +66,14 @@ export function ExchangeView<T>({
   if (overlay) return <>{overlay}</>
   if (link.chosen !== 'qr') {
     return (
-      <WaitingScreen medium={link.chosen} title={title} onCancel={onCancel} cancelLabel={t('payment:review.cancel')} />
+      <WaitingScreen
+        medium={link.chosen}
+        title={title}
+        code={idleCode}
+        detail={idleCode ? t('debts:showCode') : undefined}
+        onCancel={onCancel}
+        cancelLabel={t('payment:review.cancel')}
+      />
     )
   }
   if (scanning) {
