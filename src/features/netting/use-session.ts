@@ -143,6 +143,10 @@ function useRun(role: 0 | 1) {
  */
 function useRemainder(setRows: (rows: RemainderRow[]) => void) {
   const depsFor = useRemainderDeps()
+  const latestDeps = useRef(depsFor)
+  useEffect(() => {
+    latestDeps.current = depsFor
+  })
   const port = useRef<SessionPort>(undefined)
   const wire = useRef<GroupWire>(undefined)
   const run = useRef<ReturnType<typeof startRemainder>>(undefined)
@@ -161,16 +165,22 @@ function useRemainder(setRows: (rows: RemainderRow[]) => void) {
   }, [])
   const begin = useCallback(
     (session: Uint8Array, tabs: RemainderTab[], db: SessionDeps['db']) => {
-      const deps = depsFor && port.current ? depsFor(session, port.current) : undefined
+      const build = latestDeps.current
+      const deps = build && port.current ? build(session, port.current) : undefined
       if (!deps || tabs.length === 0) return release()
       run.current = startRemainder({
         deps,
         tabs,
-        refresh: async () => setRows(await loadRemainderRows(db, session, tabs)),
+        refresh: async (paying) =>
+          setRows(
+            (await loadRemainderRows(db, session, tabs)).map((row) =>
+              paying.has(row.tab) && row.state === 'due' ? { ...row, state: 'sending' as const } : row,
+            ),
+          ),
         close: () => undefined,
       })
     },
-    [depsFor, release, setRows],
+    [release, setRows],
   )
   return {
     onLink,

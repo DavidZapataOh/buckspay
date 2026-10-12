@@ -32,7 +32,7 @@ beforeEach(() => {
 
 describe('what a phone does with what is left to pay', () => {
   it('a_creditor_waits_for_the_payment_at_once_and_a_debtor_waits_for_the_person', async () => {
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(async (paying?: ReadonlySet<string>) => void paying)
     const run = startRemainder({ deps, tabs: [tab(1, 'creditor'), tab(2, 'debtor')], refresh, close: vi.fn() })
     await Promise.resolve()
     expect(receiveRemainder).toHaveBeenCalledTimes(1)
@@ -40,12 +40,21 @@ describe('what a phone does with what is left to pay', () => {
     run.stop()
   })
 
-  it('pressing_pay_pays_that_tab_and_reloads_the_rows', async () => {
-    const refresh = vi.fn(async () => undefined)
+  it('pressing_pay_marks_the_tab_as_paying_while_it_pays_and_reloads_the_rows', async () => {
+    const seen: string[][] = []
+    const refresh = vi.fn(async (paying: ReadonlySet<string>) => void seen.push([...paying]))
+    let finish: () => void = () => undefined
+    payRemainder.mockImplementationOnce(
+      () => new Promise((resolve) => (finish = () => resolve({ status: 'released' as const }))),
+    )
     const run = startRemainder({ deps, tabs: [tab(2, 'debtor')], refresh, close: vi.fn() })
-    await run.pay(hex(2))
-    expect(payRemainder).toHaveBeenCalledTimes(1)
-    expect(refresh).toHaveBeenCalled()
+    const paying = run.pay(hex(2))
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(seen.at(-1)).toEqual([hex(2)])
+    finish()
+    await paying
+    expect(seen.at(-1)).toEqual([])
     await run.pay(hex(7))
     expect(payRemainder).toHaveBeenCalledTimes(1)
     run.stop()
@@ -72,7 +81,7 @@ describe('what a phone does with what is left to pay', () => {
 
   it('a_payment_that_fails_leaves_the_rows_to_say_so_instead_of_throwing', async () => {
     payRemainder.mockRejectedValueOnce(new Error('offline'))
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(async (paying?: ReadonlySet<string>) => void paying)
     const run = startRemainder({ deps, tabs: [tab(2, 'debtor')], refresh, close: vi.fn() })
     await expect(run.pay(hex(2))).resolves.toBeUndefined()
     expect(refresh).toHaveBeenCalled()

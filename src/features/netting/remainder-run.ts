@@ -10,12 +10,14 @@ const REFRESH_MS = 1000
 export function startRemainder(input: {
   deps: RemainderDeps
   tabs: readonly RemainderTab[]
-  refresh: () => Promise<void>
+  /** Reads the rows again; `paying` holds the tabs whose payment is running, which still say due in the store. */
+  refresh: (paying: ReadonlySet<string>) => Promise<void>
   close: () => void
 }) {
   const { deps, tabs, refresh } = input
   const stop = new AbortController()
-  const reload = () => refresh().catch(() => undefined)
+  const paying = new Set<string>()
+  const reload = () => refresh(paying).catch(() => undefined)
   const tabOf = (id: string) => tabs.find((tab) => bytesToHex(tab.tab) === id)
   const timer = setInterval(reload, REFRESH_MS)
 
@@ -30,7 +32,10 @@ export function startRemainder(input: {
     async pay(id: string) {
       const tab = tabOf(id)
       if (!tab || tab.role !== 'debtor') return
+      paying.add(id)
+      await reload()
       await payRemainder(deps, tab, stop.signal).catch(() => undefined)
+      paying.delete(id)
       await reload()
     },
     async later(id: string) {
