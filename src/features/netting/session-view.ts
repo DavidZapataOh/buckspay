@@ -1,9 +1,11 @@
 import { currentLanguage, i18n, translateIfKnown } from '../../i18n'
 import { formatDateTime } from '../../i18n/format'
+import type { SessionOutcome } from './member'
 
 export type SessionState =
   | 'lobby'
   | 'collecting'
+  | 'joined'
   | 'connecting'
   | 'consent'
   | 'waiting'
@@ -48,6 +50,7 @@ const BY_STATUS: SessionState[] = [
 const TONES: Record<SessionState, SessionView['tone']> = {
   lobby: 'default',
   collecting: 'muted',
+  joined: 'muted',
   connecting: 'muted',
   consent: 'default',
   waiting: 'muted',
@@ -70,15 +73,23 @@ export function sessionView(
     recordPending: boolean
     remainder: RemainderLine[]
     count?: number
+    /** The host pressed Start and is collecting the tabs. */
+    collecting?: boolean
+    /** A member that is in the session and waits for the host to begin. */
+    joined?: boolean
   },
   now: number,
 ): SessionView {
   void now
   const state: SessionState = input.nothing
     ? 'nothing'
-    : input.role === 0 && input.status === 0
-      ? 'lobby'
-      : BY_STATUS[input.status]
+    : input.collecting
+      ? 'collecting'
+      : input.joined
+        ? 'joined'
+        : input.role === 0 && input.status === 0
+          ? 'lobby'
+          : BY_STATUS[input.status]
   const time = input.expires === null ? '' : formatDateTime(input.expires, currentLanguage())
   let body = translateIfKnown(`netting:states.${state}.body`, { expires: time, time, count: input.count ?? 0 }) ?? ''
   if (state === 'agreed' && input.recordPending) body = `${body} ${i18n.t('netting:recording')}`
@@ -91,5 +102,20 @@ export function sessionView(
     count: input.count ?? 0,
     proof: input.proof,
     remainder: input.remainder,
+  }
+}
+
+/** What the person sees when the session ends: the same words as the saved session would show. */
+export function viewOfOutcome(outcome: SessionOutcome, now: number): SessionView {
+  const base = { role: 1 as const, expires: null, proof: null, nothing: false, recordPending: false, remainder: [] }
+  switch (outcome.status) {
+    case 'nothing':
+      return sessionView({ ...base, status: 6, nothing: true }, now)
+    case 'pending':
+      return sessionView({ ...base, status: 2, expires: outcome.expires }, now)
+    case 'agreed':
+      return sessionView({ ...base, status: 3, expires: outcome.view.expires, proof: outcome.proof }, now)
+    default:
+      return sessionView({ ...base, status: 6 }, now)
   }
 }

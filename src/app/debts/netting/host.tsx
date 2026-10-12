@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { BUILD_TOKEN } from '../../../features/pay/tokens'
 import { ConsentView } from '../../../features/netting/consent-view'
 import { HostScreen } from '../../../features/netting/host-screen'
+import { SessionScreen } from '../../../features/netting/session-screen'
 import { sessionView } from '../../../features/netting/session-view'
 import { useHostSession } from '../../../features/netting/use-session'
 
@@ -12,6 +13,9 @@ export default function NettingHost() {
   useEffect(() => {
     void open()
   }, [open])
+  if (session.outcome && session.view) {
+    return <SessionScreen view={session.view} symbol={BUILD_TOKEN.symbol} decimals={BUILD_TOKEN.decimals} />
+  }
   if (session.consent) {
     return (
       <ConsentView

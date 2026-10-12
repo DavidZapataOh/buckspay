@@ -72,6 +72,10 @@
     "connecting": {
       "headline": "Entrando…"
     },
+    "joined": {
+      "headline": "Você entrou",
+      "body": "Aguardando a pessoa que iniciou a sessão começar."
+    },
     "consent": {
       "headline": "Confira suas dívidas",
       "body": "Este resultado vence em {{time}}."

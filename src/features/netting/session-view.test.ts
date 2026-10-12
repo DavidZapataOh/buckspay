@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { formatDateTime } from '../../i18n/format'
-import { sessionView } from './session-view'
+import { sessionView, viewOfOutcome } from './session-view'
 
 const NOW = 1_800_000_000
 const base = {
@@ -77,5 +77,41 @@ describe('sessionView', () => {
     )
     expect(sessionView({ ...base, status: 7 }, NOW).body).toMatch(/no longer tell/)
     expect(sessionView({ ...base, status: 6 }, NOW).body).toMatch(/Nothing changed/)
+  })
+})
+
+describe('the states before a session has anything to agree', () => {
+  it('a_member_that_is_in_waits_for_the_host_to_begin', () => {
+    const view = sessionView({ ...base, status: 0, joined: true }, NOW)
+    expect(view.state).toBe('joined')
+    expect(view.headline).toBe("You're in")
+  })
+
+  it('the_host_that_pressed_start_is_collecting', () => {
+    expect(sessionView({ ...base, role: 0, status: 0, collecting: true, count: 2 }, NOW).state).toBe('collecting')
+  })
+})
+
+describe('viewOfOutcome', () => {
+  const when = NOW + 3600
+  it.each([
+    [{ status: 'nothing' as const }, 'nothing'],
+    [{ status: 'abandoned' as const, reason: 1 }, 'abandoned'],
+    [{ status: 'refused' as const, refusal: 'NetChanged' as const }, 'abandoned'],
+    [{ status: 'pending' as const, expires: when }, 'waiting'],
+  ])('%j ends as %s', (outcome, state) => {
+    expect(viewOfOutcome(outcome, NOW).state).toBe(state)
+  })
+
+  it('an_agreed_netting_keeps_its_proof_and_its_expiry', () => {
+    const view = viewOfOutcome(
+      {
+        status: 'agreed',
+        proof: 'missing',
+        view: { tabs: [], netBefore: 0n, netAfter: 0n, participants: 2, total: 0n, expires: when },
+      },
+      NOW,
+    )
+    expect(view).toMatchObject({ state: 'agreed', proof: 'missing', expiresAt: when })
   })
 })

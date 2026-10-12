@@ -7,6 +7,7 @@ const U = 1_000_000n
 const STATUS: Record<SessionState, number> = {
   lobby: 0,
   collecting: 0,
+  joined: 0,
   connecting: 0,
   consent: 1,
   waiting: 2,
@@ -26,6 +27,8 @@ const view = (state: SessionState, over: Partial<{ proof: SessionView['proof']; 
       expires: NOW + 86_400,
       proof: null,
       nothing: state === 'nothing',
+      collecting: state === 'collecting',
+      joined: state === 'joined',
       recordPending: false,
       remainder: [],
       ...over,

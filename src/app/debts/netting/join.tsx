@@ -2,6 +2,7 @@ import { router } from 'expo-router'
 import { BUILD_TOKEN } from '../../../features/pay/tokens'
 import { ConsentView } from '../../../features/netting/consent-view'
 import { JoinScreen } from '../../../features/netting/join-screen'
+import { SessionScreen } from '../../../features/netting/session-screen'
 import { useJoinSession } from '../../../features/netting/use-session'
 
 export default function NettingJoin() {
@@ -16,6 +17,9 @@ export default function NettingJoin() {
         onDecline={() => session.answer(false)}
       />
     )
+  }
+  if (session.view && (session.outcome || session.phase === 'running')) {
+    return <SessionScreen view={session.view} symbol={BUILD_TOKEN.symbol} decimals={BUILD_TOKEN.decimals} />
   }
   return (
     <JoinScreen

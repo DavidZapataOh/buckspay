@@ -70,6 +70,10 @@
     "connecting": {
       "headline": "Joining…"
     },
+    "joined": {
+      "headline": "You're in",
+      "body": "Waiting for the person who started the session to begin."
+    },
     "consent": {
       "headline": "Check your debts",
       "body": "This result expires {{time}}."

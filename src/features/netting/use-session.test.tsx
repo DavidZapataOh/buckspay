@@ -1,7 +1,8 @@
 import { act, type ReactElement, useEffect } from 'react'
 import { create } from 'react-test-renderer'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GroupWire } from '../../transport/nearby/group'
+import type { SessionEvent } from './member'
 
 const wire = { close: vi.fn(async () => undefined) } as unknown as GroupWire
 const openHub = vi.fn(async () => wire)
@@ -20,7 +21,13 @@ const debts = {
 vi.mock('../debts/use-debts', () => ({ useDebts: () => (renders++ > 30 ? undefined : debts) }))
 vi.mock('../../keys', () => ({ deviceKeyCluster: () => 'devnet' }))
 vi.mock('./open-group', () => ({ openHub: () => openHub(), openSpoke: vi.fn() }))
-vi.mock('./host', () => ({ runHost: () => new Promise<never>(() => undefined) }))
+let fire: (event: SessionEvent) => void = () => undefined
+vi.mock('./host', () => ({
+  runHost: (deps: { onEvent: (event: SessionEvent) => void }) => {
+    fire = deps.onEvent
+    return new Promise<never>(() => undefined)
+  },
+}))
 vi.mock('./prove', () => ({ proveNetting: vi.fn(), verifyNettingProof: vi.fn() }))
 
 declare global {
@@ -30,8 +37,13 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 const { useHostSession } = await import('./use-session')
 
+const seen: { current?: ReturnType<typeof useHostSession> } = {}
 function Probe(): ReactElement | null {
-  const { open } = useHostSession()
+  const session = useHostSession()
+  const { open } = session
+  useEffect(() => {
+    seen.current = session
+  })
   useEffect(() => {
     void open()
   }, [open])
@@ -39,11 +51,36 @@ function Probe(): ReactElement | null {
 }
 
 describe('useHostSession', () => {
+  beforeEach(() => {
+    renders = 0
+    openHub.mockClear()
+  })
+
   it('opens_the_radio_once_however_many_times_the_screen_renders', async () => {
     await act(async () => {
       create(<Probe />)
       for (let tick = 0; tick < 20; tick++) await Promise.resolve()
     })
     expect(openHub).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows_the_collecting_state_as_soon_as_the_person_presses_start', async () => {
+    await act(async () => {
+      create(<Probe />)
+      for (let tick = 0; tick < 20; tick++) await Promise.resolve()
+    })
+    await act(async () => seen.current!.start())
+    expect(seen.current?.view?.state).toBe('collecting')
+  })
+
+  it('keeps_the_outcome_and_follows_the_phases_of_the_session', async () => {
+    await act(async () => {
+      create(<Probe />)
+      for (let tick = 0; tick < 20; tick++) await Promise.resolve()
+    })
+    await act(async () => fire({ type: 'phase', status: 2 }))
+    expect(seen.current?.view?.state).toBe('waiting')
+    await act(async () => fire({ type: 'ended', outcome: { status: 'nothing' } }))
+    expect(seen.current?.outcome).toEqual({ status: 'nothing' })
   })
 })

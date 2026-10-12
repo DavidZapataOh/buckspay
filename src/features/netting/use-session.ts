@@ -19,7 +19,7 @@ import {
 } from './member'
 import { openHub, openSpoke } from './open-group'
 import { proveNetting, verifyNettingProof } from './prove'
-import { type SessionView, sessionView } from './session-view'
+import { type SessionView, sessionView, viewOfOutcome } from './session-view'
 
 const PROGRAM = getAddressEncoder().encode(ACTIVE_PROFILE.programId as never)
 
@@ -57,7 +57,7 @@ function useDeps(onEvent: (event: SessionEvent) => void, consent: SessionDeps['c
   }, [debts, cluster, consent, onEvent])
 }
 
-function useRun() {
+function useRun(role: 0 | 1) {
   const [run, setRun] = useState<SessionRun>({
     view: undefined,
     consent: undefined,
@@ -76,36 +76,56 @@ function useRun() {
       }),
     [],
   )
-  const onEvent = useCallback((event: SessionEvent) => {
-    if (event.type === 'joined') count.current = event.count
-    setRun((r) => {
-      if (event.type === 'joined')
-        return {
-          ...r,
-          view: sessionView(
-            {
-              status: 0,
-              role: 0,
-              expires: null,
-              proof: null,
-              nothing: false,
-              recordPending: false,
-              remainder: [],
-              count: event.count,
-            },
-            0,
-          ),
-        }
-      if (event.type === 'ended') return { ...r, outcome: event.outcome, consent: undefined }
-      return r
-    })
-  }, [])
+  const onEvent = useCallback(
+    (event: SessionEvent) => {
+      if (event.type === 'joined') count.current = event.count
+      setRun((r) => {
+        if (event.type === 'joined')
+          return {
+            ...r,
+            view: sessionView(
+              {
+                status: 0,
+                role: 0,
+                expires: null,
+                proof: null,
+                nothing: false,
+                recordPending: false,
+                remainder: [],
+                count: event.count,
+              },
+              0,
+            ),
+          }
+        if (event.type === 'phase')
+          return {
+            ...r,
+            view: sessionView(
+              {
+                status: event.status,
+                role,
+                expires: r.view?.expiresAt ?? null,
+                proof: null,
+                nothing: false,
+                recordPending: false,
+                remainder: [],
+              },
+              0,
+            ),
+          }
+        if (event.type === 'ended')
+          return { ...r, outcome: event.outcome, consent: undefined, view: viewOfOutcome(event.outcome, 0) }
+        return r
+      })
+    },
+    [role],
+  )
   return { run, setRun, decide, consent, onEvent, failures, count }
 }
 
 /** Hosts a session: shows the invite, runs the host until the person presses Start. */
 export function useHostSession() {
-  const state = useRun()
+  const state = useRun(0)
   const deps = useDeps(state.onEvent, state.consent)
   const controller = useRef(new AbortController())
   const release = useRef<(() => void) | undefined>(undefined)
@@ -160,7 +180,25 @@ export function useHostSession() {
     ...state.run,
     invite: invite ? encodeInvite(invite) : undefined,
     open,
-    start: () => release.current?.(),
+    start: () => {
+      setRun((r) => ({
+        ...r,
+        view: sessionView(
+          {
+            status: 0,
+            role: 0,
+            expires: null,
+            proof: null,
+            nothing: false,
+            recordPending: false,
+            remainder: [],
+            collecting: true,
+          },
+          0,
+        ),
+      }))
+      release.current?.()
+    },
     cancel: () => controller.current.abort(),
     answer: (ok: boolean) => state.decide.current?.(ok),
   }
@@ -168,7 +206,7 @@ export function useHostSession() {
 
 /** Joins the session an invite names. */
 export function useJoinSession() {
-  const state = useRun()
+  const state = useRun(1)
   const deps = useDeps(state.onEvent, state.consent)
   const controller = useRef(new AbortController())
 
@@ -184,7 +222,23 @@ export function useJoinSession() {
       state.setRun((r) => ({ ...r, phase: 'connecting' }))
       try {
         const wire = await openSpoke(invite, controller.current.signal)
-        state.setRun((r) => ({ ...r, phase: 'running' }))
+        state.setRun((r) => ({
+          ...r,
+          phase: 'running',
+          view: sessionView(
+            {
+              status: 0,
+              role: 1,
+              expires: null,
+              proof: null,
+              nothing: false,
+              recordPending: false,
+              remainder: [],
+              joined: true,
+            },
+            0,
+          ),
+        }))
         void runMember({ ...deps, wire }, invite, controller.current.signal).finally(() => void wire.close())
       } catch (error) {
         if (!(error instanceof GroupError)) throw error
