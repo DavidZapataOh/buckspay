@@ -140,7 +140,6 @@
     "title": "Cobrar",
     "amount": "Valor",
     "memo": "Nota (opcional)",
-    "memoCount": "{{count}} / 48",
     "invalidAmount": "Digite um valor maior que zero, até {{max}}.",
     "limits": "Você pode cobrar até {{max}} por pagamento. O pagamento precisa continuar válido por pelo menos {{window}}.",
     "bondLimit": "Quanto você pode aceitar de uma pessoa depende do depósito de segurança dela, até o pagamento ser creditado a você.",
@@ -179,7 +178,10 @@
     "done": "Concluir",
     "notReceived": "Não recebido.",
     "tryAgain": "Tentar de novo",
-    "passOnHelp": "Use para pagar outra pessoa, mesmo sem internet. Se não usar, é creditado na sua carteira em até um dia."
+    "passOnHelp": "Use para pagar outra pessoa, mesmo sem internet. Se não usar, é creditado na sua carteira em até um dia.",
+    "amountNeeded": "Digite um valor",
+    "more": "Mais informações",
+    "less": "Menos informações"
   },
   "reason": {
     "1": "Não foi possível ler este pagamento.",

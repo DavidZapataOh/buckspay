@@ -140,7 +140,6 @@
     "title": "Get paid",
     "amount": "Amount",
     "memo": "Note (optional)",
-    "memoCount": "{{count}} / 48",
     "invalidAmount": "Enter an amount above zero, up to {{max}}.",
     "limits": "You can get up to {{max}} per payment. The payment has to stay valid for at least {{window}}.",
     "bondLimit": "How much you can accept from one person depends on their security deposit, until the payment is credited to you.",
@@ -179,7 +178,10 @@
     "done": "Done",
     "notReceived": "Not received.",
     "tryAgain": "Try again",
-    "passOnHelp": "Use it to pay someone else, even offline. If you don't, it's credited to your wallet within a day."
+    "passOnHelp": "Use it to pay someone else, even offline. If you don't, it's credited to your wallet within a day.",
+    "amountNeeded": "Enter an amount",
+    "more": "More information",
+    "less": "Less information"
   },
   "reason": {
     "1": "Couldn't read this payment.",

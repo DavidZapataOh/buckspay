@@ -140,7 +140,6 @@
     "title": "Cobrar",
     "amount": "Monto",
     "memo": "Nota (opcional)",
-    "memoCount": "{{count}} / 48",
     "invalidAmount": "Escribe un monto mayor que cero, hasta {{max}}.",
     "limits": "Puedes cobrar hasta {{max}} por pago. El pago debe seguir siendo válido por al menos {{window}}.",
     "bondLimit": "Cuánto puedes aceptar de una persona depende de su depósito de seguridad, hasta que el pago se te acredite.",
@@ -179,7 +178,10 @@
     "done": "Listo",
     "notReceived": "No se recibió.",
     "tryAgain": "Intentar de nuevo",
-    "passOnHelp": "Úsalo para pagar a otra persona, incluso sin internet. Si no, se acredita en tu billetera en un día."
+    "passOnHelp": "Úsalo para pagar a otra persona, incluso sin internet. Si no, se acredita en tu billetera en un día.",
+    "amountNeeded": "Escribe un monto",
+    "more": "Más información",
+    "less": "Menos información"
   },
   "reason": {
     "1": "No se pudo leer este pago.",
