@@ -218,7 +218,7 @@
       "late": "Reported too late: nothing was destroyed. You are not repaid."
     },
     "title": "History",
-    "empty": "No payments yet.",
+    "empty": "No payments yet",
     "paid": "Paid {{amount}} {{symbol}} · phone {{code}} · {{status}}",
     "received": "Received {{amount}} {{symbol}} · {{status}}",
     "today": "Today",
@@ -293,7 +293,9 @@
     "toWho": "To {{who}} · {{status}}",
     "codeHelp": "Check that it matches the other person's phone.",
     "settleWithWallet": "Credit it yourself",
-    "walletFailed": "Your wallet could not credit this payment. Nothing was charged; try again."
+    "walletFailed": "Your wallet could not credit this payment. Nothing was charged; try again.",
+    "paidWord": "Paid",
+    "receivedWord": "Received"
   },
   "settlement": {
     "labelTitle": "Crediting in the open",

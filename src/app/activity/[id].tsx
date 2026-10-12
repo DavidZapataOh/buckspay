@@ -1,27 +1,33 @@
-import { formatDateTime } from '../../i18n/format'
+import { formatDateTime, formatMoney } from '../../i18n/format'
 import { currentLanguage, NAMESPACES } from '../../i18n'
 import { useTranslation } from 'react-i18next'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { View } from 'react-native'
+import { Amount } from '../../components/amount'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { Hero } from '../../components/hero'
 import { ListRow } from '../../components/list-row'
 import { Screen } from '../../components/screen'
+import { Stage } from '../../components/stage'
 import { type ActivityDetail, activityDetail } from '../../features/notes/activity'
 import { LostNote } from '../../features/activity/lost-note'
 import { RemoteStatus } from '../../features/remote/remote-status'
-import { sentence, parseActivityId } from '../../features/activity/format'
+import { parseActivityId, statusKind, statusWord } from '../../features/activity/format'
 import { PAY_LIMITS, MIN_WINDOW } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { usePayFlow } from '../../features/pay/use-pay-flow'
 import { usePayments } from '../../features/payment/payments-provider'
 import { reasonText } from '../../features/payment/reason-text'
 import type { Reason } from '../../payment/reasons'
+import { safetyCode } from '../../payment/messages'
 import { whyWaiting } from '../../features/settlement/why'
 import { useSettlementRunner } from '../../features/settlement/use-settlement-runner'
 import { ellipsify } from '../../utils/ellipsify'
+
+const HEROES = { done: 'done', problem: 'problem', waiting: 'waiting', info: 'waiting' } as const
 
 export default function ActivityDetailScreen() {
   const { t } = useTranslation(NAMESPACES)
@@ -31,6 +37,7 @@ export default function ActivityDetailScreen() {
   const settlement = useSettlementRunner()
   const flow = usePayFlow()
   const [detail, setDetail] = useState<ActivityDetail>()
+  const [open, setOpen] = useState(false)
   const parsed = parseActivityId(id)
 
   const { report } = settlement
@@ -59,36 +66,40 @@ export default function ActivityDetailScreen() {
     detail.keepUntil !== undefined
       ? t('payment:activity.passOnUntil', { time: formatDateTime(detail.keepUntil, currentLanguage()) })
       : (why?.text ?? (detail.state === 'expired' ? t('payment:activity.expiredNote') : undefined))
+  const kind = statusKind(detail.state)
+  const paid = detail.kind === 'paid'
 
   return (
     <Screen testID="activity-detail">
-      <AppText variant="headline">{t('payment:activity.detail')}</AppText>
-      <AppText variant="body">{sentence({ ...detail }, symbol, decimals)}</AppText>
-      {detail.kind === 'paid' && !detail.remote ? (
-        <AppText variant="label" tone="muted">
-          {t('payment:activity.codeHelp')}
-        </AppText>
-      ) : null}
-      <ListRow title={t('payment:activity.id')} value={ellipsify(bytesToHex(detail.id), 8)} />
-      <ListRow title={t('payment:activity.time')} value={formatDateTime(detail.at, currentLanguage())} />
+      <Stage
+        hero={<Hero kind={HEROES[kind]} decorative size={120} />}
+        title={statusWord(detail)}
+        tone={kind === 'done' ? 'success' : kind === 'problem' ? 'danger' : undefined}
+      >
+        <Amount
+          value={`${paid ? '−' : '+'}${formatMoney(detail.amount, decimals, currentLanguage())}`}
+          symbol={symbol}
+          tone={paid ? 'strong' : 'success'}
+        />
+        {paid && !detail.remote ? (
+          <AppText variant="label" tone="muted">
+            {t('payment:review.phone', { code: safetyCode({ type: 'device', key: detail.counterparty }) })}
+          </AppText>
+        ) : null}
+      </Stage>
       {detail.remote && detail.deadline !== undefined ? (
         <RemoteStatus state={detail.state} passedTo={detail.handedTo ?? 0} deadline={detail.deadline} />
       ) : null}
-      {detail.transport ? <ListRow title={t('payment:activity.transport')} value={detail.transport} /> : null}
-      {detail.memo ? <ListRow title={t('payment:activity.note')} value={`“${detail.memo}”`} /> : null}
+      {detail.memo ? <AppText variant="body" className="text-center">{`“${detail.memo}”`}</AppText> : null}
       {detail.reason ? (
-        <ListRow
-          title={t('payment:activity.reason')}
-          value={reasonText(detail.reason as Reason, {
+        <AppText variant="body" tone="muted" className="text-center">
+          {reasonText(detail.reason as Reason, {
             window: MIN_WINDOW,
             max: PAY_LIMITS.maxPayment,
             symbol,
             decimals,
           })}
-        />
-      ) : null}
-      {detail.locks && detail.locks.length > 0 ? (
-        <ListRow title={t('payment:activity.locks')} value={detail.locks.join(', ')} />
+        </AppText>
       ) : null}
       {lost?.claim.kind === 'reported' ? (
         <LostNote
@@ -102,12 +113,12 @@ export default function ActivityDetailScreen() {
         />
       ) : null}
       {waiting ? (
-        <AppText variant="body" tone="muted" accessibilityLiveRegion="polite">
+        <AppText variant="body" tone="muted" className="text-center" accessibilityLiveRegion="polite">
           {waiting}
         </AppText>
       ) : null}
       {why?.code ? (
-        <AppText variant="label" tone="muted">
+        <AppText variant="label" tone="muted" className="text-center">
           {t('payment:activity.details.code', { code: why.code })}
         </AppText>
       ) : null}
@@ -138,7 +149,7 @@ export default function ActivityDetailScreen() {
             onPress={() => detail.outputId && void settlement.confirmNotice(detail.outputId)}
           />
         ) : null}
-        {detail.kind === 'paid' && detail.unfinished ? (
+        {paid && detail.unfinished ? (
           <>
             <AppText variant="body" tone="muted">
               {t('payment:pay.discardWarning')}
@@ -162,6 +173,22 @@ export default function ActivityDetailScreen() {
           </>
         ) : null}
       </View>
+      <Button
+        testID="activity-details"
+        variant="text"
+        label={open ? t('common:hideDetails') : t('common:details')}
+        onPress={() => setOpen(!open)}
+      />
+      {open ? (
+        <View className="gap-1">
+          <ListRow title={t('payment:activity.id')} value={ellipsify(bytesToHex(detail.id), 8)} />
+          <ListRow title={t('payment:activity.time')} value={formatDateTime(detail.at, currentLanguage())} />
+          {detail.transport ? <ListRow title={t('payment:activity.transport')} value={detail.transport} /> : null}
+          {detail.locks && detail.locks.length > 0 ? (
+            <ListRow title={t('payment:activity.locks')} value={detail.locks.join(', ')} />
+          ) : null}
+        </View>
+      ) : null}
     </Screen>
   )
 }

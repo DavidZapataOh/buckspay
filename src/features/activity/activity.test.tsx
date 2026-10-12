@@ -53,20 +53,25 @@ describe('ActivityList', () => {
       create(<ActivityList rows={rows} symbol="USDC" decimals={6} now={NOW} onOpen={() => {}} />),
     )
     const shown = texts(renderer.root)
-    const lines = shown.filter(
-      (line) => line.includes('USDC') || /^(Credited|Not confirmed|Refused|Cancelled|Received)$/.test(line),
+    const lines = shown.filter((line) =>
+      /^(Paid|Received|Credited|Not confirmed|Refused|Cancelled|Received|[+−]\d+\.\d\d)$/.test(line),
     )
     expect(lines).toEqual([
-      'Received 5.00 USDC',
-      'Credited',
-      'Paid 5.00 USDC',
-      'Not confirmed',
-      'Paid 5.00 USDC',
-      'Refused',
-      'Paid 5.00 USDC',
-      'Cancelled',
-      'Received 5.00 USDC',
       'Received',
+      'Credited',
+      '+5.00',
+      'Paid',
+      'Not confirmed',
+      '−5.00',
+      'Paid',
+      'Refused',
+      '−5.00',
+      'Paid',
+      'Cancelled',
+      '−5.00',
+      'Received',
+      'Received',
+      '+5.00',
     ])
     expect(shown.join('\n')).not.toMatch(/[A-Z2-9]{4}-[A-Z2-9]{4}/)
     expect(shown).toContain('Today')
@@ -89,7 +94,7 @@ describe('ActivityList', () => {
     const renderer = await act(async () =>
       create(<ActivityList rows={[]} symbol="USDC" decimals={6} now={NOW} onOpen={() => {}} />),
     )
-    expect(texts(renderer.root)).toContain('No payments yet.')
+    expect(texts(renderer.root)).toContain('No payments yet')
   })
 
   it('opens the row that was tapped', async () => {
@@ -191,6 +196,6 @@ describe('netting entries', () => {
     const renderer = await mount(
       <ActivityList rows={[row({})]} symbol="USDC" decimals={6} now={NOW} onOpen={() => {}} />,
     )
-    expect(texts(renderer.root).some((line) => line.startsWith('Paid 5.00 USDC'))).toBe(true)
+    expect(texts(renderer.root)).toEqual(expect.arrayContaining(['Paid', '−5.00']))
   })
 })

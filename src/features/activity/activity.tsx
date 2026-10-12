@@ -1,13 +1,18 @@
 import { useTranslation } from 'react-i18next'
 import { currentLanguage, NAMESPACES } from '../../i18n'
-import { formatDate } from '../../i18n/format'
+import { formatDate, formatMoney } from '../../i18n/format'
 import type { ReactNode } from 'react'
 import { Pressable, View } from 'react-native'
+import { Amount } from '../../components/amount'
 import { AppText } from '../../components/app-text'
+import { Chip } from '../../components/chip'
+import { Hero } from '../../components/hero'
+import { Icon } from '../../components/icon'
 import { Screen } from '../../components/screen'
+import { useThemeColors } from '../../theme/use-theme-colors'
 import { NettingEntries } from '../netting/entries'
 import type { ActivityRow } from '../notes/activity'
-import { activityId, rowParts, sentence } from './format'
+import { activityId, sentence, statusKind, statusWord } from './format'
 
 const dayStart = (seconds: number) => new Date(seconds * 1000).setHours(0, 0, 0, 0)
 
@@ -32,6 +37,7 @@ export function ActivityList({
   rewards?: { summary: string; onOpen: () => void }
 }) {
   const { t } = useTranslation(NAMESPACES)
+  const [onContainer] = useThemeColors('on-secondary-container')
 
   const today = dayStart(now)
   const headings = rows.map((row, index) => {
@@ -41,7 +47,6 @@ export function ActivityList({
   })
   return (
     <Screen testID="activity">
-      <AppText variant="headline">{t('payment:activity.title')}</AppText>
       <NettingEntries />
       {rewards ? (
         <Pressable
@@ -59,15 +64,19 @@ export function ActivityList({
       ) : null}
       {header}
       {rows.length === 0 ? (
-        <AppText variant="body" tone="muted">
-          {t('payment:activity.empty')}
-        </AppText>
+        <View className="items-center gap-4 pt-8">
+          <Hero kind="nearby" decorative />
+          <AppText variant="title" tone="muted">
+            {t('payment:activity.empty')}
+          </AppText>
+        </View>
       ) : null}
       {rows.map((row, index) => {
         const heading = headings[index]
-        const parts = rowParts(row, symbol, decimals)
+        const paid = row.kind === 'paid'
+        const money = formatMoney(row.amount, decimals, currentLanguage())
         return (
-          <View key={activityId(row)} className="gap-1">
+          <View key={activityId(row)} className="gap-2">
             {heading ? (
               <AppText variant="label" tone="muted" accessibilityRole="header">
                 {heading}
@@ -77,12 +86,23 @@ export function ActivityList({
               accessibilityRole="button"
               accessibilityLabel={sentence(row, symbol, decimals)}
               onPress={() => onOpen(activityId(row))}
-              className="min-h-14 justify-center py-2"
+              className="min-h-20 flex-row items-center gap-3 rounded-3xl border border-outline bg-surface p-4 active:bg-secondary-container"
             >
-              <AppText variant="title">{parts.title}</AppText>
-              <AppText variant="label" tone="muted">
-                {parts.detail}
-              </AppText>
+              <View className="size-12 items-center justify-center rounded-full bg-secondary-container">
+                <Icon name={paid ? 'north_east' : 'south_west'} color={onContainer} />
+              </View>
+              <View className="flex-1 gap-1">
+                <AppText variant="title">
+                  {paid ? t('payment:activity.paidWord') : t('payment:activity.receivedWord')}
+                </AppText>
+                <Chip kind={statusKind(row.state)} label={statusWord(row)} />
+              </View>
+              <Amount
+                size="row"
+                value={`${paid ? '−' : '+'}${money}`}
+                symbol={symbol}
+                tone={paid ? 'strong' : 'success'}
+              />
             </Pressable>
           </View>
         )

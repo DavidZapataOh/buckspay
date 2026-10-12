@@ -219,7 +219,7 @@
       "late": "Informada tarde demais: nada foi destruído. Você não é reembolsado."
     },
     "title": "Histórico",
-    "empty": "Ainda não há pagamentos.",
+    "empty": "Ainda sem pagamentos",
     "paid": "Você pagou {{amount}} {{symbol}} · celular {{code}} · {{status}}",
     "received": "Você recebeu {{amount}} {{symbol}} · {{status}}",
     "today": "Hoje",
@@ -294,7 +294,9 @@
     "toWho": "Para {{who}} · {{status}}",
     "codeHelp": "Confira se é igual ao celular da outra pessoa.",
     "settleWithWallet": "Creditar eu mesmo",
-    "walletFailed": "Sua carteira não conseguiu creditar este pagamento. Nada foi cobrado; tente de novo."
+    "walletFailed": "Sua carteira não conseguiu creditar este pagamento. Nada foi cobrado; tente de novo.",
+    "paidWord": "Pagou",
+    "receivedWord": "Recebeu"
   },
   "settlement": {
     "labelTitle": "Creditar de forma pública",

@@ -23,6 +23,17 @@ export const statusWord = (row: Pick<ActivityRow, 'state' | 'handedTo'>) =>
         : i18n.t('payment:activity.relayHanded', { count: String(row.handedTo ?? 0) })
       : (translateIfKnown(`payment:activity.status.${row.state}`) ?? row.state)
 
+/** How a state stands, for the colour and the icon beside its word. */
+export function statusKind(state: string): 'done' | 'waiting' | 'problem' | 'info' {
+  if (state.startsWith('remote-')) {
+    const known = state.slice(7)
+    return known === 'delivered' ? 'done' : known === 'expired' || known === 'refused' ? 'problem' : 'info'
+  }
+  if (['settled', 'confirmed', 'change', 'spent'].includes(state)) return 'done'
+  if (['rejected', 'lost', 'conflicted', 'expired', 'abandoned'].includes(state)) return 'problem'
+  return 'waiting'
+}
+
 /** A row of the list in two lines: the amount that moved, and what became of it (and to whom, when far away). */
 export function rowParts(row: ActivityRow, symbol: string, decimals: number): { title: string; detail: string } {
   const values = { amount: formatMoney(row.amount, decimals, currentLanguage()), symbol }

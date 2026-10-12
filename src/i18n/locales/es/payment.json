@@ -219,7 +219,7 @@
       "late": "Se reportó muy tarde: no se destruyó nada. No se te devuelve el dinero."
     },
     "title": "Historial",
-    "empty": "Aún no hay pagos.",
+    "empty": "Aún no hay pagos",
     "paid": "Pagaste {{amount}} {{symbol}} · celular {{code}} · {{status}}",
     "received": "Recibiste {{amount}} {{symbol}} · {{status}}",
     "today": "Hoy",
@@ -294,7 +294,9 @@
     "toWho": "Para {{who}} · {{status}}",
     "codeHelp": "Revisa que coincida con el celular de la otra persona.",
     "settleWithWallet": "Acreditarlo yo mismo",
-    "walletFailed": "Tu billetera no pudo acreditar este pago. No se cobró nada; inténtalo de nuevo."
+    "walletFailed": "Tu billetera no pudo acreditar este pago. No se cobró nada; inténtalo de nuevo.",
+    "paidWord": "Pagaste",
+    "receivedWord": "Recibiste"
   },
   "settlement": {
     "labelTitle": "Acreditar de forma pública",
