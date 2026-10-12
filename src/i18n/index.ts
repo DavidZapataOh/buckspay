@@ -28,6 +28,9 @@ void i18n.use(initReactI18next).init({
 
 const deviceTags = () => getLocales().map((locale) => locale.languageTag)
 
+/** The language the phone itself asks for, among those the app has. */
+export const deviceLanguage = (): Language => resolveLanguage(null, deviceTags())
+
 export const currentLanguage = (): Language => resolveLanguage(i18n.language, [])
 
 /** Activates the language the person chose, or else the one the phone uses. */

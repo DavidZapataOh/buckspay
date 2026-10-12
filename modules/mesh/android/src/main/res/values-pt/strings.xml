@@ -1,0 +1,5 @@
+<resources>
+  <string name="mesh_channel">Pagamentos por proximidade</string>
+  <string name="mesh_notification_title">Ajudando com pagamentos por perto</string>
+  <string name="mesh_turn_off">Desativar</string>
+</resources>

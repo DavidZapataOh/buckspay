@@ -10,5 +10,9 @@
   "certificates_one": "Chain of {{count}} certificate",
   "certificates_other": "Chain of {{count}} certificates",
   "program": "Program",
-  "version": "Version"
+  "version": "Version",
+  "language": {
+    "title": "Language",
+    "system": "Phone language"
+  }
 }

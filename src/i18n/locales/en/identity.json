@@ -96,5 +96,6 @@
   "lockLengthDays": "Reserve length (days)",
   "keyProtectionLine": "Key storage: {{value}}",
   "viewTransaction": "View the transaction in the explorer",
-  "waitingForSolana": "Waiting for Solana"
+  "waitingForSolana": "Waiting for Solana",
+  "activatedAnnouncement": "This phone is activated and registered to your wallet."
 }

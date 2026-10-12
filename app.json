@@ -60,6 +60,14 @@
         }
       ],
       "expo-local-authentication",
+      [
+        "expo-localization",
+        {
+          "supportedLocales": {
+            "android": ["en", "es-419", "pt-BR"]
+          }
+        }
+      ],
       "./plugins/with-gradle-heap",
       "./plugins/with-no-backup"
     ]

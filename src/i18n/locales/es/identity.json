@@ -96,5 +96,6 @@
   "lockLengthDays": "Duración de la reserva (días)",
   "keyProtectionLine": "Almacenamiento de la llave: {{value}}",
   "viewTransaction": "Ver la transacción en el explorador",
-  "waitingForSolana": "Esperando a Solana"
+  "waitingForSolana": "Esperando a Solana",
+  "activatedAnnouncement": "Este celular está activado y registrado con tu billetera."
 }

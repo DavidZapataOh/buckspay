@@ -11,6 +11,7 @@ import { Button } from '../../components/button'
 import { ListRow } from '../../components/list-row'
 import { Screen } from '../../components/screen'
 import { StatusNote } from '../../components/status-note'
+import { LanguageSetting } from './language-setting'
 import { MeshSettings, type MeshSettingsProps } from '../mesh/mesh-settings'
 import { keyProtection } from '../identity/identity-copy'
 
@@ -67,6 +68,7 @@ export function Settings({
   return (
     <Screen testID="settings">
       <AppText variant="headline">{t('settings:title')}</AppText>
+      <LanguageSetting />
       <ListRow testID="network" title={t('settings:network')} value={BUILD_NETWORK.label} />
       {wallet ? (
         <AddressRow testID="wallet" address={wallet} label={t('common:connectedWallet')} />

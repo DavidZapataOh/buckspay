@@ -10,5 +10,9 @@
   "certificates_one": "Cadena de {{count}} certificado",
   "certificates_other": "Cadena de {{count}} certificados",
   "program": "Programa",
-  "version": "Versión"
+  "version": "Versión",
+  "language": {
+    "title": "Idioma",
+    "system": "Idioma del celular"
+  }
 }

@@ -17,6 +17,8 @@ import { PointModeProvider } from '../features/event/use-point-mode'
 import { ReceiveFlowProvider } from '../features/receive/use-receive-flow'
 import { SettlementProvider } from '../features/settlement/use-settlement-runner'
 import { createAuthorizationCache } from '../features/wallet/authorization-cache'
+import { i18n } from '../i18n'
+import { useLanguageBootstrap } from '../i18n/use-language-bootstrap'
 import { configureDeviceKey } from '../keys'
 import { useThemeColors } from '../theme/use-theme-colors'
 
@@ -32,8 +34,15 @@ const identity: AppIdentity = {
 configureDeviceKey(BUILD_NETWORK.cluster)
 // Expo Router hides the splash on the first frame of the app; hand over to it without a fade.
 SplashScreen.setOptions({ duration: 0 })
+// The first screen is painted in the person's language, not in English first.
+void SplashScreen.preventAutoHideAsync()
 
 export default function Layout() {
+  const languageReady = useLanguageBootstrap()
+  useEffect(() => {
+    if (languageReady) SplashScreen.hide()
+  }, [languageReady])
+  if (!languageReady) return null
   return (
     <NetworkProvider network={BUILD_NETWORK.network}>
       <MobileWalletProvider cache={cache} cluster={BUILD_NETWORK.network} identity={identity}>
@@ -74,7 +83,7 @@ function Routes() {
   // Onboarding closes itself once the registration is confirmed: say so to screen readers.
   useEffect(() => {
     if (step === 'ready' && previous.current === 'confirming') {
-      AccessibilityInfo.announceForAccessibility('This phone is activated and registered to your wallet.')
+      AccessibilityInfo.announceForAccessibility(i18n.t('identity:activatedAnnouncement'))
     }
     previous.current = step
   }, [step])
