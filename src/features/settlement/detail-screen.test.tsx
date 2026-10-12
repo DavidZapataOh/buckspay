@@ -83,7 +83,7 @@ describe('a payment that is still settling', () => {
 
   it('says it waits for the person and offers to settle in the clear', async () => {
     const tree = await show({ notices: [{ outputId: mocks.outputId, holders: 2 }] })
-    expect(JSON.stringify(tree.toJSON())).toContain('Waiting for you to read')
+    expect(JSON.stringify(tree.toJSON())).toContain('Waiting for you.')
     await press(tree, 'settle-in-clear')
     expect(confirmNotice).toHaveBeenCalledWith(mocks.outputId)
   })

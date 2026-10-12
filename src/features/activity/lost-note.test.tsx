@@ -32,7 +32,7 @@ describe('LostNote', () => {
   it('names the step and the culprit code and says the bond is not paid to you', async () => {
     const lines = await shown({ state: 'filed' })
     expect(lines.some((line) => /step 3 of 4 \(code [A-Z2-9]{4}-[A-Z2-9]{4}\)/.test(line))).toBe(true)
-    expect(lines.join(' ')).toContain('80.00 USDC destroyed')
+    expect(lines.join(' ')).toContain('security deposit of 80.00 USDC was destroyed')
     expect(lines.join(' ')).toContain('You are not repaid')
   })
 
@@ -41,7 +41,7 @@ describe('LostNote', () => {
   })
 
   it('names the issuer when the chain was never backed', async () => {
-    expect((await shown({ state: 'filed', hop: null })).join(' ')).toContain('The issuer')
+    expect((await shown({ state: 'filed', hop: null })).join(' ')).toContain('The first payer')
   })
 
   it('never uses protection words', async () => {
@@ -49,6 +49,6 @@ describe('LostNote', () => {
   })
 
   it('says nothing burned when reported late', async () => {
-    expect((await shown({ state: 'late', burned: null })).join(' ')).toContain('nothing was burned')
+    expect((await shown({ state: 'late', burned: null })).join(' ')).toContain('nothing was destroyed')
   })
 })

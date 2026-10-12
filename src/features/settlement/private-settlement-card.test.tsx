@@ -40,7 +40,7 @@ async function render(state: PrivateSettlementState, clearAllowed = false) {
 describe('PrivateSettlementCard', () => {
   it('shows progress and lets the user prove now', async () => {
     const { root, onSettleNow } = await render({ kind: 'waiting-for-charger', proved: 3, total: 17 })
-    expect(texts(root)).toContain('Preparing private settlement · 3 of 17')
+    expect(texts(root)).toContain('Preparing a private credit · 3 of 17')
     await act(async () => host(root, 'private-settle-now')[0].props.onPress())
     expect(onSettleNow).toHaveBeenCalled()
     expect(host(root, 'private-settle-clear')).toHaveLength(0)
@@ -48,15 +48,15 @@ describe('PrivateSettlementCard', () => {
 
   it('says the key is downloading, with its progress', async () => {
     const { root } = await render({ kind: 'needs-key', progress: 0.42 })
-    expect(texts(root)).toContain('Downloading private settlement data · 42%')
+    expect(texts(root)).toContain('Downloading private crediting data · 42%')
   })
 
   it('offers the clear fallback only when allowed, and says what it publishes', async () => {
     const { root, onSettleInClear } = await render({ kind: 'failed', reason: 'stale-key' }, true)
-    expect(texts(root)).toContain('Updating private settlement data')
+    expect(texts(root)).toContain('Updating private crediting data')
     await act(async () => host(root, 'private-settle-clear')[0].props.onPress())
     expect(onSettleInClear).toHaveBeenCalled()
-    expect(texts(root).join(' ')).toContain('publishes')
+    expect(texts(root).join(' ')).toContain('makes public')
   })
 
   it('never claims more than the route gives', async () => {
@@ -75,6 +75,6 @@ describe('PrivateSettlementCard', () => {
 
   it('explains the route in the words the product allows', async () => {
     const { root } = await render({ kind: 'ready' })
-    expect(texts(root).join(' ')).toContain('hidden from chain observers when settled through ZK')
+    expect(texts(root).join(' ')).toContain('stay hidden from everyone looking at the blockchain')
   })
 })

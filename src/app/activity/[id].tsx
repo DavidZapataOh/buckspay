@@ -101,6 +101,11 @@ export default function ActivityDetailScreen() {
           {waiting}
         </AppText>
       ) : null}
+      {why?.code ? (
+        <AppText variant="label" tone="muted">
+          {t('payment:activity.details.code', { code: why.code })}
+        </AppText>
+      ) : null}
       <View className="gap-3">
         {settleable ? (
           <Button

@@ -115,7 +115,7 @@ describe('PayTab', () => {
     )[0]
     await act(async () => discard.props.onPress())
     expect(onDiscard).not.toHaveBeenCalled()
-    expect(texts(renderer.root).join('\n')).toContain('This part of your allowance may stay used.')
+    expect(texts(renderer.root).join('\n')).toContain('That part of your offline balance may stay on hold.')
     await act(async () => renderer.root.findByProps({ testID: 'pay-discard-confirm' }).props.onPress())
     expect(onDiscard).toHaveBeenCalledWith(new Uint8Array(32).fill(1))
   })

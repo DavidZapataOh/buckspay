@@ -26,7 +26,7 @@ describe('ClearNotice', () => {
     const onWait = vi.fn()
     const renderer = await act(async () => create(<ClearNotice holders={3} onSettle={onSettle} onWait={onWait} />))
     expect(texts(renderer.root).join('\n')).toContain(
-      'publishes the keys and amounts of the 3 people who held it before you.',
+      'makes public the 3 people who held the money before you, and the amounts.',
     )
     expect(onSettle).not.toHaveBeenCalled()
     await act(async () => host(renderer.root, 'notice-wait')[0].props.onPress())
@@ -37,6 +37,6 @@ describe('ClearNotice', () => {
 
   it('speaks of one person in the singular', async () => {
     const renderer = await act(async () => create(<ClearNotice holders={1} onSettle={() => {}} onWait={() => {}} />))
-    expect(texts(renderer.root).join('\n')).toContain('the key and amounts of the person who held it before you.')
+    expect(texts(renderer.root).join('\n')).toContain('who held the money before you, and the amounts.')
   })
 })

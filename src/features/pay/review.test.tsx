@@ -115,8 +115,8 @@ describe('PayReview', () => {
     expect(shown).toContain('Compare this code')
     expect(shown).toContain('93.00 USDC left after this payment')
     expect(shown).toContain("You can't cancel it afterwards.")
-    expect(shown).toContain('the money stays in your lock')
-    expect(shown).toContain('stays used until your lock ends')
+    expect(shown).toContain('it stays in your reserve')
+    expect(shown).toContain('stays on hold until your reserve ends')
   })
 
   it('builds every figure from the issue that will be signed, whatever happens to the request', async () => {
@@ -175,15 +175,15 @@ describe('PayReview of a note passed on', () => {
     const shown = texts(renderer.root).join('\n')
     expect(shown).toContain('Paying from money you received')
     expect(shown).toMatch(/3\.00 USDC comes back to you/)
-    expect(shown).toContain('Your bond answers for this payment')
-    expect(shown).not.toMatch(/protected|insured|guarantee|allowance/i)
+    expect(shown).toContain('If you spend the same money twice, you lose your security deposit.')
+    expect(shown).not.toMatch(/protected|insured|guarantee|allowance|bond/i)
   })
 
   it('says how much of the payment covers the fees of settling it, and nothing when there are none', async () => {
     const base = respendPlan({ kind: 'spend2', change: 3_000_000n })
     const withFee = { ...base, review: { ...base.review, amount: 2_020_000n, fee: 20_000n } }
     expect(texts((await mount(withFee)).root).join('\n')).toContain(
-      'Includes 0.02 USDC to cover the fees of settling it.',
+      'Includes 0.02 USDC to cover the fees of crediting it.',
     )
     expect(texts((await mount(base)).root).join('\n')).not.toContain('Includes')
   })

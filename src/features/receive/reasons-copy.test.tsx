@@ -74,7 +74,7 @@ describe('what the receiver says', () => {
     ).join('\n')
     expect(shown).toContain('Received 3.00 USDC')
     expect(shown).toContain('You asked for 5.00 USDC; 3.00 USDC arrived.')
-    expect(shown).toContain('destroyed if they sign the same money twice')
+    expect(shown).toContain('their security deposit is destroyed')
     expect(shown).not.toContain('777')
     const same = texts(
       await render(
@@ -93,8 +93,8 @@ describe('what the receiver says', () => {
     const shown = texts(
       await render(<AcceptedResult outcome={accepted({ keep: true })} symbol="USDC" decimals={6} onDone={() => {}} />),
     ).join('\n')
-    expect(shown).toContain('You can pass it on')
-    expect(shown).not.toContain("It's yours now. It will settle")
+    expect(shown).toContain('You can use it in your next payment')
+    expect(shown).not.toContain("It's yours now. It will be credited")
   })
 
   it('says a payment seen before was not added twice', async () => {

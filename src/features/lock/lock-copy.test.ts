@@ -32,7 +32,7 @@ const lock: LockRecord = {
 describe('lock copy', () => {
   it('says exactly what a wallet that changed the transaction costs the user', () => {
     expect(i18n.t('lock:walletChangedTransaction')).toBe(
-      'Your wallet changed the transaction, so Buckspay could not cover its network cost. Nothing was sent and nothing was charged. Open Buckspay in Phantom or Solflare, or add about 0.005 SOL to activate with your own wallet.',
+      "Your wallet changed the transaction, so Buckspay couldn't cover its network cost. Nothing was sent and nothing was charged. Open Buckspay in Phantom or Solflare, or add about 0.005 SOL to activate with your own wallet.",
     )
   })
 
@@ -51,9 +51,9 @@ describe('lock copy', () => {
   })
 
   it('summarizes what a lock holds, with the slashed pool only when there is one', () => {
-    expect(lockSummary(lock, 6)).toBe('2.5 USDC backing left, 1.5 USDC bond free')
+    expect(lockSummary(lock, 6)).toBe('2.5 USDC available offline, 1.5 USDC security deposit free')
     expect(lockSummary({ ...lock, bondSlashed: 500_000n }, 6)).toBe(
-      '2.5 USDC backing left, 1.5 USDC bond free, 0.5 USDC slashed',
+      '2.5 USDC available offline, 1.5 USDC security deposit free, 0.5 USDC destroyed',
     )
   })
 
@@ -72,7 +72,7 @@ describe('lock copy', () => {
 
   it('names the wallet a pending rotation moves this phone to, and when it takes effect', () => {
     expect(rotationNotice(ALICE, 1_900_000_000)).toBe(
-      `Someone asked to move this phone to wallet ${ALICE}. It takes effect on 2030-03-17 (UTC). If this wasn’t you, cancel it now.`,
+      `Someone asked to move this phone to wallet ${ALICE}. It takes effect on 2030-03-17 (UTC). If this wasn't you, cancel it now.`,
     )
   })
 })

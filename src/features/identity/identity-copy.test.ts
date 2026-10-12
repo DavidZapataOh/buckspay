@@ -51,8 +51,8 @@ describe('identity copy', () => {
 
   it('names how the key is protected in plain words', () => {
     expect([keyProtection('strongbox'), keyProtection('tee'), keyProtection('software')]).toEqual([
-      'Secure chip (StrongBox)',
-      'Secure hardware (TEE)',
+      'Secure chip',
+      'Secure hardware',
       'Software only',
     ])
   })

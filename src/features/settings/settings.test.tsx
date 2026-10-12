@@ -64,7 +64,7 @@ describe('Settings', () => {
     const root = await render({ step: 'ready', wallet, deviceKey, device, busy: false, disconnect })
     expect(row(root, 'network')).toEqual(['Network', 'Devnet · test network'])
     expect(root.findAllByProps({ accessibilityLabel: `Registered to: ${wallet}` })).toHaveLength(1)
-    expect(row(root, 'security-level')).toEqual(['Key protection', 'Software only'])
+    expect(row(root, 'security-level')).toEqual(['Key storage', 'Software only'])
     expect(texts(root)).toContain(i18n.t('identity:softwareKeyWarning'))
     expect(texts(root)).toContain('Technical details')
     const forget = root.findByProps({ testID: 'disconnect', accessibilityRole: 'button' })
@@ -119,7 +119,7 @@ describe('Settings', () => {
     expect(row(root, 'limit-window')).toEqual(['Payments you receive must stay valid for', '1 hour'])
     expect(row(root, 'uninstall')).toEqual([
       'If you uninstall or reset',
-      "Uninstalling this app loses payments that haven't settled yet. You have 3 right now.",
+      "Uninstalling this app loses payments that aren't credited yet. You have 3 right now.",
     ])
     await act(async () => root.findByProps({ testID: 'reset-identity', accessibilityRole: 'button' }).props.onPress())
     expect(onReset).toHaveBeenCalledOnce()
@@ -136,7 +136,7 @@ describe('Settings', () => {
     for (const [testID, title] of [
       ['wallet', 'Connected wallet'],
       ['registered-to', 'Registered to'],
-      ['security-level', 'Key protection'],
+      ['security-level', 'Key storage'],
     ]) {
       expect(row(root, testID)).toEqual([title, 'Checking…'])
     }
@@ -174,7 +174,7 @@ describe('Settings', () => {
       const root = await mount({ tipping: t })
       expect(tipSwitch(root).props.value).toBe(false)
       expect(tipSwitch(root).props.disabled).toBe(true)
-      expect(texts(root)).toContain('Tipping needs a deposit of at least 32 USDC.')
+      expect(texts(root)).toContain('Tipping needs a security deposit of at least 32 USDC.')
     })
 
     it('does not show the section without a tipping setting', async () => {

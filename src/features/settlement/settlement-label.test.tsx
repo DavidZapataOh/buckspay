@@ -27,11 +27,9 @@ describe('SettlementLabel', () => {
       create(<SettlementLabel count={2} earliestExpiry={1_900_000_000} onContinue={onContinue} />),
     )
     const shown = texts(renderer.root).join('\n')
-    expect(shown).toContain(
-      'publishes the keys of the people it passed through, every amount, and the account that is paid',
-    )
-    expect(shown).toContain("Buckspay's server sees this payment, your network address and the time.")
-    expect(shown).toMatch(/2 payments are waiting for you to settle them, by /)
+    expect(shown).toContain('makes public who held the money, every amount, and the wallet that receives it')
+    expect(shown).toContain("Buckspay's server also sees the payment, your network address and the time.")
+    expect(shown).toMatch(/2 payments are waiting to be credited\. Do it by /)
     expect(onContinue).not.toHaveBeenCalled()
     await act(async () => host(renderer.root, 'settlement-continue')[0].props.onPress())
     expect(onContinue).toHaveBeenCalledOnce()

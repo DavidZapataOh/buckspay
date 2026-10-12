@@ -52,7 +52,7 @@ describe('ActivityList', () => {
     )
     const shown = texts(renderer.root)
     const lines = shown.filter((line) => line.includes('USDC'))
-    expect(lines[0]).toBe('Received 5.00 USDC · Settled')
+    expect(lines[0]).toBe('Received 5.00 USDC · Credited')
     expect(lines[1]).toMatch(/^Paid 5\.00 USDC · phone [A-Z2-9]{4}-[A-Z2-9]{4} · Not confirmed$/)
     expect(lines[2]).toMatch(/· Refused$/)
     expect(lines[3]).toMatch(/· Cancelled$/)

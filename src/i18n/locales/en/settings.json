@@ -1,7 +1,7 @@
 {
   "title": "Settings",
   "network": "Network",
-  "keyProtection": "Key protection",
+  "keyProtection": "Key storage",
   "noKey": "No key on this phone",
   "forgetWallet": "Forget wallet on this phone",
   "technicalDetails": "Technical details",

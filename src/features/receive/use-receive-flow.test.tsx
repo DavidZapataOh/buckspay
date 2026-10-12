@@ -147,7 +147,7 @@ describe('receive flow create', () => {
     })
     expect(failure).toBe('transport')
     expect(flow.state.name).toBe('composing')
-    expect(i18n.t('payment:receive.transportFailed', { medium: 'Tap' })).toContain('Try Code instead')
+    expect(i18n.t('payment:receive.transportFailed', { medium: 'Tap' })).toContain('Try QR code instead')
   })
 })
 

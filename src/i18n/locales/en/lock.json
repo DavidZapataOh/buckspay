@@ -1,5 +1,5 @@
 {
-  "walletChangedTransaction": "Your wallet changed the transaction, so Buckspay could not cover its network cost. Nothing was sent and nothing was charged. Open Buckspay in Phantom or Solflare, or add about 0.005 SOL to activate with your own wallet.",
+  "walletChangedTransaction": "Your wallet changed the transaction, so Buckspay couldn't cover its network cost. Nothing was sent and nothing was charged. Open Buckspay in Phantom or Solflare, or add about 0.005 SOL to activate with your own wallet.",
   "minimum": "The minimum to add is {{amount}}.",
   "fee": {
     "charged": "Buckspay charges a fee of {{amount}}, on top of your funds.",
@@ -11,25 +11,25 @@
   },
   "withdrawalDate": "You can take your funds back from {{date}} (UTC).",
   "summary": {
-    "plain": "{{backing}} backing left, {{bond}} bond free",
-    "withSlashed": "{{backing}} backing left, {{bond}} bond free, {{slashed}} slashed"
+    "plain": "{{backing}} available offline, {{bond}} security deposit free",
+    "withSlashed": "{{backing}} available offline, {{bond}} security deposit free, {{slashed}} destroyed"
   },
   "withdrawal": {
     "withdrawn": "Withdrawn.",
     "now": "You can take your funds back now.",
     "from": "You can take your funds back from {{date}} (UTC)."
   },
-  "rotation": "Someone asked to move this phone to wallet {{wallet}}. It takes effect on {{date}} (UTC). If this wasn’t you, cancel it now.",
+  "rotation": "Someone asked to move this phone to wallet {{wallet}}. It takes effect on {{date}} (UTC). If this wasn't you, cancel it now.",
   "addFundsTitle": "Add funds",
-  "addFundsBody": "New funds go into another lock that backs what you pay. You can take them back after the lock ends and its withdrawal window opens.",
+  "addFundsBody": "New funds go into another reserve that backs what you pay. You can take them back after the reserve ends and its withdrawal window opens.",
   "readingWallet": "Reading your wallet",
   "rotationTitle": "A wallet change was requested",
   "cancelAndPay": "Cancel and pay from my wallet",
   "cancelChange": "Cancel the change",
-  "yourLocks": "Your locks",
-  "readingLocks": "Reading your locks",
-  "noLocks": "This phone has no locks.",
-  "lockN": "Lock {{number}}",
+  "yourLocks": "Your reserves",
+  "readingLocks": "Reading your reserves",
+  "noLocks": "This phone has no reserves.",
+  "lockN": "Reserve {{number}}",
   "withdrawAndPay": "Withdraw and pay from my wallet",
   "withdraw": "Withdraw"
 }

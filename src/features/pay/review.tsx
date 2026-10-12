@@ -157,7 +157,7 @@ export function PayReview({
             <AppText variant="body">
               {t('payment:review.expires', { date: formatDateTime(review.expiry, currentLanguage()) })}
             </AppText>
-            <AppText variant="body">{t('payment:review.hops', { hops })}</AppText>
+            <AppText variant="body">{t('payment:review.hops', { count: hops })}</AppText>
           </View>
         ) : null}
       </View>

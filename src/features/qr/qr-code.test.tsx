@@ -58,7 +58,7 @@ describe('QrCode', () => {
     const root = await render(200)
     const messages = root.findAllByType('Text' as never).flatMap((node) => node.props.children)
     expect(messages).toContain(
-      'This screen is too small to show the code sharply. Try the other transport or paste the code.',
+      'This screen is too small to show the code clearly. Try another way to send it, or paste the code.',
     )
   })
 })

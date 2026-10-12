@@ -16,29 +16,29 @@ const { windows } = resolveProfile({})
 describe('what the user is told about settling and reclaiming', () => {
   it('labels what each clear-text action publishes, and who sees it', () => {
     expect(settlementLabel()).toContain(
-      'publishes the keys of the people it passed through, every amount, and the account that is paid',
+      'makes public the keys of the people it passed through, every amount, and the account that is paid',
     )
-    expect(reclaimLabel()).toContain('publishes the whole chain it passed through')
-    expect(reclaimLabel()).toContain('even if the payment would otherwise have settled privately')
+    expect(reclaimLabel()).toContain('makes public the whole chain it passed through')
+    expect(reclaimLabel()).toContain('even if it could have been credited privately')
     expect(gatewayLabel()).toContain('sees this chain, your network address and the time')
   })
 
   it('tells the payee until when it must settle', () => {
     const expiry = Date.UTC(2030, 0, 10) / 1000
     expect(payeeObligation(expiry, windows)).toContain('before 2030-01-17 (UTC)')
-    expect(payeeObligation(expiry, windows)).toContain('not covered by their bond')
+    expect(payeeObligation(expiry, windows)).toContain("their security deposit won't cover your loss")
   })
 
   it('says how long an unsettled payment can be taken back, and who cannot', () => {
     expect(reclaimWindowNotice(windows)).toContain('14 days')
-    expect(reclaimWindowNotice(windows)).toContain('no registered device')
+    expect(reclaimWindowNotice(windows)).toContain('no registered phone')
     const short = resolveProfile({ profile: 'short' }).windows
     expect(reclaimWindowNotice(short)).toContain('2 minutes')
   })
 
   it('answers each refusal in words, and offers to pay when the sponsor cannot', () => {
-    expect(refusalNotice('conflict')).toContain('signed this money twice')
-    expect(refusalNotice('conflict')).toContain('You were not repaid')
+    expect(refusalNotice('conflict')).toContain('spent this money twice')
+    expect(refusalNotice('conflict')).toContain("You weren't repaid")
     expect(refusalNotice('horizon', Date.UTC(2030, 5, 1) / 1000)).toContain('2030-06-01')
     expect(refusalNotice('below_minimum')).toContain('pay for it yourself')
     expect(refusalNotice('busy')).toContain('pay for it yourself')
@@ -48,10 +48,10 @@ describe('what the user is told about settling and reclaiming', () => {
 
   it('says what the claim did, and never promises repayment', () => {
     const reported = { kind: 'reported' as const, hop: 1, culprit: '02aa' }
-    expect(claimNotice({ ...reported, state: 'filed', burned: 1n })).toContain('bond is destroyed')
+    expect(claimNotice({ ...reported, state: 'filed', burned: 1n })).toContain('security deposit is destroyed')
     expect(claimNotice({ ...reported, state: 'already', burned: 1n })).toContain('already')
-    expect(claimNotice({ ...reported, state: 'late', burned: null })).toContain('nothing was burned')
-    expect(claimNotice({ kind: 'nothing_to_burn', reason: 'no_bond' })).toContain('nothing left to burn')
+    expect(claimNotice({ ...reported, state: 'late', burned: null })).toContain('nothing was destroyed')
+    expect(claimNotice({ kind: 'nothing_to_burn', reason: 'no_bond' })).toContain('nothing left to destroy')
     expect(claimNotice({ kind: 'nothing_to_burn', reason: 'lock_ended' })).toContain('ended')
     expect(claimNotice({ kind: 'unavailable' })).toContain('try again')
     for (const outcome of [
@@ -59,7 +59,7 @@ describe('what the user is told about settling and reclaiming', () => {
       { ...reported, state: 'late' as const, burned: null },
       { kind: 'nothing_to_burn' as const, reason: 'no_bond' },
     ]) {
-      expect(claimNotice(outcome)).toContain('not repaid')
+      expect(claimNotice(outcome)).toContain("weren't repaid")
       expect(claimNotice(outcome)).not.toMatch(/protected|insured|guaranteed|bounded|pays you/i)
     }
   })

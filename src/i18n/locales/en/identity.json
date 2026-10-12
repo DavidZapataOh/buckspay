@@ -12,19 +12,19 @@
     },
     "connect": {
       "title": "Connect your wallet",
-      "body": "Buckspay pays from and settles to a wallet you already use. Connecting shares its address and charges nothing.",
+      "body": "Buckspay pays from, and credits to, a wallet you already use. Connecting shares its address and costs nothing.",
       "action": "Connect wallet",
       "progress": "Step 1 of 2"
     },
     "create-key": {
       "title": "Create this phone’s key",
-      "body": "A key made in this phone’s secure hardware signs your payments. It never leaves the phone.",
+      "body": "A key made in this phone's secure hardware approves your payments. It never leaves the phone.",
       "action": "Create key",
       "progress": "Step 1 of 2"
     },
     "activate": {
       "title": "Add funds",
-      "body": "Your funds go into a lock that backs what you pay. Activating links this phone to your wallet publicly and permanently. Anyone can see the link on Solana, and it can’t be undone.",
+      "body": "Your funds go into a reserve that backs what you pay. Activating links this phone to your wallet publicly and permanently. Anyone can see the link on Solana, and it can't be undone.",
       "action": "Activate",
       "progress": "Step 2 of 2"
     },
@@ -47,8 +47,8 @@
     "unknown": "Your wallet may have sent the activation. Waiting until Solana confirms it or it expires, usually under a minute. You can leave this screen."
   },
   "keyProtection": {
-    "strongbox": "Secure chip (StrongBox)",
-    "tee": "Secure hardware (TEE)",
+    "strongbox": "Secure chip",
+    "tee": "Secure hardware",
     "hardware": "Secure hardware",
     "software": "Software only",
     "unknown": "Unknown"
@@ -93,8 +93,8 @@
   },
   "walletHas": "Your wallet has {{amount}} {{symbol}}.",
   "amountToAdd": "Amount to add ({{symbol}})",
-  "lockLengthDays": "Lock length (days)",
-  "keyProtectionLine": "Key protection: {{value}}",
+  "lockLengthDays": "Reserve length (days)",
+  "keyProtectionLine": "Key storage: {{value}}",
   "viewTransaction": "View the transaction in the explorer",
   "waitingForSolana": "Waiting for Solana"
 }

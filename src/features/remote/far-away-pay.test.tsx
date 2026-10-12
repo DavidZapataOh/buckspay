@@ -68,7 +68,7 @@ describe('Far away pay', () => {
     await press(on.root, 'Ana')
     await type(on.root, i18n.t('remote:amount'), '3')
     await press(on.root, i18n.t('remote:review'))
-    expect(texts(on.root)).toContain('Delivery tip · up to 0.50 USDC, paid only if your payment settles')
+    expect(texts(on.root)).toContain('Delivery tip · up to 0.50 USDC, paid only if your payment is credited')
     const off = await mount(<FarAwayPay contacts={ana()} now={1} online />)
     await press(off.root, 'Ana')
     await type(off.root, i18n.t('remote:amount'), '3')

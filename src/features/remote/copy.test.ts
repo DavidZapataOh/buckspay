@@ -20,7 +20,7 @@ describe('remote copy', () => {
   it('says what happens when nobody passes the payment on', () => {
     expect(
       i18n.t('remote:reviewLine', { name: 'Ana', amount: '5.00', symbol: 'USDC', deadline: 'tomorrow' }),
-    ).toContain('it is not paid and the money stays yours')
+    ).toContain("it isn't paid and the money stays yours")
     expect(i18n.t('remote:status.expired')).toBe('Not delivered, money kept')
   })
 })
