@@ -1,0 +1,48 @@
+{
+  "title": "Recompensas",
+  "entry": "Recompensas",
+  "loading": "Cargando recompensas…",
+  "empty": "Aún no hay nada. Cuando entregues un pago cercano y se acredite, la comisión aparece aquí.",
+  "trust": "Las propinas se pagan por confianza. La red comprueba que una propina es real, no que tú llevaste el pago: lo deciden quien paga y el servicio que lo acredita. Solo recibe la propina el celular que entrega el pago; los celulares que lo reenvían no reciben nada.",
+  "waiting": "Entregaste un pago · comisión {{amount}} {{symbol}}, esperando el pago",
+  "ready": "Lista para reclamar · {{amount}} {{symbol}}",
+  "claiming": "Reclamando a una dirección nueva",
+  "claimed": "Reclamada · {{amount}} {{symbol}} a una dirección nueva",
+  "notPaid": {
+    "not_delivered": "No pagada: el pago no se entregó",
+    "not_added": "No pagada: el servidor no la agregó. Contacta a soporte",
+    "unknown": "No pagada: la red no aceptó esta propina"
+  },
+  "explorer": "Ver el reclamo en el explorador",
+  "claim": "Reclamar",
+  "claimTitle": "Reclamar a una dirección nueva",
+  "claimBody": "El reclamo va a una dirección nueva. En la blockchain no queda ligado a los pagos que llevaste. El servicio que lo envía ve la dirección de tu red.",
+  "claimDelayed": "Reclamar a una dirección nueva",
+  "claimDelayedNote": "Se envía en un momento al azar dentro de un día.",
+  "claimNow": "Reclamar ahora",
+  "claimNowNote": "Enviarlo de inmediato es más fácil de ligar a los pagos que llevaste.",
+  "claimScheduled": "Reclamo programado.",
+  "claimFailed": "No se pudo reclamar. {{reason}}",
+  "move": "Pasar a mi billetera",
+  "moveWarning": "Al pasarlas a tu billetera, estas recompensas quedan ligadas a esa billetera en la blockchain.",
+  "moveAnyway": "Pasar de todos modos",
+  "moved": "Pasado a tu billetera.",
+  "moveFailed": "No se pudieron pasar las recompensas. {{reason}}",
+  "cancel": "Cancelar",
+  "working": "Procesando",
+  "summary": {
+    "ready": "{{amount}} {{symbol}} listos para reclamar",
+    "waiting": "{{amount}} {{symbol}} esperando el pago",
+    "none": "Aún no hay recompensas"
+  },
+  "tipSwitch": "Dar propina a quienes llevan mis pagos",
+  "tipAmount": "{{amount}} {{symbol}} por pago entregado",
+  "tipNeedsBond": "Dar propina requiere un depósito de seguridad de al menos 32 USDC.",
+  "tipReview": "Propina de entrega · hasta {{amount}} {{symbol}}, se paga solo si tu pago se acredita",
+  "tipSection": "Propinas",
+  "notification": {
+    "title": "Ganaste una comisión",
+    "body": "Un pago que llevaste fue entregado. La comisión se paga cuando la red lo tenga.",
+    "bodyAmount": "Un pago que llevaste fue entregado: {{amount}} {{symbol}}. La comisión se paga cuando la red lo tenga."
+  }
+}

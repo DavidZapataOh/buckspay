@@ -1,0 +1,48 @@
+{
+  "title": "Recompensas",
+  "entry": "Recompensas",
+  "loading": "Carregando recompensas…",
+  "empty": "Nada ainda. Quando você entregar um pagamento por perto e ele for creditado, a taxa aparece aqui.",
+  "trust": "As gorjetas são pagas na confiança. A rede confere que a gorjeta é real, não que você levou o pagamento: quem paga e o serviço que credita decidem. Só o celular que entrega o pagamento recebe a gorjeta; os celulares que apenas repassam não recebem nada.",
+  "waiting": "Você entregou um pagamento · taxa {{amount}} {{symbol}}, esperando o pagamento",
+  "ready": "Pronta para resgatar · {{amount}} {{symbol}}",
+  "claiming": "Resgatando para um novo endereço",
+  "claimed": "Resgatada · {{amount}} {{symbol}} para um novo endereço",
+  "notPaid": {
+    "not_delivered": "Não paga: o pagamento não foi entregue",
+    "not_added": "Não paga: o servidor não a adicionou. Fale com o suporte",
+    "unknown": "Não paga: a rede não aceitou esta gorjeta"
+  },
+  "explorer": "Ver o resgate no explorador",
+  "claim": "Resgatar",
+  "claimTitle": "Resgatar para um novo endereço",
+  "claimBody": "O resgate vai para um novo endereço. Na blockchain ele não fica ligado aos pagamentos que você levou. O serviço que o envia vê o endereço da sua rede.",
+  "claimDelayed": "Resgatar para um novo endereço",
+  "claimDelayedNote": "É enviado em um momento aleatório dentro de um dia.",
+  "claimNow": "Resgatar agora",
+  "claimNowNote": "Enviar na hora é mais fácil de ligar aos pagamentos que você levou.",
+  "claimScheduled": "Resgate agendado.",
+  "claimFailed": "Não foi possível resgatar. {{reason}}",
+  "move": "Passar para minha carteira",
+  "moveWarning": "Ao passar para sua carteira, estas recompensas ficam ligadas a essa carteira na blockchain.",
+  "moveAnyway": "Passar mesmo assim",
+  "moved": "Passado para sua carteira.",
+  "moveFailed": "Não foi possível passar as recompensas. {{reason}}",
+  "cancel": "Cancelar",
+  "working": "Processando",
+  "summary": {
+    "ready": "{{amount}} {{symbol}} prontos para resgatar",
+    "waiting": "{{amount}} {{symbol}} esperando o pagamento",
+    "none": "Ainda não há recompensas"
+  },
+  "tipSwitch": "Dar gorjeta a quem leva meus pagamentos",
+  "tipAmount": "{{amount}} {{symbol}} por pagamento entregue",
+  "tipNeedsBond": "Dar gorjeta exige um depósito de segurança de pelo menos 32 USDC.",
+  "tipReview": "Gorjeta de entrega · até {{amount}} {{symbol}}, paga só se o seu pagamento for creditado",
+  "tipSection": "Gorjetas",
+  "notification": {
+    "title": "Você ganhou uma taxa",
+    "body": "Um pagamento que você levou foi entregue. A taxa é paga quando a rede o receber.",
+    "bodyAmount": "Um pagamento que você levou foi entregue: {{amount}} {{symbol}}. A taxa é paga quando a rede o receber."
+  }
+}

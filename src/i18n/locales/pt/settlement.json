@@ -1,0 +1,36 @@
+{
+  "settlementLabel": "Creditar este pagamento de forma pública torna públicas as chaves das pessoas por quem ele passou, cada valor e a conta que recebe o pagamento.",
+  "reclaimLabel": "Pegar este pagamento de volta torna pública toda a cadeia por onde ele passou, sua chave e os valores, mesmo que ele pudesse ser creditado em privado.",
+  "gatewayLabel": "O servidor do Buckspay vê esta cadeia, o endereço da sua rede e a hora. O caminho privado, quando existe, não mostra as chaves a ele.",
+  "selfPayLabel": "O endereço da sua carteira fica guardado nos registros que ela paga, até eles serem encerrados.",
+  "payeeObligation": "Faça este pagamento ser creditado antes de {{date}} (UTC). Depois disso, quem pagou você pode pegá-lo de volta, e o depósito de segurança dessa pessoa não vai cobrir sua perda.",
+  "reclaimWindow": "Você pode pegar de volta um pagamento não creditado por {{duration}} depois do prazo de crédito dele, ou até a reserva terminar, se isso vier antes. Um pagamento de uma chave sem celular registrado não pode ser pego de volta.",
+  "duration": {
+    "minutes_one": "{{count}} minuto",
+    "minutes_other": "{{count}} minutos",
+    "days_one": "{{count}} dia",
+    "days_other": "{{count}} dias"
+  },
+  "claim": {
+    "late": "Esta perda foi informada tarde demais: nada foi destruído. Você não foi reembolsado: o depósito de segurança não é pago.",
+    "already": "Quem pagou gastou este dinheiro duas vezes e o depósito de segurança já tinha sido destruído. Você não foi reembolsado: o depósito não é pago.",
+    "reported": "Quem pagou gastou este dinheiro duas vezes. O depósito de segurança dessa pessoa é destruído. Você não foi reembolsado: o depósito não é pago.",
+    "noBond": "A reserva de quem pagou não tem mais nada a destruir. Você não foi reembolsado: o depósito de segurança não é pago.",
+    "lockEnded": "A reserva de quem pagou terminou, então a perda não pode mais ser informada. Você não foi reembolsado.",
+    "cannotFile": "Esta perda não pode ser informada contra a reserva de quem pagou. Você não foi reembolsado.",
+    "unavailable": "O Buckspay não conseguiu informar a perda agora. Guarde este pagamento e tente mais tarde."
+  },
+  "refusal": {
+    "conflict": "Quem pagou gastou este dinheiro duas vezes e outro pagamento dele foi creditado antes. Você não foi reembolsado, então guarde este pagamento.",
+    "noTokenAccount": "A conta que recebe o pagamento ainda não pode receber este dinheiro. Configure na carteira e tente de novo.",
+    "window": "O prazo para creditar este pagamento acabou.",
+    "closed": "O prazo para pegar este pagamento de volta acabou.",
+    "deadline": "A aprovação para pegar este pagamento de volta está vencida. Aprove de novo.",
+    "lockEnded": "A reserva de quem pagou terminou.",
+    "horizonUnknown": "O Buckspay ainda não pode pagar isto.",
+    "horizon": "O Buckspay não pode pagar isto antes de {{date}} (UTC). Agora você pode pagar por conta própria.",
+    "belowMinimum": "Este valor é pequeno demais para o Buckspay pagar. Você pode pagar por conta própria.",
+    "default": "O Buckspay não pode pagar isto agora. Você pode pagar por conta própria."
+  },
+  "balance": "O saldo soma todas as contas desta carteira que têm este dinheiro."
+}

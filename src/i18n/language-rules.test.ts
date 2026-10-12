@@ -31,8 +31,24 @@ const JARGON: Record<Language, RegExp[]> = {
     /\bTEE\b/,
     /\bsigned\b/i,
   ],
-  es: [/\block\b/i, /\bbond\b/i, /\bsettle/i, /\bnota(s)?\b/i, /\bbytes?\b/i, /\bTEE\b/, /\bfirmad[oa]s?\b/i],
-  pt: [/\block\b/i, /\bbond\b/i, /\bsettle/i, /\bnota(s)?\b/i, /\bbytes?\b/i, /\bTEE\b/, /\bassinad[oa]s?\b/i],
+  es: [
+    /\block\b/i,
+    /\bbond\b/i,
+    /\bsettle/i,
+    /\bnotas? (al|ao) portador\b/i,
+    /\bbytes?\b/i,
+    /\bTEE\b/,
+    /\bfirmad[oa]s?\b/i,
+  ],
+  pt: [
+    /\block\b/i,
+    /\bbond\b/i,
+    /\bsettle/i,
+    /\bnotas? (al|ao) portador\b/i,
+    /\bbytes?\b/i,
+    /\bTEE\b/,
+    /\bassinad[oa]s?\b/i,
+  ],
 }
 
 const PROMISES: Record<Language, RegExp[]> = {

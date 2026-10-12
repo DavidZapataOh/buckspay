@@ -1,0 +1,14 @@
+{
+  "title": "Ajustes",
+  "network": "Red",
+  "keyProtection": "Almacenamiento de la llave",
+  "noKey": "Este celular no tiene llave",
+  "forgetWallet": "Olvidar la billetera en este celular",
+  "technicalDetails": "Detalles técnicos",
+  "deviceAccount": "Cuenta del celular",
+  "keyAttestation": "Certificación de la llave",
+  "certificates_one": "Cadena de {{count}} certificado",
+  "certificates_other": "Cadena de {{count}} certificados",
+  "program": "Programa",
+  "version": "Versión"
+}

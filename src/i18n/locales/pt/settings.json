@@ -1,0 +1,14 @@
+{
+  "title": "Ajustes",
+  "network": "Rede",
+  "keyProtection": "Armazenamento da chave",
+  "noKey": "Este celular não tem chave",
+  "forgetWallet": "Esquecer a carteira neste celular",
+  "technicalDetails": "Detalhes técnicos",
+  "deviceAccount": "Conta do celular",
+  "keyAttestation": "Certificação da chave",
+  "certificates_one": "Cadeia de {{count}} certificado",
+  "certificates_other": "Cadeia de {{count}} certificados",
+  "program": "Programa",
+  "version": "Versão"
+}

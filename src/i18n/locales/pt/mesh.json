@@ -1,0 +1,21 @@
+{
+  "title": "Pagamentos por proximidade",
+  "body": "O Buckspay usa Bluetooth para encontrar celulares por perto, repassar avisos sobre fraudes e entregar pagamentos a um celular com internet. Ele nunca compartilha seu saldo nem onde você está.",
+  "allow": "Permitir",
+  "continue": "Continuar",
+  "footnote": "Você pode desativar isso em Ajustes.",
+  "switch": "Ajudar com pagamentos por perto",
+  "status": {
+    "on": "Ativado",
+    "off": "Desativado",
+    "bluetoothOff": "O Bluetooth está desligado",
+    "permissionNeeded": "Falta uma permissão",
+    "unsupported": "Indisponível neste celular"
+  },
+  "turnOn": "Ativar",
+  "openSettings": "Abrir ajustes",
+  "warnings_one": "Avisos recebidos: {{count}}",
+  "warnings_other": "Avisos recebidos: {{count}}",
+  "passedOn_one": "Pagamentos entregues: {{count}}",
+  "passedOn_other": "Pagamentos entregues: {{count}}"
+}

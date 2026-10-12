@@ -12,7 +12,7 @@ const base = (key: string) => key.replace(PLURAL, '')
 const holes = (text: string) => [...text.matchAll(/\{\{(\w+)\}\}/g)].map((match) => match[1]).sort()
 
 // The Spanish and Portuguese texts of these areas are written with the translations; until then they hold only what the formats use.
-const INCOMPLETE = new Set(['es:common', 'pt:common'])
+const INCOMPLETE = new Set<string>([])
 
 const languages = Object.keys(resources) as (keyof typeof resources)[]
 const areas = Object.keys(resources.en) as (keyof typeof resources.en)[]

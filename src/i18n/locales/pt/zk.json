@@ -1,0 +1,25 @@
+{
+  "title": "Crédito privado",
+  "settleNow": "Creditar agora",
+  "downloadNow": "Baixar 123 MB agora",
+  "settleInClear": "Creditar agora de forma pública",
+  "scope": "As pessoas que tiveram este dinheiro antes de você ficam ocultas para qualquer um que olhe a blockchain. Quem pagou você e quem o tiver depois continuam vendo o histórico.",
+  "clearPublishes": "Creditar de forma pública torna públicas as chaves, as assinaturas e os valores de todas as pessoas que tiveram este dinheiro.",
+  "state": {
+    "needsKey": "Baixando os dados do crédito privado · {{percent}}",
+    "preparing": "Preparando um crédito privado · {{proved}} de {{total}}",
+    "ready": "Pronto para creditar em privado",
+    "submitting": "Creditando em privado",
+    "settled": "Creditado em privado",
+    "failed": {
+      "staleKey": "Atualizando os dados do crédito privado",
+      "expired": "Este pagamento não pode mais ser creditado. Quem pagou pode pegá-lo de volta.",
+      "retry": "O servidor não respondeu. Este celular vai tentar de novo.",
+      "invalid": "Este pagamento não pôde ser creditado em privado."
+    }
+  },
+  "privateData": {
+    "title": "Dados do crédito privado",
+    "download": "Baixar agora"
+  }
+}

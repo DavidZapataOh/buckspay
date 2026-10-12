@@ -1,0 +1,35 @@
+{
+  "walletChangedTransaction": "Sua carteira alterou a transação, então o Buckspay não conseguiu cobrir o custo de rede dela. Nada foi enviado e nada foi cobrado. Abra o Buckspay na Phantom ou na Solflare, ou adicione cerca de 0,005 SOL para ativar com sua própria carteira.",
+  "minimum": "O mínimo para adicionar é {{amount}}.",
+  "fee": {
+    "charged": "O Buckspay cobra uma taxa de {{amount}}, além do seu dinheiro.",
+    "none": "Não há taxa."
+  },
+  "networkCost": {
+    "sponsored": "O Buckspay paga os custos da rede. Sua carteira não paga mais nada.",
+    "wallet": "Sua carteira paga os custos da rede, cerca de {{sol}} SOL. Não é reembolsável."
+  },
+  "withdrawalDate": "Você pode retirar seu dinheiro a partir de {{date}} (UTC).",
+  "summary": {
+    "plain": "{{backing}} disponíveis sem internet, {{bond}} de depósito de segurança livre",
+    "withSlashed": "{{backing}} disponíveis sem internet, {{bond}} de depósito de segurança livre, {{slashed}} destruídos"
+  },
+  "withdrawal": {
+    "withdrawn": "Retirado.",
+    "now": "Você já pode retirar seu dinheiro.",
+    "from": "Você pode retirar seu dinheiro a partir de {{date}} (UTC)."
+  },
+  "rotation": "Alguém pediu para mudar este celular para a carteira {{wallet}}. Vale a partir de {{date}} (UTC). Se não foi você, cancele agora.",
+  "addFundsTitle": "Adicionar saldo",
+  "addFundsBody": "O dinheiro novo entra em outra reserva que sustenta o que você paga. Você pode retirá-lo quando a reserva terminar e o prazo de retirada abrir.",
+  "readingWallet": "Lendo sua carteira",
+  "rotationTitle": "Foi pedida uma troca de carteira",
+  "cancelAndPay": "Cancelar e pagar da minha carteira",
+  "cancelChange": "Cancelar a troca",
+  "yourLocks": "Suas reservas",
+  "readingLocks": "Lendo suas reservas",
+  "noLocks": "Este celular não tem reservas.",
+  "lockN": "Reserva {{number}}",
+  "withdrawAndPay": "Retirar e pagar da minha carteira",
+  "withdraw": "Retirar"
+}

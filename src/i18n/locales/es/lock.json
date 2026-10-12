@@ -1,0 +1,35 @@
+{
+  "walletChangedTransaction": "Tu billetera cambió la transacción, así que Buckspay no pudo cubrir su costo de red. No se envió nada y no se cobró nada. Abre Buckspay en Phantom o Solflare, o agrega cerca de 0,005 SOL para activar con tu propia billetera.",
+  "minimum": "El mínimo para cargar es {{amount}}.",
+  "fee": {
+    "charged": "Buckspay cobra una comisión de {{amount}}, además de tu dinero.",
+    "none": "No hay comisión."
+  },
+  "networkCost": {
+    "sponsored": "Buckspay paga los costos de la red. Tu billetera no paga nada más.",
+    "wallet": "Tu billetera paga los costos de la red, cerca de {{sol}} SOL. No se reembolsa."
+  },
+  "withdrawalDate": "Puedes retirar tu dinero desde el {{date}} (UTC).",
+  "summary": {
+    "plain": "{{backing}} disponibles sin internet, {{bond}} de depósito de seguridad libre",
+    "withSlashed": "{{backing}} disponibles sin internet, {{bond}} de depósito de seguridad libre, {{slashed}} destruidos"
+  },
+  "withdrawal": {
+    "withdrawn": "Retirado.",
+    "now": "Ya puedes retirar tu dinero.",
+    "from": "Puedes retirar tu dinero desde el {{date}} (UTC)."
+  },
+  "rotation": "Alguien pidió pasar este celular a la billetera {{wallet}}. Se aplica el {{date}} (UTC). Si no fuiste tú, cancélalo ahora.",
+  "addFundsTitle": "Cargar saldo",
+  "addFundsBody": "El dinero nuevo entra en otra reserva que respalda lo que pagas. Puedes retirarlo cuando termine la reserva y se abra su plazo de retiro.",
+  "readingWallet": "Leyendo tu billetera",
+  "rotationTitle": "Se pidió un cambio de billetera",
+  "cancelAndPay": "Cancelar y pagar desde mi billetera",
+  "cancelChange": "Cancelar el cambio",
+  "yourLocks": "Tus reservas",
+  "readingLocks": "Leyendo tus reservas",
+  "noLocks": "Este celular no tiene reservas.",
+  "lockN": "Reserva {{number}}",
+  "withdrawAndPay": "Retirar y pagar desde mi billetera",
+  "withdraw": "Retirar"
+}

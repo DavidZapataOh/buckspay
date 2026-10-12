@@ -1,0 +1,28 @@
+{
+  "labels": {
+    "qr": "Código",
+    "nfc": "Juntar",
+    "nearby": "Por cercanía"
+  },
+  "hints": {
+    "nfc": {
+      "disabled": "Activa el NFC para pagar juntando los celulares.",
+      "permission-denied": "Permite el NFC para pagar juntando los celulares."
+    },
+    "nearby": {
+      "disabled": "Activa el Bluetooth para pagar por cercanía.",
+      "permission-denied": "Pagar por cercanía necesita Bluetooth y permiso para encontrar dispositivos cercanos."
+    }
+  },
+  "fix": {
+    "nfc": "Abrir ajustes de NFC",
+    "bluetooth": "Abrir ajustes de Bluetooth",
+    "allow": "Permitir",
+    "permission": "Abrir ajustes de la app"
+  },
+  "waiting": {
+    "nfc": "Junta los celulares",
+    "nearby": "Esperando al otro celular"
+  },
+  "waitingForRequest": "Esperando el cobro"
+}

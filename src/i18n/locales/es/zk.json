@@ -1,0 +1,25 @@
+{
+  "title": "Acreditación privada",
+  "settleNow": "Acreditar ahora",
+  "downloadNow": "Descargar 123 MB ahora",
+  "settleInClear": "Acreditar ahora de forma pública",
+  "scope": "Las personas que tuvieron este dinero antes que tú quedan ocultas para cualquiera que mire la blockchain. Quien te pagó y quienes lo tengan después siguen viendo su historia.",
+  "clearPublishes": "Acreditar de forma pública hace públicas las llaves, las firmas y los montos de todas las personas que tuvieron este dinero.",
+  "state": {
+    "needsKey": "Descargando los datos de acreditación privada · {{percent}}",
+    "preparing": "Preparando una acreditación privada · {{proved}} de {{total}}",
+    "ready": "Listo para acreditar en privado",
+    "submitting": "Acreditando en privado",
+    "settled": "Acreditado en privado",
+    "failed": {
+      "staleKey": "Actualizando los datos de acreditación privada",
+      "expired": "Este pago ya no se puede acreditar. Quien pagó puede recuperarlo.",
+      "retry": "El servidor no respondió. Este celular lo intentará de nuevo.",
+      "invalid": "Este pago no se pudo acreditar en privado."
+    }
+  },
+  "privateData": {
+    "title": "Datos de acreditación privada",
+    "download": "Descargar ahora"
+  }
+}

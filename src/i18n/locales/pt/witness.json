@@ -1,0 +1,31 @@
+{
+  "willAsk": "Esta venda vai pedir ao outro celular para confirmar que vocês estão juntos.",
+  "soundUltrasound": "Vai tocar um som curto e agudo.",
+  "soundAudible": "Vai tocar um bipe curto.",
+  "receiverChecking": "Ouvindo o outro celular. Deixe os celulares juntos, por até 30 segundos.",
+  "payerChecking": "Ouvindo o outro celular. Você pode sair desta tela.",
+  "seen": "O outro celular foi ouvido por perto.",
+  "notSeen": "O outro celular não foi ouvido por perto.",
+  "unavailable": "A confirmação está desativada. Ative o microfone para o Buckspay em Ajustes.",
+  "failed": "Não foi possível concluir a confirmação. Tente de novo.",
+  "lowVolume": "Seu volume está baixo. Aumente e tente de novo.",
+  "skipped": "Confirmação ignorada.",
+  "requiredChecking": "Recebido. Confirmando que o outro celular está por perto…",
+  "requiredNotSeen": "Recebido, mas o outro celular não foi ouvido por perto. O pagamento é definitivo.",
+  "skip": "Pular",
+  "tryAgain": "Tentar de novo",
+  "whatThisMeans": "O que isso significa",
+  "openSettings": "Abrir Ajustes",
+  "continueAnyway": "Continuar mesmo assim",
+  "meaning": "Este celular tocou um som curto e o outro celular respondeu, poucos segundos depois do pagamento. Isso não mostra a que distância os celulares estavam, nem que ninguém repassou o som. O pagamento é definitivo de qualquer forma.",
+  "reviewAsks": "Quem cobra vai pedir para confirmar que vocês estão juntos depois que você pagar. Usa o microfone e não grava nada.",
+  "allow": "Permitir",
+  "settings": {
+    "title": "Confirmar que estão juntos",
+    "answer": "Responder a essas confirmações",
+    "ask": "Pedir essa confirmação",
+    "requireFrom": "Esperar a confirmação a partir de",
+    "audible": "Usar bipes audíveis",
+    "footnote": "Um som curto e agudo que algumas pessoas ouvem. Nada é gravado."
+  }
+}

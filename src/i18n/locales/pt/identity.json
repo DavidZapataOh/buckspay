@@ -1,0 +1,100 @@
+{
+  "step": {
+    "loading": {
+      "title": "Verificar este celular",
+      "body": "O Buckspay lê a conexão da sua carteira e o registro deste celular na Solana.",
+      "action": "Tentar de novo"
+    },
+    "unreachable": {
+      "title": "Não foi possível acessar a Solana",
+      "body": "O Buckspay precisa de conexão para ler o registro deste celular na Solana.",
+      "action": "Tentar de novo"
+    },
+    "connect": {
+      "title": "Conecte sua carteira",
+      "body": "O Buckspay paga a partir de, e credita em, uma carteira que você já usa. Conectar compartilha o endereço dela e não custa nada.",
+      "action": "Conectar carteira",
+      "progress": "Passo 1 de 2"
+    },
+    "create-key": {
+      "title": "Crie a chave deste celular",
+      "body": "Uma chave criada no hardware seguro deste celular aprova seus pagamentos. Ela nunca sai do celular.",
+      "action": "Criar chave",
+      "progress": "Passo 1 de 2"
+    },
+    "activate": {
+      "title": "Adicionar saldo",
+      "body": "Seu dinheiro entra em uma reserva que sustenta o que você paga. Ativar vincula este celular à sua carteira de forma pública e permanente. Qualquer pessoa pode ver o vínculo na Solana e ele não pode ser desfeito.",
+      "action": "Ativar",
+      "progress": "Passo 2 de 2"
+    },
+    "confirming": {
+      "title": "Ativando este celular",
+      "body": "Sua carteira aprovou a ativação.",
+      "action": "Verificar de novo",
+      "progress": "Passo 2 de 2"
+    },
+    "other-wallet": {
+      "title": "Registrado em outra carteira",
+      "body": "Este celular está vinculado para sempre à carteira abaixo. Conecte essa carteira para pagar e cobrar com este celular.",
+      "action": "Conectar outra carteira"
+    }
+  },
+  "shortfall": "Sua carteira tem {{sol}} SOL. Adicione SOL a ela antes de ativar.",
+  "sponsorshipUnavailable": "O Buckspay não pode pagar as ativações agora, então sua carteira paga os custos da rede.",
+  "confirmingNotice": {
+    "sent": "Enviado à Solana. Esperando confirmação, geralmente menos de um minuto. Você pode sair desta tela; não dá para cancelar.",
+    "unknown": "Sua carteira pode ter enviado a ativação. Esperando a Solana confirmar ou expirar, geralmente menos de um minuto. Você pode sair desta tela."
+  },
+  "keyProtection": {
+    "strongbox": "Chip seguro",
+    "tee": "Hardware seguro",
+    "hardware": "Hardware seguro",
+    "software": "Só software",
+    "unknown": "Desconhecido"
+  },
+  "softwareKeyWarning": "Este celular guarda a chave no software, onde um vírus pode alcançá-la com mais facilidade do que no hardware seguro.",
+  "home": {
+    "checkFailed": {
+      "title": "Não foi possível verificar este celular",
+      "retry": "Tentar de novo"
+    },
+    "loading": {
+      "title": "Verificando este celular…"
+    },
+    "unreachable": {
+      "title": "Não foi possível acessar a Solana",
+      "body": "O Buckspay não conseguiu ler o registro deste celular. Confira sua conexão.",
+      "retry": "Tentar de novo"
+    },
+    "ready": {
+      "title": "Este celular está registrado na sua carteira"
+    },
+    "confirming": {
+      "title": "Ativando este celular",
+      "body": "Esperando a Solana confirmar, geralmente menos de um minuto.",
+      "action": "Ver andamento"
+    },
+    "otherWallet": {
+      "title": "Registrado em outra carteira",
+      "body": "Conecte a carteira à qual este celular está vinculado, para pagar e cobrar.",
+      "action": "Conectar outra carteira"
+    },
+    "reconnect": {
+      "title": "Reconecte sua carteira para pagar",
+      "body": "Este celular está registrado. Conecte a carteira à qual ele está vinculado.",
+      "action": "Reconectar carteira"
+    },
+    "setup": {
+      "title": "Configure os pagamentos",
+      "body": "Para pagar e cobrar são necessários uma carteira e a chave deste celular, registradas na Solana.",
+      "action": "Configurar pagamentos"
+    }
+  },
+  "walletHas": "Sua carteira tem {{amount}} {{symbol}}.",
+  "amountToAdd": "Valor a adicionar ({{symbol}})",
+  "lockLengthDays": "Duração da reserva (dias)",
+  "keyProtectionLine": "Armazenamento da chave: {{value}}",
+  "viewTransaction": "Ver a transação no explorador",
+  "waitingForSolana": "Esperando a Solana"
+}

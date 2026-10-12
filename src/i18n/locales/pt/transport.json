@@ -1,0 +1,28 @@
+{
+  "labels": {
+    "qr": "Código",
+    "nfc": "Encostar",
+    "nearby": "Por proximidade"
+  },
+  "hints": {
+    "nfc": {
+      "disabled": "Ative o NFC para pagar encostando os celulares.",
+      "permission-denied": "Permita o NFC para pagar encostando os celulares."
+    },
+    "nearby": {
+      "disabled": "Ative o Bluetooth para pagar por proximidade.",
+      "permission-denied": "Pagar por proximidade precisa de Bluetooth e de permissão para encontrar dispositivos por perto."
+    }
+  },
+  "fix": {
+    "nfc": "Abrir ajustes do NFC",
+    "bluetooth": "Abrir ajustes do Bluetooth",
+    "allow": "Permitir",
+    "permission": "Abrir ajustes do app"
+  },
+  "waiting": {
+    "nfc": "Encoste os celulares",
+    "nearby": "Esperando o outro celular"
+  },
+  "waitingForRequest": "Esperando a cobrança"
+}

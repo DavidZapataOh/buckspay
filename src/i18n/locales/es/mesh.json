@@ -1,0 +1,21 @@
+{
+  "title": "Pagos por cercanía",
+  "body": "Buckspay usa Bluetooth para encontrar celulares cercanos, pasar avisos sobre trampas y entregar pagos a un celular con internet. Nunca comparte tu saldo ni dónde estás.",
+  "allow": "Permitir",
+  "continue": "Continuar",
+  "footnote": "Puedes desactivarlo en Ajustes.",
+  "switch": "Ayudar con pagos cercanos",
+  "status": {
+    "on": "Activado",
+    "off": "Desactivado",
+    "bluetoothOff": "El Bluetooth está apagado",
+    "permissionNeeded": "Falta un permiso",
+    "unsupported": "No disponible en este celular"
+  },
+  "turnOn": "Activar",
+  "openSettings": "Abrir ajustes",
+  "warnings_one": "Avisos recibidos: {{count}}",
+  "warnings_other": "Avisos recibidos: {{count}}",
+  "passedOn_one": "Pagos entregados: {{count}}",
+  "passedOn_other": "Pagos entregados: {{count}}"
+}

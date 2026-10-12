@@ -6,5 +6,40 @@
     "minute_other": "{{count}} minutos",
     "second_one": "{{count}} segundo",
     "second_other": "{{count}} segundos"
+  },
+  "tabs": {
+    "home": "Inicio",
+    "pay": "Pagar",
+    "receive": "Cobrar",
+    "activity": "Movimientos",
+    "settings": "Ajustes"
+  },
+  "close": "Cerrar",
+  "done": "Listo",
+  "working": "Procesando",
+  "copyAddress": "Copiar dirección",
+  "openInExplorer": "Abrir en el explorador",
+  "checkingPhone": "Revisando este celular",
+  "registeredTo": "Registrado a nombre de",
+  "connectedWallet": "Billetera conectada",
+  "details": "Detalles",
+  "hideDetails": "Ocultar detalles",
+  "checking": "Revisando…",
+  "unknown": "Desconocido",
+  "notConnected": "No conectada",
+  "notRegistered": "Sin registrar",
+  "home": {
+    "addFunds": "Cargar saldo",
+    "locksAndWithdrawals": "Reservas y retiros"
+  },
+  "qr": {
+    "tooSmall": "Esta pantalla es muy pequeña para mostrar el código con nitidez. Prueba otra forma de enviarlo o pega el código.",
+    "cameraOff": "El acceso a la cámara está desactivado. Actívalo en Ajustes para escanear, o pega el código.",
+    "openSettings": "Abrir Ajustes",
+    "notBuckspay": "Ese no es un código de Buckspay.",
+    "paste": "Pegar código",
+    "frontCamera": "Usar la cámara frontal",
+    "lightOff": "Apagar la luz",
+    "lightOn": "Encender la luz"
   }
 }

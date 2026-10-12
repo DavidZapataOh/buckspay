@@ -1,0 +1,36 @@
+{
+  "settlementLabel": "Acreditar este pago de forma pública hace públicas las llaves de las personas por las que pasó, cada monto y la cuenta que recibe el pago.",
+  "reclaimLabel": "Recuperar este pago hace pública toda la cadena por la que pasó, tu llave y los montos, aunque se hubiera podido acreditar en privado.",
+  "gatewayLabel": "El servidor de Buckspay ve esta cadena, la dirección de tu red y la hora. La vía privada, cuando existe, no le muestra las llaves.",
+  "selfPayLabel": "La dirección de tu billetera queda guardada en los registros que paga, hasta que se cierren.",
+  "payeeObligation": "Haz que este pago se acredite antes del {{date}} (UTC). Después, quien te pagó puede recuperarlo, y su depósito de seguridad no cubrirá tu pérdida.",
+  "reclaimWindow": "Puedes recuperar un pago sin acreditar durante {{duration}} después de su plazo de acreditación, o hasta que termine su reserva si eso ocurre antes. Un pago de una llave sin celular registrado no se puede recuperar.",
+  "duration": {
+    "minutes_one": "{{count}} minuto",
+    "minutes_other": "{{count}} minutos",
+    "days_one": "{{count}} día",
+    "days_other": "{{count}} días"
+  },
+  "claim": {
+    "late": "Esta pérdida se reportó muy tarde: no se destruyó nada. No se te devolvió el dinero: el depósito de seguridad no se paga.",
+    "already": "Quien pagó gastó este dinero dos veces y su depósito de seguridad ya se había destruido. No se te devolvió el dinero: el depósito no se paga.",
+    "reported": "Quien pagó gastó este dinero dos veces. Su depósito de seguridad se destruye. No se te devolvió el dinero: el depósito no se paga.",
+    "noBond": "La reserva de quien pagó no tiene nada que destruir. No se te devolvió el dinero: el depósito de seguridad no se paga.",
+    "lockEnded": "La reserva de quien pagó terminó, así que la pérdida ya no se puede reportar. No se te devolvió el dinero.",
+    "cannotFile": "Esta pérdida no se puede reportar contra la reserva de quien pagó. No se te devolvió el dinero.",
+    "unavailable": "Buckspay no pudo reportar la pérdida ahora. Guarda este pago e inténtalo más tarde."
+  },
+  "refusal": {
+    "conflict": "Quien pagó gastó este dinero dos veces y antes se acreditó otro pago del mismo dinero. No se te devolvió el dinero, así que guarda este pago.",
+    "noTokenAccount": "La cuenta que recibe el pago aún no puede recibir este dinero. Configúrala en la billetera e inténtalo de nuevo.",
+    "window": "Se acabó el tiempo para acreditar este pago.",
+    "closed": "Se acabó el tiempo para recuperar este pago.",
+    "deadline": "La aprobación para recuperar este pago está vencida. Apruébala de nuevo.",
+    "lockEnded": "La reserva de quien pagó terminó.",
+    "horizonUnknown": "Buckspay todavía no puede pagar esto.",
+    "horizon": "Buckspay no puede pagar esto antes del {{date}} (UTC). Ahora puedes pagarlo tú.",
+    "belowMinimum": "Este monto es muy pequeño para que Buckspay lo pague. Puedes pagarlo tú.",
+    "default": "Buckspay no puede pagar esto ahora. Puedes pagarlo tú."
+  },
+  "balance": "El saldo suma todas las cuentas de esta billetera que tienen este dinero."
+}
