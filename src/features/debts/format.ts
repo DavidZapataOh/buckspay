@@ -10,7 +10,8 @@ import { type AppliedNetting, balance, expectedBalance, type RepayStatus } from 
 import type { StateRow, TabRow } from './store'
 
 /** Peers have no names: a friend is shown by six hex digits of the hash of their device key. */
-export const peerLabel = (key: Uint8Array): string => `Friend ${bytesToHex(sha256(key)).slice(0, 6)}`
+export const peerLabel = (key: Uint8Array): string =>
+  i18n.t('debts:friend', { code: bytesToHex(sha256(key)).slice(0, 6) })
 
 /** The first four bytes of the hash of every co-signed state in `seq` order, as `xxxx xxxx`: two phones agree only when they hold the same changes. */
 export function recordCode(states: readonly CoSignedIou[]): string {

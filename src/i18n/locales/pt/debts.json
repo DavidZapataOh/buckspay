@@ -67,5 +67,6 @@
     "outside": "Pago fora do Buckspay"
   },
   "receive": "Receber uma dívida",
-  "showCode": "Seu amigo escaneia este código para enviar uma dívida a você."
+  "showCode": "Seu amigo escaneia este código para enviar uma dívida a você.",
+  "friend": "Amigo {{code}}"
 }

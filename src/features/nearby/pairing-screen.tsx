@@ -99,6 +99,7 @@ export function PairingScreen({ role }: { role: PairingRole }) {
           <Button variant="filled" label={t('nearby:tryAgain')} onPress={pairing.restart} />
         </>
       ) : null}
+      {confirming ? null : <Button variant="text" label={t('payment:review.cancel')} onPress={() => router.back()} />}
     </Screen>
   )
 }
