@@ -122,6 +122,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             bond_per_record: config.settlement_bond_per_record,
             min_bond: config.settlement_min_bond,
             relay_per_day: config.relay_daily_cap,
+            per_key_per_day: config.settlement_per_key_per_day,
+            per_key_per_30_days: config.settlement_per_key_per_30_days,
             ..FloatCaps::pilot(windows.record_ttl())
         },
         &config.state_directory.join("settlements.json"),

@@ -160,6 +160,9 @@ pub struct Config {
     pub claim_float_cap: u64,
     /// Base units of bond a lock needs for each open sponsored settlement record.
     pub settlement_bond_per_record: u64,
+    /// Sponsored settlements one payer key may have in a day and in 30 days.
+    pub settlement_per_key_per_day: u32,
+    pub settlement_per_key_per_30_days: u32,
     /// The bond a lock needs before it may hold any sponsored record, in base units of the mint.
     pub settlement_min_bond: u64,
     pub program_id: Pubkey,
@@ -238,6 +241,22 @@ fn min_bond(value: Option<&str>) -> Result<u64, String> {
     }
 }
 
+/// Sponsored settlements one payer key may have in a day and in 30 days, never zero and never fewer per
+/// 30 days than per day.
+fn key_limits(day: Option<&str>, month: Option<&str>) -> Result<(u32, u32), String> {
+    let invalid =
+        || "SETTLEMENT_PER_KEY_PER_DAY and SETTLEMENT_PER_KEY_PER_30_DAYS are not valid".to_owned();
+    let day = day.unwrap_or("20").parse::<u32>().map_err(|_| invalid())?;
+    let month = month
+        .unwrap_or("200")
+        .parse::<u32>()
+        .map_err(|_| invalid())?;
+    if day == 0 || month < day {
+        return Err(invalid());
+    }
+    Ok((day, month))
+}
+
 impl Config {
     pub fn from_env() -> Result<Self, String> {
         let cluster = Cluster::parse(
@@ -284,6 +303,10 @@ impl Config {
             Ok("cost_plus") => FeeMode::CostPlus,
             Ok(_) => return Err("ONBOARDING_FEE_MODE must be off or cost_plus".into()),
         };
+        let (settlement_per_key_per_day, settlement_per_key_per_30_days) = key_limits(
+            env::var("SETTLEMENT_PER_KEY_PER_DAY").ok().as_deref(),
+            env::var("SETTLEMENT_PER_KEY_PER_30_DAYS").ok().as_deref(),
+        )?;
         Ok(Self {
             cluster,
             rpc_url,
@@ -320,6 +343,8 @@ impl Config {
             settlement_float_cap: var("SETTLEMENT_FLOAT_CAP_LAMPORTS", "1000000000")?,
             claim_float_cap: var("CLAIM_FLOAT_CAP_LAMPORTS", "500000000")?,
             settlement_bond_per_record: var("SETTLEMENT_BOND_PER_RECORD", "1000000")?,
+            settlement_per_key_per_day,
+            settlement_per_key_per_30_days,
             settlement_min_bond: min_bond(env::var("SETTLEMENT_MIN_BOND").ok().as_deref())?,
             program_id,
             mint: Pubkey::from_str(&env::var("MINT").map_err(|_| "MINT is not set")?)
@@ -592,5 +617,14 @@ mod tests {
         assert!(min_bond(Some("0")).is_err());
         assert!(min_bond(Some("18446744073709551616")).is_err());
         assert!(min_bond(Some("ten")).is_err());
+    }
+
+    #[test]
+    fn the_limits_of_a_payer_key_default_to_the_pilot_and_never_shrink_over_a_month() {
+        assert_eq!(key_limits(None, None), Ok((20, 200)));
+        assert_eq!(key_limits(Some("500"), Some("5000")), Ok((500, 5_000)));
+        assert!(key_limits(Some("0"), None).is_err());
+        assert!(key_limits(Some("300"), Some("200")).is_err());
+        assert!(key_limits(Some("many"), None).is_err());
     }
 }
