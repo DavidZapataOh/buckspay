@@ -46,5 +46,13 @@
   "network": {
     "devnet": "Rede de teste (Devnet)",
     "localnet": "Rede de teste (local)"
+  },
+  "tryAgain": "Tente de novo.",
+  "addressCopied": "Endereço copiado",
+  "problem": {
+    "readWallet": "Não foi possível ler sua carteira. Confira sua conexão e tente de novo.",
+    "readReserves": "Não foi possível ler suas reservas. Confira sua conexão e tente de novo.",
+    "openStore": "Não foi possível abrir o registro de pagamentos. Feche o app e abra de novo.",
+    "readStore": "Não foi possível ler o registro de pagamentos. Feche o app e abra de novo."
   }
 }

@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import {
   type Address,
   type Blockhash,
@@ -60,7 +61,7 @@ export function rpcSweepChain(
   }
 }
 
-const REFUSED = (reason: string) => `The gateway refused to move the rewards (${reason}).`
+const REFUSED = (reason: string) => i18n.t('rewards:problem.moveRefused', { reason })
 
 async function settle(answer: JobAnswer, deps: MoveDeps): Promise<void> {
   const sleep = deps.sleep ?? ((ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
@@ -70,9 +71,9 @@ async function settle(answer: JobAnswer, deps: MoveDeps): Promise<void> {
     if (current.status === 'settled') return
     if (current.status === 'refused') throw new Error(REFUSED(current.reason))
     if (current.status === 'retry')
-      throw new Error(`The gateway is busy. Try again in about ${Math.ceil(current.retryAfter / 60)} minutes.`)
+      throw new Error(i18n.t('rewards:problem.moveBusy', { minutes: Math.ceil(current.retryAfter / 60) }))
     job = current.jobKey ?? job
-    if (!job) throw new Error('The gateway did not say which job to watch.')
+    if (!job) throw new Error(i18n.t('rewards:problem.moveNoJob'))
     await sleep(POLL_MS)
     current = await deps.gateway.claimStatus(job)
   }

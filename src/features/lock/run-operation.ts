@@ -5,6 +5,7 @@ import {
   SolanaMobileWalletAdapterProtocolErrorCode,
 } from '@solana-mobile/mobile-wallet-adapter-protocol'
 import type { GetSignatureStatusesApi, Rpc } from '@solana/kit'
+import { i18n } from '../../i18n'
 import { formatError } from '../../utils/format-error'
 import { GatewayError, notDelivered, notSent } from './gateway'
 import { METHOD_NOT_FOUND, SponsorshipError } from './gateway-onboard'
@@ -17,15 +18,9 @@ import {
   waitForSignature,
 } from './perform'
 
-const NOTHING_SENT = 'Nothing was sent and nothing was charged.'
-
-const SPONSOR_FALLBACK: Record<SponsorshipError['reason'], string> = {
-  unavailable: 'Buckspay couldn’t pay for this.',
-  mismatch: 'Buckspay’s server offered a transaction this app didn’t ask for, so your wallet never saw it.',
-  unsupported: 'Your wallet can’t sign a transaction that Buckspay pays for.',
-  altered: 'Your wallet changed the transaction before signing it, so it wasn’t sent.',
-  unsigned: 'Your wallet couldn’t sign the transaction.',
-}
+const say = (...parts: string[]) => parts.join(' ')
+const nothingSent = () => i18n.t('lock:problem.nothingSent')
+const sponsorFallback = (reason: SponsorshipError['reason']) => i18n.t(`lock:problem.sponsor.${reason}`)
 
 /** The wallet rejected the cached authorization or closed the session unanswered: connect it again. */
 const isStaleAuthorization = (error: unknown) =>
@@ -35,7 +30,7 @@ const isStaleAuthorization = (error: unknown) =>
     (error.code === SolanaMobileWalletAdapterErrorCode.ERROR_SESSION_CLOSED ||
       error.code === SolanaMobileWalletAdapterErrorCode.ERROR_SESSION_TIMEOUT))
 
-const RECONNECT = 'Your wallet no longer recognizes Buckspay. Connect it again.'
+const reconnect = () => i18n.t('lock:problem.reconnect')
 
 /** What running an operation needs: the wallet, the gateway and an RPC that reports signature statuses. */
 export type RunContext = PerformContext & { rpc: PerformContext['rpc'] & Rpc<GetSignatureStatusesApi> }
@@ -49,32 +44,37 @@ export function describeOperationError(error: unknown): Extract<OperationOutcome
   const details = formatError(error)
   if (error instanceof SponsorshipError) {
     if (error.reason === 'unsigned' && isStaleAuthorization(error.cause)) {
-      return { status: 'failed', error: `${RECONNECT} ${NOTHING_SENT}`, details, payInstead: false, reconnect: true }
+      return { status: 'failed', error: say(reconnect(), nothingSent()), details, payInstead: false, reconnect: true }
     }
     return {
       status: 'failed',
-      error: `${SPONSOR_FALLBACK[error.reason]} ${NOTHING_SENT}`,
+      error: say(sponsorFallback(error.reason), nothingSent()),
       details: error.cause ? formatError(error.cause) : details,
       payInstead: true,
     }
   }
   if (error instanceof TransactionRejected) {
     const custom = JSON.stringify(error.error, (_, item) => (typeof item === 'bigint' ? Number(item) : item))
-    return { status: 'failed', error: `Solana would reject this. ${NOTHING_SENT}`, details: custom, payInstead: false }
+    return {
+      status: 'failed',
+      error: say(i18n.t('lock:problem.wouldReject'), nothingSent()),
+      details: custom,
+      payInstead: false,
+    }
   }
   if (
     error instanceof SolanaMobileWalletAdapterProtocolError &&
     error.code === SolanaMobileWalletAdapterProtocolErrorCode.ERROR_NOT_SIGNED
   ) {
-    return { status: 'failed', error: `You declined in your wallet. ${NOTHING_SENT}`, details, payInstead: false }
+    return { status: 'failed', error: say(i18n.t('lock:problem.declined'), nothingSent()), details, payInstead: false }
   }
   if (isStaleAuthorization(error)) {
-    return { status: 'failed', error: `${RECONNECT} ${NOTHING_SENT}`, details, payInstead: false, reconnect: true }
+    return { status: 'failed', error: say(reconnect(), nothingSent()), details, payInstead: false, reconnect: true }
   }
   if (notDelivered(error)) {
     return {
       status: 'failed',
-      error: `Can’t reach Buckspay. ${NOTHING_SENT} Check your connection and try again.`,
+      error: say(i18n.t('lock:problem.cantReachBuckspay'), nothingSent(), i18n.t('lock:problem.checkConnection')),
       details,
       payInstead: false,
     }
@@ -82,15 +82,14 @@ export function describeOperationError(error: unknown): Extract<OperationOutcome
   if (error instanceof TypeError) {
     return {
       status: 'failed',
-      error:
-        'Can’t reach Solana or Buckspay. Check your connection. The transaction may not have been sent; check before trying again.',
+      error: i18n.t('lock:problem.cantReachBoth'),
       details,
       payInstead: false,
     }
   }
   return {
     status: 'failed',
-    error: 'The transaction didn’t complete. It may or may not have been sent; check before trying again.',
+    error: i18n.t('lock:problem.incomplete'),
     details,
     payInstead: false,
   }
@@ -116,7 +115,7 @@ export async function runOperation(
     if (sponsored && error instanceof GatewayError && error.body.retry === true) {
       return {
         status: 'failed',
-        error: `Solana was slow to see the transaction. ${NOTHING_SENT} Try again.`,
+        error: say(i18n.t('lock:problem.slow'), nothingSent(), i18n.t('common:tryAgain')),
         details: formatError(error),
         payInstead: false,
       }
@@ -130,7 +129,7 @@ export async function runOperation(
   if (failed) {
     return {
       status: 'failed',
-      error: 'Solana rejected the transaction. No funds moved.',
+      error: i18n.t('lock:problem.rejected'),
       details: JSON.stringify(failed, (_, item) => (typeof item === 'bigint' ? Number(item) : item)),
       payInstead: false,
     }
@@ -138,7 +137,7 @@ export async function runOperation(
   if (failed === undefined) {
     return {
       status: 'failed',
-      error: 'Solana hasn’t confirmed the transaction yet. It may still land; check your locks in a minute.',
+      error: i18n.t('lock:problem.unconfirmed'),
       payInstead: false,
     }
   }

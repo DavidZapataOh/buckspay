@@ -304,7 +304,7 @@ describe('running an operation', () => {
     }
     expect(outcome).toMatchObject({
       status: 'failed',
-      error: 'Solana hasn’t confirmed the transaction yet. It may still land; check your locks in a minute.',
+      error: 'Solana hasn’t confirmed the transaction yet. It may still go through; check your reserves in a minute.',
     })
   })
 

@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { useEffect, useState } from 'react'
 import { BUILD_TOKEN } from '../pay/tokens'
 import type { TippingSettings } from '../settings/settings'
@@ -14,7 +15,9 @@ export function useTipping(terms: TipTerms | undefined) {
   const [error, setError] = useState<string>()
   useEffect(() => {
     loadTipping().then(setOn, (failure: unknown) =>
-      setError(`Couldn’t read the tipping setting. ${failure instanceof Error ? failure.message : String(failure)}`),
+      setError(
+        `${i18n.t('rewards:problem.readTipping')} ${failure instanceof Error ? failure.message : String(failure)}`,
+      ),
     )
   }, [])
   const settings: TippingSettings | undefined =
@@ -30,7 +33,7 @@ export function useTipping(terms: TipTerms | undefined) {
             saveTipping(next).catch((failure: unknown) => {
               setOn(!next)
               setError(
-                `Couldn’t save the tipping setting. ${failure instanceof Error ? failure.message : String(failure)}`,
+                `${i18n.t('rewards:problem.saveTipping')} ${failure instanceof Error ? failure.message : String(failure)}`,
               )
             })
           },

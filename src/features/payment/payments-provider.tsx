@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { address, createSolanaRpc } from '@solana/kit'
 import { useMobileWallet } from '@wallet-ui/react-native-kit'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
@@ -75,7 +76,7 @@ export function PaymentsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     openNoteDb().then(setOpened, (failure: unknown) =>
-      setError(`Couldn’t open the payments store. ${formatError(failure)}`),
+      setError(`${i18n.t('common:problem.openStore')} ${formatError(failure)}`),
     )
     cacheLoaded.current = loadRegistry().then((loaded) => {
       attestersRef.current = loaded
@@ -88,7 +89,7 @@ export function PaymentsProvider({ children }: { children: ReactNode }) {
     let current = true
     reconcileIdentity(opened, key ?? new Uint8Array(0), nowSeconds()).then(
       () => current && setDb(opened),
-      (failure: unknown) => current && setError(`Couldn’t read the payments store. ${formatError(failure)}`),
+      (failure: unknown) => current && setError(`${i18n.t('common:problem.readStore')} ${formatError(failure)}`),
     )
     return () => {
       current = false

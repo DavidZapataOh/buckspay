@@ -13,10 +13,10 @@ import type { StateRow } from './store'
 export type TabAction = 'lent' | 'borrowed' | 'repaid' | 'clear'
 
 const CAUSE = {
-  [IouCause.Open]: 'Added',
-  [IouCause.Repay]: 'Paid with Buckspay',
-  [IouCause.Outside]: 'Paid outside Buckspay',
-}
+  [IouCause.Open]: 'open',
+  [IouCause.Repay]: 'repay',
+  [IouCause.Outside]: 'outside',
+} as const
 
 const withSign = (units: bigint, decimals: number, symbol: string) =>
   `${units < 0n ? '−' : '+'}${money(units < 0n ? -units : units, decimals, symbol)}`
@@ -128,7 +128,7 @@ export function TabScreen({
         return (
           <View key={row.iou.seq} className="min-h-12 justify-center py-1">
             <AppText variant="body">
-              {`#${row.iou.seq} · ${withSign(change, decimals, symbol)} · ${CAUSE[row.iou.cause as keyof typeof CAUSE]}`}
+              {`#${row.iou.seq} · ${withSign(change, decimals, symbol)} · ${t(`debts:cause.${CAUSE[row.iou.cause as keyof typeof CAUSE]}`)}`}
             </AppText>
             {row.memo ? (
               <AppText variant="label" tone="muted">

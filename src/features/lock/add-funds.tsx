@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { NAMESPACES } from '../../i18n'
+import { NAMESPACES, i18n } from '../../i18n'
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, View } from 'react-native'
@@ -38,7 +38,7 @@ export function AddFunds() {
         setOffer(read)
         setSponsorship(ctx.gateway ? (read.quote?.available ? 'free' : 'unavailable') : undefined)
       },
-      (reason: unknown) => setError(`Couldn’t read your wallet. ${formatError(reason)}`),
+      (reason: unknown) => setError(`${i18n.t('common:problem.readWallet')} ${formatError(reason)}`),
     )
   }, [ctx, wallet, deviceKey, nextLockSeq])
 

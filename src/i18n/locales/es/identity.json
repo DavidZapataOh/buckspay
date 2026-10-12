@@ -97,5 +97,53 @@
   "keyProtectionLine": "Almacenamiento de la llave: {{value}}",
   "viewTransaction": "Ver la transacción en el explorador",
   "waitingForSolana": "Esperando a Solana",
-  "activatedAnnouncement": "Este celular está activado y registrado con tu billetera."
+  "activatedAnnouncement": "Este celular está activado y registrado con tu billetera.",
+  "belowMinimumNote": "Por debajo de eso, tu billetera paga los costos de la red.",
+  "problem": {
+    "nothingSent": "No se envió nada y no se cobró nada.",
+    "notActivated": "No se cobró nada y este celular no está activado.",
+    "noFundsMoved": "No se movió dinero y este celular no está activado.",
+    "expired": "La activación venció antes de completarse.",
+    "stalled": "Solana aún no confirma la activación. Todavía puede completarse; revisa de nuevo en un minuto.",
+    "payInstead": "Puedes activar ahora y pagar los costos de la red desde tu billetera.",
+    "addSol": "Para activar ahora, agrega SOL a tu billetera y paga desde ella.",
+    "feeChanged": "Las condiciones de Buckspay cambiaron mientras mirabas. Revísalas e inténtalo de nuevo. No se envió nada.",
+    "sponsor": {
+      "unavailable": "Buckspay no pudo pagar esta activación.",
+      "mismatch": "El servidor de Buckspay ofreció una activación que esta app no pidió, así que tu billetera nunca la vio.",
+      "unsupported": "Tu billetera no puede firmar una activación que paga Buckspay.",
+      "altered": "Tu billetera cambió la activación antes de firmarla, así que no se envió.",
+      "unsigned": "Tu billetera no pudo firmar la activación."
+    },
+    "step": {
+      "connect": "La billetera no pudo conectarse. No se compartió nada y no se cobró nada. Inténtalo de nuevo.",
+      "create-key": "Este celular no pudo crear su llave. No se cobró nada. Inténtalo de nuevo.",
+      "activate": "La activación no se completó."
+    },
+    "declined": "Lo rechazaste en tu billetera.",
+    "notRecognized": "Tu billetera ya no reconoce a Buckspay.",
+    "connectAgain": "Conéctala de nuevo.",
+    "connectionDeclined": "La billetera rechazó la conexión. No se compartió nada y no se cobró nada.",
+    "couldNotSend": "Tu billetera no pudo enviar la activación.",
+    "noWalletApp": "Ninguna app de billetera de este celular funciona con Buckspay. Instala Phantom o Solflare e inténtalo de nuevo.",
+    "unreachableConfirm": "No se puede conectar con Solana para revisar la activación. Todavía puede completarse; revisa de nuevo cuando tengas conexión.",
+    "unreachable": "No se puede conectar con Solana. Revisa tu conexión e inténtalo de nuevo. No se envió nada.",
+    "couldNotCheck": "Buckspay no pudo revisar este celular. No se envió nada. Inténtalo de nuevo.",
+    "tx": {
+      "key": "Solana no aceptó la firma de la llave de este celular.",
+      "registered": "La llave de este celular ya está registrada en Solana.",
+      "insufficient": "Tu billetera no tiene suficiente SOL para la activación.",
+      "compute": "La activación se quedó sin capacidad de cálculo en Solana.",
+      "rejected": "Solana rechazó la activación."
+    },
+    "lowSol": "Tu billetera tiene {{balance}} SOL y activar cuesta cerca de {{cost}} SOL en costos de red. Agrega SOL a tu billetera e inténtalo de nuevo. No se envió nada.",
+    "wrongNetwork": "La llave de este celular está configurada para {{configured}} y esta app para {{cluster}}. No se creó, envió ni cobró nada.",
+    "keyNetwork": "La llave de este celular se creó para {{created}} y esta app firma para {{cluster}}. No se envió ni cobró nada.",
+    "noNetwork": "ninguna red",
+    "input": {
+      "amount": "Escribe un monto para cargar. No se envió nada.",
+      "days": "Elige una reserva de {{min}} a {{max}} días. No se envió nada.",
+      "balance": "Tu billetera tiene {{have}} {{symbol}} y esto necesita {{need}} {{symbol}}. Agrega {{symbol}} a tu billetera e inténtalo de nuevo. No se envió nada."
+    }
+  }
 }

@@ -41,5 +41,6 @@
     "doubleSpend": "Ya se gastó en otro punto de cobro",
     "scope": "Este saldo no es de quienes emiten para este evento.",
     "notForYou": "Este saldo es de otro evento."
-  }
+  },
+  "setupFirst": "Primero conecta una billetera y configura los pagos."
 }

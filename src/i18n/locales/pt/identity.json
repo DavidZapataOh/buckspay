@@ -97,5 +97,53 @@
   "keyProtectionLine": "Armazenamento da chave: {{value}}",
   "viewTransaction": "Ver a transação no explorador",
   "waitingForSolana": "Esperando a Solana",
-  "activatedAnnouncement": "Este celular está ativado e registrado na sua carteira."
+  "activatedAnnouncement": "Este celular está ativado e registrado na sua carteira.",
+  "belowMinimumNote": "Abaixo disso, sua carteira paga os custos da rede.",
+  "problem": {
+    "nothingSent": "Nada foi enviado e nada foi cobrado.",
+    "notActivated": "Nada foi cobrado e este celular não está ativado.",
+    "noFundsMoved": "Nenhum dinheiro foi movido e este celular não está ativado.",
+    "expired": "A ativação expirou antes de ser concluída.",
+    "stalled": "A Solana ainda não confirmou a ativação. Ela ainda pode ser concluída; confira de novo em um minuto.",
+    "payInstead": "Você pode ativar agora e pagar os custos da rede com sua carteira.",
+    "addSol": "Para ativar agora, adicione SOL à sua carteira e pague com ela.",
+    "feeChanged": "As condições do Buckspay mudaram enquanto você olhava. Revise e tente de novo. Nada foi enviado.",
+    "sponsor": {
+      "unavailable": "O Buckspay não conseguiu pagar esta ativação.",
+      "mismatch": "O servidor do Buckspay ofereceu uma ativação que este app não pediu, então sua carteira nunca a viu.",
+      "unsupported": "Sua carteira não pode assinar uma ativação paga pelo Buckspay.",
+      "altered": "Sua carteira alterou a ativação antes de assinar, então ela não foi enviada.",
+      "unsigned": "Sua carteira não conseguiu assinar a ativação."
+    },
+    "step": {
+      "connect": "A carteira não conseguiu conectar. Nada foi compartilhado e nada foi cobrado. Tente de novo.",
+      "create-key": "Este celular não conseguiu criar a chave. Nada foi cobrado. Tente de novo.",
+      "activate": "A ativação não foi concluída."
+    },
+    "declined": "Você recusou na sua carteira.",
+    "notRecognized": "Sua carteira não reconhece mais o Buckspay.",
+    "connectAgain": "Conecte-a de novo.",
+    "connectionDeclined": "A carteira recusou a conexão. Nada foi compartilhado e nada foi cobrado.",
+    "couldNotSend": "Sua carteira não conseguiu enviar a ativação.",
+    "noWalletApp": "Nenhum app de carteira neste celular funciona com o Buckspay. Instale a Phantom ou a Solflare e tente de novo.",
+    "unreachableConfirm": "Não foi possível acessar a Solana para conferir a ativação. Ela ainda pode ser concluída; confira de novo quando estiver online.",
+    "unreachable": "Não foi possível acessar a Solana. Confira sua conexão e tente de novo. Nada foi enviado.",
+    "couldNotCheck": "O Buckspay não conseguiu verificar este celular. Nada foi enviado. Tente de novo.",
+    "tx": {
+      "key": "A Solana não aceitou a assinatura da chave deste celular.",
+      "registered": "A chave deste celular já está registrada na Solana.",
+      "insufficient": "Sua carteira não tem SOL suficiente para a ativação.",
+      "compute": "A ativação ficou sem capacidade de cálculo na Solana.",
+      "rejected": "A Solana recusou a ativação."
+    },
+    "lowSol": "Sua carteira tem {{balance}} SOL e ativar custa cerca de {{cost}} SOL em custos de rede. Adicione SOL à sua carteira e tente de novo. Nada foi enviado.",
+    "wrongNetwork": "A chave deste celular está configurada para {{configured}} e este app para {{cluster}}. Nada foi criado, enviado nem cobrado.",
+    "keyNetwork": "A chave deste celular foi criada para {{created}} e este app assina para {{cluster}}. Nada foi enviado nem cobrado.",
+    "noNetwork": "nenhuma rede",
+    "input": {
+      "amount": "Digite um valor para adicionar. Nada foi enviado.",
+      "days": "Escolha uma reserva de {{min}} a {{max}} dias. Nada foi enviado.",
+      "balance": "Sua carteira tem {{have}} {{symbol}} e isto precisa de {{need}} {{symbol}}. Adicione {{symbol}} à sua carteira e tente de novo. Nada foi enviado."
+    }
+  }
 }

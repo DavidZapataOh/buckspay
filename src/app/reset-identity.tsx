@@ -50,7 +50,7 @@ export default function ResetIdentity() {
       await reset()
       router.replace('/')
     } catch (failure) {
-      setError(`Couldn’t reset this phone. ${formatError(failure)}`)
+      setError(`${t('payment:reset.failed')} ${formatError(failure)}`)
     } finally {
       setWorking(false)
     }

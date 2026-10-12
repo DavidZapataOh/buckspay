@@ -20,6 +20,11 @@
   },
   "privateData": {
     "title": "Private crediting data",
-    "download": "Download now"
+    "download": "Download now",
+    "ready": "Ready · {{size}} on this phone",
+    "downloading": "Downloading · {{percent}}",
+    "preparing": "Preparing",
+    "missing": "Not downloaded · about {{size}}",
+    "unavailable": "Unavailable"
   }
 }

@@ -41,5 +41,6 @@
     "doubleSpend": "Already spent at another point",
     "scope": "This credit isn't from this event's issuers.",
     "notForYou": "This credit is for another event."
-  }
+  },
+  "setupFirst": "Connect a wallet and set up payments first."
 }

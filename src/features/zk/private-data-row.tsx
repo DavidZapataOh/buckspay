@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { NAMESPACES } from '../../i18n'
+import { i18n, NAMESPACES } from '../../i18n'
 import { View } from 'react-native'
 import { Button } from '../../components/button'
 import { ListRow } from '../../components/list-row'
@@ -18,15 +18,15 @@ const megabytes = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`
 const valueOf = ({ state, progress, sizeBytes }: PrivateDataProps) => {
   switch (state) {
     case 'ready':
-      return `Ready · ${megabytes(sizeBytes)} on this phone`
+      return i18n.t('zk:privateData.ready', { size: megabytes(sizeBytes) })
     case 'downloading':
-      return `Downloading · ${Math.round(progress * 100)}%`
+      return i18n.t('zk:privateData.downloading', { percent: `${Math.round(progress * 100)}%` })
     case 'expanding':
-      return 'Preparing'
+      return i18n.t('zk:privateData.preparing')
     case 'missing':
-      return 'Not downloaded · about 282 MB'
+      return i18n.t('zk:privateData.missing', { size: '282 MB' })
     case 'unavailable':
-      return 'Unavailable'
+      return i18n.t('zk:privateData.unavailable')
   }
 }
 

@@ -44,5 +44,13 @@
     "title": "Ganaste una comisión",
     "body": "Un pago que llevaste fue entregado. La comisión se paga cuando la red lo tenga.",
     "bodyAmount": "Un pago que llevaste fue entregado: {{amount}} {{symbol}}. La comisión se paga cuando la red lo tenga."
+  },
+  "problem": {
+    "read": "No se pudieron leer las recompensas. Inténtalo de nuevo.",
+    "readTipping": "No se pudo leer el ajuste de propinas. Inténtalo de nuevo.",
+    "saveTipping": "No se pudo guardar el ajuste de propinas. Inténtalo de nuevo.",
+    "moveRefused": "El servidor rechazó pasar las recompensas: {{reason}}.",
+    "moveBusy": "El servidor está ocupado. Inténtalo de nuevo en unos {{minutes}} minutos.",
+    "moveNoJob": "El servidor no dijo qué tarea seguir. Inténtalo de nuevo."
   }
 }

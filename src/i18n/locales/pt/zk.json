@@ -20,6 +20,11 @@
   },
   "privateData": {
     "title": "Dados do crédito privado",
-    "download": "Baixar agora"
+    "download": "Baixar agora",
+    "ready": "Pronto · {{size}} neste celular",
+    "downloading": "Baixando · {{percent}}",
+    "preparing": "Preparando",
+    "missing": "Não baixado · cerca de {{size}}",
+    "unavailable": "Indisponível"
   }
 }

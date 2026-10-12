@@ -46,5 +46,13 @@
   "network": {
     "devnet": "Red de prueba (Devnet)",
     "localnet": "Red de prueba (local)"
+  },
+  "tryAgain": "Inténtalo de nuevo.",
+  "addressCopied": "Dirección copiada",
+  "problem": {
+    "readWallet": "No se pudo leer tu billetera. Revisa tu conexión e inténtalo de nuevo.",
+    "readReserves": "No se pudieron leer tus reservas. Revisa tu conexión e inténtalo de nuevo.",
+    "openStore": "No se pudo abrir el registro de pagos. Cierra la app y ábrela de nuevo.",
+    "readStore": "No se pudo leer el registro de pagos. Cierra la app y ábrela de nuevo."
   }
 }

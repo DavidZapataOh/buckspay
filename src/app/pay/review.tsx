@@ -51,8 +51,8 @@ export default function PayReviewScreen() {
           }}
           onAction={(action) => {
             flow.back()
-            if (action === 'Add money') router.replace('/add-funds')
-            else if (action === 'Activity') router.replace('/activity')
+            if (action === 'add-money') router.replace('/add-funds')
+            else if (action === 'activity') router.replace('/activity')
             else router.back()
           }}
         />

@@ -118,27 +118,24 @@ export async function forgetIdentity(ctx: IdentityContext): Promise<IdentityStat
   return resolveIdentity(ctx)
 }
 
-const NOTHING_SENT = 'Nothing was sent and nothing was charged.'
-const NOT_ACTIVATED = 'Nothing was charged and this phone is not activated.'
-const EXPIRED = `The activation expired before it landed. ${NOT_ACTIVATED}`
-const STALLED = 'Solana hasn’t confirmed the activation yet. It may still land; check again in a minute.'
-const PAY_INSTEAD = 'You can activate now and pay the network costs from your wallet.'
-const FEE_CHANGED = 'Buckspay’s terms changed while you were looking. Review them and try again. Nothing was sent.'
+const say = (...parts: string[]) => parts.join(' ')
+const problem = (key: string, values?: Record<string, unknown>): string =>
+  String(i18n.t(`identity:problem.${key}` as never, values as never))
+const nothingSent = () => problem('nothingSent')
+const notActivated = () => problem('notActivated')
+const expired = () => say(problem('expired'), notActivated())
+const stalled = () => problem('stalled')
+const feeChanged = () => problem('feeChanged')
 /** Why an activation Buckspay was to pay for falls back to the wallet paying. */
-const SPONSOR_FALLBACK: Record<SponsorshipError['reason'], string> = {
-  unavailable: 'Buckspay couldn’t pay for this activation.',
-  mismatch: 'Buckspay’s server offered an activation this app didn’t ask for, so your wallet never saw it.',
-  unsupported: 'Your wallet can’t sign an activation that Buckspay pays for.',
-  altered: 'Your wallet changed the activation before signing it, so it wasn’t sent.',
-  unsigned: 'Your wallet couldn’t sign the activation.',
-}
+const sponsorFallback = (reason: SponsorshipError['reason']) => problem(`sponsor.${reason}`)
 /** The JSON-RPC error of a wallet that does not implement a method, here `sign_transactions`. */
 const METHOD_NOT_FOUND = -32601
-const FAILED: Partial<Record<IdentityStep, string>> = {
-  connect: 'The wallet couldn’t connect. Nothing was shared and nothing was charged. Try again.',
-  'create-key': 'This phone couldn’t create its key. Nothing was charged. Try again.',
-  activate: `The activation didn’t go through. ${NOT_ACTIVATED} Try again.`,
-}
+const failedAt = (step: IdentityStep): string | undefined =>
+  step === 'connect' || step === 'create-key'
+    ? problem(`step.${step}`)
+    : step === 'activate'
+      ? say(problem('step.activate'), notActivated(), i18n.t('common:tryAgain'))
+      : undefined
 
 /** A failure these steps describe themselves. */
 class IdentityError extends Error {
@@ -171,7 +168,7 @@ function payFromWallet(current: IdentityState, reason: SponsorshipError['reason'
   const error =
     reason === 'altered' && !canPay
       ? i18n.t('lock:walletChangedTransaction')
-      : `${SPONSOR_FALLBACK[reason]} ${NOTHING_SENT} ${canPay ? PAY_INSTEAD : 'To activate now, add SOL to your wallet and pay from it.'}`
+      : say(sponsorFallback(reason), nothingSent(), canPay ? problem('payInstead') : problem('addSol'))
   return { ...current, sponsorship: 'unavailable', error, details }
 }
 
@@ -191,34 +188,33 @@ export function describeIdentityError(error: unknown, step: IdentityStep): { err
     SolanaMobileWalletAdapterProtocolErrorCode
   const details = formatError(error)
   if (isWalletError(error, ERROR_NOT_SIGNED)) {
-    return { error: `You declined in your wallet. ${NOTHING_SENT}`, details }
+    return { error: say(problem('declined'), nothingSent()), details }
   }
   if (isWalletError(error, ERROR_AUTHORIZATION_FAILED)) {
     // While activating, the wallet rejected the cached authorization; while connecting, it declined.
     return step === 'activate'
-      ? { error: `Your wallet no longer recognizes Buckspay. ${NOTHING_SENT} Connect it again.`, details }
-      : { error: 'The wallet declined the connection. Nothing was shared and nothing was charged.', details }
+      ? { error: say(problem('notRecognized'), nothingSent(), problem('connectAgain')), details }
+      : { error: problem('connectionDeclined'), details }
   }
   if (isWalletError(error, ERROR_NOT_SUBMITTED)) {
-    return { error: `Your wallet couldn’t send the activation. ${NOT_ACTIVATED} Try again.`, details }
+    return { error: say(problem('couldNotSend'), notActivated(), i18n.t('common:tryAgain')), details }
   }
   if (
     error instanceof SolanaMobileWalletAdapterError &&
     error.code === SolanaMobileWalletAdapterErrorCode.ERROR_WALLET_NOT_FOUND
   ) {
     return {
-      error: 'No wallet app on this phone works with Buckspay. Install Phantom or Solflare, then try again.',
+      error: problem('noWalletApp'),
       details,
     }
   }
   if (step === 'confirming') {
-    const unreachable = 'Can’t reach Solana to check the activation. It may still land; check again once you’re online.'
-    return { error: isOffline(error) ? unreachable : STALLED, details }
+    return { error: isOffline(error) ? problem('unreachableConfirm') : stalled(), details }
   }
   if (isOffline(error)) {
-    return { error: 'Can’t reach Solana. Check your connection and try again. Nothing was sent.', details }
+    return { error: problem('unreachable'), details }
   }
-  return { error: FAILED[step] ?? 'Buckspay couldn’t check this phone. Nothing was sent. Try again.', details }
+  return { error: failedAt(step) ?? problem('couldNotCheck'), details }
 }
 
 /** An activation's transaction error, in plain words. */
@@ -226,20 +222,20 @@ function describeTransactionError(err: TransactionError): string {
   const failure = typeof err === 'object' && 'InstructionError' in err ? err.InstructionError[1] : err
   const custom = typeof failure === 'object' && 'Custom' in failure ? Number(failure.Custom) : undefined
   if (custom === BUCKSPAY_ERROR__DEVICE_KEY || custom === BUCKSPAY_ERROR__DEVICE_BINDING) {
-    return 'Solana didn’t accept this phone’s key signature.'
+    return problem('tx.key')
   }
   // The system program's errors creating the device account: already in use, or not enough lamports.
-  if (custom === 0) return 'This phone’s key is already registered on Solana.'
+  if (custom === 0) return problem('tx.registered')
   if (
     custom === 1 ||
     failure === 'InsufficientFunds' ||
     failure === 'InsufficientFundsForFee' ||
     (typeof failure === 'object' && 'InsufficientFundsForRent' in failure)
   ) {
-    return 'Your wallet doesn’t have enough SOL for the activation.'
+    return problem('tx.insufficient')
   }
-  if (failure === 'ComputationalBudgetExceeded') return 'The activation ran out of compute on Solana.'
-  return 'Solana rejected the activation.'
+  if (failure === 'ComputationalBudgetExceeded') return problem('tx.compute')
+  return problem('tx.rejected')
 }
 
 /** A stored activation, or `undefined` for one that is unreadable or of another shape. */
@@ -347,7 +343,7 @@ async function settle(ctx: IdentityContext, address: Address, pending: Pending) 
     const failed = pending.signature && (await transactionError(ctx, pending.signature).catch(() => undefined))
     if (failed) return { slot, failed }
     if (blockHeight > BigInt(pending.lastValidBlockHeight)) return { slot }
-    if (Date.now() >= deadline) throw new IdentityError(STALLED)
+    if (Date.now() >= deadline) throw new IdentityError(stalled())
     await new Promise((resolve) => setTimeout(resolve, POLL_MS))
   }
 }
@@ -363,14 +359,12 @@ async function checkCluster(ctx: IdentityContext) {
   const configured = deviceKeyCluster()
   if (configured !== ctx.cluster) {
     throw new IdentityError(
-      `This phone’s key is set up for ${configured ?? 'no network'}, and this app for ${ctx.cluster}. Nothing was created, sent or charged.`,
+      problem('wrongNetwork', { configured: configured ?? problem('noNetwork'), cluster: ctx.cluster }),
     )
   }
   const created = await AsyncStorage.getItem(KEY_CLUSTER)
   if (created && created !== ctx.cluster) {
-    throw new IdentityError(
-      `This phone’s key was created for ${created}, and this app signs for ${ctx.cluster}. Nothing was sent or charged.`,
-    )
+    throw new IdentityError(problem('keyNetwork', { created, cluster: ctx.cluster }))
   }
 }
 
@@ -459,10 +453,10 @@ async function confirm(ctx: IdentityContext, state: IdentityState): Promise<Iden
     return bound(wallet, deviceKey, device)
   }
   const current = await resolveIdentity(ctx)
-  if (!failed) return { ...current, error: EXPIRED }
+  if (!failed) return { ...current, error: expired() }
   return {
     ...current,
-    error: `${describeTransactionError(failed)} No funds moved, and this phone is not activated.`,
+    error: say(describeTransactionError(failed), problem('noFundsMoved')),
     details: json(failed),
     signature: pending.signature,
   }
@@ -485,7 +479,7 @@ async function activate(ctx: IdentityContext, shown: IdentityState, input?: Acti
   const terms = input ?? { amount: activation.defaultAmount, lockDays: activation.defaultLockDays }
   const { quote } = activation
   if (shown.activation?.quote?.fee !== quote?.fee || shown.activation?.quote?.minFunding !== quote?.minFunding) {
-    return { ...current, error: FEE_CHANGED }
+    return { ...current, error: feeChanged() }
   }
   const sponsored = shown.sponsorship === 'free' && isSponsored(activation, 'free', terms)
   const invalid = checkInput(activation, terms, sponsored)
@@ -502,13 +496,13 @@ async function activate(ctx: IdentityContext, shown: IdentityState, input?: Acti
   if (balance < cost) {
     return {
       ...current,
-      error: `Your wallet has ${formatSol(balance)} SOL and activating costs about ${formatSol(cost, 'up')} SOL in network costs. Add SOL to your wallet, then try again. Nothing was sent.`,
+      error: problem('lowSol', { balance: formatSol(balance), cost: formatSol(cost, 'up') }),
     }
   }
   const built = await buildSelfPaid(ctx, operation)
   const rejected = await simulateTransaction(ctx, compileTransaction(built.message))
   if (rejected)
-    return { ...current, error: `${describeTransactionError(rejected)} ${NOTHING_SENT}`, details: json(rejected) }
+    return { ...current, error: say(describeTransactionError(rejected), nothingSent()), details: json(rejected) }
   // Recorded before the wallet holds it, so a relaunch after the app is killed meanwhile waits for it
   // instead of offering a second one.
   const pending: Pending = {

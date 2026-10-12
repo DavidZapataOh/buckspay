@@ -44,5 +44,13 @@
     "title": "You earned a fee",
     "body": "A payment you carried was handed in. The fee is paid once the network has it.",
     "bodyAmount": "A payment you carried was handed in: {{amount}} {{symbol}}. The fee is paid once the network has it."
+  },
+  "problem": {
+    "read": "Couldn’t read the rewards. Try again.",
+    "readTipping": "Couldn’t read the tipping setting. Try again.",
+    "saveTipping": "Couldn’t save the tipping setting. Try again.",
+    "moveRefused": "The server refused to move the rewards: {{reason}}.",
+    "moveBusy": "The server is busy. Try again in about {{minutes}} minutes.",
+    "moveNoJob": "The server didn’t say which job to watch. Try again."
   }
 }

@@ -1,10 +1,10 @@
-import { i18n } from '../../i18n'
+import { i18n, setLanguage } from '../../i18n'
 import { act } from 'react'
 import { create, type ReactTestInstance } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
 import type { PlanRefusal } from '../../payment/preflight'
 
-import { PayRefused } from './refusal'
+import { PayRefused, refusalAction } from './refusal'
 
 vi.mock('react-native', () => import('../../test-support/react-native'))
 vi.mock('uniwind', () => ({
@@ -58,7 +58,7 @@ describe('PayRefused', () => {
       const button = renderer.root.findByProps({ testID: 'pay-refused-action' })
       expect(button.props.label).toBe(i18n.t(`payment:refusal.${reason}.action`))
       await act(async () => button.props.onPress())
-      expect(onAction).toHaveBeenCalledWith(i18n.t(`payment:refusal.${reason}.action`))
+      expect(onAction).toHaveBeenCalledWith(refusalAction(reason))
       seen.add(shown)
     }
     expect(seen.size).toBe(reasons.length)
@@ -75,5 +75,34 @@ describe('PayRefused', () => {
       ),
     )
     expect(texts(renderer.root).join('\n')).toContain('You only have 1.00 USDC left to pay offline.')
+  })
+
+  it('does what the button says in every language, whatever the button says', async () => {
+    const expected = {
+      NoLock: 'add-money',
+      BondTooSmall: 'add-money',
+      AllowanceTooLow: 'add-money',
+      LockTooShort: 'add-money',
+      AlreadyPaid: 'activity',
+      Malformed: 'back',
+    } as const
+    for (const language of ['en', 'es', 'pt'] as const) {
+      await setLanguage(language)
+      for (const [reason, action] of Object.entries(expected)) {
+        const onAction = vi.fn()
+        const renderer = await act(async () =>
+          create(
+            <PayRefused
+              reason={reason as PlanRefusal}
+              values={{ max: '1', amount: '1', allowance: '1' }}
+              onAction={onAction}
+            />,
+          ),
+        )
+        await act(async () => renderer.root.findByProps({ testID: 'pay-refused-action' }).props.onPress())
+        expect(onAction, `${language} ${reason}`).toHaveBeenCalledWith(action)
+      }
+    }
+    await setLanguage('en')
   })
 })

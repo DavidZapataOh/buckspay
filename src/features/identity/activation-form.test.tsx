@@ -108,7 +108,7 @@ describe('activation form', () => {
     )
     await act(async () => field(root, 'funding-amount').props.onChangeText('10'))
     expect(text(root, 'funding-minimum')).toBe(
-      'The minimum to add is 50 USDC. Below it, your wallet pays the network costs.',
+      'The minimum to add is 50 USDC. Below that, your wallet pays the network costs.',
     )
     expect(text(root, 'funding-fee')).toBe('There is no fee.')
     expect(text(root, 'network-cost')).toBe('Your wallet pays the network costs, about 0.0063 SOL. Not refundable.')

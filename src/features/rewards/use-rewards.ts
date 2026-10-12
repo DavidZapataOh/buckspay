@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
 import { usePayments } from '../payment/payments-provider'
@@ -16,7 +17,7 @@ export function useRewards(claims: RewardClaims | undefined) {
       setRecords(await rewardRecords(db, claims?.leaves))
       setError(undefined)
     } catch (failure) {
-      setError(`Couldn’t read the rewards. ${failure instanceof Error ? failure.message : String(failure)}`)
+      setError(`${i18n.t('rewards:problem.read')} ${failure instanceof Error ? failure.message : String(failure)}`)
     }
   }, [db, claims])
   useFocusEffect(

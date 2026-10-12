@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { address, getAddressEncoder } from '@solana/kit'
 import { useState } from 'react'
 import { Screen } from '../../components/screen'
@@ -9,6 +11,7 @@ import { usePayFlow } from '../../features/pay/use-pay-flow'
 import { nowSeconds, usePayments } from '../../features/payment/payments-provider'
 
 export default function RunEventScreen() {
+  const { t } = useTranslation(NAMESPACES)
   const { db } = usePayments()
   const { device, deviceKey } = useDeviceIdentity()
   const flow = usePayFlow()
@@ -17,7 +20,7 @@ export default function RunEventScreen() {
 
   async function create(name: string, hours: number) {
     if (!db || !device || !deviceKey) {
-      setError('Connect a wallet and set up payments first.')
+      setError(t('event:setupFirst'))
       return
     }
     const created = newEvent({

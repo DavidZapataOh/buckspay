@@ -20,6 +20,11 @@
   },
   "privateData": {
     "title": "Datos de acreditación privada",
-    "download": "Descargar ahora"
+    "download": "Descargar ahora",
+    "ready": "Listo · {{size}} en este celular",
+    "downloading": "Descargando · {{percent}}",
+    "preparing": "Preparando",
+    "missing": "Sin descargar · cerca de {{size}}",
+    "unavailable": "No disponible"
   }
 }

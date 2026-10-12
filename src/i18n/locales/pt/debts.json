@@ -60,5 +60,10 @@
   "declined": "{{peer}} não confirmou. Nada mudou.",
   "paymentFailed": "Este pagamento falhou. A dívida voltou a {{amount}}.",
   "settleBefore": "Use este pagamento, ou deixe que seja creditado, antes de {{date}} para a dívida diminuir.",
-  "readyToReceive": "Pronto para receber uma dívida"
+  "readyToReceive": "Pronto para receber uma dívida",
+  "cause": {
+    "open": "Adicionado",
+    "repay": "Pago com o Buckspay",
+    "outside": "Pago fora do Buckspay"
+  }
 }

@@ -97,5 +97,53 @@
   "keyProtectionLine": "Key storage: {{value}}",
   "viewTransaction": "View the transaction in the explorer",
   "waitingForSolana": "Waiting for Solana",
-  "activatedAnnouncement": "This phone is activated and registered to your wallet."
+  "activatedAnnouncement": "This phone is activated and registered to your wallet.",
+  "belowMinimumNote": "Below that, your wallet pays the network costs.",
+  "problem": {
+    "nothingSent": "Nothing was sent and nothing was charged.",
+    "notActivated": "Nothing was charged and this phone is not activated.",
+    "noFundsMoved": "No funds moved, and this phone is not activated.",
+    "expired": "The activation expired before it went through.",
+    "stalled": "Solana hasn’t confirmed the activation yet. It may still go through; check again in a minute.",
+    "payInstead": "You can activate now and pay the network costs from your wallet.",
+    "addSol": "To activate now, add SOL to your wallet and pay from it.",
+    "feeChanged": "Buckspay’s terms changed while you were looking. Review them and try again. Nothing was sent.",
+    "sponsor": {
+      "unavailable": "Buckspay couldn’t pay for this activation.",
+      "mismatch": "Buckspay’s server offered an activation this app didn’t ask for, so your wallet never saw it.",
+      "unsupported": "Your wallet can’t sign an activation that Buckspay pays for.",
+      "altered": "Your wallet changed the activation before signing it, so it wasn’t sent.",
+      "unsigned": "Your wallet couldn’t sign the activation."
+    },
+    "step": {
+      "connect": "The wallet couldn’t connect. Nothing was shared and nothing was charged. Try again.",
+      "create-key": "This phone couldn’t create its key. Nothing was charged. Try again.",
+      "activate": "The activation didn’t go through."
+    },
+    "declined": "You declined in your wallet.",
+    "notRecognized": "Your wallet no longer recognizes Buckspay.",
+    "connectAgain": "Connect it again.",
+    "connectionDeclined": "The wallet declined the connection. Nothing was shared and nothing was charged.",
+    "couldNotSend": "Your wallet couldn’t send the activation.",
+    "noWalletApp": "No wallet app on this phone works with Buckspay. Install Phantom or Solflare, then try again.",
+    "unreachableConfirm": "Can’t reach Solana to check the activation. It may still go through; check again once you’re online.",
+    "unreachable": "Can’t reach Solana. Check your connection and try again. Nothing was sent.",
+    "couldNotCheck": "Buckspay couldn’t check this phone. Nothing was sent. Try again.",
+    "tx": {
+      "key": "Solana didn’t accept this phone’s key signature.",
+      "registered": "This phone’s key is already registered on Solana.",
+      "insufficient": "Your wallet doesn’t have enough SOL for the activation.",
+      "compute": "The activation ran out of compute on Solana.",
+      "rejected": "Solana rejected the activation."
+    },
+    "lowSol": "Your wallet has {{balance}} SOL and activating costs about {{cost}} SOL in network costs. Add SOL to your wallet, then try again. Nothing was sent.",
+    "wrongNetwork": "This phone’s key is set up for {{configured}}, and this app for {{cluster}}. Nothing was created, sent or charged.",
+    "keyNetwork": "This phone’s key was created for {{created}}, and this app signs for {{cluster}}. Nothing was sent or charged.",
+    "noNetwork": "no network",
+    "input": {
+      "amount": "Enter an amount to add. Nothing was sent.",
+      "days": "Choose a reserve of {{min}} to {{max}} days. Nothing was sent.",
+      "balance": "Your wallet has {{have}} {{symbol}} and this needs {{need}} {{symbol}}. Add {{symbol}} to your wallet, then try again. Nothing was sent."
+    }
+  }
 }

@@ -67,7 +67,7 @@ export function ActivationForm({
       {sponsorship === 'free' && quote ? (
         <AppText testID="funding-minimum" variant="body" tone="muted">
           {minimumNotice(quote.minFunding, funding.decimals)}
-          {belowMinimum ? ' Below it, your wallet pays the network costs.' : ''}
+          {belowMinimum ? ` ${t('identity:belowMinimumNote')}` : ''}
         </AppText>
       ) : null}
       <AppText testID="funding-fee" variant="body">

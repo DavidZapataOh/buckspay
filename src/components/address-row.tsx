@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { NAMESPACES } from '../i18n'
+import { i18n, NAMESPACES } from '../i18n'
 import * as Clipboard from 'expo-clipboard'
 import { openURL } from 'expo-linking'
 import { Platform, ToastAndroid, View } from 'react-native'
@@ -12,7 +12,7 @@ async function copy(address: string) {
   await Clipboard.setStringAsync(address)
   // Android 13 and later confirm a copy themselves.
   if (Platform.OS === 'android' && Number(Platform.Version) < 33)
-    ToastAndroid.show('Address copied', ToastAndroid.SHORT)
+    ToastAndroid.show(i18n.t('common:addressCopied'), ToastAndroid.SHORT)
 }
 
 /** A labeled, shortened address with copy and explorer actions. */

@@ -1,6 +1,7 @@
 import { fetchMaybeDevice, findDevicePda } from '@project/anchor'
 import { useCallback, useEffect, useState } from 'react'
 import { useDeviceIdentity } from '../identity/use-device-identity'
+import { i18n } from '../../i18n'
 import { formatError } from '../../utils/format-error'
 import { type LockRecord, readLocks } from './locks'
 import { useOperationContext } from './use-operation-context'
@@ -35,7 +36,7 @@ export function useLocks() {
       setState((current) => ({
         ...current,
         loading: false,
-        error: `Couldn’t read your locks. ${formatError(error)}`,
+        error: `${i18n.t('common:problem.readReserves')} ${formatError(error)}`,
       }))
     }
   }, [key, step, rpc, programAddress])

@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { formatAmount } from '../../i18n/format'
 import { getDeviceSize, getLedgerSize, getLockSize } from '@project/anchor'
 import {
@@ -72,14 +73,18 @@ export const isSponsored = (activation: Activation, sponsorship: string | undefi
 /** Why `input` cannot be activated, in plain words, or `undefined`. Nothing has been sent. */
 export function checkInput(activation: Activation, input: ActivationInput, sponsored: boolean): string | undefined {
   const { funding, quote, minLockDays, maxLockDays } = activation
-  if (input.amount <= 0n) return 'Enter an amount to add. Nothing was sent.'
+  if (input.amount <= 0n) return i18n.t('identity:problem.input.amount')
   const longest = sponsored && quote ? quote.maxLockDays : maxLockDays
   if (!Number.isInteger(input.lockDays) || input.lockDays < minLockDays || input.lockDays > longest) {
-    return `Choose a lock of ${minLockDays} to ${longest} days. Nothing was sent.`
+    return i18n.t('identity:problem.input.days', { min: minLockDays, max: longest })
   }
   const total = input.amount + (sponsored && quote ? quote.fee : 0n)
   if (total > funding.balance) {
-    return `Your wallet has ${formatAmount(funding.balance, funding.decimals)} ${FUNDING_SYMBOL} and this needs ${formatAmount(total, funding.decimals)} ${FUNDING_SYMBOL}. Add ${FUNDING_SYMBOL} to your wallet, then try again. Nothing was sent.`
+    return i18n.t('identity:problem.input.balance', {
+      have: formatAmount(funding.balance, funding.decimals),
+      need: formatAmount(total, funding.decimals),
+      symbol: FUNDING_SYMBOL,
+    })
   }
   return undefined
 }

@@ -310,7 +310,8 @@
     "promptSubtitle": "Esto borra la llave de este celular",
     "done": "Este celular tiene una identidad nueva.",
     "count_one": "1 pago, {{amount}} {{symbol}}",
-    "count_other": "{{count}} pagos, {{amount}} {{symbol}}"
+    "count_other": "{{count}} pagos, {{amount}} {{symbol}}",
+    "failed": "No se pudo restablecer este celular. Inténtalo de nuevo."
   },
   "settings": {
     "limits": "Límites",

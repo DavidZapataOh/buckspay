@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import type { Address } from '@solana/kit'
 import {
   type Activation,
@@ -32,7 +33,7 @@ export async function addFunds(
   if (!sponsored && sol.balance < sol.cost) {
     return {
       status: 'failed',
-      error: `Your wallet has ${formatSol(sol.balance)} SOL and this costs about ${formatSol(sol.cost, 'up')} SOL in network costs. Add SOL to your wallet, then try again. Nothing was sent.`,
+      error: i18n.t('lock:problem.lowSol', { balance: formatSol(sol.balance), cost: formatSol(sol.cost, 'up') }),
       payInstead: false,
     }
   }

@@ -60,5 +60,10 @@
   "declined": "{{peer}} didn't confirm. Nothing changed.",
   "paymentFailed": "This payment failed. The debt is back to {{amount}}.",
   "settleBefore": "Use this payment, or let it be credited, before {{date}} for the debt to go down.",
-  "readyToReceive": "Ready to receive a debt"
+  "readyToReceive": "Ready to receive a debt",
+  "cause": {
+    "open": "Added",
+    "repay": "Paid with Buckspay",
+    "outside": "Paid outside Buckspay"
+  }
 }

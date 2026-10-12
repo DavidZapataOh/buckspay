@@ -44,5 +44,13 @@
     "title": "Você ganhou uma taxa",
     "body": "Um pagamento que você levou foi entregue. A taxa é paga quando a rede o receber.",
     "bodyAmount": "Um pagamento que você levou foi entregue: {{amount}} {{symbol}}. A taxa é paga quando a rede o receber."
+  },
+  "problem": {
+    "read": "Não foi possível ler as recompensas. Tente de novo.",
+    "readTipping": "Não foi possível ler o ajuste de gorjetas. Tente de novo.",
+    "saveTipping": "Não foi possível salvar o ajuste de gorjetas. Tente de novo.",
+    "moveRefused": "O servidor recusou passar as recompensas: {{reason}}.",
+    "moveBusy": "O servidor está ocupado. Tente de novo em cerca de {{minutes}} minutos.",
+    "moveNoJob": "O servidor não disse qual tarefa acompanhar. Tente de novo."
   }
 }

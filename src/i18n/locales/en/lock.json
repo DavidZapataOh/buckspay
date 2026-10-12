@@ -31,5 +31,26 @@
   "noLocks": "This phone has no reserves.",
   "lockN": "Reserve {{number}}",
   "withdrawAndPay": "Withdraw and pay from my wallet",
-  "withdraw": "Withdraw"
+  "withdraw": "Withdraw",
+  "problem": {
+    "nothingSent": "Nothing was sent and nothing was charged.",
+    "sponsor": {
+      "unavailable": "Buckspay couldn’t pay for this.",
+      "mismatch": "Buckspay’s server offered a transaction this app didn’t ask for, so your wallet never saw it.",
+      "unsupported": "Your wallet can’t sign a transaction that Buckspay pays for.",
+      "altered": "Your wallet changed the transaction before signing it, so it wasn’t sent.",
+      "unsigned": "Your wallet couldn’t sign the transaction."
+    },
+    "reconnect": "Your wallet no longer recognizes Buckspay. Connect it again.",
+    "wouldReject": "Solana would reject this.",
+    "declined": "You declined in your wallet.",
+    "cantReachBuckspay": "Can’t reach Buckspay.",
+    "checkConnection": "Check your connection and try again.",
+    "cantReachBoth": "Can’t reach Solana or Buckspay. Check your connection. The transaction may not have been sent; check before trying again.",
+    "incomplete": "The transaction didn’t complete. It may or may not have been sent; check before trying again.",
+    "slow": "Solana was slow to see the transaction.",
+    "rejected": "Solana rejected the transaction. No funds moved.",
+    "unconfirmed": "Solana hasn’t confirmed the transaction yet. It may still go through; check your reserves in a minute.",
+    "lowSol": "Your wallet has {{balance}} SOL and this costs about {{cost}} SOL in network costs. Add SOL to your wallet, then try again. Nothing was sent."
+  }
 }

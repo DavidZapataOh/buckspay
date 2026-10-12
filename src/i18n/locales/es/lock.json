@@ -31,5 +31,26 @@
   "noLocks": "Este celular no tiene reservas.",
   "lockN": "Reserva {{number}}",
   "withdrawAndPay": "Retirar y pagar desde mi billetera",
-  "withdraw": "Retirar"
+  "withdraw": "Retirar",
+  "problem": {
+    "nothingSent": "No se envió nada y no se cobró nada.",
+    "sponsor": {
+      "unavailable": "Buckspay no pudo pagar esto.",
+      "mismatch": "El servidor de Buckspay ofreció una transacción que esta app no pidió, así que tu billetera nunca la vio.",
+      "unsupported": "Tu billetera no puede firmar una transacción que paga Buckspay.",
+      "altered": "Tu billetera cambió la transacción antes de firmarla, así que no se envió.",
+      "unsigned": "Tu billetera no pudo firmar la transacción."
+    },
+    "reconnect": "Tu billetera ya no reconoce a Buckspay. Conéctala de nuevo.",
+    "wouldReject": "Solana rechazaría esto.",
+    "declined": "Lo rechazaste en tu billetera.",
+    "cantReachBuckspay": "No se puede conectar con Buckspay.",
+    "checkConnection": "Revisa tu conexión e inténtalo de nuevo.",
+    "cantReachBoth": "No se puede conectar con Solana ni con Buckspay. Revisa tu conexión. Puede que la transacción no se haya enviado; revisa antes de intentarlo de nuevo.",
+    "incomplete": "La transacción no se completó. Puede que se haya enviado o no; revisa antes de intentarlo de nuevo.",
+    "slow": "Solana tardó en ver la transacción.",
+    "rejected": "Solana rechazó la transacción. No se movió dinero.",
+    "unconfirmed": "Solana aún no confirma la transacción. Todavía puede completarse; revisa tus reservas en un minuto.",
+    "lowSol": "Tu billetera tiene {{balance}} SOL y esto cuesta cerca de {{cost}} SOL en costos de red. Agrega SOL a tu billetera e inténtalo de nuevo. No se envió nada."
+  }
 }

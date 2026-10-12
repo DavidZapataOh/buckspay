@@ -310,7 +310,8 @@
     "promptSubtitle": "This deletes the key of this phone",
     "done": "This phone has a new identity.",
     "count_one": "1 payment, {{amount}} {{symbol}}",
-    "count_other": "{{count}} payments, {{amount}} {{symbol}}"
+    "count_other": "{{count}} payments, {{amount}} {{symbol}}",
+    "failed": "Couldn’t reset this phone. Try again."
   },
   "settings": {
     "limits": "Limits",

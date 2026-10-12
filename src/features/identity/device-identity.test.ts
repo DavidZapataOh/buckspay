@@ -87,10 +87,11 @@ const rent = (size: number) => BigInt(size + 128) * 6_960n
  * transaction signature and one secp256r1 signature.
  */
 const COST = rent(getDeviceSize()) + rent(getLockSize()) + rent(getLedgerSize()) + rent(165) + 10_000n
-const EXPIRED = 'The activation expired before it landed. Nothing was charged and this phone is not activated.'
+const EXPIRED = 'The activation expired before it went through. Nothing was charged and this phone is not activated.'
 const UNREACHABLE = 'Can’t reach Solana. Check your connection and try again. Nothing was sent.'
-const UNCONFIRMED = 'Can’t reach Solana to check the activation. It may still land; check again once you’re online.'
-const STALLED = 'Solana hasn’t confirmed the activation yet. It may still land; check again in a minute.'
+const UNCONFIRMED =
+  'Can’t reach Solana to check the activation. It may still go through; check again once you’re online.'
+const STALLED = 'Solana hasn’t confirmed the activation yet. It may still go through; check again in a minute.'
 const reply = <T>(value: T) => ({ send: async () => value })
 // What `fetch` throws in React Native without a connection.
 const failure = (error: Error = new TypeError('Network request failed')) => ({
@@ -686,7 +687,7 @@ describe('device identity', () => {
       'Your wallet has 3 USDC and this needs 5 USDC. Add USDC to your wallet, then try again. Nothing was sent.',
     )
     const short = await advanceIdentity(context(), atActivate, { amount: 1_000_000n, lockDays: 400 })
-    expect(short.error).toBe('Choose a lock of 15 to 365 days. Nothing was sent.')
+    expect(short.error).toBe('Choose a reserve of 15 to 365 days. Nothing was sent.')
     const none = await advanceIdentity(context(), atActivate, { amount: 0n, lockDays: 30 })
     expect(none.error).toBe('Enter an amount to add. Nothing was sent.')
     expect(walletCalls).toBe(0)

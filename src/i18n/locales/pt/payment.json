@@ -310,7 +310,8 @@
     "promptSubtitle": "Isto apaga a chave deste celular",
     "done": "Este celular tem uma nova identidade.",
     "count_one": "1 pagamento, {{amount}} {{symbol}}",
-    "count_other": "{{count}} pagamentos, {{amount}} {{symbol}}"
+    "count_other": "{{count}} pagamentos, {{amount}} {{symbol}}",
+    "failed": "Não foi possível redefinir este celular. Tente de novo."
   },
   "settings": {
     "limits": "Limites",

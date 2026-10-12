@@ -18,6 +18,7 @@ describe.each(Object.keys(resources) as (keyof typeof resources)[])('the buttons
       for (const [key, text] of flat(tree as Tree)) {
         const last = key.split('.').at(-1) ?? ''
         if (/\.title$|^title$/.test(key)) continue
+        if (key.startsWith('problem.')) continue
         if (!BUTTON.test(last.replace(/_(one|other)$/, '')) && !TAB.test(key)) continue
         expect(text.replace(/\{\{\w+\}\}/g, 'X').length, `${area}:${key}`).toBeLessThanOrEqual(LIMIT)
       }
