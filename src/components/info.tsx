@@ -15,9 +15,10 @@ export function Info({ title, lines }: { title: string; lines: readonly string[]
       <IconButton icon="info" label={t('common:moreInfo')} onPress={() => setOpen(true)} />
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <Pressable
+          accessibilityRole="button"
           accessibilityLabel={t('common:close')}
           onPress={() => setOpen(false)}
-          className="flex-1 justify-end bg-black/50"
+          className="min-h-12 flex-1 justify-end bg-black/50"
         >
           <View className="gap-3 rounded-t-3xl bg-surface p-6" onStartShouldSetResponder={() => true}>
             <AppText variant="headline">{title}</AppText>

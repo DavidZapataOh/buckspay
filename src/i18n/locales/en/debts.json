@@ -14,20 +14,20 @@
   "lent": "I lent",
   "borrowed": "I borrowed",
   "amount": "Amount",
-  "memo": "What for (optional)",
-  "send": "Send to confirm",
+  "memo": "What for",
+  "send": "Send",
   "due": {
-    "onDemand": "On demand",
-    "week": "In a week",
-    "month": "In a month",
-    "quarter": "In 3 months"
+    "onDemand": "Any time",
+    "week": "1 week",
+    "month": "1 month",
+    "quarter": "3 months"
   },
-  "dueOnDemand": "Due on demand",
+  "dueOnDemand": "Due any time",
   "actions": {
     "lent": "I lent more",
     "borrowed": "I borrowed more",
-    "repaid": "Paid outside Buckspay",
-    "clear": "Clear this debt",
+    "repaid": "Paid outside",
+    "clear": "Clear it",
     "resend": "Send again"
   },
   "acceptTitle": "Confirm this debt?",
@@ -53,7 +53,7 @@
   "notSigned": "{{peer}} hasn't confirmed this yet. Send it again, or make a new change.",
   "netted": "{{amount}} cancelled out, on {{date}}",
   "settling": "Paid {{amount}}, being credited",
-  "record": "Record code {{code}}",
+  "record": "Record {{code}}",
   "dueOn": "Due {{date}}",
   "before": "Before: {{line}}",
   "after": "After: {{line}}",
@@ -69,5 +69,15 @@
   "receive": "Receive a debt",
   "showCode": "Your friend scans this code to send you a debt.",
   "friend": "Friend {{code}}",
-  "settlingReceived": "{{peer}} paid {{amount}}, being credited"
+  "settlingReceived": "{{peer}} paid {{amount}}, being credited",
+  "none": "No debts yet",
+  "owesYou": "owes you",
+  "youOwe": "you owe",
+  "evenShort": "All even",
+  "waitingShort": "Waiting to confirm",
+  "lockedShort": "In a group",
+  "settlingShort": "{{amount}} on the way",
+  "settlingReceivedShort": "{{amount}} arriving",
+  "addNote": "Add note",
+  "viaCodeShort": "Anyone who sees the code can read it"
 }

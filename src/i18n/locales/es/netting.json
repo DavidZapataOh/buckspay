@@ -4,13 +4,13 @@
     "netting": "Cancelar deudas con amigos"
   },
   "index": {
-    "title": "Cancelar deudas con amigos",
+    "title": "Cancelar deudas",
     "intro": "Una deuda es un registro entre tú y un amigo, confirmado en los dos celulares.",
     "what": "Cancelar quita las deudas que van en círculo: el saldo de nadie cambia.",
-    "host": "Iniciar una sesión",
-    "join": "Unirme a una sesión",
+    "host": "Empezar",
+    "join": "Unirme",
     "recent": "Sesiones recientes",
-    "none": "Todavía no hay sesiones."
+    "none": "Aún no hay sesiones"
   },
   "privacy": {
     "group": "Todos en la sesión ven quién está en ella. El celular que dirige la sesión ve quién le debe a quién.",
@@ -20,11 +20,11 @@
     "chain": "Públicamente solo se ve cuántas personas participaron y el total cancelado."
   },
   "host": {
-    "title": "Iniciar una sesión",
+    "title": "Empezar una sesión",
     "askToScan": "Pide a tus amigos que escaneen este código.",
     "joined_one": "Se unió {{count}}",
     "joined_other": "Se unieron {{count}}",
-    "start": "Empezar a cancelar",
+    "start": "Empezar",
     "cancel": "Cancelar",
     "collecting": "Reuniendo las deudas de las personas que están aquí…",
     "oneAtATime": "Conectar de a uno",
@@ -37,11 +37,14 @@
       "Rejected": "Un amigo no pudo conectarse. Quédense cerca e inténtalo de nuevo.",
       "Error": "La conexión falló. Acércate e inténtalo de nuevo."
     },
-    "joined_many": "Se unieron {{count}}"
+    "joinedWord_one": "unido",
+    "joinedWord_other": "unidos",
+    "joined_many": "Se unieron {{count}}",
+    "joinedWord_many": "unidos"
   },
   "join": {
     "title": "Unirme a una sesión",
-    "scanHint": "Escanea el código del celular de tu amigo.",
+    "scanHint": "Escanea el código de tu amigo",
     "connecting": "Uniéndome…",
     "notFound": "No se encontró el celular de tu amigo. Quédense cerca e inténtalo de nuevo.",
     "cancel": "Cancelar"
@@ -55,58 +58,70 @@
     "due": "Vence el {{date}}",
     "onDemand": "Cuando lo pida",
     "net": "Tu saldo no cambia: {{net}}",
-    "expires": "Este resultado vence el {{time}}.",
+    "expires": "Hasta {{time}}",
     "sign": "Confirmar",
     "decline": "Rechazar"
   },
   "states": {
     "lobby": {
-      "headline": "Pide a tus amigos que escaneen este código.",
+      "headline": "Escanea para unirte",
       "body_one": "Se unió {{count}}",
       "body_other": "Se unieron {{count}}",
+      "line": "Tus amigos escanean el código",
       "body_many": "Se unieron {{count}}"
     },
     "collecting": {
-      "headline": "Reuniendo las deudas de las personas que están aquí…"
+      "headline": "Reuniendo deudas…",
+      "line": "Un momento"
     },
     "connecting": {
-      "headline": "Uniéndome…"
+      "headline": "Uniéndome…",
+      "line": "Un momento"
     },
     "joined": {
       "headline": "Ya estás dentro",
-      "body": "Esperando a que la persona que inició la sesión empiece."
+      "body": "Esperando a que la persona que inició la sesión empiece.",
+      "line": "Esperando a quien empezó"
     },
     "consent": {
       "headline": "Revisa tus deudas",
-      "body": "Este resultado vence el {{time}}."
+      "body": "Este resultado vence el {{time}}.",
+      "line": "Revisa y confirma"
     },
     "waiting": {
       "headline": "Confirmado",
-      "body": "Confirmaste. Esperando a los demás. Si el resultado no se registra antes del {{expires}}, tus deudas quedan como estaban."
+      "body": "Confirmaste. Esperando a los demás. Si el resultado no se registra antes del {{expires}}, tus deudas quedan como estaban.",
+      "line": "Esperando a los demás"
     },
     "agreed": {
       "headline": "Acordado",
-      "body": "Acordado. Queda listo cuando se registre (antes del {{expires}}). Si no se registra antes del {{expires}}, tus pagos siguen contando y las deudas del círculo vuelven."
+      "body": "Acordado. Queda listo cuando se registre (antes del {{expires}}). Si no se registra antes del {{expires}}, tus pagos siguen contando y las deudas del círculo vuelven.",
+      "line": "Listo cuando se registre"
     },
     "recorded": {
       "headline": "Registrado",
-      "body": "Registrado públicamente. Las deudas canceladas ya se aplicaron."
+      "body": "Registrado públicamente. Las deudas canceladas ya se aplicaron.",
+      "line": "Deudas canceladas"
     },
     "void": {
-      "headline": "No se registró a tiempo",
-      "body": "No se registró a tiempo. Tus deudas quedan como estaban y los pagos que hiciste siguen contando."
+      "headline": "No se registró",
+      "body": "No se registró a tiempo. Tus deudas quedan como estaban y los pagos que hiciste siguen contando.",
+      "line": "Tus deudas siguen igual"
     },
     "undecided": {
-      "headline": "Todavía no lo sabemos",
-      "body": "Ya no podemos saber si esto se registró. Tus deudas quedan como estaban hasta que lo sepamos; los demás cambios siguen funcionando."
+      "headline": "Aún no se sabe",
+      "body": "Ya no podemos saber si esto se registró. Tus deudas quedan como estaban hasta que lo sepamos; los demás cambios siguen funcionando.",
+      "line": "Tus deudas siguen igual"
     },
     "abandoned": {
       "headline": "Sesión terminada",
-      "body": "La sesión terminó antes de que confirmaras. No cambió nada."
+      "body": "La sesión terminó antes de que confirmaras. No cambió nada.",
+      "line": "Nada cambió"
     },
     "nothing": {
       "headline": "Nada que cancelar",
-      "body": "No había nada que cancelar entre estas deudas."
+      "body": "No había nada que cancelar entre estas deudas.",
+      "line": "Nada que hacer"
     }
   },
   "recording": "Registrando…",
@@ -115,7 +130,7 @@
     "invalid": "La prueba que llegó con el resultado no pasó la revisión. El resultado sigue acordado; puede que no se pueda registrar públicamente.",
     "absent": "El resultado llegó sin prueba. Sigue acordado; puede que no se pueda registrar públicamente."
   },
-  "payFee": "Pagar la tarifa, ~0,001 SOL",
+  "payFee": "Pagar la comisión, cerca de 0.001 SOL",
   "remainder": {
     "title": "Lo que falta por pagar",
     "intro": "Pagar el resto es un pago normal de Buckspay. La deuda baja definitivamente cuando el pago se acredita.",

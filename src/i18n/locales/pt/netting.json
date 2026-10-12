@@ -4,13 +4,13 @@
     "netting": "Cancelar dívidas com amigos"
   },
   "index": {
-    "title": "Cancelar dívidas com amigos",
+    "title": "Cancelar dívidas",
     "intro": "Uma dívida é um registro entre você e um amigo, confirmado nos dois celulares.",
     "what": "Cancelar tira as dívidas que andam em círculo: o saldo de ninguém muda.",
-    "host": "Iniciar uma sessão",
-    "join": "Entrar em uma sessão",
+    "host": "Começar",
+    "join": "Entrar",
     "recent": "Sessões recentes",
-    "none": "Ainda não há sessões."
+    "none": "Ainda sem sessões"
   },
   "privacy": {
     "group": "Todos na sessão veem quem está nela. O celular que conduz a sessão vê quem deve a quem.",
@@ -20,11 +20,11 @@
     "chain": "Publicamente, só aparece quantas pessoas participaram e o total cancelado."
   },
   "host": {
-    "title": "Iniciar uma sessão",
+    "title": "Começar uma sessão",
     "askToScan": "Peça aos seus amigos para escanear este código.",
     "joined_one": "{{count}} entrou",
     "joined_other": "{{count}} entraram",
-    "start": "Começar a cancelar",
+    "start": "Começar",
     "cancel": "Cancelar",
     "collecting": "Reunindo as dívidas das pessoas que estão aqui…",
     "oneAtATime": "Conectar um por vez",
@@ -37,11 +37,14 @@
       "Rejected": "Um amigo não conseguiu se conectar. Fiquem perto e tentem de novo.",
       "Error": "A conexão falhou. Chegue mais perto e tente de novo."
     },
-    "joined_many": "{{count}} entraram"
+    "joinedWord_one": "entrou",
+    "joinedWord_other": "entraram",
+    "joined_many": "{{count}} entraram",
+    "joinedWord_many": "entraram"
   },
   "join": {
     "title": "Entrar em uma sessão",
-    "scanHint": "Escaneie o código do celular do seu amigo.",
+    "scanHint": "Escaneie o código do seu amigo",
     "connecting": "Entrando…",
     "notFound": "Não encontramos o celular do seu amigo. Fiquem perto e tentem de novo.",
     "cancel": "Cancelar"
@@ -55,58 +58,70 @@
     "due": "Vence em {{date}}",
     "onDemand": "Quando pedir",
     "net": "Seu saldo não muda: {{net}}",
-    "expires": "Este resultado vence em {{time}}.",
+    "expires": "Até {{time}}",
     "sign": "Confirmar",
     "decline": "Recusar"
   },
   "states": {
     "lobby": {
-      "headline": "Peça aos seus amigos para escanear este código.",
+      "headline": "Escaneie para entrar",
       "body_one": "{{count}} entrou",
       "body_other": "{{count}} entraram",
+      "line": "Seus amigos escaneiam o código",
       "body_many": "{{count}} entraram"
     },
     "collecting": {
-      "headline": "Reunindo as dívidas das pessoas que estão aqui…"
+      "headline": "Reunindo dívidas…",
+      "line": "Um momento"
     },
     "connecting": {
-      "headline": "Entrando…"
+      "headline": "Entrando…",
+      "line": "Um momento"
     },
     "joined": {
       "headline": "Você entrou",
-      "body": "Aguardando a pessoa que iniciou a sessão começar."
+      "body": "Aguardando a pessoa que iniciou a sessão começar.",
+      "line": "Aguardando quem começou"
     },
     "consent": {
       "headline": "Confira suas dívidas",
-      "body": "Este resultado vence em {{time}}."
+      "body": "Este resultado vence em {{time}}.",
+      "line": "Revise e confirme"
     },
     "waiting": {
       "headline": "Confirmado",
-      "body": "Você confirmou. Aguardando os outros. Se o resultado não for registrado até {{expires}}, suas dívidas continuam como estavam."
+      "body": "Você confirmou. Aguardando os outros. Se o resultado não for registrado até {{expires}}, suas dívidas continuam como estavam.",
+      "line": "Aguardando os outros"
     },
     "agreed": {
       "headline": "Combinado",
-      "body": "Combinado. Fica pronto quando for registrado (antes de {{expires}}). Se não for registrado até {{expires}}, seus pagamentos continuam valendo e as dívidas do círculo voltam."
+      "body": "Combinado. Fica pronto quando for registrado (antes de {{expires}}). Se não for registrado até {{expires}}, seus pagamentos continuam valendo e as dívidas do círculo voltam.",
+      "line": "Pronto quando for registrado"
     },
     "recorded": {
       "headline": "Registrado",
-      "body": "Registrado publicamente. As dívidas canceladas já foram aplicadas."
+      "body": "Registrado publicamente. As dívidas canceladas já foram aplicadas.",
+      "line": "Dívidas canceladas"
     },
     "void": {
-      "headline": "Não registrado a tempo",
-      "body": "Não foi registrado a tempo. Suas dívidas continuam como estavam e os pagamentos que você fez continuam valendo."
+      "headline": "Não registrado",
+      "body": "Não foi registrado a tempo. Suas dívidas continuam como estavam e os pagamentos que você fez continuam valendo.",
+      "line": "Suas dívidas continuam iguais"
     },
     "undecided": {
-      "headline": "Ainda não sabemos",
-      "body": "Não conseguimos mais saber se isto foi registrado. Suas dívidas continuam como estavam até sabermos; as outras mudanças continuam funcionando."
+      "headline": "Ainda não dá para saber",
+      "body": "Não conseguimos mais saber se isto foi registrado. Suas dívidas continuam como estavam até sabermos; as outras mudanças continuam funcionando.",
+      "line": "Suas dívidas continuam iguais"
     },
     "abandoned": {
       "headline": "Sessão encerrada",
-      "body": "A sessão acabou antes de você confirmar. Nada mudou."
+      "body": "A sessão acabou antes de você confirmar. Nada mudou.",
+      "line": "Nada mudou"
     },
     "nothing": {
       "headline": "Nada a cancelar",
-      "body": "Não havia nada a cancelar entre estas dívidas."
+      "body": "Não havia nada a cancelar entre estas dívidas.",
+      "line": "Nada a fazer"
     }
   },
   "recording": "Registrando…",
@@ -115,7 +130,7 @@
     "invalid": "A prova que veio com o resultado não passou na checagem. O resultado continua combinado; pode não ser possível registrá-lo publicamente.",
     "absent": "O resultado veio sem prova. Continua combinado; pode não ser possível registrá-lo publicamente."
   },
-  "payFee": "Pagar a taxa, ~0,001 SOL",
+  "payFee": "Pagar a taxa, cerca de 0.001 SOL",
   "remainder": {
     "title": "O que falta pagar",
     "intro": "Pagar o resto é um pagamento normal do Buckspay. A dívida diminui de vez quando o pagamento é creditado.",

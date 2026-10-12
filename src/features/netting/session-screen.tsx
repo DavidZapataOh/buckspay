@@ -1,11 +1,14 @@
 import { useTranslation } from 'react-i18next'
 import { View } from 'react-native'
-import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { Chip } from '../../components/chip'
+import { Hero } from '../../components/hero'
+import { Info } from '../../components/info'
 import { Screen } from '../../components/screen'
+import { Stage } from '../../components/stage'
 import { NAMESPACES } from '../../i18n'
 import { RemainderSection, type RemainderRow, type SimplifyPrompt } from './remainder-section'
-import type { SessionView } from './session-view'
+import { heroOf, sessionStep, type SessionView } from './session-view'
 
 export type SessionHandlers = {
   onPay?: (tab: string) => void
@@ -46,16 +49,24 @@ export function SessionScreen({
         : view.proof === 'missing'
           ? t('netting:proof.missing')
           : null
+  const hero = heroOf(view)
   return (
-    <Screen testID="netting-session">
-      <AppText variant="headline">{view.headline}</AppText>
-      <AppText variant="body" tone={view.tone}>
-        {view.body}
-      </AppText>
+    <Screen testID="netting-session" steps={{ total: 3, current: sessionStep(view.state) }}>
+      <Stage
+        hero={<Hero kind={hero === 'nearby' ? 'waiting' : hero} decorative />}
+        title={view.headline}
+        tone={view.tone === 'success' ? 'success' : view.tone === 'danger' ? 'danger' : undefined}
+        line={view.line}
+      >
+        <Info
+          title={view.headline}
+          lines={[view.body, t('netting:privacy.fee'), t('netting:privacy.hidden'), t('netting:privacy.chain')]}
+        />
+      </Stage>
       {proofLine ? (
-        <AppText variant="body" tone="danger">
-          {proofLine}
-        </AppText>
+        <View className="items-center">
+          <Chip center kind="problem" label={proofLine} />
+        </View>
       ) : null}
       {fee && view.state === 'agreed' ? (
         <Button
@@ -65,17 +76,6 @@ export function SessionScreen({
           onPress={() => handlers.onPayFee?.()}
         />
       ) : null}
-      <View className="gap-1">
-        <AppText variant="label" tone="muted">
-          {t('netting:privacy.fee')}
-        </AppText>
-        <AppText variant="label" tone="muted">
-          {t('netting:privacy.hidden')}
-        </AppText>
-        <AppText variant="label" tone="muted">
-          {t('netting:privacy.chain')}
-        </AppText>
-      </View>
       {rows.length > 0 || simplify ? (
         <RemainderSection
           rows={rows}

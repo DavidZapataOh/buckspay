@@ -1,12 +1,17 @@
 import { useTranslation } from 'react-i18next'
 import { Pressable, View } from 'react-native'
 import { AppText } from '../../components/app-text'
-import { Button } from '../../components/button'
+import { Chip } from '../../components/chip'
+import { Hero } from '../../components/hero'
+import { Info } from '../../components/info'
 import { Screen } from '../../components/screen'
+import { Tile } from '../../components/tile'
 import { NAMESPACES } from '../../i18n'
-import type { SessionView } from './session-view'
+import { heroOf, type SessionView } from './session-view'
 
 export type RecentSession = { id: string; view: SessionView }
+
+const KIND = { done: 'done', problem: 'problem', waiting: 'waiting', nearby: 'waiting' } as const
 
 export function IndexScreen({
   recent,
@@ -22,21 +27,18 @@ export function IndexScreen({
   const { t } = useTranslation(NAMESPACES)
   return (
     <Screen testID="netting-index">
-      <AppText variant="headline">{t('netting:index.title')}</AppText>
-      <AppText variant="body">{t('netting:index.intro')}</AppText>
-      <AppText variant="body" tone="muted">
-        {t('netting:index.what')}
-      </AppText>
-      <View className="gap-3">
-        <Button testID="netting-host" variant="filled" label={t('netting:index.host')} onPress={onHost} />
-        <Button testID="netting-join" variant="tonal" label={t('netting:index.join')} onPress={onJoin} />
+      <View className="flex-row items-center justify-between">
+        <AppText variant="headline">{t('netting:index.title')}</AppText>
+        <Info title={t('netting:index.title')} lines={[t('netting:index.intro'), t('netting:index.what')]} />
       </View>
-      <AppText variant="title">{t('netting:index.recent')}</AppText>
-      {recent.length === 0 ? (
-        <AppText variant="body" tone="muted">
-          {t('netting:index.none')}
-        </AppText>
-      ) : null}
+      <View className="items-center">
+        <Hero kind="coins" decorative size={130} />
+      </View>
+      <View className="flex-row gap-3">
+        <Tile testID="netting-host" highlight icon="group_add" title={t('netting:index.host')} onPress={onHost} />
+        <Tile testID="netting-join" icon="qr_code_scanner" title={t('netting:index.join')} onPress={onJoin} />
+      </View>
+      {recent.length > 0 ? <AppText variant="title">{t('netting:index.recent')}</AppText> : null}
       {recent.map(({ id, view }) => (
         <Pressable
           key={id}
@@ -44,14 +46,10 @@ export function IndexScreen({
           accessibilityRole="button"
           accessibilityLabel={`${view.headline}. ${view.body}`}
           onPress={() => onOpen(id)}
-          className="min-h-14 justify-center py-2"
+          className="min-h-16 gap-1 rounded-3xl border border-outline bg-surface p-4 active:bg-secondary-container"
         >
-          <AppText variant="body" tone={view.tone}>
-            {view.headline}
-          </AppText>
-          <AppText variant="label" tone="muted">
-            {view.body}
-          </AppText>
+          <AppText variant="title">{view.headline}</AppText>
+          <Chip kind={KIND[heroOf(view)]} label={view.line || view.headline} />
         </Pressable>
       ))}
     </Screen>

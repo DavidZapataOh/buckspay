@@ -3,9 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { NAMESPACES } from '../../i18n'
 import { useState } from 'react'
 import { View } from 'react-native'
+import { AmountField } from '../../components/amount-field'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { Chip } from '../../components/chip'
+import { Info } from '../../components/info'
 import { Screen } from '../../components/screen'
+import { Segmented } from '../../components/segmented'
 import { StatusNote } from '../../components/status-note'
 import { TextField } from '../../components/text-field'
 
@@ -45,6 +49,7 @@ export function NewDebtScreen({
   const [kind, setKind] = useState<'lent' | 'borrowed'>('lent')
   const [amount, setAmount] = useState('')
   const [memo, setMemo] = useState('')
+  const [noting, setNoting] = useState(false)
   const [due, setDue] = useState<(typeof DUE_CHOICES)[number]['key']>('onDemand')
   const [problem, setProblem] = useState<string>()
 
@@ -63,47 +68,32 @@ export function NewDebtScreen({
   }
 
   return (
-    <Screen testID="new-debt">
-      <AppText variant="headline">{t('debts:newDebt')}</AppText>
-      {peerLabel ? (
-        <AppText variant="label" tone="muted">
-          {peerLabel}
-        </AppText>
-      ) : null}
-      <View className="flex-row gap-2">
-        <Button
-          variant={kind === 'lent' ? 'filled' : 'tonal'}
-          label={t('debts:lent')}
-          onPress={() => setKind('lent')}
-        />
-        <Button
-          variant={kind === 'borrowed' ? 'filled' : 'tonal'}
-          label={t('debts:borrowed')}
-          onPress={() => setKind('borrowed')}
-        />
+    <Screen testID="new-debt" footer={<Button variant="filled" label={t('debts:send')} busy={busy} onPress={submit} />}>
+      <View className="flex-row items-center justify-between">
+        <AppText variant="headline">{peerLabel ?? t('debts:newDebt')}</AppText>
+        {viaCode ? <Info title={t('debts:newDebt')} lines={[t('debts:viaCode')]} /> : null}
       </View>
-      <TextField label={t('debts:amount')} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
-      <AppText variant="label" tone="muted">
-        {symbol}
-      </AppText>
-      <TextField label={t('debts:memo')} value={memo} onChangeText={setMemo} />
-      <View className="flex-row flex-wrap gap-2">
-        {DUE_CHOICES.map((choice) => (
-          <Button
-            key={choice.key}
-            variant={due === choice.key ? 'filled' : 'tonal'}
-            label={t(`debts:due.${choice.key}`)}
-            onPress={() => setDue(choice.key)}
-          />
-        ))}
-      </View>
-      {viaCode ? (
-        <AppText variant="label" tone="muted">
-          {t('debts:viaCode')}
-        </AppText>
-      ) : null}
+      <Segmented
+        value={kind}
+        onChange={setKind}
+        options={[
+          { id: 'lent', label: t('debts:lent'), icon: 'north_east' },
+          { id: 'borrowed', label: t('debts:borrowed'), icon: 'south_west' },
+        ]}
+      />
+      <AmountField label={t('debts:amount')} symbol={symbol} value={amount} onChangeText={setAmount} />
+      {noting ? (
+        <TextField label={t('debts:memo')} value={memo} onChangeText={setMemo} />
+      ) : (
+        <Button variant="text" label={t('debts:addNote')} onPress={() => setNoting(true)} />
+      )}
+      <Segmented
+        value={due}
+        onChange={setDue}
+        options={DUE_CHOICES.map((choice) => ({ id: choice.key, label: t(`debts:due.${choice.key}`) }))}
+      />
+      {viaCode ? <Chip center kind="waiting" label={t('debts:viaCodeShort')} /> : null}
       <StatusNote tone="danger" message={problem ?? error ?? undefined} />
-      <Button variant="filled" label={t('debts:send')} busy={busy} onPress={submit} />
     </Screen>
   )
 }

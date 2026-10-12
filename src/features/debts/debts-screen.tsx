@@ -1,9 +1,15 @@
 import { useTranslation } from 'react-i18next'
 import { NAMESPACES } from '../../i18n'
 import { Pressable, View } from 'react-native'
+import { Amount } from '../../components/amount'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { Chip } from '../../components/chip'
+import { Hero } from '../../components/hero'
+import { Icon } from '../../components/icon'
+import { Info } from '../../components/info'
 import { Screen } from '../../components/screen'
+import { useThemeColors } from '../../theme/use-theme-colors'
 
 import { balanceLine, money, type TabSummary } from './format'
 
@@ -13,7 +19,11 @@ export function tabSentence(tab: TabSummary, decimals: number, symbol: string): 
   return balanceLine(tab.peerLabel, signed, decimals, symbol)
 }
 
-/** The list of debts, one row per friend, and the way to start a new one. */
+/** The number of a tab: what the friend owes (+) or what is owed to the friend (−), the digits only. */
+export const tabNumber = (tab: TabSummary, decimals: number, symbol: string) =>
+  money(tab.amount, decimals, symbol).replace(` ${symbol}`, '')
+
+/** The list of debts, one card per friend, and the way to start a new one. */
 export function DebtsScreen({
   tabs,
   symbol,
@@ -30,13 +40,30 @@ export function DebtsScreen({
   onReceive: () => void
 }) {
   const { t } = useTranslation(NAMESPACES)
+  const [onContainer] = useThemeColors('on-secondary-container')
 
   return (
-    <Screen testID="debts">
-      <AppText variant="headline">{t('debts:title')}</AppText>
-      <AppText variant="label" tone="muted">
-        {t('debts:intro')}
-      </AppText>
+    <Screen
+      testID="debts"
+      footer={
+        <View className="gap-2">
+          <Button variant="filled" label={t('debts:newDebt')} onPress={onNew} />
+          <Button variant="tonal" label={t('debts:receive')} onPress={onReceive} />
+        </View>
+      }
+    >
+      <View className="flex-row items-center justify-between">
+        <AppText variant="headline">{t('debts:title')}</AppText>
+        <Info title={t('debts:title')} lines={[t('debts:intro')]} />
+      </View>
+      {tabs.length === 0 ? (
+        <View className="items-center gap-3 pt-6">
+          <Hero kind="coins" decorative />
+          <AppText variant="title" tone="muted">
+            {t('debts:none')}
+          </AppText>
+        </View>
+      ) : null}
       {tabs.map((tab) => {
         const sentence = tabSentence(tab, decimals, symbol)
         return (
@@ -45,41 +72,41 @@ export function DebtsScreen({
             accessibilityRole="button"
             accessibilityLabel={sentence}
             onPress={() => onOpen(tab.tab)}
-            className="min-h-14 justify-center py-2"
+            className="min-h-20 flex-row items-center gap-3 rounded-3xl border border-outline bg-surface p-4 active:bg-secondary-container"
           >
-            <AppText variant="body">{sentence}</AppText>
-            {tab.waiting ? (
-              <AppText variant="label" tone="muted">
-                {t('debts:waiting', { peer: tab.peerLabel })}
-              </AppText>
-            ) : null}
-            {tab.locked ? (
-              <AppText variant="label" tone="muted">
-                {t('debts:locked')}
-              </AppText>
-            ) : null}
-            {tab.settling ? (
-              <AppText variant="label" tone="muted">
-                {tab.settlingReceived
-                  ? t('debts:settlingReceived', {
-                      peer: tab.peerLabel,
-                      amount: money(tab.settlingAmount, decimals, symbol),
-                    })
-                  : t('debts:settling', { amount: money(tab.settlingAmount, decimals, symbol) })}
-              </AppText>
-            ) : null}
-            {tab.orphaned ? (
-              <AppText variant="label" tone="danger">
-                {t('debts:orphaned')}
-              </AppText>
+            <View className="size-12 items-center justify-center rounded-full bg-secondary-container">
+              <Icon name="person" color={onContainer} />
+            </View>
+            <View className="flex-1 gap-1">
+              <AppText variant="title">{tab.peerLabel}</AppText>
+              {tab.orphaned ? <Chip kind="problem" label={t('debts:orphaned')} /> : null}
+              {tab.waiting ? <Chip kind="waiting" label={t('debts:waitingShort')} /> : null}
+              {tab.locked ? <Chip kind="waiting" label={t('debts:lockedShort')} /> : null}
+              {tab.settling ? (
+                <Chip
+                  kind="waiting"
+                  label={
+                    tab.settlingReceived
+                      ? t('debts:settlingReceivedShort', { amount: money(tab.settlingAmount, decimals, symbol) })
+                      : t('debts:settlingShort', { amount: money(tab.settlingAmount, decimals, symbol) })
+                  }
+                />
+              ) : null}
+              {tab.direction === 'settled' && !tab.waiting && !tab.settling ? (
+                <Chip kind="done" label={t('debts:evenShort')} />
+              ) : null}
+            </View>
+            {tab.direction !== 'settled' ? (
+              <Amount
+                size="row"
+                value={`${tab.direction === 'owed' ? '+' : '−'}${tabNumber(tab, decimals, symbol)}`}
+                symbol={symbol}
+                tone={tab.direction === 'owed' ? 'success' : 'strong'}
+              />
             ) : null}
           </Pressable>
         )
       })}
-      <View className="gap-2">
-        <Button variant="filled" label={t('debts:newDebt')} onPress={onNew} />
-        <Button variant="tonal" label={t('debts:receive')} onPress={onReceive} />
-      </View>
     </Screen>
   )
 }

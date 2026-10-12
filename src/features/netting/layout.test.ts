@@ -20,7 +20,7 @@ describe('netting screens at large font scale', () => {
     const imports = [...source(file).matchAll(/from '([^']+)'/g)].map((m) => m[1])
     for (const spec of imports.filter((s) => s.startsWith('.')))
       expect(spec).toMatch(
-        /components\/(screen|app-text|button|list-row|address-row|status-note|icon-button)|\.\/(session-view|consent-view|remainder-section)|qr\/(qr-code|qr-scanner)|\.\.\/\.\.\/i18n(\/format)?$|debts\/format|theme\//,
+        /components\/(screen|app-text|button|list-row|address-row|status-note|icon-button|amount|chip|hero|info|stage|tile)|\.\/(session-view|consent-view|remainder-section)|qr\/(qr-code|qr-scanner)|\.\.\/\.\.\/i18n(\/format)?$|debts\/format|theme\//,
       )
   })
 })

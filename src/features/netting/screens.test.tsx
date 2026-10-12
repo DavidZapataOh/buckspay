@@ -336,7 +336,7 @@ describe('controls', () => {
       for (const node of root.findAllByType('Pressable' as never)) {
         expect(node.props.accessibilityRole).toBeTruthy()
         expect(node.props.accessibilityLabel).toBeTruthy()
-        expect(String(node.props.className)).toMatch(/min-h-(12|14)/)
+        expect(String(node.props.className)).toMatch(/min-h-(12|14|16|20|28)|size-12/)
       }
     }
   })

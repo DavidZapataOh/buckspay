@@ -101,11 +101,14 @@ describe('debt screens', () => {
     const r = await mount(<DebtsScreen tabs={tabs} {...money} onOpen={vi.fn()} onNew={vi.fn()} onReceive={vi.fn()} />)
     const all = shown(r)
     expect(all).toContain(i18n.t('debts:intro'))
-    expect(all).toContain(`${peerLabel(ben.key)} owes you 25.00 USDC`)
-    expect(all).toContain('You owe Friend aaaaaa 5.00 USDC')
-    expect(all).toContain('Waiting for Friend aaaaaa to confirm')
-    expect(all).toContain('All even with Friend bbbbbb')
-    expect(all).toContain('Being worked out with friends')
+    expect(all).toContain(peerLabel(ben.key))
+    expect(all).toContain('+25.00')
+    expect(all).toContain('Friend aaaaaa')
+    expect(all).toContain('−5.00')
+    expect(all).toContain('Waiting to confirm')
+    expect(all).toContain('Friend bbbbbb')
+    expect(all).toContain('All even')
+    expect(all).toContain('In a group')
     expect(all).toContain(i18n.t('debts:orphaned'))
     for (const banned of BANNED) expect(all).not.toMatch(banned)
   })
@@ -137,21 +140,21 @@ describe('debt screens', () => {
     expect(all).toContain(`${peerLabel(ben.key)} paid 5.00 USDC, being credited`)
     expect(all).toContain(i18n.t('debts:settlingDetail'))
     expect(all).toContain('2.00 USDC cancelled out, on')
-    expect(all).toContain(`Record code ${recordCode([latest, repay])}`)
+    expect(all).toContain(`Record ${recordCode([latest, repay])}`)
     expect(all).toMatch(/#4 .*#3 /s)
   })
 
   it('clear is disabled with its reason while pending, and only a debtor can pay with Buckspay', async () => {
     const pending = await mount(<TabScreen {...tabProps} summary={summary({ pending: true })} />)
     expect(shown(pending)).toContain(i18n.t('debts:clearPending'))
-    expect(byLabel(pending.root, 'Clear this debt').props.accessibilityState).toMatchObject({ disabled: true })
+    expect(byLabel(pending.root, 'Clear it')).toBeUndefined()
     expect(byLabel(pending.root, 'Pay with Buckspay')).toBeUndefined()
     const onRepay = vi.fn()
     const owing = await mount(<TabScreen {...tabProps} summary={summary({ direction: 'owe' })} onRepay={onRepay} />)
     expect(shown(owing)).toContain(i18n.t('debts:repayNote'))
     await press(owing.root, 'Pay with Buckspay')
     expect(onRepay).toHaveBeenCalledTimes(1)
-    expect(byLabel(owing.root, 'Clear this debt').props.accessibilityState).toMatchObject({ disabled: false })
+    expect(byLabel(owing.root, 'Clear it')).toBeDefined()
   })
 
   it('a pending offer can be sent again, and says it stays valid', async () => {
@@ -168,13 +171,15 @@ describe('debt screens', () => {
       <NewDebtScreen {...money} peerLabel={null} viaCode busy={false} error={null} onSubmit={onSubmit} />,
     )
     expect(shown(r)).toContain(i18n.t('debts:viaCode'))
-    await press(r.root, 'Send to confirm')
+    expect(shown(r)).toContain('Anyone who sees the code can read it')
+    await press(r.root, 'Send')
     expect(shown(r)).toContain('Enter an amount')
     expect(onSubmit).not.toHaveBeenCalled()
     await press(r.root, 'I lent')
     await typeInto(r.root, 'Amount', '25')
-    await typeInto(r.root, 'What for (optional)', 'Dinner')
-    await press(r.root, 'Send to confirm')
+    await press(r.root, 'Add note')
+    await typeInto(r.root, 'What for', 'Dinner')
+    await press(r.root, 'Send')
     expect(onSubmit).toHaveBeenCalledWith({ kind: 'lent', amount: 25_000_000n, due: 0, memo: 'Dinner' })
   })
 
@@ -224,7 +229,7 @@ describe('debt screens', () => {
         onReceive={vi.fn()}
       />,
     )
-    expect(shown(paid)).toContain('Paid 0.06 USDC, being credited')
+    expect(shown(paid)).toContain('0.06 USDC on the way')
     const received = await mount(
       <DebtsScreen
         tabs={[summary({ settling: true, settlingAmount: 60_000n, settlingReceived: true })]}
@@ -234,7 +239,8 @@ describe('debt screens', () => {
         onReceive={vi.fn()}
       />,
     )
-    expect(shown(received)).toContain(`${peerLabel(ben.key)} paid 0.06 USDC, being credited`)
+    expect(shown(received)).toContain('0.06 USDC arriving')
+    expect(shown(received)).toContain(peerLabel(ben.key))
   })
 
   it('knows a payment that is being credited was made to this phone when the payee is this phone', () => {

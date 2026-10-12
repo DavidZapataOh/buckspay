@@ -98,3 +98,26 @@ describeScreenContrast(
   ],
   { tones: ['danger', 'muted', 'success'], variants: ['filled', 'text', 'tonal'] },
 )
+
+describeScreenContrast(
+  'redesigned flows',
+  [
+    '../features/home/home-summary.tsx',
+    '../features/pay/pay-tab.tsx',
+    '../features/pay/review.tsx',
+    '../features/receive/receive-form.tsx',
+    '../features/receive/result.tsx',
+    '../features/netting/index-screen.tsx',
+    '../features/netting/host-screen.tsx',
+    '../features/netting/session-screen.tsx',
+    '../features/netting/consent-view.tsx',
+    '../features/nearby/pairing-screen.tsx',
+    '../features/identity/onboarding.tsx',
+    '../features/identity/activation-form.tsx',
+    '../features/debts/tab-screen.tsx',
+    '../features/debts/accept-screen.tsx',
+    '../app/activity/[id].tsx',
+    '../app/pay/send.tsx',
+  ],
+  { tones: ['danger', 'muted'], variants: ['filled', 'text', 'tonal'] },
+)

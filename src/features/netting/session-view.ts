@@ -29,6 +29,8 @@ export type SessionView = {
   state: SessionState
   tone: 'default' | 'muted' | 'danger' | 'success'
   headline: string
+  /** One short line under the headline: the rest is in `body`. */
+  line: string
   body: string
   expiresAt: number | null
   /** People in the lobby. */
@@ -97,6 +99,7 @@ export function sessionView(
     state,
     tone: state === 'agreed' && input.proof && input.proof !== 'valid' ? 'default' : TONES[state],
     headline: i18n.t(`netting:states.${state}.headline`),
+    line: translateIfKnown(`netting:states.${state}.line`) ?? '',
     body,
     expiresAt: input.expires,
     count: input.count ?? 0,
@@ -118,4 +121,19 @@ export function viewOfOutcome(outcome: SessionOutcome, now: number): SessionView
     default:
       return sessionView({ ...base, status: 6 }, now)
   }
+}
+
+/** Which of the three steps (join, check, done) a state is in. */
+export function sessionStep(state: SessionState): number {
+  if (state === 'consent') return 1
+  if (state === 'waiting' || state === 'agreed' || state === 'void' || state === 'undecided') return 2
+  if (state === 'recorded' || state === 'nothing') return 3
+  return 0
+}
+
+/** The picture of a state: a check for what is done, an alert for what went wrong, waves while people join. */
+export function heroOf(view: Pick<SessionView, 'state' | 'tone'>): 'done' | 'problem' | 'waiting' | 'nearby' {
+  if (view.tone === 'success') return 'done'
+  if (view.tone === 'danger') return 'problem'
+  return view.state === 'lobby' ? 'nearby' : 'waiting'
 }
