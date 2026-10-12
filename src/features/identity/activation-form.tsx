@@ -9,6 +9,8 @@ import { Button } from '../../components/button'
 import { Chip } from '../../components/chip'
 import { Info } from '../../components/info'
 import { TextField } from '../../components/text-field'
+import { FaucetOffer } from '../lock/faucet-offer'
+import type { FaucetGateway } from '../lock/gateway'
 
 import { FUNDING_SYMBOL, feeNotice, minimumNotice, networkCostNotice, withdrawalDateNotice } from '../lock/lock-copy'
 import { formatSol } from '../../utils/format-sol'
@@ -27,6 +29,7 @@ export function ActivationForm({
   windows,
   busy,
   action,
+  faucet,
   onSubmit,
 }: {
   activation: Activation
@@ -34,6 +37,8 @@ export function ActivationForm({
   windows: Windows
   busy: boolean
   action: string
+  /** Test money for a wallet that has too little, on a gateway that runs a faucet. */
+  faucet?: { wallet: string; gateway: FaucetGateway | undefined; read: () => Promise<bigint> }
   onSubmit: (input: ActivationInput) => void
 }) {
   const { t } = useTranslation(NAMESPACES)
@@ -41,6 +46,7 @@ export function ActivationForm({
   const { funding, quote, sol } = activation
   const [amountText, setAmountText] = useState(formatAmount(activation.defaultAmount, funding.decimals))
   const [daysText, setDaysText] = useState(String(activation.defaultLockDays))
+  const [balance, setBalance] = useState(funding.balance)
   const amount = parseAmount(amountText, funding.decimals)
   const lockDays = /^\d+$/.test(daysText) ? Number(daysText) : undefined
   const input = amount !== undefined && lockDays !== undefined ? { amount, lockDays } : undefined
@@ -64,11 +70,23 @@ export function ActivationForm({
           kind="info"
           icon="account_balance_wallet"
           label={t('identity:walletHasShort', {
-            amount: formatMoney(funding.balance, funding.decimals, currentLanguage()),
+            amount: formatMoney(balance, funding.decimals, currentLanguage()),
             symbol: FUNDING_SYMBOL,
           })}
         />
       </View>
+      {faucet ? (
+        <FaucetOffer
+          wallet={faucet.wallet}
+          balance={balance}
+          needed={amount ?? activation.defaultAmount}
+          symbol={FUNDING_SYMBOL}
+          decimals={funding.decimals}
+          gateway={faucet.gateway}
+          read={faucet.read}
+          onClaimed={setBalance}
+        />
+      ) : null}
       <AmountField
         testID="funding-amount"
         label={t('identity:amountToAdd', { symbol: FUNDING_SYMBOL })}

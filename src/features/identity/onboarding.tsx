@@ -16,6 +16,7 @@ import { StatusNote } from '../../components/status-note'
 import { useThemeColors } from '../../theme/use-theme-colors'
 import { useNetwork } from '../network/use-network'
 import { ACTIVE_PROFILE } from '../../protocol/active-profile'
+import { useFaucet } from '../lock/use-faucet'
 import { ActivationForm } from './activation-form'
 import { confirmingNotice, keyProtection, sponsorshipNotice, stepCopy } from './identity-copy'
 import { useDeviceIdentity } from './use-device-identity'
@@ -39,6 +40,7 @@ export function Onboarding() {
   const { step, busy, error, details, signature, activation, sponsorship, wallet, device, deviceKey, next } =
     useDeviceIdentity()
   const [showDetails, setShowDetails] = useState(false)
+  const faucet = useFaucet(wallet)
   const [primary] = useThemeColors('primary')
   // While loading, the screen shows a spinner, or a retry once the derivation failed.
   const content = step === 'ready' || (step === 'loading' && !error) ? undefined : stepCopy(step)
@@ -66,6 +68,7 @@ export function Onboarding() {
               windows={ACTIVE_PROFILE.windows}
               busy={busy}
               action={content.action}
+              faucet={faucet}
               onSubmit={(input) => void next(input)}
             />
           ) : null}

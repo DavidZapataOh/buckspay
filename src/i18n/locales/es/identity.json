@@ -158,5 +158,12 @@
   "noFee": "Sin comisión",
   "networkPaid": "Red pagada por nosotros",
   "networkWallet": "Red ≈ {{sol}} SOL",
-  "takeBackFrom": "Retira desde {{date}}"
+  "takeBackFrom": "Retira desde {{date}}",
+  "faucet": {
+    "get": "Conseguir USDC de prueba",
+    "help": "Dinero gratis para esta red de prueba. No tiene valor real.",
+    "done": "Se añadieron {{amount}}",
+    "later": "Inténtalo de nuevo en {{time}}",
+    "failed": "No se pudo. Inténtalo de nuevo."
+  }
 }

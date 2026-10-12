@@ -18,6 +18,7 @@ import { useDeviceIdentity } from '../identity/use-device-identity'
 import { readLockOffer } from './lock-offer'
 import { addFunds } from './submit-funds'
 import { useLocks } from './use-locks'
+import { useFaucet } from './use-faucet'
 import { useOperationContext } from './use-operation-context'
 
 /** Adds a lock to an activated phone: the same funds, terms and costs as the first one. */
@@ -32,6 +33,7 @@ export function AddFunds() {
   const [sponsorship, setSponsorship] = useState<Sponsorship>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  const faucet = useFaucet(wallet)
 
   useEffect(() => {
     if (!wallet || !deviceKey || nextLockSeq === undefined) return
@@ -59,6 +61,7 @@ export function AddFunds() {
           windows={ctx.windows}
           busy={busy}
           action={t('lock:addFundsTitle')}
+          faucet={faucet}
           onSubmit={(input) => {
             setBusy(true)
             setError(undefined)

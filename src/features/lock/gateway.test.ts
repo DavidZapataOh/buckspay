@@ -196,4 +196,32 @@ describe('private settlement requests', () => {
     expect(await gateway.zkConfig()).toEqual({ current: { vkSha256: 'aa' } })
     expect(fetch.mock.calls[0][0]).toBe('https://gateway.test/v1/zk-config')
   })
+
+  it('reads what the faucet gives, and learns from a gateway without one that there is none', async () => {
+    stub({ amount: '20000000' })
+    expect(await gateway.faucetOffer()).toEqual({ amount: 20_000_000n })
+    stub({ error: 'not found' }, { status: 404 })
+    expect(await gateway.faucetOffer()).toBeUndefined()
+  })
+
+  it('claims for a wallet and waits longer than an ordinary request for the answer', async () => {
+    const fetch = stub({ signature: 'sig', amount: '20000000' })
+    expect(await gateway.faucetClaim('Wallet1111')).toEqual({ signature: 'sig', amount: 20_000_000n })
+    const [url, init] = fetch.mock.calls[0]
+    expect(url).toBe('https://gateway.test/v1/faucet')
+    expect(JSON.parse(String(init?.body))).toEqual({ wallet: 'Wallet1111' })
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      (_: string, { signal }: RequestInit) =>
+        new Promise((_resolve, reject) => signal!.addEventListener('abort', () => reject(signal!.reason))),
+    )
+    let settled = false
+    const pending = gateway.faucetClaim('Wallet1111').finally(() => (settled = true))
+    pending.catch(() => {})
+    await vi.advanceTimersByTimeAsync(GATEWAY_TIMEOUT_MS + 1_000)
+    expect(settled).toBe(false)
+    await vi.advanceTimersByTimeAsync(40_000)
+    await expect(pending).rejects.toThrow('aborted')
+  })
 })

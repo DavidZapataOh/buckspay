@@ -35,6 +35,9 @@ export const REDELIVERY_WAITS_MS = [1_000, 2_000, 4_000]
 /** How long the app waits for the gateway to answer a request. */
 export const GATEWAY_TIMEOUT_MS = 10_000
 
+/** How long it waits for the faucet, which answers once its transaction has landed. */
+export const FAUCET_TIMEOUT_MS = 45_000
+
 /** What a sponsored onboarding costs and requires now; amounts are in base units of the mint. */
 export type Quote = {
   available: boolean
@@ -132,6 +135,14 @@ export type PrivateGateway = {
   zkConfig(): Promise<ZkConfigAnswer>
 }
 
+/** The faucet of the test token that a gateway on a test network may run. */
+export type FaucetGateway = {
+  /** What a claim receives, or nothing when the gateway has no faucet. */
+  faucetOffer(): Promise<{ amount: bigint } | undefined>
+  /** Creates the wallet's token account if it has none and mints the amount into it, once a day. */
+  faucetClaim(wallet: string): Promise<{ signature: string; amount: bigint }>
+}
+
 /** The reward claims and sweeps the gateway pays for: no wallet signs a claim, and the fresh address alone signs a sweep. */
 export type RewardsGateway = {
   submitClaims(request: ClaimRequest): Promise<JobAnswer>
@@ -140,11 +151,13 @@ export type RewardsGateway = {
   claimStatus(jobKey: string): Promise<JobAnswer>
 }
 
-export function createGateway(url: string): Gateway & SettlementGateway & PrivateGateway & RewardsGateway {
-  async function call<T>(path: string, body?: unknown): Promise<T> {
+export function createGateway(
+  url: string,
+): Gateway & SettlementGateway & PrivateGateway & RewardsGateway & FaucetGateway {
+  async function call<T>(path: string, body?: unknown, timeoutMs = GATEWAY_TIMEOUT_MS): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       try {
-        return await callOnce<T>(path, body)
+        return await callOnce<T>(path, body, timeoutMs)
       } catch (error) {
         const wait = REDELIVERY_WAITS_MS[attempt]
         if (wait === undefined || !notDelivered(error)) throw error
@@ -154,9 +167,9 @@ export function createGateway(url: string): Gateway & SettlementGateway & Privat
     }
   }
 
-  async function callOnce<T>(path: string, body?: unknown): Promise<T> {
+  async function callOnce<T>(path: string, body: unknown, timeoutMs: number): Promise<T> {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS)
+    const timeout = setTimeout(() => controller.abort(), timeoutMs)
     try {
       const response = await fetch(`${url}${path}`, {
         method: body === undefined ? 'GET' : 'POST',
@@ -209,6 +222,19 @@ export function createGateway(url: string): Gateway & SettlementGateway & Privat
     submitClaims: (request) => call('/v1/claims', request),
     submitSweep: (transaction) => call('/v1/sweeps', { transaction }),
     claimStatus: (jobKey) => call(`/v1/claims/${jobKey}`),
+    async faucetOffer() {
+      try {
+        const offer = await call<{ amount: string }>('/v1/faucet')
+        return { amount: BigInt(offer.amount) }
+      } catch (error) {
+        if (error instanceof GatewayError && error.status === 404) return undefined
+        throw error
+      }
+    },
+    async faucetClaim(wallet) {
+      const claimed = await call<{ signature: string; amount: string }>('/v1/faucet', { wallet }, FAUCET_TIMEOUT_MS)
+      return { signature: claimed.signature, amount: BigInt(claimed.amount) }
+    },
   }
 }
 

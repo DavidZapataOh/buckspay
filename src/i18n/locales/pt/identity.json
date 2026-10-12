@@ -158,5 +158,12 @@
   "noFee": "Sem taxa",
   "networkPaid": "Rede paga por nós",
   "networkWallet": "Rede ≈ {{sol}} SOL",
-  "takeBackFrom": "Retire a partir de {{date}}"
+  "takeBackFrom": "Retire a partir de {{date}}",
+  "faucet": {
+    "get": "Obter USDC de teste",
+    "help": "Dinheiro grátis para esta rede de teste. Não tem valor real.",
+    "done": "Foram adicionados {{amount}}",
+    "later": "Tente de novo em {{time}}",
+    "failed": "Não foi possível. Tente de novo."
+  }
 }

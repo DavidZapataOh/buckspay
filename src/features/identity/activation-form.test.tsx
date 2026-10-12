@@ -161,4 +161,34 @@ describe('activation form', () => {
         .accessibilityState.disabled,
     ).toBe(true)
   })
+
+  it('offers test money to a wallet that has none, and shows what it holds once it is given', async () => {
+    const offer = activation({})
+    offer.funding.balance = 0n
+    const gateway = {
+      faucetOffer: vi.fn(async () => ({ amount: 20_000_000n })),
+      faucetClaim: vi.fn(async () => ({ signature: 'sig', amount: 20_000_000n })),
+    }
+    const read = vi.fn(async () => 20_000_000n)
+    const root = (
+      await act(async () =>
+        create(
+          <ActivationForm
+            activation={offer}
+            sponsorship="free"
+            windows={windows}
+            busy={false}
+            action="Activate"
+            faucet={{ wallet: ALICE, gateway, read }}
+            onSubmit={onSubmit}
+          />,
+        ),
+      )
+    ).root
+    expect(text(root, 'funding-balance')).toBe('0.00 USDC in wallet')
+    const get = root.findAll((node) => node.props.testID === 'faucet-get' && node.props.onPress)[0]
+    await act(async () => get.props.onPress())
+    expect(gateway.faucetClaim).toHaveBeenCalledWith(ALICE)
+    expect(text(root, 'funding-balance')).toBe('20.00 USDC in wallet')
+  })
 })

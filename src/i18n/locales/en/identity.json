@@ -158,5 +158,12 @@
   "noFee": "No fee",
   "networkPaid": "Network paid for you",
   "networkWallet": "Network ≈ {{sol}} SOL",
-  "takeBackFrom": "Take back from {{date}}"
+  "takeBackFrom": "Take back from {{date}}",
+  "faucet": {
+    "get": "Get test USDC",
+    "help": "Free money for this test network. It has no real value.",
+    "done": "Added {{amount}}",
+    "later": "Try again in {{time}}",
+    "failed": "Could not get it. Try again."
+  }
 }
