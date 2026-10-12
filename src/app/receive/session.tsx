@@ -92,7 +92,7 @@ export default function ReceiveSession() {
 
   if (state.name === 'accepted') {
     return (
-      <Screen testID="receive-accepted" steps={{ total: 3, current: 2 }}>
+      <Screen testID="receive-accepted" steps={{ total: 3, current: 3 }}>
         <AcceptedResult
           outcome={state.outcome}
           symbol={BUILD_TOKEN.symbol}

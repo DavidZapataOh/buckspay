@@ -78,7 +78,9 @@ export function AcceptedResult({
           {receipt}
         </View>
       ) : null}
-      <Button testID="receive-done" variant="filled" label={t('payment:receive.done')} onPress={onDone} />
+      <View className="w-full">
+        <Button testID="receive-done" variant="filled" label={t('payment:receive.done')} onPress={onDone} />
+      </View>
     </View>
   )
 }

@@ -51,9 +51,10 @@ export function PayReview({
         <Amount testID="pay-review" value={money(review.amount)} symbol={review.symbol} />
       </View>
       {nearbyCheck ? (
-        <AppText testID="pay-nearby-check" variant="label" tone="muted" className="text-center">
-          {t('witness:reviewAsks')}
-        </AppText>
+        <View testID="pay-nearby-check" className="flex-row items-center justify-center gap-1">
+          <Chip kind="info" icon="hearing" label={t('witness:reviewAsks')} />
+          <Info title={t('witness:reviewAsks')} lines={[t('witness:reviewAsksMore')]} />
+        </View>
       ) : null}
 
       <View testID="pay-to" accessible className="gap-2 rounded-3xl border border-outline bg-surface p-5">

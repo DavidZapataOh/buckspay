@@ -1,17 +1,17 @@
 {
-  "needsPermission": "Pagar por proximidade precisa de Bluetooth e de permissão para encontrar dispositivos por perto.",
+  "needsPermission": "Permita celulares por perto",
   "needsLocation": "Nesta versão, o Android pede a localização para encontrar dispositivos Bluetooth. O Buckspay nunca lê nem guarda sua localização.",
   "allow": "Permitir",
-  "bluetoothOff": "Ative o Bluetooth para pagar por proximidade.",
+  "bluetoothOff": "Ative o Bluetooth",
   "openBluetooth": "Abrir ajustes do Bluetooth",
   "unsupported": "Pagar por proximidade não está disponível neste celular. Use NFC ou um código.",
-  "hostTitle": "Código por proximidade",
-  "hostHint": "Peça a quem paga que escolha este código.",
-  "searching": "Procurando celulares por perto para cobrar…",
+  "hostTitle": "Seu código",
+  "hostHint": "Peça para escolher",
+  "searching": "Procurando por perto",
   "noneFound": "Nenhum celular encontrado. Confira se o outro celular mostra o código por proximidade e está perto.",
   "confirm": "{{digits}} é igual no outro celular?",
-  "match": "São iguais",
-  "mismatch": "Não são iguais",
+  "match": "Sim, igual",
+  "mismatch": "Não, diferente",
   "secondsLeft": "Faltam {{seconds}} s",
   "tryAgain": "Tentar de novo",
   "failed": {
@@ -24,5 +24,7 @@
     "Unsupported": "Pagar por proximidade não está disponível neste celular. Use NFC ou um código.",
     "Error": "O Bluetooth parou de funcionar. Desligue e ligue de novo e tente outra vez."
   },
-  "digitSeparator": ","
+  "digitSeparator": ",",
+  "nobodyYet": "Ninguém ainda",
+  "confirmTitle": "Mesmo número?"
 }

@@ -17,7 +17,7 @@ export function AmountField({
 }) {
   const [muted] = useThemeColors('muted')
   return (
-    <View className="flex-row items-baseline justify-center gap-2 py-4">
+    <View className="flex-row items-end justify-center gap-2 py-2">
       <TextInput
         testID={testID}
         accessibilityLabel={label}
@@ -29,7 +29,7 @@ export function AmountField({
         selectionColor={muted}
         className="min-w-20 text-center text-6xl font-bold text-strong"
       />
-      <Text className="text-xl leading-7 font-medium text-muted">{symbol}</Text>
+      <Text className="mb-3 text-xl leading-7 font-medium text-muted">{symbol}</Text>
     </View>
   )
 }

@@ -159,7 +159,7 @@ export default function PaySend() {
 
   if (state.name === 'confirmed') {
     return (
-      <Screen testID="pay-result-confirmed" steps={STEPS}>
+      <Screen testID="pay-result-confirmed" steps={{ total: 3, current: 3 }}>
         <Stage hero={<Hero kind="done" decorative />} title={t('payment:send.paid')} tone="success">
           <Amount value={money(state.payment.amount)} symbol={BUILD_TOKEN.symbol} />
         </Stage>

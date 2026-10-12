@@ -22,7 +22,7 @@ export function Amount({
       testID={testID}
       accessible
       accessibilityLabel={`${value} ${symbol}`}
-      className="flex-row items-baseline justify-center gap-2"
+      className="flex-row items-end justify-center gap-2"
     >
       <Text
         className={`${big ? 'text-6xl leading-[68px]' : 'text-3xl leading-10'} font-bold ${tones[tone]}`}
@@ -32,7 +32,7 @@ export function Amount({
         {value}
       </Text>
       <Text
-        className={`${big ? 'text-xl leading-7' : 'text-base leading-6'} font-medium text-muted`}
+        className={`${big ? 'mb-3 text-xl leading-7' : 'mb-1 text-base leading-6'} font-medium text-muted`}
         accessibilityElementsHidden
         importantForAccessibility="no"
       >

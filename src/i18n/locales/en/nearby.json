@@ -1,17 +1,17 @@
 {
-  "needsPermission": "Pay nearby needs Bluetooth and permission to find nearby devices.",
+  "needsPermission": "Allow nearby phones",
   "needsLocation": "Android asks for location to find Bluetooth devices on this version. Buckspay never reads or stores your location.",
   "allow": "Allow",
-  "bluetoothOff": "Turn on Bluetooth to pay nearby.",
+  "bluetoothOff": "Turn on Bluetooth",
   "openBluetooth": "Open Bluetooth settings",
   "unsupported": "Paying nearby is not available on this phone. Use NFC or a code.",
-  "hostTitle": "Nearby code",
-  "hostHint": "Ask the payer to pick this code.",
-  "searching": "Looking for receivers nearby…",
+  "hostTitle": "Your code",
+  "hostHint": "Ask them to pick it",
+  "searching": "Looking nearby",
   "noneFound": "No receiver found. Check that the other phone shows Nearby code and is close.",
   "confirm": "Does {{digits}} match the other phone?",
-  "match": "They match",
-  "mismatch": "They don't match",
+  "match": "Yes, same",
+  "mismatch": "No, different",
   "secondsLeft": "{{seconds}} s left",
   "tryAgain": "Try again",
   "failed": {
@@ -24,5 +24,7 @@
     "Unsupported": "Paying nearby is not available on this phone. Use NFC or a code.",
     "Error": "Bluetooth stopped working. Turn it off and on, then try again."
   },
-  "digitSeparator": ", "
+  "digitSeparator": ", ",
+  "nobodyYet": "Nobody yet",
+  "confirmTitle": "Same number?"
 }

@@ -2,11 +2,16 @@ import { useTranslation } from 'react-i18next'
 import { NAMESPACES } from '../../i18n'
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
-import { View } from 'react-native'
+import { Text, View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { Chip } from '../../components/chip'
+import { Hero } from '../../components/hero'
+import { Info } from '../../components/info'
 import { Screen } from '../../components/screen'
-import { StatusNote } from '../../components/status-note'
+import { Stage } from '../../components/stage'
+import { Tile } from '../../components/tile'
+import { feedback } from '../../feedback'
 import { useSecondsLeft } from '../receive/use-seconds-left'
 import { QrPresenter } from '../qr/qr-presenter'
 import { failureText, spokenDigits } from './copy'
@@ -32,79 +37,94 @@ export function PairingScreen({ role }: { role: PairingRole }) {
   }, [])
 
   useEffect(() => () => abandonPairing('Declined'), [])
+  const asked = confirming !== undefined
+  useEffect(() => {
+    if (asked) feedback.cue('step')
+  }, [asked])
 
   return (
     <Screen testID="nearby-pairing">
       {status.name === 'blocked' && status.reason === 'disabled' ? (
         <>
-          <AppText variant="body">{t('nearby:bluetoothOff')}</AppText>
+          <Stage hero={<Hero kind="problem" decorative />} title={t('nearby:bluetoothOff')} />
           <Button variant="filled" label={t('nearby:openBluetooth')} onPress={pairing.openBluetoothSettings} />
           <Button variant="text" label={t('nearby:tryAgain')} onPress={pairing.restart} />
         </>
       ) : null}
       {status.name === 'blocked' && status.reason === 'permission-denied' ? (
         <>
-          <AppText variant="body">{t('nearby:needsPermission')}</AppText>
-          <AppText variant="label" tone="muted">
-            {t('nearby:needsLocation')}
-          </AppText>
+          <Stage hero={<Hero kind="problem" decorative />} title={t('nearby:needsPermission')}>
+            <Info title={t('nearby:needsPermission')} lines={[t('nearby:needsLocation')]} />
+          </Stage>
           <Button variant="filled" label={t('nearby:allow')} onPress={() => void pairing.allow()} />
         </>
       ) : null}
       {status.name === 'blocked' && (status.reason === 'unsupported' || status.reason === 'hardware-missing') ? (
-        <AppText variant="body">{t('nearby:unsupported')}</AppText>
+        <Stage hero={<Hero kind="problem" decorative />} title={t('nearby:unsupported')} />
       ) : null}
       {status.name === 'running' && !confirming && role === 'receiver' ? (
         <>
-          <AppText variant="title">{t('nearby:hostTitle')}</AppText>
-          <AppText variant="display" accessibilityLabel={[...(pairing.tag ?? '')].join(' ')}>
-            {pairing.tag}
-          </AppText>
-          <AppText variant="body" tone="muted">
-            {t('nearby:hostHint')}
-          </AppText>
+          <Stage hero={<Hero kind="nearby" decorative />} title={t('nearby:hostTitle')} line={t('nearby:hostHint')}>
+            <View
+              accessible
+              accessibilityLabel={[...(pairing.tag ?? '')].join(' ')}
+              className="rounded-3xl border border-outline bg-surface px-8 py-5"
+            >
+              <Text className="text-6xl leading-[68px] font-bold tracking-widest text-strong">{pairing.tag}</Text>
+            </View>
+          </Stage>
           {friendCodeShown() ? (
-            <>
+            <View className="items-center gap-3">
               <QrPresenter texts={[friendCodeShown()!]} accessibilityLabel={t('debts:showCode')} />
               <AppText variant="body" tone="muted">
                 {t('debts:showCode')}
               </AppText>
-            </>
+            </View>
           ) : null}
         </>
       ) : null}
       {status.name === 'running' && !confirming && role === 'payer' ? (
         <>
-          <AppText variant="body">{t('nearby:searching')}</AppText>
-          {pairing.peers.map((peer) => (
-            <Button
-              key={peer.endpointId}
-              variant="tonal"
-              label={peer.tag}
-              onPress={() => pairing.pick(peer.endpointId)}
-            />
-          ))}
+          <Stage hero={<Hero kind="nearby" decorative />} title={t('nearby:searching')} />
+          <View className="gap-3">
+            {pairing.peers.map((peer) => (
+              <Tile
+                key={peer.endpointId}
+                icon="smartphone"
+                title={peer.tag}
+                onPress={() => pairing.pick(peer.endpointId)}
+              />
+            ))}
+          </View>
           {searchedLong && pairing.peers.length === 0 ? (
-            <AppText variant="body">{t('nearby:noneFound')}</AppText>
+            <View className="flex-row items-center justify-center gap-1">
+              <Chip kind="waiting" label={t('nearby:nobodyYet')} />
+              <Info title={t('nearby:nobodyYet')} lines={[t('nearby:noneFound')]} />
+            </View>
           ) : null}
         </>
       ) : null}
       {status.name === 'running' && confirming ? (
-        <View className="gap-4">
-          <AppText
-            variant="headline"
-            accessibilityLabel={t('nearby:confirm', { digits: spokenDigits(confirming.digits) })}
-          >
-            {t('nearby:confirm', { digits: confirming.digits })}
-          </AppText>
-          <Button variant="filled" label={t('nearby:match')} onPress={pairing.confirm} />
-          <Button variant="tonal" label={t('nearby:mismatch')} onPress={pairing.decline} />
-          <StatusNote tone="muted" message={t('nearby:secondsLeft', { seconds: left })} />
+        <View className="items-center gap-4">
+          <Stage hero={<Hero kind="nearby" decorative size={120} />} title={t('nearby:confirmTitle')}>
+            <View
+              accessible
+              accessibilityLabel={t('nearby:confirm', { digits: spokenDigits(confirming.digits) })}
+              className="rounded-3xl border border-outline bg-surface px-8 py-5"
+            >
+              <Text className="text-6xl leading-[68px] font-bold tracking-widest text-strong">{confirming.digits}</Text>
+            </View>
+            <Chip kind="waiting" label={t('nearby:secondsLeft', { seconds: left })} />
+          </Stage>
+          <View className="w-full gap-3">
+            <Button variant="filled" label={t('nearby:match')} onPress={pairing.confirm} />
+            <Button variant="tonal" label={t('nearby:mismatch')} onPress={pairing.decline} />
+          </View>
         </View>
       ) : null}
       {status.name === 'failed' ? (
         <>
-          <StatusNote tone="danger" message={failureText(status.reason)} />
+          <Stage hero={<Hero kind="problem" decorative />} title={failureText(status.reason) ?? t('nearby:tryAgain')} />
           <Button variant="filled" label={t('nearby:tryAgain')} onPress={pairing.restart} />
         </>
       ) : null}

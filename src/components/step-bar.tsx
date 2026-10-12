@@ -33,8 +33,8 @@ export function StepBar({ total, current }: { total: number; current: number }) 
     <View
       accessible
       accessibilityRole="progressbar"
-      accessibilityLabel={t('common:step', { current: current + 1, total })}
-      accessibilityValue={{ min: 1, max: total, now: current + 1 }}
+      accessibilityLabel={t('common:step', { current: Math.min(current + 1, total), total })}
+      accessibilityValue={{ min: 1, max: total, now: Math.min(current + 1, total) }}
       className="flex-row gap-2"
     >
       {Array.from({ length: total }, (_, index) => (

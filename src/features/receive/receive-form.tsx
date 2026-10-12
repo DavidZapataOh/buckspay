@@ -67,18 +67,20 @@ export function ReceiveForm({
         value={amount}
         onChangeText={onAmountChange}
       />
-      <View className="items-center gap-2">
-        {typedWrong ? (
-          <Chip
-            testID="receive-needs-amount"
-            kind="problem"
-            label={t('payment:receive.amountUnclear', { max: maxText })}
-          />
-        ) : null}
-        {belowMinimum ? (
-          <Chip testID="receive-below-minimum" kind="waiting" label={t('payment:receive.belowMinimum')} />
-        ) : null}
-      </View>
+      {typedWrong || belowMinimum ? (
+        <View className="items-center gap-2">
+          {typedWrong ? (
+            <Chip
+              testID="receive-needs-amount"
+              kind="problem"
+              label={t('payment:receive.amountUnclear', { max: maxText })}
+            />
+          ) : null}
+          {belowMinimum ? (
+            <Chip testID="receive-below-minimum" kind="waiting" label={t('payment:receive.belowMinimum')} />
+          ) : null}
+        </View>
+      ) : null}
       {noting ? (
         <TextField testID="receive-memo" label={t('payment:receive.memo')} value={memo} onChangeText={onMemoChange} />
       ) : (
