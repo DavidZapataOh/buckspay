@@ -173,6 +173,15 @@ describe('Repay before release', () => {
     expect(await notes(w, 'c')).toHaveLength(1)
   })
 
+  it('a_creditor_that_shows_its_request_again_is_found_by_a_debtor_that_starts_late', async () => {
+    const w = await remainderWorld()
+    const ctl = new AbortController()
+    const creditor = receiveRemainder({ ...w.c.deps, reshowMs: 20 }, w.c.tab, ctl.signal)
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    const [paid, received] = await Promise.all([payRemainder(w.d.deps, w.d.tab, ctl.signal), creditor])
+    expect([paid.status, received.status]).toEqual(['released', 'released'])
+  })
+
   it('a_lost_receipt_changes_nothing_because_the_cosigned_repay_is_the_receipt', async () => {
     const w = await remainderWorld()
     w.net.drop(MessageKind.Receipt)

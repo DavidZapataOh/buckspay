@@ -55,6 +55,8 @@ export type RemainderDeps = {
   payDeps: () => Omit<PayDeps, 'transport'>
   receiveContext: () => Promise<ReceiveContext>
   requestFor: (tab: RemainderTab) => PaymentRequest
+  /** The creditor shows its request again this often until an offer arrives, for a debtor that comes later. */
+  reshowMs?: number
   timeouts: { request: number; repay: number; payment: number; receipt: number }
 }
 
@@ -198,12 +200,17 @@ async function receiveWith(
   link: Transport,
   signal: AbortSignal,
 ): Promise<RemainderResult> {
-  await showRequest(deps.requestFor(tab), link)
+  const request = deps.requestFor(tab)
+  await showRequest(request, link)
+  const again = deps.reshowMs
+    ? setInterval(() => void showRequest(request, link).catch(() => undefined), deps.reshowMs)
+    : undefined
   const review = async ({
     state,
   }: {
     state: { cause: number; amount: bigint; reference: Uint8Array; debtor: Uint8Array }
   }) => {
+    clearInterval(again)
     if (state.cause !== 2 || state.amount !== tab.remaining || !equalBytes(state.debtor, tab.peerKey)) return false
     if (equalBytes(state.reference, ZERO)) return false
     const [used] = await deps.db.all('SELECT 1 FROM repay_notes WHERE tab = ? AND reference = ?', [
@@ -218,6 +225,8 @@ async function receiveWith(
   } catch (error) {
     if (timedOut(error)) return { status: 'failed', reason: 'Timeout' }
     throw error
+  } finally {
+    clearInterval(again)
   }
   if (!cosigned) return { status: 'declined' }
   await setRemainder(deps, tab.tab, RemainderStatus.Repaid, cosigned.iou.reference)

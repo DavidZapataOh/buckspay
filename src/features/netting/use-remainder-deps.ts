@@ -21,6 +21,8 @@ import type { RemainderDeps } from './remainder'
 
 const startOfToday = () => Math.floor(new Date().setHours(0, 0, 0, 0) / 1000)
 
+const RESHOW_MS = 2000
+
 /** Minutes, not seconds: the person has to press Pay and the other phone has to be waiting. */
 const TIMEOUTS = { request: 300_000, repay: 300_000, payment: 120_000, receipt: 30_000 }
 
@@ -94,6 +96,7 @@ export function useRemainderDeps(): ((session: Uint8Array, port: SessionPort) =>
           now: nowSeconds(),
           limits: { maxPayment: PAY_LIMITS.maxPayment, minWindow: MIN_WINDOW },
         }),
+      reshowMs: RESHOW_MS,
       timeouts: TIMEOUTS,
     })
   }, [debts, db, domains, key])
