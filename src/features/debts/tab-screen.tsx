@@ -84,7 +84,7 @@ export function TabScreen({
         </View>
       </Stage>
       {summary.settling ? (
-        <View className="items-center gap-1">
+        <View className="flex-row items-center justify-center gap-1">
           <Chip
             center
             kind="waiting"
@@ -135,16 +135,22 @@ export function TabScreen({
       ) : null}
       <View className="gap-3">
         <View className="flex-row gap-3">
-          <Tile icon="north_east" title={t('debts:actions.lent')} onPress={() => !busy && onChange('lent')} />
-          <Tile icon="south_west" title={t('debts:actions.borrowed')} onPress={() => !busy && onChange('borrowed')} />
+          <View className="flex-1">
+            <Tile icon="north_east" title={t('debts:actions.lent')} onPress={() => !busy && onChange('lent')} />
+          </View>
+          <View className="flex-1">
+            <Tile icon="south_west" title={t('debts:actions.borrowed')} onPress={() => !busy && onChange('borrowed')} />
+          </View>
         </View>
         <View className="flex-row gap-3">
-          <Tile icon="check_circle" title={t('debts:actions.repaid')} onPress={() => !busy && onChange('repaid')} />
-          {summary.pending ? (
-            <View className="flex-1" />
-          ) : (
-            <Tile icon="close" title={t('debts:actions.clear')} onPress={() => !busy && onChange('clear')} />
-          )}
+          <View className="flex-1">
+            <Tile icon="check_circle" title={t('debts:actions.repaid')} onPress={() => !busy && onChange('repaid')} />
+          </View>
+          <View className="flex-1">
+            {summary.pending ? null : (
+              <Tile icon="close" title={t('debts:actions.clear')} onPress={() => !busy && onChange('clear')} />
+            )}
+          </View>
         </View>
         {summary.pending ? (
           <AppText variant="label" tone="muted" className="text-center">

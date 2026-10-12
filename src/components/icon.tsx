@@ -1,6 +1,6 @@
 import { type AndroidSymbol, unstable_getMaterialSymbolSourceAsync } from 'expo-symbols'
 import { useEffect, useState } from 'react'
-import { Image, type ImageSourcePropType } from 'react-native'
+import { Image, type ImageSourcePropType, View } from 'react-native'
 
 // Rendered once per symbol for the whole app; the image is white and tinted where it is drawn.
 const sources = new Map<AndroidSymbol, Promise<ImageSourcePropType | null>>()
@@ -25,6 +25,7 @@ export function Icon({ name, color, size = 24 }: { name: AndroidSymbol; color?: 
       current = false
     }
   }, [name])
+  if (!source) return <View style={{ width: size, height: size }} />
   return source ? (
     <Image
       source={source}

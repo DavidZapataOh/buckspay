@@ -5,8 +5,12 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { Chip } from '../../components/chip'
+import { Hero } from '../../components/hero'
+import { Info } from '../../components/info'
 import { IconButton } from '../../components/icon-button'
 import { Screen } from '../../components/screen'
+import { Stage } from '../../components/stage'
 import { StatusNote } from '../../components/status-note'
 import { useThemeColors } from '../../theme/use-theme-colors'
 import { formatError } from '../../utils/format-error'
@@ -74,12 +78,12 @@ export function Withdraw() {
       <View className="flex-row items-center -ml-3">
         <IconButton testID="withdraw-close" icon="close" label={t('common:close')} onPress={() => router.back()} />
       </View>
-      <AppText variant="headline">{t('lock:yourLocks')}</AppText>
+      <Stage hero={<Hero kind="coins" decorative size={120} />} title={t('lock:yourLocks')} />
       {loading && !locks ? (
         <ActivityIndicator testID="withdraw-loading" accessibilityLabel={t('lock:readingLocks')} color={primary} />
       ) : null}
       {locks?.length === 0 ? (
-        <AppText variant="body" tone="muted">
+        <AppText variant="body" tone="muted" className="text-center">
           {t('lock:noLocks')}
         </AppText>
       ) : null}
@@ -87,12 +91,19 @@ export function Withdraw() {
         ? locks?.map((lock) => {
             const { text, canWithdraw } = withdrawalStatus(lock, ctx.windows, now)
             return (
-              <View key={lock.lockSeq} testID={`lock-${lock.lockSeq}`} className="rounded-3xl bg-surface p-5 gap-3">
-                <AppText variant="title">{t('lock:lockN', { number: lock.lockSeq + 1 })}</AppText>
-                <AppText variant="body">{lockSummary(lock, funding.decimals)}</AppText>
-                <AppText variant="body" tone="muted">
-                  {text}
-                </AppText>
+              <View
+                key={lock.lockSeq}
+                testID={`lock-${lock.lockSeq}`}
+                className="gap-3 rounded-3xl border border-outline bg-surface p-5"
+              >
+                <View className="flex-row items-center justify-between">
+                  <AppText variant="title">{t('lock:lockN', { number: lock.lockSeq + 1 })}</AppText>
+                  <Info
+                    title={t('lock:lockN', { number: lock.lockSeq + 1 })}
+                    lines={[lockSummary(lock, funding.decimals)]}
+                  />
+                </View>
+                <Chip kind={canWithdraw ? 'done' : 'waiting'} label={text} />
                 {canWithdraw ? (
                   <Button
                     testID={`withdraw-${lock.lockSeq}`}

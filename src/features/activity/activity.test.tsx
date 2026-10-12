@@ -184,7 +184,7 @@ describe('netting entries', () => {
     const [debts, netting] = [find('debts-entry'), find('netting-entry')]
     expect(debts.props.accessibilityLabel).toBe('Debts')
     expect(netting.props.accessibilityLabel).toBe('Cancel debts with friends')
-    expect(String(debts.props.className)).toMatch(/min-h-28/)
+    expect(String(debts.props.className)).toMatch(/min-h-16/)
     await act(async () => {
       debts.props.onPress()
       netting.props.onPress()

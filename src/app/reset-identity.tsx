@@ -4,9 +4,12 @@ import { useTranslation } from 'react-i18next'
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { View } from 'react-native'
-import { AppText } from '../components/app-text'
 import { Button } from '../components/button'
+import { Chip } from '../components/chip'
+import { Hero } from '../components/hero'
+import { Info } from '../components/info'
 import { Screen } from '../components/screen'
+import { Stage } from '../components/stage'
 import { StatusNote } from '../components/status-note'
 import { useDeviceIdentity } from '../features/identity/use-device-identity'
 import { reconcileIdentity, unsettledSummary, type Unsettled } from '../features/notes/ledger'
@@ -57,48 +60,52 @@ export default function ResetIdentity() {
   }
 
   const by = unsettled?.earliestExpiry == null ? '' : formatDate(unsettled.earliestExpiry + GRACE, currentLanguage())
+  const count =
+    unsettled && unsettled.count > 0
+      ? t('payment:reset.count', {
+          count: unsettled.count,
+          amount: formatMoney(unsettled.total, BUILD_TOKEN.decimals, currentLanguage()),
+          symbol: BUILD_TOKEN.symbol,
+        })
+      : t('payment:reset.none')
   return (
-    <Screen testID="reset-identity-screen">
-      <AppText variant="headline">{t('payment:reset.title')}</AppText>
-      <View className="gap-3">
-        {[
-          t('payment:reset.newKey'),
-          t('payment:reset.lost', { date: by || '—' }),
-          t('payment:reset.registration'),
-          t('payment:reset.lockStays'),
-        ].map((line) => (
-          <AppText key={line} variant="body">
-            {`• ${line}`}
-          </AppText>
-        ))}
-      </View>
-      <AppText testID="reset-count" variant="body" tone="danger">
-        {unsettled && unsettled.count > 0
-          ? t('payment:reset.count', {
-              count: unsettled.count,
-              amount: formatMoney(unsettled.total, BUILD_TOKEN.decimals, currentLanguage()),
-              symbol: BUILD_TOKEN.symbol,
-            })
-          : t('payment:reset.none')}
-      </AppText>
+    <Screen
+      testID="reset-identity-screen"
+      footer={
+        <View className="gap-3">
+          <Button
+            testID="reset-confirm"
+            variant="danger"
+            label={t('payment:reset.confirm')}
+            busy={working}
+            disabled={busy}
+            onPress={() => void run()}
+          />
+          <Button
+            testID="reset-cancel"
+            variant="text"
+            label={t('payment:reset.cancel')}
+            disabled={working}
+            onPress={() => router.back()}
+          />
+        </View>
+      }
+    >
+      <Stage hero={<Hero kind="problem" decorative />} title={t('payment:reset.title')}>
+        <View testID="reset-count" className="flex-row items-center gap-1">
+          <Chip center kind="problem" label={count} />
+          <Info
+            title={t('payment:reset.title')}
+            lines={[
+              t('payment:reset.newKey'),
+              t('payment:reset.lost', { date: by || '—' }),
+              t('payment:reset.registration'),
+              t('payment:reset.lockStays'),
+            ]}
+          />
+        </View>
+      </Stage>
       <StatusNote tone="danger" message={error} />
-      <View className="gap-3">
-        <Button
-          testID="reset-confirm"
-          variant="danger"
-          label={t('payment:reset.confirm')}
-          busy={working}
-          disabled={busy}
-          onPress={() => void run()}
-        />
-        <Button
-          testID="reset-cancel"
-          variant="text"
-          label={t('payment:reset.cancel')}
-          disabled={working}
-          onPress={() => router.back()}
-        />
-      </View>
     </Screen>
   )
 }

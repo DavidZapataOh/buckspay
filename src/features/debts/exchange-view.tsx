@@ -1,10 +1,13 @@
 import { useTranslation } from 'react-i18next'
 import { NAMESPACES } from '../../i18n'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { View } from 'react-native'
 import { Screen } from '../../components/screen'
 import { showFriendCode } from '../nearby/handoff'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { Chip } from '../../components/chip'
+import { Info } from '../../components/info'
 import type { Transport } from '../../transport/types'
 
 import { QrPresenter } from '../qr/qr-presenter'
@@ -91,18 +94,18 @@ export function ExchangeView<T>({
   }
   return (
     <Screen testID="debts-exchange">
-      <AppText variant="headline">{title}</AppText>
+      <AppText variant="headline" className="text-center">
+        {title}
+      </AppText>
       {link.session.texts || idleCode ? (
         <QrPresenter texts={link.session.texts ?? [idleCode!]} accessibilityLabel={title} />
       ) : null}
-      <AppText variant="body" tone="muted" accessibilityLiveRegion="polite">
-        {t('payment:send.waiting')}
-      </AppText>
+      <View className="flex-row items-center justify-center gap-1" accessibilityLiveRegion="polite">
+        <Chip center kind="waiting" label={t('payment:send.waiting')} />
+        <Info title={title} lines={[t('debts:viaCode')]} />
+      </View>
       <Button variant="tonal" label={t('payment:send.scanReceipt')} onPress={() => setScanning(true)} />
       <Button variant="text" label={t('payment:review.cancel')} onPress={onCancel} />
-      <AppText variant="label" tone="muted">
-        {t('debts:viaCode')}
-      </AppText>
     </Screen>
   )
 }

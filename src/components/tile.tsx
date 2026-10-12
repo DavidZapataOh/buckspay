@@ -13,6 +13,7 @@ export function Tile({
   hint,
   onPress,
   highlight = false,
+  compact = false,
   testID,
 }: {
   icon: AndroidSymbol
@@ -20,6 +21,8 @@ export function Tile({
   hint?: string
   onPress: () => void
   highlight?: boolean
+  /** Icon and title on one row, for an entry that only leads somewhere. */
+  compact?: boolean
   testID?: string
 }) {
   const [onPrimary, foreground] = useThemeColors('on-primary', 'foreground')
@@ -43,11 +46,11 @@ export function Tile({
       onPressOut={() => {
         scale.set(withSpring(1, { damping: 14 }))
       }}
-      className={`min-h-28 flex-1 overflow-hidden rounded-3xl p-5 ${look}`}
+      className={`${compact ? 'min-h-16 p-4' : 'min-h-28 p-5'} flex-1 overflow-hidden rounded-3xl ${look}`}
     >
-      <Animated.View style={sink} className="gap-3">
-        <Icon name={icon} size={32} color={highlight ? onPrimary : foreground} />
-        <View>
+      <Animated.View style={sink} className={compact ? 'flex-row items-center gap-3' : 'gap-3'}>
+        <Icon name={icon} size={compact ? 26 : 32} color={highlight ? onPrimary : foreground} />
+        <View className={compact ? 'flex-1' : undefined}>
           <AppText variant="title" className={highlight ? 'text-on-primary' : ''}>
             {title}
           </AppText>

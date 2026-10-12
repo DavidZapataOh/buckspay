@@ -4,6 +4,7 @@ import { View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { Chip } from '../../components/chip'
 import type { TransferProgress } from '../../transport/types'
 import { QrScanner } from './qr-scanner'
 
@@ -29,22 +30,20 @@ export function ScanScreen({
   const { t } = useTranslation(NAMESPACES)
 
   const insets = useSafeAreaInsets()
+  const parts =
+    progress && progress.total > 1 ? t('payment:scan.progress', { done: progress.done, total: progress.total }) : ''
   return (
     <View
       className="flex-1 gap-3 bg-background px-6 pt-6"
       style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
     >
-      <AppText testID={hintTestID} variant="body" accessibilityLiveRegion="polite">
+      <AppText testID={hintTestID} variant="title" className="text-center" accessibilityLiveRegion="polite">
         {hint}
       </AppText>
-      <AppText variant="label" tone="muted" accessibilityLiveRegion="polite">
-        {progress && progress.total > 1
-          ? t('payment:scan.progress', { done: progress.done, total: progress.total })
-          : ''}
-      </AppText>
-      <AppText variant="body" tone="danger" accessibilityLiveRegion="polite">
-        {notice ?? ''}
-      </AppText>
+      <View className="min-h-8 items-center justify-center" accessibilityLiveRegion="polite">
+        {parts ? <Chip center kind="waiting" label={parts} /> : null}
+        {notice ? <Chip center kind="problem" label={notice} /> : null}
+      </View>
       <QrScanner onText={onText} />
       <Button variant="text" label={cancelLabel} onPress={onCancel} />
     </View>

@@ -10,12 +10,14 @@ export function NettingEntries() {
   return (
     <View className="flex-row gap-3">
       <Tile
+        compact
         testID="debts-entry"
         icon="receipt_long"
         title={t('netting:entries.debts')}
         onPress={() => router.push('/debts')}
       />
       <Tile
+        compact
         testID="netting-entry"
         icon="sync"
         title={t('netting:entries.netting')}
