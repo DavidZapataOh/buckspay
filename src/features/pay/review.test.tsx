@@ -6,7 +6,8 @@ import { planPayment, type Plan } from '../../payment/preflight'
 import type { RespendPlan } from '../../payment/respend'
 import { makeTicket, MINT, NOTE_DOMAIN, party, PROGRAM, respendPlan } from '../../payment/testing/world'
 import { PAY_LIMITS } from './limits'
-import { PayReview } from './review'
+import { View } from 'react-native'
+import { PayReview, PayReviewActions } from './review'
 import { BUILD_TOKENS } from './tokens'
 
 vi.mock('react-native', () => import('../../test-support/react-native'))
@@ -85,7 +86,14 @@ function plan(over: Partial<PaymentRequest> = {}, paidToday = 0n): { request: Pa
 }
 
 const mount = async (value: Plan | RespendPlan, onConfirm = vi.fn(), busy = false) =>
-  act(async () => create(<PayReview plan={value} busy={busy} onConfirm={onConfirm} onCancel={() => {}} />))
+  act(async () =>
+    create(
+      <View>
+        <PayReview plan={value} />
+        <PayReviewActions plan={value} busy={busy} onConfirm={onConfirm} onCancel={() => {}} />
+      </View>,
+    ),
+  )
 const texts = (root: ReactTestInstance) =>
   root.findAllByType('Text' as never).map((node) => [node.props.children].flat().join(''))
 const ids = (root: ReactTestInstance) =>
@@ -198,9 +206,7 @@ describe('PayReview of a note passed on', () => {
 describe('PayReview of event credit', () => {
   it('says where the credit can be used', async () => {
     const { plan: sold } = plan()
-    const renderer = await act(async () =>
-      create(<PayReview plan={sold} event="Feria" busy={false} onConfirm={() => {}} onCancel={() => {}} />),
-    )
+    const renderer = await act(async () => create(<PayReview plan={sold} event="Feria" />))
     expect(texts(renderer.root)).toContain('Only usable at Feria')
     expect(texts((await mount(sold)).root).join('')).not.toContain('Only usable at')
   })

@@ -17,33 +17,25 @@ import { useTouchGuard } from './use-touch-guard'
  */
 export function PayReview({
   plan,
-  busy,
   event,
   nearbyCheck = false,
-  onConfirm,
-  onCancel,
 }: {
   plan: Plan | RespendPlan
-  busy: boolean
   /** The event whose credit this is, when the payment sells event credit. */
   event?: string
   /** The receiver will ask for a nearby check after this payment. */
   nearbyCheck?: boolean
-  onConfirm: () => void
-  onCancel: () => void
 }) {
   const { t } = useTranslation(NAMESPACES)
 
   const { review } = plan
   const passedOn = 'spend' in plan
   const hops = 'issue' in plan ? plan.issue.caveats.hopsLeft : plan.review.hopsAfter
-  const [pressed, setPressed] = useState(false)
   const [open, setOpen] = useState(false)
   useTouchGuard(true)
 
   const amount = formatMoney(review.amount, review.decimals, currentLanguage())
   const values = { amount, symbol: review.symbol }
-  const label = review.biometric ? t('payment:review.confirmAndPay', values) : t('payment:review.pay', values)
 
   return (
     <View className="gap-6">
@@ -161,33 +153,55 @@ export function PayReview({
           </View>
         ) : null}
       </View>
+    </View>
+  )
+}
 
+/** The buttons of the confirmation: the screen keeps them below its scrolling body, always in view. */
+export function PayReviewActions({
+  plan,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  plan: Plan | RespendPlan
+  busy: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const { t } = useTranslation(NAMESPACES)
+
+  const { review } = plan
+  const [pressed, setPressed] = useState(false)
+  const values = { amount: formatMoney(review.amount, review.decimals, currentLanguage()), symbol: review.symbol }
+  const label = review.biometric ? t('payment:review.confirmAndPay', values) : t('payment:review.pay', values)
+
+  return (
+    <View className="gap-3">
       {review.biometric ? (
         <AppText variant="body" tone="muted">
           {t('payment:review.fingerprint')}
         </AppText>
       ) : null}
-      <View className="gap-3">
-        <Button
-          testID="pay-confirm"
-          variant="filled"
-          label={label}
-          busy={busy || pressed}
-          disabled={busy || pressed}
-          onPress={() => {
-            if (pressed) return
-            setPressed(true)
-            onConfirm()
-          }}
-        />
-        <Button
-          testID="pay-cancel"
-          variant="text"
-          label={t('payment:review.cancel')}
-          disabled={busy || pressed}
-          onPress={onCancel}
-        />
-      </View>
+      <Button
+        testID="pay-confirm"
+        variant="filled"
+        label={label}
+        busy={busy || pressed}
+        disabled={busy || pressed}
+        onPress={() => {
+          if (pressed) return
+          setPressed(true)
+          onConfirm()
+        }}
+      />
+      <Button
+        testID="pay-cancel"
+        variant="text"
+        label={t('payment:review.cancel')}
+        disabled={busy || pressed}
+        onPress={onCancel}
+      />
     </View>
   )
 }

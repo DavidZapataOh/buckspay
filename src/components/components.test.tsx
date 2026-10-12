@@ -8,11 +8,15 @@ import { AddressRow } from './address-row'
 import { AppText } from './app-text'
 import { Button } from './button'
 import { ListRow } from './list-row'
+import { Screen } from './screen'
 import { StatusNote } from './status-note'
 
 vi.mock('react-native', () => import('../test-support/react-native'))
 vi.mock('uniwind', () => ({
   useCSSVariable: (name: string | string[]) => (Array.isArray(name) ? name.map(() => '#000000') : '#000000'),
+}))
+vi.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 48, left: 0, right: 0 }),
 }))
 vi.mock('expo-symbols', () => ({ unstable_getMaterialSymbolSourceAsync: vi.fn(async () => ({ uri: 'icon.png' })) }))
 vi.mock('expo-clipboard', () => ({ setStringAsync: vi.fn() }))
@@ -143,5 +147,21 @@ describe('StatusNote', () => {
     expect(note().props).toMatchObject({ accessibilityLiveRegion: 'polite', children: '' })
     await act(async () => renderer.update(<StatusNote tone="danger" message="The wallet declined." />))
     expect(note().props).toMatchObject({ accessibilityLiveRegion: 'polite', children: 'The wallet declined.' })
+  })
+})
+
+describe('Screen', () => {
+  it('keeps a footer below the scrolling body, clear of the system bar', async () => {
+    const root = (await act(async () => create(<Screen footer={<AppText variant="body">Pay</AppText>}>body</Screen>)))
+      .root
+    const footer = root.findByProps({ testID: 'screen-footer' })
+    expect(footer.props.style).toEqual({ paddingBottom: 56 })
+    const children = footer.parent!.children.map((child) => (typeof child === 'string' ? child : child.type))
+    expect(children).toEqual(['ScrollView', 'View'])
+  })
+
+  it('has no footer unless it is given one', async () => {
+    const root = (await act(async () => create(<Screen>body</Screen>))).root
+    expect(root.findAllByProps({ testID: 'screen-footer' })).toHaveLength(0)
   })
 })

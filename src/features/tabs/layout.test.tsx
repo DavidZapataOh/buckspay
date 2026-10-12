@@ -28,7 +28,13 @@ declare global {
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 describe('the tabs', () => {
-  it('has five tabs in the order Home, Pay, Receive, Activity, Settings', async () => {
+  it('shows the name of every tab, not only the one that is open', async () => {
+    const renderer = await act(async () => create(<TabsLayout />))
+    const bar = renderer.root.findAll((node) => 'labelVisibilityMode' in node.props)
+    expect(bar[0].props.labelVisibilityMode).toBe('labeled')
+  })
+
+  it('has five tabs in the order Home, Pay, Get paid, Activity, Settings', async () => {
     const renderer = await act(async () => create(<TabsLayout />))
     const triggers = renderer.root.findAll((node) => typeof node.props.name === 'string' && 'children' in node.props)
     expect(triggers.map((trigger) => trigger.props.name)).toEqual(['index', 'pay', 'receive', 'activity', 'settings'])

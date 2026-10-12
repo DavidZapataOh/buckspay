@@ -19,6 +19,7 @@ export default function TabsLayout() {
       tintColor={primary}
       iconColor={{ default: muted, selected }}
       indicatorColor={indicator}
+      labelVisibilityMode="labeled"
       labelStyle={{ default: { color: muted }, selected: { color: primary } }}
     >
       <NativeTabs.Trigger name="index">
