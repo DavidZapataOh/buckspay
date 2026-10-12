@@ -1,7 +1,9 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import { Screen } from '../../components/screen'
-import { copy } from '../../features/payment/copy'
+
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { router } from 'expo-router'
 import { useState } from 'react'
@@ -18,6 +20,8 @@ type Asked = { view: OfferView; answer: (signs: boolean) => void }
 
 /** Ready to receive a debt: shows this phone's friend code, then asks the person to sign what arrives. */
 export default function Accept() {
+  const { t } = useTranslation(NAMESPACES)
+
   const debts = useDebts()
   const link = useDebtLink('receiver')
   const [asked, setAsked] = useState<Asked>()
@@ -36,7 +40,7 @@ export default function Accept() {
   return (
     <ExchangeView
       link={link}
-      title="Ready to receive a debt"
+      title={t('debts:readyToReceive')}
       idleCode={friendCode(debts.me)}
       run={(transport, signal) =>
         answerTabOffer(
@@ -78,12 +82,14 @@ export default function Accept() {
 }
 
 function Failed({ message }: { message: string }) {
+  const { t } = useTranslation(NAMESPACES)
+
   return (
     <Screen testID="debts-failed">
       <AppText variant="headline" tone="danger" accessibilityLiveRegion="polite">
         {message}
       </AppText>
-      <Button variant="filled" label={copy.send.done} onPress={() => router.back()} />
+      <Button variant="filled" label={t('payment:send.done')} onPress={() => router.back()} />
     </Screen>
   )
 }

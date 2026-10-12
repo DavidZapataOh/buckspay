@@ -1,7 +1,8 @@
+import { i18n } from '../../i18n'
 import { act } from 'react'
 import { create, type ReactTestInstance } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
-import { meshCopy } from './copy'
+
 import { PermissionsScreen } from './permissions-screen'
 
 vi.mock('react-native', () => import('../../test-support/react-native'))
@@ -35,18 +36,18 @@ describe('permission screen', () => {
   it('asks for nearby devices and notifications, and continues whatever the answer', async () => {
     const request = vi.fn(async () => 'denied' as const)
     const { root, done } = await render(request)
-    expect(button(root, meshCopy.continue)).toBeUndefined()
-    await act(async () => button(root, meshCopy.allow).props.onPress())
+    expect(button(root, i18n.t('mesh:continue'))).toBeUndefined()
+    await act(async () => button(root, i18n.t('mesh:allow')).props.onPress())
     expect(request).toHaveBeenCalledWith(['nearby', 'notifications'])
-    expect(button(root, meshCopy.allow)).toBeUndefined()
-    await act(async () => button(root, meshCopy.continue).props.onPress())
+    expect(button(root, i18n.t('mesh:allow'))).toBeUndefined()
+    await act(async () => button(root, i18n.t('mesh:continue')).props.onPress())
     expect(done).toHaveBeenCalledWith({ mesh: false })
   })
 
   it('starts the mesh only when a Bluetooth permission was granted', async () => {
     const { root, done } = await render(async () => 'granted')
-    await act(async () => button(root, meshCopy.allow).props.onPress())
-    await act(async () => button(root, meshCopy.continue).props.onPress())
+    await act(async () => button(root, i18n.t('mesh:allow')).props.onPress())
+    await act(async () => button(root, i18n.t('mesh:continue')).props.onPress())
     expect(done).toHaveBeenCalledWith({ mesh: true })
   })
 })

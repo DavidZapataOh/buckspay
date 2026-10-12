@@ -33,9 +33,9 @@ describe('identity copy', () => {
   })
 
   it('tells the public, permanent link before activating, and that a sent activation cannot be cancelled', () => {
-    expect(stepCopy.activate.title).toBe('Add funds')
-    expect(stepCopy.activate.body).toContain('publicly and permanently')
-    expect([stepCopy.connect.progress, stepCopy['create-key'].progress, stepCopy.activate.progress]).toEqual([
+    expect(stepCopy('activate').title).toBe('Add funds')
+    expect(stepCopy('activate').body).toContain('publicly and permanently')
+    expect([stepCopy('connect').progress, stepCopy('create-key').progress, stepCopy('activate').progress]).toEqual([
       'Step 1 of 2',
       'Step 1 of 2',
       'Step 2 of 2',
@@ -50,7 +50,7 @@ describe('identity copy', () => {
   })
 
   it('names how the key is protected in plain words', () => {
-    expect([keyProtection.strongbox, keyProtection.tee, keyProtection.software]).toEqual([
+    expect([keyProtection('strongbox'), keyProtection('tee'), keyProtection('software')]).toEqual([
       'Secure chip (StrongBox)',
       'Secure hardware (TEE)',
       'Software only',

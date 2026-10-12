@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { useState } from 'react'
 import { View } from 'react-native'
 import { AppText } from '../../components/app-text'
@@ -15,6 +17,8 @@ import { useRotationWatch } from './use-rotation-watch'
  * pays for, or the wallet when Buckspay cannot.
  */
 export function RotationAlert() {
+  const { t } = useTranslation(NAMESPACES)
+
   const ctx = useOperationContext()
   const { wallet, deviceKey } = useDeviceIdentity()
   const { alert, refresh } = useRotationWatch()
@@ -49,13 +53,13 @@ export function RotationAlert() {
 
   return (
     <View testID="rotation-alert" className="rounded-3xl bg-surface p-5 gap-3">
-      <AppText variant="headline">A wallet change was requested</AppText>
+      <AppText variant="headline">{t('lock:rotationTitle')}</AppText>
       <AppText variant="body">{rotationNotice(alert.newWallet, alert.effectiveAt)}</AppText>
       <StatusNote testID="rotation-error" tone="danger" message={error} />
       <Button
         testID="rotation-cancel"
         variant="filled"
-        label={payInstead ? 'Cancel and pay from my wallet' : 'Cancel the change'}
+        label={payInstead ? t('lock:cancelAndPay') : t('lock:cancelChange')}
         busy={busy}
         onPress={() => void cancel(!payInstead && ctx.gateway !== undefined)}
       />

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { BUILD_TOKEN } from '../pay/tokens'
 import type { TippingSettings } from '../settings/settings'
 import type { TipTerms } from './seams'
-import { MIN_TIP_BOND } from './copy'
+import { MIN_TIP_BOND } from './reward-terms'
 import { loadTipping, saveTipping } from './tip-setting'
 
 /**

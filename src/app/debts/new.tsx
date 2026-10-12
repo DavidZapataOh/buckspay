@@ -1,10 +1,12 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import { Screen } from '../../components/screen'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useState } from 'react'
-import { debtsCopy } from '../../features/debts/copy'
+
 import { failureText } from '../../features/debts/errors'
 import { ExchangeView } from '../../features/debts/exchange-view'
 import { proposeTabChange, resendPending } from '../../features/debts/flow'
@@ -14,7 +16,7 @@ import { pendingProposal, tabById, takeNextSeq } from '../../features/debts/stor
 import type { TabIntent } from '../../features/debts/tab'
 import { useDebtLink, useDebts } from '../../features/debts/use-debts'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
-import { copy } from '../../features/payment/copy'
+
 import { ScanScreen } from '../../features/qr/scan-screen'
 
 type Intent = Pick<TabIntent, 'kind' | 'amount' | 'due' | 'memo'>
@@ -33,6 +35,8 @@ type Stage =
 
 /** A new debt, a change to a known one (`tab`, `action`), or the pending offer sent again (`action=resend`). */
 export default function NewDebt() {
+  const { t } = useTranslation(NAMESPACES)
+
   const debts = useDebts()
   const link = useDebtLink('payer')
   const params = useLocalSearchParams<{ tab?: string; action?: Action }>()
@@ -53,11 +57,11 @@ export default function NewDebt() {
   if (!peer) {
     return (
       <ScanScreen
-        hint={copy.scan.hint}
+        hint={t('payment:scan.hint')}
         hintTestID="debts-friend-hint"
         onText={(text) => setScanned(parseFriendCode(text))}
         onCancel={() => router.back()}
-        cancelLabel={copy.review.cancel}
+        cancelLabel={t('payment:review.cancel')}
       />
     )
   }
@@ -67,7 +71,7 @@ export default function NewDebt() {
         <AppText variant="headline" tone="danger" accessibilityLiveRegion="polite">
           {stage.message}
         </AppText>
-        <Button variant="filled" label={copy.send.done} onPress={() => router.back()} />
+        <Button variant="filled" label={t('payment:send.done')} onPress={() => router.back()} />
       </Screen>
     )
   }
@@ -90,7 +94,7 @@ export default function NewDebt() {
   return (
     <ExchangeView
       link={link}
-      title={debtsCopy.send}
+      title={t('debts:send')}
       run={async (transport, signal) => {
         if (tab && intent === 'resend') return resendPending(debts, transport, tab.tab, signal)
         // Making a new change while an offer waits leaves that offer behind: one seq is burnt, never the tab.

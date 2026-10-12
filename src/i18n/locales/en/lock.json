@@ -19,5 +19,17 @@
     "now": "You can take your funds back now.",
     "from": "You can take your funds back from {{date}} (UTC)."
   },
-  "rotation": "Someone asked to move this phone to wallet {{wallet}}. It takes effect on {{date}} (UTC). If this wasn’t you, cancel it now."
+  "rotation": "Someone asked to move this phone to wallet {{wallet}}. It takes effect on {{date}} (UTC). If this wasn’t you, cancel it now.",
+  "addFundsTitle": "Add funds",
+  "addFundsBody": "New funds go into another lock that backs what you pay. You can take them back after the lock ends and its withdrawal window opens.",
+  "readingWallet": "Reading your wallet",
+  "rotationTitle": "A wallet change was requested",
+  "cancelAndPay": "Cancel and pay from my wallet",
+  "cancelChange": "Cancel the change",
+  "yourLocks": "Your locks",
+  "readingLocks": "Reading your locks",
+  "noLocks": "This phone has no locks.",
+  "lockN": "Lock {{number}}",
+  "withdrawAndPay": "Withdraw and pay from my wallet",
+  "withdraw": "Withdraw"
 }

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { CameraView, type CameraType, useCameraPermissions } from 'expo-camera'
 import { useEffect, useState } from 'react'
@@ -15,6 +17,8 @@ const FACING_KEY = 'qr:facing'
  * off or out of reach. The caller unmounts it when it has what it needs, which stops the camera.
  */
 export function QrScanner({ onText }: { onText: (text: string) => void }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const [permission, requestPermission] = useCameraPermissions()
   const [facing, setFacing] = useState<CameraType>('back')
   const [torch, setTorch] = useState(false)
@@ -62,21 +66,18 @@ export function QrScanner({ onText }: { onText: (text: string) => void }) {
       </View>
       {denied && (
         <>
-          <StatusNote
-            tone="danger"
-            message="Camera access is off. Allow it in Settings to scan, or paste the code instead."
-          />
-          <Button variant="tonal" label="Open Settings" onPress={() => void Linking.openSettings()} />
+          <StatusNote tone="danger" message={t('common:qr.cameraOff')} />
+          <Button variant="tonal" label={t('common:qr.openSettings')} onPress={() => void Linking.openSettings()} />
         </>
       )}
-      <StatusNote tone="danger" message={rejected ? "That isn't a Buckspay code." : undefined} />
+      <StatusNote tone="danger" message={rejected ? t('common:qr.notBuckspay') : undefined} />
       <View className="flex-row items-center justify-between">
-        <Button variant="text" label="Paste code" onPress={() => void paste()} />
+        <Button variant="text" label={t('common:qr.paste')} onPress={() => void paste()} />
         <View className="flex-row">
-          <IconButton icon="cameraswitch" label="Use the front camera" onPress={flip} />
+          <IconButton icon="cameraswitch" label={t('common:qr.frontCamera')} onPress={flip} />
           <IconButton
             icon={torch ? 'flashlight_off' : 'flashlight_on'}
-            label={torch ? 'Turn the light off' : 'Turn the light on'}
+            label={torch ? t('common:qr.lightOff') : t('common:qr.lightOn')}
             onPress={() => setTorch(!torch)}
           />
         </View>

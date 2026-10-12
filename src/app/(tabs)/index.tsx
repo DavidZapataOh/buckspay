@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { router } from 'expo-router'
 import { ActivityIndicator, View } from 'react-native'
 import { AddressRow } from '../../components/address-row'
@@ -13,6 +15,8 @@ import { useSettlementRunner } from '../../features/settlement/use-settlement-ru
 import { useThemeColors } from '../../theme/use-theme-colors'
 
 export default function Home() {
+  const { t } = useTranslation(NAMESPACES)
+
   const identity = useDeviceIdentity()
   const settlement = useSettlementRunner()
   const { busy, device, next } = identity
@@ -24,21 +28,26 @@ export default function Home() {
       <View testID={status.testID} className="rounded-3xl bg-surface p-5 gap-3">
         <AppText variant="headline">{status.title}</AppText>
         {status.testID === 'home-loading' ? (
-          <ActivityIndicator accessibilityLabel="Checking this phone" color={primary} className="self-start" />
+          <ActivityIndicator accessibilityLabel={t('common:checkingPhone')} color={primary} className="self-start" />
         ) : null}
         {status.body ? (
           <AppText variant="body" tone="muted">
             {status.body}
           </AppText>
         ) : null}
-        {device ? <AddressRow address={device.wallet} label="Registered to" /> : null}
+        {device ? <AddressRow address={device.wallet} label={t('common:registeredTo')} /> : null}
         {status.testID === 'device-ready' ? (
           <View className="gap-3">
-            <Button testID="add-funds" variant="filled" label="Add funds" onPress={() => router.push('/add-funds')} />
+            <Button
+              testID="add-funds"
+              variant="filled"
+              label={t('common:home.addFunds')}
+              onPress={() => router.push('/add-funds')}
+            />
             <Button
               testID="locks"
               variant="tonal"
-              label="Locks and withdrawals"
+              label={t('common:home.locksAndWithdrawals')}
               onPress={() => router.push('/withdraw')}
             />
           </View>

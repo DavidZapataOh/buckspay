@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../i18n'
 import { ActivityIndicator, Pressable, Text } from 'react-native'
 import { useThemeColors } from '../theme/use-theme-colors'
 
@@ -23,6 +25,8 @@ export type ButtonProps = {
 
 /** A Material 3 button: its pressed state is a ripple in its content color at 12% opacity. */
 export function Button({ variant, label, busy = false, disabled = false, onPress, testID }: ButtonProps) {
+  const { t } = useTranslation(NAMESPACES)
+
   const { container, label: text, content } = variants[variant]
   const [color] = useThemeColors(content)
   const inactive = busy || disabled
@@ -38,7 +42,7 @@ export function Button({ variant, label, busy = false, disabled = false, onPress
       className={`min-h-12 px-6 rounded-full overflow-hidden items-center justify-center ${container} ${disabled ? 'opacity-40' : ''}`}
     >
       {busy ? (
-        <ActivityIndicator accessibilityLabel="Working" color={color} />
+        <ActivityIndicator accessibilityLabel={t('common:working')} color={color} />
       ) : (
         <Text className={`text-base leading-6 font-medium text-center ${text}`}>{label}</Text>
       )}

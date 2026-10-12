@@ -1,7 +1,9 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Screen } from '../../components/screen'
-import { eventCopy } from '../../features/event/copy'
+
 import { JoinInvite } from '../../features/event/join-invite'
 import { decodeInvite, type EventInvite } from '../../features/event/payloads'
 import { joinEvent } from '../../features/event/store'
@@ -11,6 +13,8 @@ import { ScanScreen } from '../../features/qr/scan-screen'
 import { MessageKind } from '../../transport/types'
 
 export default function JoinEvent() {
+  const { t } = useTranslation(NAMESPACES)
+
   const { db } = usePayments()
   const session = useQrSession()
   const [invite, setInvite] = useState<EventInvite>()
@@ -34,10 +38,10 @@ export default function JoinEvent() {
   if (!invite) {
     return (
       <ScanScreen
-        hint={eventCopy.scanInvite}
+        hint={t('event:scanInvite')}
         hintTestID="join-scanning"
         progress={session.progress}
-        notice={notInvite ? eventCopy.notInvite : undefined}
+        notice={notInvite ? t('event:notInvite') : undefined}
         onText={session.push}
         onCancel={() => router.back()}
         cancelLabel="Cancel"

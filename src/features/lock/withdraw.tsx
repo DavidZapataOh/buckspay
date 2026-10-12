@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, View } from 'react-native'
@@ -19,6 +21,8 @@ import { useOperationContext } from './use-operation-context'
 
 /** This phone's locks, with the date each can be withdrawn from and a button once it can. */
 export function Withdraw() {
+  const { t } = useTranslation(NAMESPACES)
+
   const ctx = useOperationContext()
   const { wallet, deviceKey, disconnect } = useDeviceIdentity()
   const { locks, error: readError, loading, refresh } = useLocks()
@@ -68,15 +72,15 @@ export function Withdraw() {
   return (
     <Screen testID="withdraw">
       <View className="flex-row items-center -ml-3">
-        <IconButton testID="withdraw-close" icon="close" label="Close" onPress={() => router.back()} />
+        <IconButton testID="withdraw-close" icon="close" label={t('common:close')} onPress={() => router.back()} />
       </View>
-      <AppText variant="headline">Your locks</AppText>
+      <AppText variant="headline">{t('lock:yourLocks')}</AppText>
       {loading && !locks ? (
-        <ActivityIndicator testID="withdraw-loading" accessibilityLabel="Reading your locks" color={primary} />
+        <ActivityIndicator testID="withdraw-loading" accessibilityLabel={t('lock:readingLocks')} color={primary} />
       ) : null}
       {locks?.length === 0 ? (
         <AppText variant="body" tone="muted">
-          This phone has no locks.
+          {t('lock:noLocks')}
         </AppText>
       ) : null}
       {funding
@@ -84,7 +88,7 @@ export function Withdraw() {
             const { text, canWithdraw } = withdrawalStatus(lock, ctx.windows, now)
             return (
               <View key={lock.lockSeq} testID={`lock-${lock.lockSeq}`} className="rounded-3xl bg-surface p-5 gap-3">
-                <AppText variant="title">Lock {lock.lockSeq + 1}</AppText>
+                <AppText variant="title">{t('lock:lockN', { number: lock.lockSeq + 1 })}</AppText>
                 <AppText variant="body">{lockSummary(lock, funding.decimals)}</AppText>
                 <AppText variant="body" tone="muted">
                   {text}
@@ -93,7 +97,7 @@ export function Withdraw() {
                   <Button
                     testID={`withdraw-${lock.lockSeq}`}
                     variant="filled"
-                    label={payInstead ? 'Withdraw and pay from my wallet' : 'Withdraw'}
+                    label={payInstead ? t('lock:withdrawAndPay') : t('lock:withdraw')}
                     busy={busy === lock.lockSeq}
                     onPress={() => void withdraw(lock, !payInstead && ctx.gateway !== undefined)}
                   />

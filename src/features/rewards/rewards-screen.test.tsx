@@ -1,6 +1,7 @@
+import { i18n } from '../../i18n'
 import { describe, expect, it, vi } from 'vitest'
 import { byLabel, mount, press, texts } from '../remote/ui-testing'
-import { rewardsCopy } from './copy'
+
 import { RewardsScreen } from './rewards-screen'
 import type { RewardRecord } from './state'
 
@@ -51,16 +52,16 @@ describe('RewardsScreen', () => {
   it('says the trust limits once, also when there is nothing yet', async () => {
     const r = await mount(<RewardsScreen {...base} rows={[]} />)
     const all = shown(r)
-    expect(all).toContain(rewardsCopy.trust)
+    expect(all).toContain(i18n.t('rewards:trust'))
     expect(all).toMatch(/not that you carried the payment/)
     expect(all).toMatch(/phones that pass it along get nothing/)
-    expect(all).toContain(rewardsCopy.empty)
+    expect(all).toContain(i18n.t('rewards:empty'))
   })
 
   it('does not show an empty state while the rewards are loading', async () => {
     const r = await mount(<RewardsScreen {...base} rows={undefined} />)
-    expect(shown(r)).not.toContain(rewardsCopy.empty)
-    expect(shown(r)).toContain(rewardsCopy.loading)
+    expect(shown(r)).not.toContain(i18n.t('rewards:empty'))
+    expect(shown(r)).toContain(i18n.t('rewards:loading'))
   })
 
   it('claim asks first, states what the service sees and delays by default', async () => {
@@ -72,14 +73,14 @@ describe('RewardsScreen', () => {
     expect(shown(r)).not.toMatch(/private/i)
     await press(r.root, 'Claim to a new address')
     expect(onClaim).toHaveBeenCalledExactlyOnceWith({ immediate: false })
-    expect(shown(r)).toContain(rewardsCopy.claimScheduled)
+    expect(shown(r)).toContain(i18n.t('rewards:claimScheduled'))
   })
 
   it('claim now is explicit and says it is easier to link', async () => {
     const onClaim = vi.fn(async () => {})
     const r = await mount(<RewardsScreen {...base} rows={[leaf('unclaimed', 0)]} onClaim={onClaim} onMove={vi.fn()} />)
     await press(r.root, 'Claim')
-    expect(shown(r)).toContain(rewardsCopy.claimNowNote)
+    expect(shown(r)).toContain(i18n.t('rewards:claimNowNote'))
     await press(r.root, 'Claim now')
     expect(onClaim).toHaveBeenCalledExactlyOnceWith({ immediate: true })
   })

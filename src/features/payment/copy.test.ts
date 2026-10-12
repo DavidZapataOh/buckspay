@@ -1,53 +1,45 @@
 import { describe, expect, it } from 'vitest'
+import { i18n } from '../../i18n'
+import { resources } from '../../i18n/resources'
 import { PayError } from '../../payment/pay'
-import { howCopy } from '../transport/copy'
-import { copy, payErrorKey, text } from './copy'
+import { payErrorKey } from './copy'
 
 const strings = (value: unknown): string[] =>
   typeof value === 'string' ? [value] : Object.values(value as object).flatMap(strings)
 
 describe('copy', () => {
   it('says a screen lock is needed to pay the threshold or more, the rule the app applies', () => {
-    expect(text(copy.payError.NoScreenLock, { amount: '20.00', symbol: 'USDC' })).toBe(
+    expect(i18n.t('payment:payError.NoScreenLock', { amount: '20.00', symbol: 'USDC' })).toBe(
       'Set a screen lock to pay 20.00 USDC or more. Nothing was signed.',
     )
   })
 
-  it('has no placeholder left unfilled in any rendered string', () => {
-    for (const template of strings(copy)) {
-      const names = [...template.matchAll(/\{(\w+)\}/g)].map((match) => match[1])
-      const rendered = text(template, Object.fromEntries(names.map((name) => [name, 'x'])))
-      expect(rendered).not.toContain('{')
-      expect(rendered).not.toContain('}')
-    }
-  })
-
   it('refuses to render a sentence with a value missing', () => {
-    expect(() => text(copy.review.title, { amount: '5.00' })).toThrow('{symbol}')
+    expect(() => i18n.t('payment:review.title', { amount: '5.00' })).toThrow('No value for symbol')
   })
 
   it('never says a payment is protected, insured or bounded', () => {
-    for (const sentence of strings(copy)) {
+    for (const sentence of strings(resources.en.payment)) {
       expect(sentence.toLowerCase()).not.toMatch(/protect|insur|bounded|guarantee/)
     }
   })
 
   it('names the medium on the request screen and never asks to scan when there is nothing to scan', () => {
-    expect(copy.receive.requestTitle.qr).toBe('Ask the payer to scan this code')
-    expect(copy.receive.requestTitle.nfc).toBe('Hold the phones together')
-    expect(copy.receive.requestTitle.nearby).toBe('Keep the phones close and wait for the payer')
+    expect(i18n.t('payment:receive.requestTitle.qr')).toBe('Ask the payer to scan this code')
+    expect(i18n.t('payment:receive.requestTitle.nfc')).toBe('Hold the phones together')
+    expect(i18n.t('payment:receive.requestTitle.nearby')).toBe('Keep the phones close and wait for the payer')
     for (const medium of ['nfc', 'nearby'] as const) {
-      expect(copy.receive.requestTitle[medium].toLowerCase()).not.toMatch(/scan|camera|code/)
+      expect(i18n.t(`payment:receive.requestTitle.${medium}`).toLowerCase()).not.toMatch(/scan|camera|code/)
     }
   })
 
   it('does not tell anyone to use the camera while waiting on Tap or Nearby', () => {
-    expect(howCopy.waitingForRequest.toLowerCase()).not.toMatch(/scan|camera|code/)
-    expect(copy.receive.waitingForPayment.toLowerCase()).not.toMatch(/scan|camera|code/)
+    expect(i18n.t('transport:waitingForRequest').toLowerCase()).not.toMatch(/scan|camera|code/)
+    expect(i18n.t('payment:receive.waitingForPayment').toLowerCase()).not.toMatch(/scan|camera|code/)
   })
 
   it('says only what the bond does: it is destroyed if the same money is signed twice', () => {
-    expect(copy.receive.bondNote).toContain('destroyed if they sign the same money twice')
+    expect(i18n.t('payment:receive.bondNote')).toContain('destroyed if they sign the same money twice')
   })
 
   it('tells the person what to do for each way a signature fails', () => {

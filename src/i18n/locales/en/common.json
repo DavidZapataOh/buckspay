@@ -6,5 +6,40 @@
     "minute_other": "{{count}} minutes",
     "second_one": "{{count}} second",
     "second_other": "{{count}} seconds"
+  },
+  "tabs": {
+    "home": "Home",
+    "pay": "Pay",
+    "receive": "Receive",
+    "activity": "Activity",
+    "settings": "Settings"
+  },
+  "close": "Close",
+  "done": "Done",
+  "working": "Working",
+  "copyAddress": "Copy address",
+  "openInExplorer": "Open in explorer",
+  "checkingPhone": "Checking this phone",
+  "registeredTo": "Registered to",
+  "connectedWallet": "Connected wallet",
+  "details": "Details",
+  "hideDetails": "Hide details",
+  "checking": "Checking…",
+  "unknown": "Unknown",
+  "notConnected": "Not connected",
+  "notRegistered": "Not registered",
+  "home": {
+    "addFunds": "Add funds",
+    "locksAndWithdrawals": "Locks and withdrawals"
+  },
+  "qr": {
+    "tooSmall": "This screen is too small to show the code sharply. Try the other transport or paste the code.",
+    "cameraOff": "Camera access is off. Allow it in Settings to scan, or paste the code instead.",
+    "openSettings": "Open Settings",
+    "notBuckspay": "That isn't a Buckspay code.",
+    "paste": "Paste code",
+    "frontCamera": "Use the front camera",
+    "lightOff": "Turn the light off",
+    "lightOn": "Turn the light on"
   }
 }

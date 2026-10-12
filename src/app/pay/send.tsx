@@ -1,3 +1,6 @@
+import { formatDate, formatMoney } from '../../i18n/format'
+import { i18n, currentLanguage, NAMESPACES } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 import { router } from 'expo-router'
 import { useEffect } from 'react'
 import { AccessibilityInfo, View } from 'react-native'
@@ -10,16 +13,15 @@ import { nativeErrorCode } from '../../keys'
 import { MIN_WINDOW, PAY_LIMITS } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { usePayFlow } from '../../features/pay/use-pay-flow'
-import { copy, payErrorKey, text } from '../../features/payment/copy'
+import { payErrorKey } from '../../features/payment/copy'
 import { reasonText } from '../../features/payment/reason-text'
 import { ResultMark } from '../../features/payment/result-mark'
 import { QrPresenter } from '../../features/qr/qr-presenter'
 import { ScanScreen } from '../../features/qr/scan-screen'
 import { WaitingScreen } from '../../features/transport/waiting'
 import { NearbyCheck } from '../../features/witness/nearby-check'
-import { formatMoney } from '../../utils/format-amount'
 
-const money = (units: bigint) => formatMoney(units, BUILD_TOKEN.decimals)
+const money = (units: bigint) => formatMoney(units, BUILD_TOKEN.decimals, currentLanguage())
 
 function issueOf(payment: SentPayment) {
   try {
@@ -30,6 +32,8 @@ function issueOf(payment: SentPayment) {
 }
 
 export default function PaySend() {
+  const { t } = useTranslation(NAMESPACES)
+
   const flow = usePayFlow()
   const { state } = flow
 
@@ -40,7 +44,7 @@ export default function PaySend() {
   useEffect(() => {
     if (state.name === 'confirmed') {
       AccessibilityInfo.announceForAccessibility(
-        text(copy.send.confirmedSpoken, { amount: money(state.payment.amount), symbol: BUILD_TOKEN.symbol }),
+        i18n.t('payment:send.confirmedSpoken', { amount: money(state.payment.amount), symbol: BUILD_TOKEN.symbol }),
       )
     }
   }, [state])
@@ -61,9 +65,9 @@ export default function PaySend() {
       <>
         <WaitingScreen
           medium={flow.how.chosen}
-          title={copy.send.waiting}
+          title={t('payment:send.waiting')}
           onCancel={flow.cancelReceipt}
-          cancelLabel={copy.review.cancel}
+          cancelLabel={t('payment:review.cancel')}
         />
         {nearby}
       </>
@@ -73,12 +77,12 @@ export default function PaySend() {
   if (state.name === 'awaiting-receipt') {
     return (
       <ScanScreen
-        hint={copy.scan.receiptHint}
+        hint={t('payment:scan.receiptHint')}
         hintTestID="pay-scan-receipt-hint"
         progress={flow.progress}
         onText={flow.submitText}
         onCancel={flow.cancelReceipt}
-        cancelLabel={copy.review.cancel}
+        cancelLabel={t('payment:review.cancel')}
       />
     )
   }
@@ -86,31 +90,40 @@ export default function PaySend() {
   if (state.name === 'presenting') {
     return (
       <Screen testID="pay-presenting">
-        <AppText variant="headline">{copy.send.title}</AppText>
+        <AppText variant="headline">{t('payment:send.title')}</AppText>
         {flow.texts ? (
           <QrPresenter
             texts={flow.texts}
-            accessibilityLabel={text(copy.send.codeLabel, {
+            accessibilityLabel={t('payment:send.codeLabel', {
               amount: money(state.payment.amount),
               symbol: BUILD_TOKEN.symbol,
             })}
           />
         ) : null}
         <AppText testID="pay-status" variant="body" accessibilityLiveRegion="polite">
-          {state.unconfirmed ? copy.send.unconfirmed : state.otherReceipt ? copy.send.otherPayment : copy.send.waiting}
+          {state.unconfirmed
+            ? t('payment:send.unconfirmed')
+            : state.otherReceipt
+              ? t('payment:send.otherPayment')
+              : t('payment:send.waiting')}
         </AppText>
         <AppText variant="body" tone="muted">
-          {copy.send.keepUp}
+          {t('payment:send.keepUp')}
         </AppText>
         {nearby}
         <View className="gap-3">
           {state.unconfirmed ? (
             <>
-              <Button testID="pay-wait-again" variant="tonal" label={copy.send.waitAgain} onPress={flow.scanReceipt} />
+              <Button
+                testID="pay-wait-again"
+                variant="tonal"
+                label={t('payment:send.waitAgain')}
+                onPress={flow.scanReceipt}
+              />
               <Button
                 testID="pay-send-again"
                 variant="tonal"
-                label={copy.send.resume}
+                label={t('payment:send.resume')}
                 onPress={() => void flow.resume()}
               />
             </>
@@ -119,11 +132,11 @@ export default function PaySend() {
             <Button
               testID="pay-scan-receipt"
               variant="tonal"
-              label={copy.send.scanReceipt}
+              label={t('payment:send.scanReceipt')}
               onPress={flow.scanReceipt}
             />
           ) : null}
-          <Button testID="pay-done" variant="text" label={copy.send.done} onPress={flow.finish} />
+          <Button testID="pay-done" variant="text" label={t('payment:send.done')} onPress={flow.finish} />
         </View>
       </Screen>
     )
@@ -134,10 +147,10 @@ export default function PaySend() {
       <Screen testID="pay-result-confirmed">
         <ResultMark ok />
         <AppText variant="headline" tone="success">
-          {text(copy.send.confirmed, { amount: money(state.payment.amount), symbol: BUILD_TOKEN.symbol })}
+          {t('payment:send.confirmed', { amount: money(state.payment.amount), symbol: BUILD_TOKEN.symbol })}
         </AppText>
         {nearby}
-        <Button testID="pay-done" variant="filled" label={copy.send.done} onPress={flow.finish} />
+        <Button testID="pay-done" variant="filled" label={t('payment:send.done')} onPress={flow.finish} />
       </Screen>
     )
   }
@@ -155,18 +168,18 @@ export default function PaySend() {
       <Screen testID="pay-result-rejected">
         <ResultMark ok={false} />
         <AppText variant="headline" tone="danger">
-          {text(copy.send.rejected, { reason: why.replace(/\.$/, '') })}
+          {t('payment:send.rejected', { reason: why.replace(/\.$/, '') })}
         </AppText>
         <AppText variant="body">
-          {text(copy.send.rejectedNext, {
+          {t('payment:send.rejectedNext', {
             amount: money(state.payment.amount),
             symbol: BUILD_TOKEN.symbol,
-            date: lock ? new Date(lock.lockUntil * 1000).toLocaleDateString() : '',
+            date: lock ? formatDate(lock.lockUntil, currentLanguage()) : '',
           })}
         </AppText>
         <View className="gap-3">
-          <Button testID="pay-again" variant="filled" label={copy.send.again} onPress={flow.showAgain} />
-          <Button testID="pay-done" variant="text" label={copy.send.done} onPress={flow.finish} />
+          <Button testID="pay-again" variant="filled" label={t('payment:send.again')} onPress={flow.showAgain} />
+          <Button testID="pay-done" variant="text" label={t('payment:send.done')} onPress={flow.finish} />
         </View>
       </Screen>
     )
@@ -179,7 +192,7 @@ export default function PaySend() {
       <Screen testID="pay-failed">
         <ResultMark ok={false} />
         <AppText variant="headline" tone="danger" accessibilityLiveRegion="polite">
-          {text(copy.payError[key], {
+          {t(`payment:payError.${key}`, {
             amount: money(PAY_LIMITS.biometricFrom),
             symbol: BUILD_TOKEN.symbol,
           })}
@@ -189,7 +202,7 @@ export default function PaySend() {
             <Button
               testID="pay-resume"
               variant="filled"
-              label={copy.send.resume}
+              label={t('payment:send.resume')}
               onPress={() => void flow.resume(flow.unfinished.at(-1)?.messageId)}
             />
           ) : null}
@@ -197,11 +210,11 @@ export default function PaySend() {
             <Button
               testID="pay-reset-identity"
               variant="tonal"
-              label={copy.send.resetIdentity}
+              label={t('payment:send.resetIdentity')}
               onPress={() => router.push('/reset-identity')}
             />
           ) : null}
-          <Button testID="pay-done" variant="text" label={copy.send.done} onPress={flow.finish} />
+          <Button testID="pay-done" variant="text" label={t('payment:send.done')} onPress={flow.finish} />
         </View>
       </Screen>
     )

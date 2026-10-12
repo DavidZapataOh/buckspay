@@ -1,3 +1,6 @@
+import { formatMoney } from '../../i18n/format'
+import { currentLanguage, NAMESPACES } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 import { BUCKSPAY_PROGRAM_ADDRESS } from '@project/anchor'
 import Constants from 'expo-constants'
 import { useState } from 'react'
@@ -9,11 +12,10 @@ import { ListRow } from '../../components/list-row'
 import { Screen } from '../../components/screen'
 import { StatusNote } from '../../components/status-note'
 import { MeshSettings, type MeshSettingsProps } from '../mesh/mesh-settings'
-import { keyProtection, SOFTWARE_KEY_WARNING } from '../identity/identity-copy'
-import { eventCopy } from '../event/copy'
-import { copy, text } from '../payment/copy'
-import { MIN_TIP_BOND, rewardsCopy } from '../rewards/copy'
-import { formatMoney } from '../../utils/format-amount'
+import { keyProtection } from '../identity/identity-copy'
+
+import { MIN_TIP_BOND } from '../rewards/reward-terms'
+
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { BUILD_NETWORK } from '../network/build-network'
 import { PrivateDataRow, type PrivateDataProps } from '../zk/private-data-row'
@@ -50,6 +52,8 @@ export function Settings({
   privateData?: PrivateDataProps
   tipping?: TippingSettings
 }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const { step, busy, error, wallet, device, deviceKey, disconnect } = useDeviceIdentity()
   const [forgetting, setForgetting] = useState(false)
   const checking = step === 'loading' && !error
@@ -62,30 +66,42 @@ export function Settings({
 
   return (
     <Screen testID="settings">
-      <AppText variant="headline">Settings</AppText>
-      <ListRow testID="network" title="Network" value={BUILD_NETWORK.label} />
+      <AppText variant="headline">{t('settings:title')}</AppText>
+      <ListRow testID="network" title={t('settings:network')} value={BUILD_NETWORK.label} />
       {wallet ? (
-        <AddressRow testID="wallet" address={wallet} label="Connected wallet" />
+        <AddressRow testID="wallet" address={wallet} label={t('common:connectedWallet')} />
       ) : (
-        <ListRow testID="wallet" title="Connected wallet" value={checking ? 'Checking…' : 'Not connected'} />
+        <ListRow
+          testID="wallet"
+          title={t('common:connectedWallet')}
+          value={checking ? t('common:checking') : t('common:notConnected')}
+        />
       )}
       {device ? (
-        <AddressRow testID="registered-to" address={device.wallet} label="Registered to" />
+        <AddressRow testID="registered-to" address={device.wallet} label={t('common:registeredTo')} />
       ) : (
-        <ListRow testID="registered-to" title="Registered to" value={checking ? 'Checking…' : 'Not registered'} />
+        <ListRow
+          testID="registered-to"
+          title={t('common:registeredTo')}
+          value={checking ? t('common:checking') : t('common:notRegistered')}
+        />
       )}
       <ListRow
         testID="security-level"
-        title="Key protection"
-        value={checking ? 'Checking…' : deviceKey ? keyProtection[deviceKey.securityLevel] : 'No key on this phone'}
+        title={t('settings:keyProtection')}
+        value={
+          checking ? t('common:checking') : deviceKey ? keyProtection(deviceKey.securityLevel) : t('settings:noKey')
+        }
       />
-      {deviceKey?.securityLevel === 'software' ? <StatusNote tone="danger" message={SOFTWARE_KEY_WARNING} /> : null}
+      {deviceKey?.securityLevel === 'software' ? (
+        <StatusNote tone="danger" message={t('identity:softwareKeyWarning')} />
+      ) : null}
       <StatusNote tone="danger" message={error} />
       {wallet ? (
         <Button
           testID="disconnect"
           variant="tonal"
-          label="Forget wallet on this phone"
+          label={t('settings:forgetWallet')}
           busy={forgetting}
           disabled={busy}
           onPress={() => void forget()}
@@ -94,27 +110,35 @@ export function Settings({
       {payments ? (
         <>
           <AppText variant="title" accessibilityRole="header" className="mt-4">
-            {copy.settings.limits}
+            {t('payment:settings.limits')}
           </AppText>
-          <Button testID="events" variant="tonal" label={eventCopy.settings} onPress={payments.onEvents} />
-          <ListRow testID="limit-per-payment" title={copy.settings.perPayment} value={payments.limits.perPayment} />
-          <ListRow testID="limit-biometric" title={copy.settings.biometricFrom} value={payments.limits.biometricFrom} />
+          <Button testID="events" variant="tonal" label={t('event:settings')} onPress={payments.onEvents} />
+          <ListRow
+            testID="limit-per-payment"
+            title={t('payment:settings.perPayment')}
+            value={payments.limits.perPayment}
+          />
+          <ListRow
+            testID="limit-biometric"
+            title={t('payment:settings.biometricFrom')}
+            value={payments.limits.biometricFrom}
+          />
           <ListRow
             testID="limit-biometric-daily"
-            title={copy.settings.biometricDaily}
+            title={t('payment:settings.biometricDaily')}
             value={payments.limits.biometricDaily}
           />
-          <ListRow testID="limit-window" title={copy.settings.window} value={payments.limits.window} />
+          <ListRow testID="limit-window" title={t('payment:settings.window')} value={payments.limits.window} />
           <NearbyCheckSettings {...payments.nearbyCheck} />
           <ListRow
             testID="uninstall"
-            title={copy.settings.uninstall}
-            value={text(copy.settings.uninstallBody, { count: payments.unsettled })}
+            title={t('payment:settings.uninstall')}
+            value={t('payment:settings.uninstallBody', { count: payments.unsettled })}
           />
           <Button
             testID="reset-identity"
             variant="tonal"
-            label={copy.settings.reset}
+            label={t('payment:settings.reset')}
             disabled={busy}
             onPress={payments.onReset}
           />
@@ -124,38 +148,43 @@ export function Settings({
       {privateData ? <PrivateDataRow {...privateData} /> : null}
       {tipping ? <TipRow {...tipping} /> : null}
       <AppText variant="title" accessibilityRole="header" className="mt-4">
-        Technical details
+        {t('settings:technicalDetails')}
       </AppText>
-      {device ? <AddressRow address={device.address} label="Device account" /> : null}
+      {device ? <AddressRow address={device.address} label={t('settings:deviceAccount')} /> : null}
 
       {deviceKey ? (
-        <ListRow title="Key attestation" value={`Chain of ${deviceKey.attestationChain.length} certificates`} />
+        <ListRow
+          title={t('settings:keyAttestation')}
+          value={t('settings:certificates', { count: deviceKey.attestationChain.length })}
+        />
       ) : null}
-      <AddressRow address={BUCKSPAY_PROGRAM_ADDRESS} label="Program" />
-      <ListRow title="Version" value={Constants.expoConfig?.version ?? 'Unknown'} />
+      <AddressRow address={BUCKSPAY_PROGRAM_ADDRESS} label={t('settings:program')} />
+      <ListRow title={t('settings:version')} value={Constants.expoConfig?.version ?? t('common:unknown')} />
     </Screen>
   )
 }
 
 function TipRow({ on, wordValue, bond, symbol, decimals, onToggle }: TippingSettings) {
+  const { t } = useTranslation(NAMESPACES)
+
   const covered = bond >= MIN_TIP_BOND
   return (
     <View testID="tipping" className="gap-1">
       <AppText variant="title" accessibilityRole="header" className="mt-4">
-        {rewardsCopy.tipSection}
+        {t('rewards:tipSection')}
       </AppText>
       <View className="min-h-14 flex-row items-center justify-between">
         <View className="flex-1 pr-4">
-          <AppText variant="body">{rewardsCopy.tipSwitch}</AppText>
+          <AppText variant="body">{t('rewards:tipSwitch')}</AppText>
           <AppText variant="label" tone="muted">
             {covered
-              ? text(rewardsCopy.tipAmount, { amount: formatMoney(wordValue, decimals), symbol })
-              : rewardsCopy.tipNeedsBond}
+              ? t('rewards:tipAmount', { amount: formatMoney(wordValue, decimals, currentLanguage()), symbol })
+              : t('rewards:tipNeedsBond')}
           </AppText>
         </View>
         <Switch
           testID="tip-switch"
-          accessibilityLabel={rewardsCopy.tipSwitch}
+          accessibilityLabel={t('rewards:tipSwitch')}
           value={covered && on}
           disabled={!covered}
           onValueChange={onToggle}

@@ -1,10 +1,10 @@
+import { i18n } from '../../i18n'
 import { address } from '@solana/kit'
 import { act, type ComponentProps } from 'react'
 import { create, type ReactTestInstance } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { configureDeviceKey, createDeviceKey, type DeviceKey } from '../../keys'
 import { resetHardwareKeys } from '../../keys/test-support/hardware-keys'
-import { SOFTWARE_KEY_WARNING } from '../identity/identity-copy'
 import type { DeviceIdentity } from '../identity/use-device-identity'
 import { Settings } from './settings'
 
@@ -65,7 +65,7 @@ describe('Settings', () => {
     expect(row(root, 'network')).toEqual(['Network', 'Devnet · test network'])
     expect(root.findAllByProps({ accessibilityLabel: `Registered to: ${wallet}` })).toHaveLength(1)
     expect(row(root, 'security-level')).toEqual(['Key protection', 'Software only'])
-    expect(texts(root)).toContain(SOFTWARE_KEY_WARNING)
+    expect(texts(root)).toContain(i18n.t('identity:softwareKeyWarning'))
     expect(texts(root)).toContain('Technical details')
     const forget = root.findByProps({ testID: 'disconnect', accessibilityRole: 'button' })
     expect(forget.props.accessibilityLabel).toBe('Forget wallet on this phone')

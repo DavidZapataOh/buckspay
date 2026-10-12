@@ -1,8 +1,9 @@
+import { i18n } from '../../i18n'
 import { act } from 'react'
 import { create, type ReactTestInstance } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
 import type { PlanRefusal } from '../../payment/preflight'
-import { copy } from '../payment/copy'
+
 import { PayRefused } from './refusal'
 
 vi.mock('react-native', () => import('../../test-support/react-native'))
@@ -53,11 +54,11 @@ describe('PayRefused', () => {
       const shown = texts(renderer.root).join('\n')
       expect(shown.length).toBeGreaterThan(10)
       expect(shown).not.toContain('{')
-      expect(copy.refusal[reason].action).not.toBe('')
+      expect(i18n.t(`payment:refusal.${reason}.action`)).not.toBe('')
       const button = renderer.root.findByProps({ testID: 'pay-refused-action' })
-      expect(button.props.label).toBe(copy.refusal[reason].action)
+      expect(button.props.label).toBe(i18n.t(`payment:refusal.${reason}.action`))
       await act(async () => button.props.onPress())
-      expect(onAction).toHaveBeenCalledWith(copy.refusal[reason].action)
+      expect(onAction).toHaveBeenCalledWith(i18n.t(`payment:refusal.${reason}.action`))
       seen.add(shown)
     }
     expect(seen.size).toBe(reasons.length)

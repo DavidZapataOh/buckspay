@@ -1,5 +1,6 @@
+import { formatAmount, formatMoney, parseAmount } from '../i18n/format'
+import { currentLanguage } from '../i18n'
 import { describe, expect, it } from 'vitest'
-import { formatAmount, formatMoney, parseAmount } from './format-amount'
 
 describe('token amounts', () => {
   it('formats base units without trailing zeros', () => {
@@ -11,12 +12,12 @@ describe('token amounts', () => {
   })
 
   it('formats money with at least two decimals, and every decimal the amount needs', () => {
-    expect(formatMoney(5_000_000n, 6)).toBe('5.00')
-    expect(formatMoney(2_500_000n, 6)).toBe('2.50')
-    expect(formatMoney(1n, 6)).toBe('0.000001')
-    expect(formatMoney(0n, 6)).toBe('0.00')
-    expect(formatMoney(12n, 0)).toBe('12')
-    expect(formatMoney(5n, 1)).toBe('0.5')
+    expect(formatMoney(5_000_000n, 6, currentLanguage())).toBe('5.00')
+    expect(formatMoney(2_500_000n, 6, currentLanguage())).toBe('2.50')
+    expect(formatMoney(1n, 6, currentLanguage())).toBe('0.000001')
+    expect(formatMoney(0n, 6, currentLanguage())).toBe('0.00')
+    expect(formatMoney(12n, 0, currentLanguage())).toBe('12')
+    expect(formatMoney(5n, 1, currentLanguage())).toBe('0.5')
   })
 
   it('parses what a person types and refuses the rest', () => {

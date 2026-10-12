@@ -1,3 +1,6 @@
+import { formatDateTime } from '../../i18n/format'
+import { currentLanguage, NAMESPACES } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useState } from 'react'
@@ -13,7 +16,6 @@ import { sentence, parseActivityId } from '../../features/activity/format'
 import { PAY_LIMITS, MIN_WINDOW } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { usePayFlow } from '../../features/pay/use-pay-flow'
-import { copy, text } from '../../features/payment/copy'
 import { usePayments } from '../../features/payment/payments-provider'
 import { reasonText } from '../../features/payment/reason-text'
 import type { Reason } from '../../payment/reasons'
@@ -22,6 +24,8 @@ import { useSettlementRunner } from '../../features/settlement/use-settlement-ru
 import { ellipsify } from '../../utils/ellipsify'
 
 export default function ActivityDetailScreen() {
+  const { t } = useTranslation(NAMESPACES)
+
   const { id } = useLocalSearchParams<{ id: string }>()
   const { db } = usePayments()
   const settlement = useSettlementRunner()
@@ -53,23 +57,23 @@ export default function ActivityDetailScreen() {
   const why = settleable && detail.outputId ? whyWaiting(settlement.report, detail.outputId) : undefined
   const waiting =
     detail.keepUntil !== undefined
-      ? text(copy.activity.passOnUntil, { time: new Date(detail.keepUntil * 1000).toLocaleString() })
-      : (why?.text ?? (detail.state === 'expired' ? copy.activity.expiredNote : undefined))
+      ? t('payment:activity.passOnUntil', { time: formatDateTime(detail.keepUntil, currentLanguage()) })
+      : (why?.text ?? (detail.state === 'expired' ? t('payment:activity.expiredNote') : undefined))
 
   return (
     <Screen testID="activity-detail">
-      <AppText variant="headline">{copy.activity.detail}</AppText>
+      <AppText variant="headline">{t('payment:activity.detail')}</AppText>
       <AppText variant="body">{sentence({ ...detail }, symbol, decimals)}</AppText>
-      <ListRow title={copy.activity.id} value={ellipsify(bytesToHex(detail.id), 8)} />
-      <ListRow title={copy.activity.time} value={new Date(detail.at * 1000).toLocaleString()} />
+      <ListRow title={t('payment:activity.id')} value={ellipsify(bytesToHex(detail.id), 8)} />
+      <ListRow title={t('payment:activity.time')} value={formatDateTime(detail.at, currentLanguage())} />
       {detail.remote && detail.deadline !== undefined ? (
         <RemoteStatus state={detail.state} passedTo={detail.handedTo ?? 0} deadline={detail.deadline} />
       ) : null}
-      {detail.transport ? <ListRow title={copy.activity.transport} value={detail.transport} /> : null}
-      {detail.memo ? <ListRow title={copy.activity.note} value={`“${detail.memo}”`} /> : null}
+      {detail.transport ? <ListRow title={t('payment:activity.transport')} value={detail.transport} /> : null}
+      {detail.memo ? <ListRow title={t('payment:activity.note')} value={`“${detail.memo}”`} /> : null}
       {detail.reason ? (
         <ListRow
-          title={copy.activity.reason}
+          title={t('payment:activity.reason')}
           value={reasonText(detail.reason as Reason, {
             window: MIN_WINDOW,
             max: PAY_LIMITS.maxPayment,
@@ -79,7 +83,7 @@ export default function ActivityDetailScreen() {
         />
       ) : null}
       {detail.locks && detail.locks.length > 0 ? (
-        <ListRow title={copy.activity.locks} value={detail.locks.join(', ')} />
+        <ListRow title={t('payment:activity.locks')} value={detail.locks.join(', ')} />
       ) : null}
       {lost?.claim.kind === 'reported' ? (
         <LostNote
@@ -102,7 +106,7 @@ export default function ActivityDetailScreen() {
           <Button
             testID="settle-now"
             variant="filled"
-            label={copy.activity.settleNow}
+            label={t('payment:activity.settleNow')}
             busy={settlement.running}
             onPress={() => detail.outputId && void settlement.settleNow(detail.outputId)}
           />
@@ -111,19 +115,19 @@ export default function ActivityDetailScreen() {
           <Button
             testID="settle-in-clear"
             variant="tonal"
-            label={copy.activity.settleInClear}
+            label={t('payment:activity.settleInClear')}
             onPress={() => detail.outputId && void settlement.confirmNotice(detail.outputId)}
           />
         ) : null}
         {detail.kind === 'paid' && detail.unfinished ? (
           <>
             <AppText variant="body" tone="muted">
-              {copy.pay.discardWarning}
+              {t('payment:pay.discardWarning')}
             </AppText>
             <Button
               testID="pay-resume"
               variant="filled"
-              label={detail.state === 'signed' ? copy.pay.showAgain : copy.pay.resume}
+              label={detail.state === 'signed' ? t('payment:pay.showAgain') : t('payment:pay.resume')}
               onPress={() => {
                 void flow.resume(detail.id).then(() => router.push('/pay/send'))
               }}
@@ -131,7 +135,7 @@ export default function ActivityDetailScreen() {
             <Button
               testID="pay-discard"
               variant="text"
-              label={copy.pay.discard}
+              label={t('payment:pay.discard')}
               onPress={() => {
                 void flow.discard(detail.id).then(() => router.back())
               }}

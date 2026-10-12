@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../i18n'
 import * as Clipboard from 'expo-clipboard'
 import { openURL } from 'expo-linking'
 import { Platform, ToastAndroid, View } from 'react-native'
@@ -15,6 +17,8 @@ async function copy(address: string) {
 
 /** A labeled, shortened address with copy and explorer actions. */
 export function AddressRow({ address, label, testID }: { address: string; label: string; testID?: string }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const { getExplorerUrl } = useNetwork()
   return (
     <View testID={testID} className="min-h-14 flex-row items-center">
@@ -24,10 +28,10 @@ export function AddressRow({ address, label, testID }: { address: string; label:
           {ellipsify(address)}
         </AppText>
       </View>
-      <IconButton icon="content_copy" label="Copy address" onPress={() => void copy(address)} />
+      <IconButton icon="content_copy" label={t('common:copyAddress')} onPress={() => void copy(address)} />
       <IconButton
         icon="open_in_new"
-        label="Open in explorer"
+        label={t('common:openInExplorer')}
         onPress={() => void openURL(getExplorerUrl(`address/${address}`))}
       />
     </View>

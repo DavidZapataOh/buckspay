@@ -59,7 +59,7 @@ import {
   resolveIdentity,
 } from './device-identity'
 import { formatSol } from '../../utils/format-sol'
-import { onboardingCopy } from '../lock/lock-copy'
+import { i18n } from '../../i18n'
 import { GatewayError, type Prepared, type Quote } from '../lock/gateway'
 import { MAX_SPONSORED_PRIORITY_FEE } from '../lock/gateway-onboard'
 import { buildOnboardTransaction } from '../lock/messages'
@@ -1176,7 +1176,7 @@ describe('device identity', () => {
     walletFailure = 'one-signature'
     const refused = await advanceIdentity(context(), atActivate)
     expect(refused).toMatchObject({ step: 'activate', sponsorship: 'unavailable' })
-    expect(refused.error).toBe(onboardingCopy.walletChangedTransaction)
+    expect(refused.error).toBe(i18n.t('lock:walletChangedTransaction'))
     expect(refused.details).toContain('expected the transaction to have 2 signatures, got 1')
     expect(sponsor.submitted).toBe(0)
     expect(cluster.sent).toHaveLength(0)
@@ -1220,7 +1220,7 @@ describe('device identity', () => {
     for (const failure of ['appends', 'budget', 'reorders'] as const) {
       walletFailure = failure
       const refused = await advanceIdentity(context(), atActivate)
-      expect(refused.error).toBe(onboardingCopy.walletChangedTransaction)
+      expect(refused.error).toBe(i18n.t('lock:walletChangedTransaction'))
       // No self-pay offer: the wallet cannot cover the network costs.
       expect(refused.activation!.sol.balance).toBeLessThan(refused.activation!.sol.cost)
       expect(refused).toMatchObject({ step: 'activate', sponsorship: 'unavailable' })

@@ -1,5 +1,6 @@
+import { i18n } from '../../i18n'
 import { describe, expect, it, vi } from 'vitest'
-import { remoteCopy } from './copy'
+
 import { FarAwayPay } from './far-away-pay'
 import { M, W } from './testing'
 import { byLabel, mount, press, texts, type } from './ui-testing'
@@ -21,16 +22,16 @@ describe('Far away pay', () => {
   it('shows the deadline before confirming and the honest outcome line', async () => {
     const r = await mount(<FarAwayPay contacts={ana()} now={1_800_000_000} online={false} />)
     await press(r.root, 'Ana')
-    await type(r.root, remoteCopy.amount, '3')
-    await press(r.root, remoteCopy.review)
+    await type(r.root, i18n.t('remote:amount'), '3')
+    await press(r.root, i18n.t('remote:review'))
     expect(shown(r)).toMatch(/Ana gets 3\.00 USDC/)
     expect(shown(r)).toMatch(/stays yours/)
-    expect(shown(r)).toContain(remoteCopy.offlineNote)
+    expect(shown(r)).toContain(i18n.t('remote:offlineNote'))
   })
   it('warns when an undelivered payment to the same contact exists', async () => {
     const r = await mount(<FarAwayPay contacts={ana()} pendingTo={[W]} now={1} online={false} />)
     await press(r.root, 'Ana')
-    expect(texts(r.root)).toContain(remoteCopy.pendingWarning)
+    expect(texts(r.root)).toContain(i18n.t('remote:pendingWarning'))
   })
   it('confirms with the contact and the amount in base units', async () => {
     const calls: [string, bigint][] = []
@@ -43,35 +44,35 @@ describe('Far away pay', () => {
       />,
     )
     await press(r.root, 'Ana')
-    await type(r.root, remoteCopy.amount, '3.5')
-    await press(r.root, remoteCopy.review)
-    await press(r.root, remoteCopy.confirm)
+    await type(r.root, i18n.t('remote:amount'), '3.5')
+    await press(r.root, i18n.t('remote:review'))
+    await press(r.root, i18n.t('remote:confirm'))
     expect(calls).toEqual([['Ana', 3_500_000n]])
   })
   it('does not let a contact without a USDC account be paid', async () => {
     const r = await mount(<FarAwayPay contacts={ana('no-account')} now={1} online />)
     await press(r.root, 'Ana')
-    expect(texts(r.root)).toContain(remoteCopy.noAccount)
-    await type(r.root, remoteCopy.amount, '3')
-    expect(byLabel(r.root, remoteCopy.review).props.accessibilityState.disabled).toBe(true)
+    expect(texts(r.root)).toContain(i18n.t('remote:noAccount'))
+    await type(r.root, i18n.t('remote:amount'), '3')
+    expect(byLabel(r.root, i18n.t('remote:review')).props.accessibilityState.disabled).toBe(true)
   })
   it('shows not checked and the cost of failure for an unchecked contact', async () => {
     const r = await mount(<FarAwayPay contacts={ana('not-checked')} now={1} online={false} />)
     await press(r.root, 'Ana')
-    expect(texts(r.root)).toContain(remoteCopy.notChecked)
+    expect(texts(r.root)).toContain(i18n.t('remote:notChecked'))
   })
 
   it('shows the delivery tip on the review only when tipping is on, without calling it delivery proof', async () => {
     const tip = { value: 500_000n }
     const on = await mount(<FarAwayPay contacts={ana()} now={1} online tip={tip} />)
     await press(on.root, 'Ana')
-    await type(on.root, remoteCopy.amount, '3')
-    await press(on.root, remoteCopy.review)
+    await type(on.root, i18n.t('remote:amount'), '3')
+    await press(on.root, i18n.t('remote:review'))
     expect(texts(on.root)).toContain('Delivery tip · up to 0.50 USDC, paid only if your payment settles')
     const off = await mount(<FarAwayPay contacts={ana()} now={1} online />)
     await press(off.root, 'Ana')
-    await type(off.root, remoteCopy.amount, '3')
-    await press(off.root, remoteCopy.review)
+    await type(off.root, i18n.t('remote:amount'), '3')
+    await press(off.root, i18n.t('remote:review'))
     expect(texts(off.root).join('\n')).not.toMatch(/Delivery tip/)
   })
 })

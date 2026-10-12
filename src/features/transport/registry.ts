@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { openPairing, type PairingRole } from '../nearby/handoff'
 import { nearbyNative } from '../../transport/nearby/native'
 import { nearbyAvailability } from '../../transport/nearby/transport'
@@ -5,7 +6,7 @@ import { nfcNative } from '../../transport/nfc/native'
 import { createNfcTransport, nfcAvailability } from '../../transport/nfc/transport'
 import type { NfcRole } from '../../transport/nfc/types'
 import type { Availability, Transport, TransportId } from '../../transport/types'
-import { howCopy } from './copy'
+
 import { meshPause, meshResume } from './mesh-yield'
 
 export type { PairingRole }
@@ -23,7 +24,7 @@ export type TransportEntry = {
 export function qrEntry(session: { transport: Transport }): TransportEntry {
   return {
     id: 'qr',
-    label: howCopy.labels.qr,
+    label: i18n.t('transport:labels.qr'),
     check: async () => ({ ready: true }),
     start: async () => session.transport,
   }
@@ -34,7 +35,7 @@ export const nfcRoleFor = (role: PairingRole): NfcRole => (role === 'receiver' ?
 
 export const nfcEntry: TransportEntry = {
   id: 'nfc',
-  label: howCopy.labels.nfc,
+  label: i18n.t('transport:labels.nfc'),
   check: async () => nfcAvailability(await nfcNative.support()),
   start: async (role) => createNfcTransport(nfcNative, nfcRoleFor(role)),
 }
@@ -42,7 +43,7 @@ export const nfcEntry: TransportEntry = {
 export function createNearbyEntry(open: (role: PairingRole) => Promise<Transport>): TransportEntry {
   return {
     id: 'nearby',
-    label: howCopy.labels.nearby,
+    label: i18n.t('transport:labels.nearby'),
     check: async () => nearbyAvailability(await nearbyNative.support()),
     async start(role) {
       await meshPause()

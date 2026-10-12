@@ -1,9 +1,11 @@
+import { formatMoney } from '../../i18n/format'
+import { i18n, currentLanguage } from '../../i18n'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, concatBytes, hexToBytes } from '@noble/hashes/utils.js'
 import { type CoSignedIou, encodeCoSigned, IouCause } from '../../protocol'
-import { formatMoney } from '../../utils/format-amount'
+
 import { equalBytes } from '@noble/curves/utils.js'
-import { debtsCopy } from './copy'
+
 import { type AppliedNetting, balance, expectedBalance, type RepayStatus } from './tab'
 import type { StateRow, TabRow } from './store'
 
@@ -66,13 +68,16 @@ export function summarize(
   }
 }
 
-export const money = (amount: bigint, decimals: number, symbol: string) => `${formatMoney(amount, decimals)} ${symbol}`
+export const money = (amount: bigint, decimals: number, symbol: string) =>
+  `${formatMoney(amount, decimals, currentLanguage())} ${symbol}`
 
 /** The sentence for a balance seen from `me` (+ = the peer owes me). */
 export function balanceLine(peer: string, balanceUnits: bigint, decimals: number, symbol: string): string {
-  if (balanceUnits === 0n) return debtsCopy.settled(peer)
+  if (balanceUnits === 0n) return i18n.t('debts:settled', { peer: peer })
   const amount = money(balanceUnits < 0n ? -balanceUnits : balanceUnits, decimals, symbol)
-  return balanceUnits > 0n ? debtsCopy.owed(peer, amount) : debtsCopy.owe(peer, amount)
+  return balanceUnits > 0n
+    ? i18n.t('debts:owed', { peer: peer, amount: amount })
+    : i18n.t('debts:owe', { peer: peer, amount: amount })
 }
 
 /** What one change does to `me`: + when the friend owes more, - when the debt goes down. */

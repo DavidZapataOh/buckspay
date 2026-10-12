@@ -1,9 +1,10 @@
+import { i18n } from '../../i18n'
 import { act, useEffect, useState } from 'react'
 import { create } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { receivePayment, showRequest } from '../../payment/receive-flow'
 import { type Transport, TransportError } from '../../transport/types'
-import { copy } from '../payment/copy'
+
 import { type ReceiveFlow, ReceiveFlowProvider, useReceiveFlow } from './use-receive-flow'
 
 const mocks = vi.hoisted(() => ({
@@ -146,7 +147,7 @@ describe('receive flow create', () => {
     })
     expect(failure).toBe('transport')
     expect(flow.state.name).toBe('composing')
-    expect(copy.receive.transportFailed).toContain('Try Code instead')
+    expect(i18n.t('payment:receive.transportFailed', { medium: 'Tap' })).toContain('Try Code instead')
   })
 })
 

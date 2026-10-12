@@ -1,3 +1,4 @@
+import { formatAmount } from '../../i18n/format'
 import { getDeviceSize, getLedgerSize, getLockSize } from '@project/anchor'
 import {
   type Address,
@@ -13,7 +14,7 @@ import {
 } from '@solana/kit'
 import { signDeviceBinding } from '../../keys'
 import { minLockSeconds, type Windows } from '../../protocol'
-import { formatAmount } from '../../utils/format-amount'
+
 import { type Funding, readFunding } from '../lock/funding'
 import type { Gateway, Quote } from '../lock/gateway'
 import { type OperationContext, selfPaidMessage } from '../lock/gateway-onboard'

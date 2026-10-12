@@ -6,6 +6,8 @@ import { LANGUAGES, type Language, resolveLanguage } from './languages'
 import { loadLanguagePreference, saveLanguagePreference } from './preference'
 import { resources } from './resources'
 
+export { NAMESPACES } from './resources'
+
 export const i18n = createInstance()
 
 void i18n.use(initReactI18next).init({
@@ -41,4 +43,9 @@ export async function setLanguage(choice: Language | null): Promise<Language> {
   const language = resolveLanguage(choice, choice === null ? deviceTags() : [])
   await i18n.changeLanguage(language)
   return language
+}
+
+/** The text under a key chosen at run time, or undefined when this language has none for it. */
+export function translateIfKnown(key: string, options?: Record<string, unknown>): string | undefined {
+  return i18n.exists(key) ? String(i18n.t(key as never, options as never)) : undefined
 }

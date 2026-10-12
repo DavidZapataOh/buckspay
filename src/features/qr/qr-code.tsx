@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { useMemo, useState } from 'react'
 import { PixelRatio, View } from 'react-native'
 import Svg, { Path, Rect } from 'react-native-svg'
@@ -22,6 +24,8 @@ export function QrCode({
   accessibilityLabel: string
   testID?: string
 }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const [width, setWidth] = useState(0)
   const modules = useMemo(() => matrix ?? qrMatrix(text), [matrix, text])
   const path = useMemo(() => qrPath(modules), [modules])
@@ -44,12 +48,7 @@ export function QrCode({
           <Path d={path} fill="#000000" />
         </Svg>
       )}
-      {width > 0 && !layout.crisp && (
-        <StatusNote
-          tone="danger"
-          message="This screen is too small to show the code sharply. Try the other transport or paste the code."
-        />
-      )}
+      {width > 0 && !layout.crisp && <StatusNote tone="danger" message={t('common:qr.tooSmall')} />}
     </View>
   )
 }

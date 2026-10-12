@@ -1,13 +1,15 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Screen } from '../../components/screen'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import type { Transport } from '../../transport/types'
-import { copy } from '../payment/copy'
+
 import { QrPresenter } from '../qr/qr-presenter'
 import { ScanScreen } from '../qr/scan-screen'
 import { WaitingScreen } from '../transport/waiting'
-import { debtsCopy } from './copy'
+
 import type { DebtLink } from './use-debts'
 
 /**
@@ -35,6 +37,8 @@ export function ExchangeView<T>({
   /** Replaces the exchange screens while it is shown; the exchange keeps running. */
   overlay?: ReactNode
 }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const [scanning, setScanning] = useState(false)
   const latest = useRef({ link, run, onDone, onFail })
   useEffect(() => {
@@ -61,17 +65,19 @@ export function ExchangeView<T>({
 
   if (overlay) return <>{overlay}</>
   if (link.chosen !== 'qr') {
-    return <WaitingScreen medium={link.chosen} title={title} onCancel={onCancel} cancelLabel={copy.review.cancel} />
+    return (
+      <WaitingScreen medium={link.chosen} title={title} onCancel={onCancel} cancelLabel={t('payment:review.cancel')} />
+    )
   }
   if (scanning) {
     return (
       <ScanScreen
-        hint={copy.scan.hint}
+        hint={t('payment:scan.hint')}
         hintTestID="debts-scan-hint"
         progress={link.session.progress}
         onText={link.session.push}
         onCancel={() => setScanning(false)}
-        cancelLabel={copy.review.cancel}
+        cancelLabel={t('payment:review.cancel')}
       />
     )
   }
@@ -82,12 +88,12 @@ export function ExchangeView<T>({
         <QrPresenter texts={link.session.texts ?? [idleCode!]} accessibilityLabel={title} />
       ) : null}
       <AppText variant="body" tone="muted" accessibilityLiveRegion="polite">
-        {copy.send.waiting}
+        {t('payment:send.waiting')}
       </AppText>
-      <Button variant="tonal" label={copy.send.scanReceipt} onPress={() => setScanning(true)} />
-      <Button variant="text" label={copy.review.cancel} onPress={onCancel} />
+      <Button variant="tonal" label={t('payment:send.scanReceipt')} onPress={() => setScanning(true)} />
+      <Button variant="text" label={t('payment:review.cancel')} onPress={onCancel} />
       <AppText variant="label" tone="muted">
-        {debtsCopy.viaCode}
+        {t('debts:viaCode')}
       </AppText>
     </Screen>
   )

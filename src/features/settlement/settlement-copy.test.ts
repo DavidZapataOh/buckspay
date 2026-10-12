@@ -15,12 +15,12 @@ const { windows } = resolveProfile({})
 
 describe('what the user is told about settling and reclaiming', () => {
   it('labels what each clear-text action publishes, and who sees it', () => {
-    expect(settlementLabel).toContain(
+    expect(settlementLabel()).toContain(
       'publishes the keys of the people it passed through, every amount, and the account that is paid',
     )
-    expect(reclaimLabel).toContain('publishes the whole chain it passed through')
-    expect(reclaimLabel).toContain('even if the payment would otherwise have settled privately')
-    expect(gatewayLabel).toContain('sees this chain, your network address and the time')
+    expect(reclaimLabel()).toContain('publishes the whole chain it passed through')
+    expect(reclaimLabel()).toContain('even if the payment would otherwise have settled privately')
+    expect(gatewayLabel()).toContain('sees this chain, your network address and the time')
   })
 
   it('tells the payee until when it must settle', () => {
@@ -43,7 +43,7 @@ describe('what the user is told about settling and reclaiming', () => {
     expect(refusalNotice('below_minimum')).toContain('pay for it yourself')
     expect(refusalNotice('busy')).toContain('pay for it yourself')
     expect(refusalNotice('horizon')).not.toContain('undefined')
-    expect(balanceNotice).toContain('every account')
+    expect(balanceNotice()).toContain('every account')
   })
 
   it('says what the claim did, and never promises repayment', () => {

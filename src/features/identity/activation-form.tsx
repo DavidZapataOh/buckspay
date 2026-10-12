@@ -1,10 +1,13 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
+import { formatAmount, parseAmount } from '../../i18n/format'
 import { useState } from 'react'
 import { View } from 'react-native'
 import type { Windows } from '../../protocol'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import { TextField } from '../../components/text-field'
-import { formatAmount, parseAmount } from '../../utils/format-amount'
+
 import { FUNDING_SYMBOL, feeNotice, minimumNotice, networkCostNotice, withdrawalDateNotice } from '../lock/lock-copy'
 import { type Activation, type ActivationInput, isSponsored, lockUntil } from './activation'
 import { shortfallNotice } from './identity-copy'
@@ -29,6 +32,8 @@ export function ActivationForm({
   action: string
   onSubmit: (input: ActivationInput) => void
 }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const { funding, quote, sol } = activation
   const [amountText, setAmountText] = useState(formatAmount(activation.defaultAmount, funding.decimals))
   const [daysText, setDaysText] = useState(String(activation.defaultLockDays))
@@ -43,18 +48,18 @@ export function ActivationForm({
   return (
     <View testID="activation-form" className="gap-4">
       <AppText testID="funding-balance" variant="body">
-        Your wallet has {formatAmount(funding.balance, funding.decimals)} {FUNDING_SYMBOL}.
+        {t('identity:walletHas', { amount: formatAmount(funding.balance, funding.decimals), symbol: FUNDING_SYMBOL })}
       </AppText>
       <TextField
         testID="funding-amount"
-        label={`Amount to add (${FUNDING_SYMBOL})`}
+        label={t('identity:amountToAdd', { symbol: FUNDING_SYMBOL })}
         value={amountText}
         onChangeText={setAmountText}
         keyboardType="decimal-pad"
       />
       <TextField
         testID="lock-days"
-        label="Lock length (days)"
+        label={t('identity:lockLengthDays')}
         value={daysText}
         onChangeText={setDaysText}
         keyboardType="numeric"

@@ -1,6 +1,7 @@
+import { i18n } from '../../i18n'
 import { describe, expect, it, vi } from 'vitest'
 import { byLabel, mount, texts } from '../remote/ui-testing'
-import { rewardsCopy } from './copy'
+
 import type { RewardClaims } from './seams'
 import type { NoteDb } from '../notes/db'
 import { migrate } from '../notes/schema'
@@ -51,7 +52,7 @@ describe('the rewards route', () => {
     await migrate(state.db)
     state.claims = undefined
     const r = await mount(<RewardsRoute />)
-    expect(shown(r)).toContain(rewardsCopy.empty)
+    expect(shown(r)).toContain(i18n.t('rewards:empty'))
     expect(byLabel(r.root, 'Claim')).toBeUndefined()
   })
 
@@ -59,8 +60,8 @@ describe('the rewards route', () => {
     state.db = undefined
     state.claims = undefined
     const r = await mount(<RewardsRoute />)
-    expect(shown(r)).toContain(rewardsCopy.loading)
-    expect(shown(r)).not.toContain(rewardsCopy.empty)
+    expect(shown(r)).toContain(i18n.t('rewards:loading'))
+    expect(shown(r)).not.toContain(i18n.t('rewards:empty'))
   })
 
   it('says why the rewards could not be read instead of showing them empty', async () => {
@@ -75,6 +76,6 @@ describe('the rewards route', () => {
     }
     const r = await mount(<RewardsRoute />)
     expect(shown(r)).toContain('disk full')
-    expect(shown(r)).not.toContain(rewardsCopy.empty)
+    expect(shown(r)).not.toContain(i18n.t('rewards:empty'))
   })
 })

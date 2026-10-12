@@ -1,3 +1,6 @@
+import { formatDateTime, formatMoney, parseAmount } from '../../i18n/format'
+import { currentLanguage, NAMESPACES } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 import { equalBytes } from '@noble/curves/utils.js'
 import { useState } from 'react'
 import { View } from 'react-native'
@@ -7,16 +10,13 @@ import { Screen } from '../../components/screen'
 import { StatusNote } from '../../components/status-note'
 import { TextField } from '../../components/text-field'
 import { GRACE } from '../../protocol'
-import { formatMoney, parseAmount } from '../../utils/format-amount'
-import { text } from '../payment/copy'
-import { rewardsCopy } from '../rewards/copy'
+
 import { BUILD_TOKEN } from '../pay/tokens'
 import type { Contact } from './contacts'
-import { remoteCopy } from './copy'
+
 import { REMOTE_MIN_WINDOW } from './plan'
 
-const when = (seconds: number) =>
-  new Date(seconds * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+const when = (seconds: number) => formatDateTime(seconds, currentLanguage())
 
 /**
  * Pay → Far away: pick a contact, type an amount, read when the payment stops being payable, confirm. The deadline is
@@ -47,6 +47,8 @@ export function FarAwayPay({
   /** The tip paid to the phone that hands this payment in, shown when tipping is on. */
   tip?: { value: bigint }
 }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const [chosen, setChosen] = useState<Contact>()
   const [typed, setTyped] = useState('')
   const [reviewing, setReviewing] = useState(false)
@@ -56,8 +58,8 @@ export function FarAwayPay({
 
   return (
     <Screen testID="far-away-pay">
-      <AppText variant="headline">{remoteCopy.title}</AppText>
-      {contacts.length === 0 ? <AppText variant="body">{remoteCopy.noContacts}</AppText> : null}
+      <AppText variant="headline">{t('remote:title')}</AppText>
+      {contacts.length === 0 ? <AppText variant="body">{t('remote:noContacts')}</AppText> : null}
       <View className="gap-2">
         {contacts.map((contact) => (
           <Button
@@ -70,44 +72,49 @@ export function FarAwayPay({
             }}
           />
         ))}
-        {onAddLink ? <Button variant="text" label={remoteCopy.addLink} onPress={onAddLink} /> : null}
+        {onAddLink ? <Button variant="text" label={t('remote:addLink')} onPress={onAddLink} /> : null}
       </View>
       {chosen && !reviewing ? (
         <View className="gap-3">
-          {chosen.check === 'not-checked' ? <AppText variant="body">{remoteCopy.notChecked}</AppText> : null}
-          {chosen.check === 'no-account' ? <AppText variant="body">{remoteCopy.noAccount}</AppText> : null}
-          {pending ? <AppText variant="body">{remoteCopy.pendingWarning}</AppText> : null}
-          <TextField label={remoteCopy.amount} value={typed} onChangeText={setTyped} keyboardType="decimal-pad" />
-          <Button variant="filled" label={remoteCopy.review} disabled={!payable} onPress={() => setReviewing(true)} />
+          {chosen.check === 'not-checked' ? <AppText variant="body">{t('remote:notChecked')}</AppText> : null}
+          {chosen.check === 'no-account' ? <AppText variant="body">{t('remote:noAccount')}</AppText> : null}
+          {pending ? <AppText variant="body">{t('remote:pendingWarning')}</AppText> : null}
+          <TextField label={t('remote:amount')} value={typed} onChangeText={setTyped} keyboardType="decimal-pad" />
+          <Button variant="filled" label={t('remote:review')} disabled={!payable} onPress={() => setReviewing(true)} />
         </View>
       ) : null}
       {chosen && reviewing && amount !== undefined ? (
         <View className="gap-3">
           <AppText variant="body">
-            {text(remoteCopy.reviewLine, {
+            {t('remote:reviewLine', {
               name: chosen.name,
-              amount: formatMoney(amount, BUILD_TOKEN.decimals),
+              amount: formatMoney(amount, BUILD_TOKEN.decimals, currentLanguage()),
               symbol: BUILD_TOKEN.symbol,
               deadline: when(deadlineFor(chosen, amount)),
             })}
           </AppText>
           {tip ? (
             <AppText testID="delivery-tip" variant="body">
-              {text(rewardsCopy.tipReview, {
-                amount: formatMoney(tip.value, BUILD_TOKEN.decimals),
+              {t('rewards:tipReview', {
+                amount: formatMoney(tip.value, BUILD_TOKEN.decimals, currentLanguage()),
                 symbol: BUILD_TOKEN.symbol,
               })}
             </AppText>
           ) : null}
           <AppText variant="label" tone="muted">
-            {online ? remoteCopy.onlineNote : remoteCopy.offlineNote}
+            {online ? t('remote:onlineNote') : t('remote:offlineNote')}
           </AppText>
           <AppText variant="label" tone="muted">
-            {remoteCopy.privacy}
+            {t('remote:privacy')}
           </AppText>
           <StatusNote tone="danger" message={error} />
-          <Button variant="filled" label={remoteCopy.confirm} busy={busy} onPress={() => onConfirm?.(chosen, amount)} />
-          <Button variant="text" label={remoteCopy.edit} onPress={() => setReviewing(false)} />
+          <Button
+            variant="filled"
+            label={t('remote:confirm')}
+            busy={busy}
+            onPress={() => onConfirm?.(chosen, amount)}
+          />
+          <Button variant="text" label={t('remote:edit')} onPress={() => setReviewing(false)} />
         </View>
       ) : null}
     </Screen>

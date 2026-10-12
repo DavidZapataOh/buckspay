@@ -1,3 +1,6 @@
+import { formatMoney } from '../../i18n/format'
+import { currentLanguage, NAMESPACES } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
@@ -7,18 +10,19 @@ import { useIncoming } from '../../features/activity/use-incoming'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { type ActivityRow, listActivity } from '../../features/notes/activity'
 import { nowSeconds, usePayments } from '../../features/payment/payments-provider'
-import { rewardsCopy } from '../../features/rewards/copy'
+
 import { rewardRows, totals } from '../../features/rewards/state'
 import { useRewardClaims } from '../../features/rewards/use-reward-claims'
 import { useRewards } from '../../features/rewards/use-rewards'
-import { text } from '../../features/payment/copy'
-import { formatMoney } from '../../utils/format-amount'
+
 import { ClearNotice } from '../../features/settlement/clear-notice-card'
 import { PrivateSettlementCard } from '../../features/settlement/private-settlement-card'
 import { SettlementLabel } from '../../features/settlement/settlement-label'
 import { useSettlementRunner } from '../../features/settlement/use-settlement-runner'
 
 export default function Activity() {
+  const { t } = useTranslation(NAMESPACES)
+
   const { db } = usePayments()
   const settlement = useSettlementRunner()
   const [rows, setRows] = useState<ActivityRow[]>([])
@@ -29,17 +33,17 @@ export default function Activity() {
   const rewardsSummary = !owed
     ? undefined
     : owed.ready > 0n
-      ? text(rewardsCopy.summary.ready, {
-          amount: formatMoney(owed.ready, BUILD_TOKEN.decimals),
+      ? t('rewards:summary.ready', {
+          amount: formatMoney(owed.ready, BUILD_TOKEN.decimals, currentLanguage()),
           symbol: BUILD_TOKEN.symbol,
         })
       : owed.waiting > 0n
-        ? text(rewardsCopy.summary.waiting, {
-            amount: formatMoney(owed.waiting, BUILD_TOKEN.decimals),
+        ? t('rewards:summary.waiting', {
+            amount: formatMoney(owed.waiting, BUILD_TOKEN.decimals, currentLanguage()),
             symbol: BUILD_TOKEN.symbol,
           })
         : rewards && rewards.length > 0
-          ? rewardsCopy.summary.none
+          ? t('rewards:summary.none')
           : undefined
   const onPrivateRoute = settlement.report?.private.find(
     ({ state }) => state.kind !== 'settled' && state.kind !== 'submitting',

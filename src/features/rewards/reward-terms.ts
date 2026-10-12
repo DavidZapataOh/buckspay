@@ -66,3 +66,6 @@ export function tipTerms(
   if (!mint || !canSign) return undefined
   return { wordValue: mint.wordValue, bond: bonds.reduce((most, bond) => (bond > most ? bond : most), 0n) }
 }
+
+/** A bond below this cannot cover a tipping channel. */
+export const MIN_TIP_BOND = 32_000_000n

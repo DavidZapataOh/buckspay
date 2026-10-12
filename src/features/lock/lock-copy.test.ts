@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { address } from '@solana/kit'
 import { describe, expect, it } from 'vitest'
 import { resolveProfile } from '../../protocol'
@@ -6,7 +7,6 @@ import {
   lockSummary,
   minimumNotice,
   networkCostNotice,
-  onboardingCopy,
   rotationNotice,
   withdrawalDateNotice,
   withdrawalStatus,
@@ -31,7 +31,7 @@ const lock: LockRecord = {
 
 describe('lock copy', () => {
   it('says exactly what a wallet that changed the transaction costs the user', () => {
-    expect(onboardingCopy.walletChangedTransaction).toBe(
+    expect(i18n.t('lock:walletChangedTransaction')).toBe(
       'Your wallet changed the transaction, so Buckspay could not cover its network cost. Nothing was sent and nothing was charged. Open Buckspay in Phantom or Solflare, or add about 0.005 SOL to activate with your own wallet.',
     )
   })

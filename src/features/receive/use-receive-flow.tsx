@@ -1,3 +1,6 @@
+import { parseAmount } from '../../i18n/format'
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import {
   createContext,
   type ReactNode,
@@ -19,9 +22,9 @@ import { receivePayment, showRequest } from '../../payment/receive-flow'
 import { attesterFresh } from '../../protocol'
 import { ACTIVE_PROFILE } from '../../protocol/active-profile'
 import { type Transport, TransportError, type TransportId } from '../../transport/types'
-import { parseAmount } from '../../utils/format-amount'
+
 import { useDeviceIdentity } from '../identity/use-device-identity'
-import { copy } from '../payment/copy'
+
 import { nowSeconds, usePayments } from '../payment/payments-provider'
 import { entriesSince } from '../event/consumed'
 import { pointReceiverOf } from '../event/point'
@@ -78,6 +81,8 @@ const ReceiveFlowContext = createContext<ReceiveFlow | undefined>(undefined)
 
 /** Drives the receiver's screens: the request it shows, the payment it scans, what it did with it. */
 export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const [state, dispatch] = useReducer(receiveReducer, initialReceiveState)
   const stateRef = useRef<ReceiveState>(state)
   useEffect(() => {
@@ -107,7 +112,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
     () => attesters.filter((attester) => attester.active && attesterFresh(attester, nowSeconds())),
     [attesters],
   )
-  const blocked = usable.length === 0 ? copy.receive.connectOnce : ''
+  const blocked = usable.length === 0 ? t('payment:receive.connectOnce') : ''
 
   const abort = useCallback(() => {
     pending.current?.abort()
@@ -263,7 +268,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
       texts: session.texts,
       progress: session.progress,
       wrongCode,
-      blocked: hasTrustedAttesters ? blocked : copy.receive.connectOnce,
+      blocked: hasTrustedAttesters ? blocked : t('payment:receive.connectOnce'),
       create,
       scanPayment,
       submitText,
@@ -293,6 +298,7 @@ export function ReceiveFlowProvider({ children }: { children: ReactNode }) {
       medium.id,
       choose,
       witnessPort,
+      t,
     ],
   )
   return <ReceiveFlowContext.Provider value={value}>{children}</ReceiveFlowContext.Provider>

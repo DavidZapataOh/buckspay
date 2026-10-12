@@ -1,5 +1,5 @@
+import { formatCountdown, formatDuration } from '../i18n/format'
 import { describe, expect, it } from 'vitest'
-import { formatCountdown, formatDuration } from './format-duration'
 
 describe('durations', () => {
   it('say hours, minutes or seconds, in the plural only when needed', () => {

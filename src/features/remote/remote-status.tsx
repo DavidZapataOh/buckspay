@@ -1,7 +1,8 @@
+import { formatDateTime } from '../../i18n/format'
+import { currentLanguage, NAMESPACES, translateIfKnown } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 import { ListRow } from '../../components/list-row'
 import { AppText } from '../../components/app-text'
-import { text } from '../payment/copy'
-import { remoteCopy } from './copy'
 
 /** The detail of a payment to someone far away: where it stands, how many phones took it, and when it stops being payable. */
 export function RemoteStatus({
@@ -14,23 +15,25 @@ export function RemoteStatus({
   passedTo: number
   deadline: number
 }) {
-  const known = state.slice(7) as keyof typeof remoteCopy.status
+  const { t } = useTranslation(NAMESPACES)
+
+  const known = state.slice(7)
   return (
     <>
-      <ListRow title={remoteCopy.detail.status} value={remoteCopy.status[known] ?? state} />
+      <ListRow title={t('remote:detail.status')} value={translateIfKnown(`remote:status.${known}`) ?? state} />
       {passedTo > 0 ? (
         <ListRow
-          title={remoteCopy.detail.passed}
-          value={passedTo === 1 ? remoteCopy.detail.passedToOne : text(remoteCopy.detail.passedTo, { count: passedTo })}
+          title={t('remote:detail.passed')}
+          value={passedTo === 1 ? t('remote:detail.passedToOne') : t('remote:detail.passedTo', { count: passedTo })}
         />
       ) : null}
       <ListRow
-        title={remoteCopy.detail.deadlineTitle}
-        value={text(remoteCopy.detail.deadline, { deadline: new Date(deadline * 1000).toLocaleString() })}
+        title={t('remote:detail.deadlineTitle')}
+        value={t('remote:detail.deadline', { deadline: formatDateTime(deadline, currentLanguage()) })}
       />
       {known === 'expired' ? (
         <AppText variant="body" tone="muted">
-          {remoteCopy.detail.expiredNote}
+          {t('remote:detail.expiredNote')}
         </AppText>
       ) : null}
     </>

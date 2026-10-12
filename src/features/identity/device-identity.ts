@@ -42,7 +42,7 @@ import {
   SponsorshipError,
   submitSponsored,
 } from '../lock/gateway-onboard'
-import { onboardingCopy } from '../lock/lock-copy'
+import { i18n } from '../../i18n'
 import { buildSelfPaid, sendSelfPaid } from '../lock/perform'
 import type { Operation } from '../lock/operations'
 import {
@@ -170,7 +170,7 @@ function payFromWallet(current: IdentityState, reason: SponsorshipError['reason'
   const canPay = sol !== undefined && sol.balance >= sol.cost
   const error =
     reason === 'altered' && !canPay
-      ? onboardingCopy.walletChangedTransaction
+      ? i18n.t('lock:walletChangedTransaction')
       : `${SPONSOR_FALLBACK[reason]} ${NOTHING_SENT} ${canPay ? PAY_INSTEAD : 'To activate now, add SOL to your wallet and pay from it.'}`
   return { ...current, sponsorship: 'unavailable', error, details }
 }

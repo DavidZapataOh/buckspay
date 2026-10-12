@@ -1,8 +1,10 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { useState } from 'react'
 import { Linking, View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import type { Band } from './app-port'
-import { witnessCopy } from './copy'
+
 import type { WitnessPolicy } from './policy'
 import type { WitnessPort, WitnessRole } from './port'
 import { useWitness } from './use-witness'
@@ -22,6 +24,8 @@ export function NearbyCheck({
   band: Band
   port: WitnessPort
 }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const witness = useWitness({ role, messageId, policy, port, band })
   const [meaning, setMeaning] = useState(false)
   return (
@@ -38,7 +42,7 @@ export function NearbyCheck({
       />
       {meaning ? (
         <AppText variant="label" tone="muted">
-          {witnessCopy.meaning}
+          {t('witness:meaning')}
         </AppText>
       ) : null}
     </View>

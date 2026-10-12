@@ -1,8 +1,8 @@
+import { i18n } from '../../i18n'
 import { act } from 'react'
 import { create, type ReactTestInstance } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
 import { MeshSettings } from './mesh-settings'
-import { meshCopy } from './copy'
 
 vi.mock('react-native', () => import('../../test-support/react-native'))
 vi.mock('uniwind', () => ({
@@ -37,26 +37,26 @@ const button = (root: ReactTestInstance, label: string) =>
 describe('mesh settings', () => {
   it('shows On and Off and flips the switch', async () => {
     const off = await render({})
-    expect(texts(off.root)).toContain(meshCopy.status.off)
+    expect(texts(off.root)).toContain(i18n.t('mesh:status.off'))
     act(() => off.root.findByProps({ testID: 'mesh-switch' }).props.onValueChange(true))
     expect(off.all.onToggle).toHaveBeenCalledWith(true)
-    expect(texts((await render({ enabled: true })).root)).toContain(meshCopy.status.on)
+    expect(texts((await render({ enabled: true })).root)).toContain(i18n.t('mesh:status.on'))
   })
 
   it('counts the warnings this phone received, and says so when there are none', async () => {
-    expect(texts((await render({ warnings: 0 })).root)).toContain(meshCopy.warnings(0))
+    expect(texts((await render({ warnings: 0 })).root)).toContain(i18n.t('mesh:warnings', { count: 0 }))
     expect(texts((await render({ warnings: 3 })).root)).toContain('Warnings received: 3')
     expect(texts((await render({ passedOn: 4 })).root)).toContain('Payments passed on: 4')
   })
 
   it('offers the way out of each problem', async () => {
     const bluetooth = await render({ problem: 'bluetooth-off' })
-    expect(texts(bluetooth.root)).toContain(meshCopy.status.bluetoothOff)
-    act(() => button(bluetooth.root, meshCopy.turnOn).props.onPress())
+    expect(texts(bluetooth.root)).toContain(i18n.t('mesh:status.bluetoothOff'))
+    act(() => button(bluetooth.root, i18n.t('mesh:turnOn')).props.onPress())
     expect(bluetooth.all.onToggle).toHaveBeenCalledWith(true)
     const denied = await render({ problem: 'permission-denied' })
-    expect(texts(denied.root)).toContain(meshCopy.status.permissionNeeded)
-    act(() => button(denied.root, meshCopy.openSettings).props.onPress())
+    expect(texts(denied.root)).toContain(i18n.t('mesh:status.permissionNeeded'))
+    act(() => button(denied.root, i18n.t('mesh:openSettings')).props.onPress())
     expect(denied.all.onOpenSettings).toHaveBeenCalled()
   })
 })

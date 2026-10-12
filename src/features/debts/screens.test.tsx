@@ -1,8 +1,9 @@
+import { i18n } from '../../i18n'
 import { describe, expect, it, vi } from 'vitest'
 import { IouCause } from '../../protocol'
 import { byLabel, mount, press, texts, type as typeInto } from '../remote/ui-testing'
 import { AcceptScreen } from './accept-screen'
-import { debtsCopy } from './copy'
+import { resources } from '../../i18n/resources'
 import { DebtsScreen } from './debts-screen'
 import { peerLabel, recordCode, summarize, type TabSummary } from './format'
 import { NewDebtScreen } from './new-debt-screen'
@@ -99,13 +100,13 @@ describe('debt screens', () => {
     ]
     const r = await mount(<DebtsScreen tabs={tabs} {...money} onOpen={vi.fn()} onNew={vi.fn()} />)
     const all = shown(r)
-    expect(all).toContain(debtsCopy.intro)
+    expect(all).toContain(i18n.t('debts:intro'))
     expect(all).toContain(`${peerLabel(ben.key)} owes you 25.00 USDC`)
     expect(all).toContain('You owe Friend aaaaaa 5.00 USDC')
     expect(all).toContain('Waiting for Friend aaaaaa to sign')
     expect(all).toContain('Settled up with Friend bbbbbb')
     expect(all).toContain('In a netting session')
-    expect(all).toContain(debtsCopy.orphaned)
+    expect(all).toContain(i18n.t('debts:orphaned'))
     for (const banned of BANNED) expect(all).not.toMatch(banned)
   })
 
@@ -134,7 +135,7 @@ describe('debt screens', () => {
     )
     const all = shown(r)
     expect(all).toContain('Paid 5.00 USDC, settling')
-    expect(all).toContain(debtsCopy.settlingDetail)
+    expect(all).toContain(i18n.t('debts:settlingDetail'))
     expect(all).toContain('2.00 USDC cancelled in a netting, recorded')
     expect(all).toContain(`Record code ${recordCode([latest, repay])}`)
     expect(all).toMatch(/#4 .*#3 /s)
@@ -142,12 +143,12 @@ describe('debt screens', () => {
 
   it('clear is disabled with its reason while pending, and only a debtor can pay with Buckspay', async () => {
     const pending = await mount(<TabScreen {...tabProps} summary={summary({ pending: true })} />)
-    expect(shown(pending)).toContain(debtsCopy.clearPending)
+    expect(shown(pending)).toContain(i18n.t('debts:clearPending'))
     expect(byLabel(pending.root, 'Clear this debt').props.accessibilityState).toMatchObject({ disabled: true })
     expect(byLabel(pending.root, 'Pay with Buckspay')).toBeUndefined()
     const onRepay = vi.fn()
     const owing = await mount(<TabScreen {...tabProps} summary={summary({ direction: 'owe' })} onRepay={onRepay} />)
-    expect(shown(owing)).toContain(debtsCopy.repayNote)
+    expect(shown(owing)).toContain(i18n.t('debts:repayNote'))
     await press(owing.root, 'Pay with Buckspay')
     expect(onRepay).toHaveBeenCalledTimes(1)
     expect(byLabel(owing.root, 'Clear this debt').props.accessibilityState).toMatchObject({ disabled: false })
@@ -156,7 +157,7 @@ describe('debt screens', () => {
   it('a pending offer can be sent again, and says it stays valid', async () => {
     const onResend = vi.fn()
     const r = await mount(<TabScreen {...tabProps} summary={summary({ waiting: true })} onResend={onResend} />)
-    expect(shown(r)).toContain(debtsCopy.stillValid)
+    expect(shown(r)).toContain(i18n.t('debts:stillValid'))
     await press(r.root, 'Send again')
     expect(onResend).toHaveBeenCalledTimes(1)
   })
@@ -166,7 +167,7 @@ describe('debt screens', () => {
     const r = await mount(
       <NewDebtScreen {...money} peerLabel={null} viaCode busy={false} error={null} onSubmit={onSubmit} />,
     )
-    expect(shown(r)).toContain(debtsCopy.viaCode)
+    expect(shown(r)).toContain(i18n.t('debts:viaCode'))
     await press(r.root, 'Send to sign')
     expect(shown(r)).toContain('Enter an amount')
     expect(onSubmit).not.toHaveBeenCalled()
@@ -198,8 +199,8 @@ describe('debt screens', () => {
     expect(all).toContain('After: Friend aaaaaa owes you 55.00 USDC')
     expect(all).toMatch(/Due \d/)
     expect(all).toContain('Taxi')
-    expect(all).toContain(debtsCopy.signNote)
-    expect(all).not.toContain(debtsCopy.viaCode)
+    expect(all).toContain(i18n.t('debts:signNote'))
+    expect(all).not.toContain(i18n.t('debts:viaCode'))
     for (const banned of BANNED) expect(all).not.toMatch(banned)
     await press(r.root, 'Decline')
     await press(r.root, 'Sign')
@@ -209,7 +210,7 @@ describe('debt screens', () => {
   it('every button has its label and the copy has no banned words', async () => {
     const r = await mount(<DebtsScreen tabs={[summary()]} {...money} onOpen={vi.fn()} onNew={vi.fn()} />)
     expect(byLabel(r.root, 'New debt')).toBeTruthy()
-    const strings = JSON.stringify(debtsCopy, (_, v) => (typeof v === 'function' ? v('Friend aaaaaa', '1.00 USDC') : v))
+    const strings = JSON.stringify(resources.en.debts)
     for (const banned of BANNED) expect(strings).not.toMatch(banned)
   })
 })

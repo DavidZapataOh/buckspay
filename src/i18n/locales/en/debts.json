@@ -59,5 +59,6 @@
   "after": "After: {{line}}",
   "declined": "{{peer}} did not sign. Nothing changed.",
   "paymentFailed": "This payment failed. The debt is back to {{amount}}.",
-  "settleBefore": "Settle or spend this payment before {{date}} for the debt to go down."
+  "settleBefore": "Settle or spend this payment before {{date}} for the debt to go down.",
+  "readyToReceive": "Ready to receive a debt"
 }

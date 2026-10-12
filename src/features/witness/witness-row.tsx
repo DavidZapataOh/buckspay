@@ -1,7 +1,9 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
-import { witnessCopy as copy } from './copy'
+
 import type { WitnessPolicy } from './policy'
 import { canRetry, mayReleaseNow, type WitnessState } from './witness-state'
 
@@ -27,17 +29,23 @@ export function WitnessRow({
   onMeaning,
   onOpenSettings,
 }: WitnessRowProps) {
+  const { t } = useTranslation(NAMESPACES)
+
   if (policy === 'off' || state.phase === 'off') return null
   const held = role === 'receiver' && !mayReleaseNow(policy, state)
   const { phase } = state
   const sentence = {
-    checking: held ? copy.requiredChecking : role === 'receiver' ? copy.receiverChecking : copy.payerChecking,
-    seen: copy.seen,
-    'not-seen': held ? copy.requiredNotSeen : copy.notSeen,
-    unavailable: copy.unavailable,
-    failed: copy.failed,
-    'low-volume': copy.lowVolume,
-    skipped: copy.skipped,
+    checking: held
+      ? t('witness:requiredChecking')
+      : role === 'receiver'
+        ? t('witness:receiverChecking')
+        : t('witness:payerChecking'),
+    seen: t('witness:seen'),
+    'not-seen': held ? t('witness:requiredNotSeen') : t('witness:notSeen'),
+    unavailable: t('witness:unavailable'),
+    failed: t('witness:failed'),
+    'low-volume': t('witness:lowVolume'),
+    skipped: t('witness:skipped'),
     off: '',
   }[phase]
   return (
@@ -46,19 +54,19 @@ export function WitnessRow({
         {sentence}
       </AppText>
       {role === 'receiver' && phase === 'checking' && !held ? (
-        <Button testID="witness-skip" variant="text" label={copy.skip} onPress={onSkip} />
+        <Button testID="witness-skip" variant="text" label={t('witness:skip')} onPress={onSkip} />
       ) : null}
       {role === 'receiver' && canRetry(state) ? (
-        <Button testID="witness-retry" variant="tonal" label={copy.tryAgain} onPress={onRetry} />
+        <Button testID="witness-retry" variant="tonal" label={t('witness:tryAgain')} onPress={onRetry} />
       ) : null}
       {held && (phase === 'not-seen' || phase === 'failed' || phase === 'low-volume') ? (
-        <Button testID="witness-continue" variant="text" label={copy.continueAnyway} onPress={onContinue} />
+        <Button testID="witness-continue" variant="text" label={t('witness:continueAnyway')} onPress={onContinue} />
       ) : null}
       {phase === 'not-seen' ? (
-        <Button testID="witness-meaning" variant="text" label={copy.whatThisMeans} onPress={onMeaning} />
+        <Button testID="witness-meaning" variant="text" label={t('witness:whatThisMeans')} onPress={onMeaning} />
       ) : null}
       {phase === 'unavailable' ? (
-        <Button testID="witness-settings" variant="tonal" label={copy.openSettings} onPress={onOpenSettings} />
+        <Button testID="witness-settings" variant="tonal" label={t('witness:openSettings')} onPress={onOpenSettings} />
       ) : null}
     </View>
   )

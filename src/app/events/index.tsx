@@ -1,3 +1,6 @@
+import { formatDateTime } from '../../i18n/format'
+import { i18n, currentLanguage, NAMESPACES } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { View } from 'react-native'
@@ -5,14 +8,15 @@ import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import { ListRow } from '../../components/list-row'
 import { Screen } from '../../components/screen'
-import { eventCopy } from '../../features/event/copy'
+
 import { listEvents, type StoredEvent } from '../../features/event/store'
 import { nowSeconds, usePayments } from '../../features/payment/payments-provider'
-import { text } from '../../features/payment/copy'
 
-const ends = (event: StoredEvent) => text(eventCopy.ends, { date: new Date(event.endsAt * 1000).toLocaleString() })
+const ends = (event: StoredEvent) => i18n.t('event:ends', { date: formatDateTime(event.endsAt, currentLanguage()) })
 
 export default function Events() {
+  const { t } = useTranslation(NAMESPACES)
+
   const { db } = usePayments()
   const [joined, setJoined] = useState<StoredEvent[]>([])
   const [organised, setOrganised] = useState<StoredEvent[]>([])
@@ -32,14 +36,14 @@ export default function Events() {
 
   return (
     <Screen testID="events">
-      <AppText variant="headline">{eventCopy.title}</AppText>
+      <AppText variant="headline">{t('event:title')}</AppText>
       <View className="gap-1">
         <AppText variant="title" accessibilityRole="header">
-          {eventCopy.joined}
+          {t('event:joined')}
         </AppText>
         {joined.length === 0 ? (
           <AppText variant="body" tone="muted">
-            {eventCopy.none}
+            {t('event:none')}
           </AppText>
         ) : null}
         {joined.map((event) => (
@@ -49,7 +53,7 @@ export default function Events() {
       {organised.length > 0 ? (
         <View className="gap-1">
           <AppText variant="title" accessibilityRole="header">
-            {eventCopy.organised}
+            {t('event:organised')}
           </AppText>
           {organised.map((event) => (
             <ListRow key={event.name + event.endsAt} testID="event-organised" title={event.name} value={ends(event)} />
@@ -59,10 +63,10 @@ export default function Events() {
       <Button
         testID="events-join"
         variant="filled"
-        label={eventCopy.join}
+        label={t('event:join')}
         onPress={() => router.push('/events/join')}
       />
-      <Button testID="events-run" variant="tonal" label={eventCopy.run} onPress={() => router.push('/events/run')} />
+      <Button testID="events-run" variant="tonal" label={t('event:run')} onPress={() => router.push('/events/run')} />
     </Screen>
   )
 }

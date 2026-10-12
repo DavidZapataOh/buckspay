@@ -1,13 +1,15 @@
+import { formatMoney } from '../../i18n/format'
+import { currentLanguage, NAMESPACES } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import { Screen } from '../../components/screen'
 import { StatusNote } from '../../components/status-note'
-import { formatMoney } from '../../utils/format-amount'
-import { text } from '../payment/copy'
+
 import { ClaimConfirm, MoveConfirm } from './claim-flow'
-import { rewardsCopy } from './copy'
+
 import { rewardRows, type RewardRecord, type RewardRow, totals } from './state'
 
 type Step = 'list' | 'claim' | 'move'
@@ -37,6 +39,8 @@ export function RewardsScreen({
   /** Why the rewards could not be read. */
   error?: string
 }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const [step, setStep] = useState<Step>('list')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ tone: 'danger' | 'success'; text: string }>()
@@ -50,9 +54,9 @@ export function RewardsScreen({
 
   const rows = records ? rewardRows(records) : undefined
   const sum = rows ? totals(rows) : undefined
-  const money = (amount: bigint) => ({ amount: formatMoney(amount, decimals), symbol })
+  const money = (amount: bigint) => ({ amount: formatMoney(amount, decimals, currentLanguage()), symbol })
 
-  async function run(action: () => Promise<void>, done: string, failed: string) {
+  async function run(action: () => Promise<void>, done: string, failed: (reason: string) => string) {
     setBusy(true)
     setMessage(undefined)
     try {
@@ -61,7 +65,7 @@ export function RewardsScreen({
       setStep('list')
       setMessage({ tone: 'success', text: done })
     } catch (failure) {
-      if (mounted.current) setMessage({ tone: 'danger', text: text(failed, { reason: reason(failure) }) })
+      if (mounted.current) setMessage({ tone: 'danger', text: failed(reason(failure)) })
     } finally {
       if (mounted.current) setBusy(false)
     }
@@ -69,24 +73,24 @@ export function RewardsScreen({
 
   return (
     <Screen testID="rewards">
-      <AppText variant="headline">{rewardsCopy.title}</AppText>
+      <AppText variant="headline">{t('rewards:title')}</AppText>
       <AppText variant="label" tone="muted">
-        {rewardsCopy.trust}
+        {t('rewards:trust')}
       </AppText>
       <StatusNote tone={error ? 'danger' : (message?.tone ?? 'default')} message={error ?? message?.text} />
-      {rows === undefined && !error ? <AppText variant="body">{rewardsCopy.loading}</AppText> : null}
+      {rows === undefined && !error ? <AppText variant="body">{t('rewards:loading')}</AppText> : null}
       {rows?.length === 0 ? (
         <AppText variant="body" tone="muted">
-          {rewardsCopy.empty}
+          {t('rewards:empty')}
         </AppText>
       ) : null}
       {step === 'list' && sum ? (
         <View className="gap-2">
           {onClaim && sum.ready > 0n ? (
-            <Button variant="filled" label={rewardsCopy.claim} onPress={() => setStep('claim')} />
+            <Button variant="filled" label={t('rewards:claim')} onPress={() => setStep('claim')} />
           ) : null}
           {onMove && sum.claimed > 0n ? (
-            <Button variant="tonal" label={rewardsCopy.move} onPress={() => setStep('move')} />
+            <Button variant="tonal" label={t('rewards:move')} onPress={() => setStep('move')} />
           ) : null}
         </View>
       ) : null}
@@ -94,7 +98,11 @@ export function RewardsScreen({
         <ClaimConfirm
           busy={busy}
           onClaim={(immediate) =>
-            void run(() => onClaim({ immediate }), rewardsCopy.claimScheduled, rewardsCopy.claimFailed)
+            void run(
+              () => onClaim({ immediate }),
+              t('rewards:claimScheduled'),
+              (why) => t('rewards:claimFailed', { reason: why }),
+            )
           }
           onCancel={() => setStep('list')}
         />
@@ -102,7 +110,7 @@ export function RewardsScreen({
       {step === 'move' && onMove ? (
         <MoveConfirm
           busy={busy}
-          onMove={() => void run(onMove, rewardsCopy.moved, rewardsCopy.moveFailed)}
+          onMove={() => void run(onMove, t('rewards:moved'), (why) => t('rewards:moveFailed', { reason: why }))}
           onCancel={() => setStep('list')}
         />
       ) : null}
@@ -122,12 +130,14 @@ function RewardLine({
   money: (amount: bigint) => { amount: string; symbol: string }
   onOpenSignature?: (signature: string) => void
 }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const line =
     row.state === 'claiming'
-      ? rewardsCopy.claiming
+      ? t('rewards:claiming')
       : row.state === 'not_paid'
-        ? rewardsCopy.notPaid[row.reason ?? 'unknown']
-        : text(rewardsCopy[row.state], money(row.amount))
+        ? t(`rewards:notPaid.${row.reason ?? 'unknown'}`)
+        : t(`rewards:${row.state}`, money(row.amount))
   return (
     <View className="min-h-14 justify-center py-2">
       <AppText variant="body" tone={row.state === 'not_paid' ? 'danger' : 'default'}>
@@ -136,12 +146,12 @@ function RewardLine({
       {row.signature && onOpenSignature ? (
         <Pressable
           accessibilityRole="link"
-          accessibilityLabel={rewardsCopy.explorer}
+          accessibilityLabel={t('rewards:explorer')}
           onPress={() => onOpenSignature(row.signature ?? '')}
           className="min-h-12 justify-center"
         >
           <AppText variant="label" tone="muted">
-            {rewardsCopy.explorer}
+            {t('rewards:explorer')}
           </AppText>
         </Pressable>
       ) : null}

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { View } from 'react-native'
 import { Button } from '../../components/button'
 import { ListRow } from '../../components/list-row'
@@ -30,11 +32,18 @@ const valueOf = ({ state, progress, sizeBytes }: PrivateDataProps) => {
 
 /** The data private settlement needs: where it stands, and a way to fetch it now instead of on Wi-Fi while charging. */
 export function PrivateDataRow(props: PrivateDataProps) {
+  const { t } = useTranslation(NAMESPACES)
+
   return (
     <View testID="private-data" className="gap-2">
-      <ListRow testID="private-data-status" title="Private settlement data" value={valueOf(props)} />
+      <ListRow testID="private-data-status" title={t('zk:privateData.title')} value={valueOf(props)} />
       {props.state === 'missing' ? (
-        <Button testID="private-data-download" variant="text" label="Download now" onPress={props.onDownload} />
+        <Button
+          testID="private-data-download"
+          variant="text"
+          label={t('zk:privateData.download')}
+          onPress={props.onDownload}
+        />
       ) : null}
     </View>
   )

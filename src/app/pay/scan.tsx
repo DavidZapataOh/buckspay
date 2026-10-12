@@ -1,21 +1,25 @@
+import { i18n, NAMESPACES } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 import { router } from 'expo-router'
 import { useEffect, useRef } from 'react'
 import { usePayFlow } from '../../features/pay/use-pay-flow'
-import { copy, text } from '../../features/payment/copy'
+
 import { ScanScreen } from '../../features/qr/scan-screen'
-import { howCopy } from '../../features/transport/copy'
+
 import { WaitingScreen } from '../../features/transport/waiting'
 
 const scanNotice = (state: { wrongCode: boolean; unreadable?: string; timedOut?: true }) =>
   state.timedOut
-    ? copy.scan.timedOut
+    ? i18n.t('payment:scan.timedOut')
     : state.unreadable
-      ? text(copy.scan.unreadable, { code: state.unreadable })
+      ? i18n.t('payment:scan.unreadable', { code: state.unreadable })
       : state.wrongCode
-        ? copy.scan.wrongCode
+        ? i18n.t('payment:scan.wrongCode')
         : undefined
 
 export default function PayScan() {
+  const { t } = useTranslation(NAMESPACES)
+
   const flow = usePayFlow()
   const { state } = flow
 
@@ -40,23 +44,27 @@ export default function PayScan() {
     return (
       <WaitingScreen
         medium={flow.how.chosen}
-        title={state.name === 'scanning' && state.timedOut ? copy.scan.timedOutTitle : howCopy.waitingForRequest}
+        title={
+          state.name === 'scanning' && state.timedOut
+            ? t('payment:scan.timedOutTitle')
+            : t('transport:waitingForRequest')
+        }
         notice={state.name === 'scanning' ? scanNotice(state) : undefined}
         onCancel={flow.back}
-        cancelLabel={copy.review.cancel}
+        cancelLabel={t('payment:review.cancel')}
       />
     )
   }
 
   return (
     <ScanScreen
-      hint={copy.scan.hint}
+      hint={t('payment:scan.hint')}
       hintTestID="pay-scan-hint"
       progress={flow.progress}
       notice={state.name === 'scanning' ? scanNotice(state) : undefined}
       onText={flow.submitText}
       onCancel={flow.back}
-      cancelLabel={copy.review.cancel}
+      cancelLabel={t('payment:review.cancel')}
     />
   )
 }

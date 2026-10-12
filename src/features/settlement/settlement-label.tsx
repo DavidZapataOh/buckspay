@@ -1,9 +1,11 @@
+import { formatDate } from '../../i18n/format'
+import { currentLanguage, NAMESPACES } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import { GRACE } from '../../protocol'
-import { copy, text } from '../payment/copy'
 
 /**
  * What settling in the clear publishes, said before the first settlement ever sent. Until the person
@@ -18,17 +20,19 @@ export function SettlementLabel({
   earliestExpiry: number | null
   onContinue: () => void
 }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const [dismissed, setDismissed] = useState(false)
-  const by = earliestExpiry === null ? '' : new Date((earliestExpiry + GRACE) * 1000).toLocaleDateString()
+  const by = earliestExpiry === null ? '' : formatDate(earliestExpiry + GRACE, currentLanguage())
   return (
     <View testID="settlement-label" className="gap-3 rounded-3xl bg-surface p-5">
       <AppText variant="title" accessibilityRole="header">
-        {copy.settlement.labelTitle}
+        {t('payment:settlement.labelTitle')}
       </AppText>
-      <AppText variant="body">{copy.settlement.labelBody}</AppText>
+      <AppText variant="body">{t('payment:settlement.labelBody')}</AppText>
       {count > 0 ? (
         <AppText testID="settlement-waiting" variant="body" tone="danger">
-          {text(copy.settlement.waiting, { count, date: by })}
+          {t('payment:settlement.waiting', { count, date: by })}
         </AppText>
       ) : null}
       {dismissed ? null : (
@@ -36,13 +40,13 @@ export function SettlementLabel({
           <Button
             testID="settlement-continue"
             variant="filled"
-            label={copy.settlement.labelContinue}
+            label={t('payment:settlement.labelContinue')}
             onPress={onContinue}
           />
           <Button
             testID="settlement-not-now"
             variant="text"
-            label={copy.settlement.labelNotNow}
+            label={t('payment:settlement.labelNotNow')}
             onPress={() => setDismissed(true)}
           />
         </View>

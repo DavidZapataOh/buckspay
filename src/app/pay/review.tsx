@@ -1,3 +1,5 @@
+import { formatMoney } from '../../i18n/format'
+import { currentLanguage } from '../../i18n'
 import { router } from 'expo-router'
 import { useEffect } from 'react'
 import { Screen } from '../../components/screen'
@@ -6,9 +8,8 @@ import { PayReview } from '../../features/pay/review'
 import { PAY_LIMITS } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { usePayFlow } from '../../features/pay/use-pay-flow'
-import { formatMoney } from '../../utils/format-amount'
 
-const money = (units: bigint) => `${formatMoney(units, BUILD_TOKEN.decimals)} ${BUILD_TOKEN.symbol}`
+const money = (units: bigint) => `${formatMoney(units, BUILD_TOKEN.decimals, currentLanguage())} ${BUILD_TOKEN.symbol}`
 
 export default function PayReviewScreen() {
   const flow = usePayFlow()

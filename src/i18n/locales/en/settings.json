@@ -1,0 +1,14 @@
+{
+  "title": "Settings",
+  "network": "Network",
+  "keyProtection": "Key protection",
+  "noKey": "No key on this phone",
+  "forgetWallet": "Forget wallet on this phone",
+  "technicalDetails": "Technical details",
+  "deviceAccount": "Device account",
+  "keyAttestation": "Key attestation",
+  "certificates_one": "Chain of {{count}} certificate",
+  "certificates_other": "Chain of {{count}} certificates",
+  "program": "Program",
+  "version": "Version"
+}

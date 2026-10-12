@@ -1,9 +1,10 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import type { ReactNode } from 'react'
 import { Pressable, View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Screen } from '../../components/screen'
-import { copy } from '../payment/copy'
-import { rewardsCopy } from '../rewards/copy'
+
 import type { ActivityRow } from '../notes/activity'
 import { activityId, sentence } from './format'
 
@@ -29,24 +30,26 @@ export function ActivityList({
   /** The way into the relayer rewards, given only when this phone has some. */
   rewards?: { summary: string; onOpen: () => void }
 }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const today = dayStart(now)
   const headings = rows.map((row, index) => {
     const start = dayStart(row.at)
     if (index > 0 && dayStart(rows[index - 1].at) === start) return undefined
-    return start === today ? copy.activity.today : new Date(start).toLocaleDateString()
+    return start === today ? t('payment:activity.today') : new Date(start).toLocaleDateString()
   })
   return (
     <Screen testID="activity">
-      <AppText variant="headline">{copy.activity.title}</AppText>
+      <AppText variant="headline">{t('payment:activity.title')}</AppText>
       {rewards ? (
         <Pressable
           testID="rewards-entry"
           accessibilityRole="button"
-          accessibilityLabel={`${rewardsCopy.entry}: ${rewards.summary}`}
+          accessibilityLabel={`${t('rewards:entry')}: ${rewards.summary}`}
           onPress={rewards.onOpen}
           className="min-h-14 justify-center py-2"
         >
-          <AppText variant="body">{rewardsCopy.entry}</AppText>
+          <AppText variant="body">{t('rewards:entry')}</AppText>
           <AppText variant="label" tone="muted">
             {rewards.summary}
           </AppText>
@@ -55,7 +58,7 @@ export function ActivityList({
       {header}
       {rows.length === 0 ? (
         <AppText variant="body" tone="muted">
-          {copy.activity.empty}
+          {t('payment:activity.empty')}
         </AppText>
       ) : null}
       {rows.map((row, index) => {

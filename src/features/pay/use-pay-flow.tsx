@@ -1,3 +1,6 @@
+import { formatMoney } from '../../i18n/format'
+import { i18n, currentLanguage, NAMESPACES } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { equalBytes } from '@noble/curves/utils.js'
 import { address } from '@solana/kit'
@@ -25,7 +28,6 @@ import { useDeviceIdentity } from '../identity/use-device-identity'
 import { useOfflineLocks } from '../attesters/use-offline-locks'
 import { listEvents, type StoredEvent } from '../event/store'
 import { type Unfinished, heldOutputs, paymentContext, setOutgoingState, unfinishedPayments } from '../notes/outgoing'
-import { copy, text } from '../payment/copy'
 import { nowSeconds, usePayments } from '../payment/payments-provider'
 import { useQrSession } from '../payment/use-qr-session'
 import type { Band } from '../witness/app-port'
@@ -36,7 +38,7 @@ import { nearbyEntry, nfcEntry, qrEntry } from '../transport/registry'
 import { createTransportSlot } from '../transport/slot'
 import { receiptBudget, waitBudget } from '../transport/wait-budget'
 import { useTransportChoice, useTransports } from '../transport/use-transports'
-import { formatMoney } from '../../utils/format-amount'
+
 import { PAY_LIMITS } from './limits'
 import { useSyncReducer } from './use-sync-reducer'
 import { trace } from './timing'
@@ -89,6 +91,8 @@ const startOfToday = () => Math.floor(new Date().setHours(0, 0, 0, 0) / 1000)
 
 /** Drives the payer's screens: scanning a request, confirming, showing the payment, reading the receipt. */
 export function PayFlowProvider({ children }: { children: ReactNode }) {
+  useTranslation(NAMESPACES)
+
   const [state, dispatch, readState] = useSyncReducer(payReducer, initialPayState)
   const { db, domains, witnessSettings, witnessPort } = usePayments()
   const { client } = useMobileWallet()
@@ -154,13 +158,13 @@ export function PayFlowProvider({ children }: { children: ReactNode }) {
         transport: transport.current,
         authenticate: (amount) =>
           authenticate(
-            copy.review.promptTitle,
-            text(copy.review.promptSubtitle, {
-              amount: formatMoney(amount, BUILD_TOKEN.decimals),
+            i18n.t('payment:review.promptTitle'),
+            i18n.t('payment:review.promptSubtitle', {
+              amount: formatMoney(amount, BUILD_TOKEN.decimals, currentLanguage()),
               symbol: BUILD_TOKEN.symbol,
               code: receiverCode ?? '',
             }),
-            copy.review.cancel,
+            i18n.t('payment:review.cancel'),
           ),
         noteDomain: domains.noteDomain,
         now: nowSeconds,

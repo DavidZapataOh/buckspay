@@ -1,5 +1,6 @@
+import { i18n } from '../../i18n'
 import { TransportError } from '../../transport/types'
-import { debtsCopy } from './copy'
+
 import { DeclineReason, TabDeclined } from './exchange'
 import { TabRefusal } from './tab'
 
@@ -8,33 +9,33 @@ export function failureText(error: unknown, peer: string): string {
   if (error instanceof TabDeclined) {
     switch (error.reason) {
       case DeclineReason.Declined:
-        return debtsCopy.declined(peer)
+        return i18n.t('debts:declined', { peer: peer })
       case DeclineReason.Locked:
-        return debtsCopy.refused.locked
+        return i18n.t('debts:refused.locked')
       case DeclineReason.Stale:
       case DeclineReason.Behind:
-        return debtsCopy.synced
+        return i18n.t('debts:synced')
       case DeclineReason.OtherTab:
-        return debtsCopy.refused.other
+        return i18n.t('debts:refused.other')
       default:
-        return debtsCopy.refused.invalid
+        return i18n.t('debts:refused.invalid')
     }
   }
   if (error instanceof TabRefusal) {
     switch (error.reason) {
       case 'locked':
       case 'pending':
-        return debtsCopy.refused.locked
+        return i18n.t('debts:refused.locked')
       case 'stale':
-        return debtsCopy.refused.stale
+        return i18n.t('debts:refused.stale')
       case 'other-tab':
-        return debtsCopy.refused.other
+        return i18n.t('debts:refused.other')
       case 'amount':
-        return debtsCopy.errors.amount
+        return i18n.t('debts:errors.amount')
       case 'memo':
-        return debtsCopy.errors.memo
+        return i18n.t('debts:errors.memo')
       default:
-        return debtsCopy.refused.invalid
+        return i18n.t('debts:refused.invalid')
     }
   }
   return error instanceof TransportError ? error.message : error instanceof Error ? error.message : String(error)

@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import { Screen } from '../../components/screen'
 import { IouCause } from '../../protocol'
-import { debtsCopy } from './copy'
+
 import { tabSentence } from './debts-screen'
 import { formatDate, money, signedChange, type TabSummary } from './format'
 import type { StateRow } from './store'
@@ -45,73 +47,77 @@ export function TabScreen({
   onRepay?: () => void
   onResend: () => void
 }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const peer = summary.peerLabel
   return (
     <Screen testID="tab">
       <AppText variant="headline">{tabSentence(summary, decimals, symbol)}</AppText>
       <AppText variant="label" tone="muted">
-        {debtsCopy.record(summary.recordCode)}
+        {t('debts:record', { code: summary.recordCode })}
       </AppText>
       <AppText variant="label" tone="muted">
-        {debtsCopy.recordHelp}
+        {t('debts:recordHelp')}
       </AppText>
       {summary.settling ? (
         <View>
-          <AppText variant="body">{debtsCopy.settling(money(summary.settlingAmount, decimals, symbol))}</AppText>
+          <AppText variant="body">
+            {t('debts:settling', { amount: money(summary.settlingAmount, decimals, symbol) })}
+          </AppText>
           <AppText variant="label" tone="muted">
-            {debtsCopy.settlingDetail}
+            {t('debts:settlingDetail')}
           </AppText>
         </View>
       ) : null}
       {nettings.map((netting, index) => (
         <AppText key={index} variant="body" tone="success">
-          {debtsCopy.netted(money(netting.cancel, decimals, symbol), formatDate(netting.recordedAt))}
+          {t('debts:netted', { amount: money(netting.cancel, decimals, symbol), date: formatDate(netting.recordedAt) })}
         </AppText>
       ))}
       {summary.locked ? (
         <AppText variant="label" tone="muted">
-          {debtsCopy.locked}
+          {t('debts:locked')}
         </AppText>
       ) : null}
       {summary.orphaned ? (
         <AppText variant="label" tone="danger">
-          {debtsCopy.orphaned}
+          {t('debts:orphaned')}
         </AppText>
       ) : null}
       {summary.waiting ? (
         <View className="gap-2">
-          <AppText variant="body">{debtsCopy.notSigned(peer)}</AppText>
+          <AppText variant="body">{t('debts:notSigned', { peer: peer })}</AppText>
           <AppText variant="label" tone="muted">
-            {debtsCopy.stillValid}
+            {t('debts:stillValid')}
           </AppText>
-          <Button variant="tonal" label={debtsCopy.actions.resend} busy={busy} onPress={onResend} />
+          <Button variant="tonal" label={t('debts:actions.resend')} busy={busy} onPress={onResend} />
         </View>
       ) : null}
       <View className="gap-2">
-        <Button variant="tonal" label={debtsCopy.actions.lent} disabled={busy} onPress={() => onChange('lent')} />
+        <Button variant="tonal" label={t('debts:actions.lent')} disabled={busy} onPress={() => onChange('lent')} />
         <Button
           variant="tonal"
-          label={debtsCopy.actions.borrowed}
+          label={t('debts:actions.borrowed')}
           disabled={busy}
           onPress={() => onChange('borrowed')}
         />
-        <Button variant="tonal" label={debtsCopy.actions.repaid} disabled={busy} onPress={() => onChange('repaid')} />
+        <Button variant="tonal" label={t('debts:actions.repaid')} disabled={busy} onPress={() => onChange('repaid')} />
         <Button
           variant="tonal"
-          label={debtsCopy.actions.clear}
+          label={t('debts:actions.clear')}
           disabled={busy || summary.pending}
           onPress={() => onChange('clear')}
         />
         {summary.pending ? (
           <AppText variant="label" tone="muted">
-            {debtsCopy.clearPending}
+            {t('debts:clearPending')}
           </AppText>
         ) : null}
         {summary.direction === 'owe' && onRepay ? (
           <View className="gap-2">
-            <Button variant="filled" label={debtsCopy.payWithBuckspay} disabled={busy} onPress={onRepay} />
+            <Button variant="filled" label={t('debts:payWithBuckspay')} disabled={busy} onPress={onRepay} />
             <AppText variant="label" tone="muted">
-              {debtsCopy.repayNote}
+              {t('debts:repayNote')}
             </AppText>
           </View>
         ) : null}
@@ -131,7 +137,7 @@ export function TabScreen({
             ) : null}
             {!signed ? (
               <AppText variant="label" tone="muted">
-                {debtsCopy.waiting(peer)}
+                {t('debts:waiting', { peer: peer })}
               </AppText>
             ) : null}
           </View>

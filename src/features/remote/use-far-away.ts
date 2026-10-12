@@ -1,3 +1,6 @@
+import { formatMoney } from '../../i18n/format'
+import { currentLanguage, NAMESPACES } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 import { useMobileWallet } from '@wallet-ui/react-native-kit'
 import { useNetworkState } from 'expo-network'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -6,7 +9,7 @@ import { signStoredIssue } from '../../payment/native-sign'
 import { confirmAndSend, PayError } from '../../payment/pay'
 import { type PayContext, type PlanRefusal, planPayment } from '../../payment/preflight'
 import { GRACE } from '../../protocol'
-import { formatMoney } from '../../utils/format-amount'
+
 import { deviceKeyCluster } from '../../keys'
 import { genesisHashOf } from '../../payment/domains'
 import { useOfflineLocks } from '../attesters/use-offline-locks'
@@ -15,7 +18,7 @@ import { BUILD_GATEWAY } from '../lock/gateway'
 import { paymentContext } from '../notes/outgoing'
 import { PAY_LIMITS } from '../pay/limits'
 import { BUILD_TOKEN, BUILD_TOKENS } from '../pay/tokens'
-import { copy, text } from '../payment/copy'
+
 import { nowSeconds, usePayments } from '../payment/payments-provider'
 import { beaconsSeen } from '../relay/beacons'
 import { runHandoffs } from '../relay/run'
@@ -26,7 +29,7 @@ import { decodePayLink } from './pay-link'
 import { remoteRequest, REMOTE_MIN_WINDOW } from './plan'
 import { refreshDeliveries } from './refresh'
 import { type RemoteCtx, remoteSender, type RemoteOutcome, sealWithStored } from './send'
-import { remoteCopy } from './copy'
+
 import { usePaywordSigner } from '../rewards/seams'
 import { tipWord } from '../rewards/tip-word'
 import { useTipTerms } from '../rewards/use-tip-terms'
@@ -36,6 +39,8 @@ const startOfToday = () => Math.floor(new Date().setHours(0, 0, 0, 0) / 1000)
 
 /** Everything the Pay → Far away screen needs: the contacts, the plan of a payment, paying it, and keeping the outbox moving. */
 export function useFarAway() {
+  const { t } = useTranslation(NAMESPACES)
+
   const { db, domains } = usePayments()
   const { deviceKey } = useDeviceIdentity()
   const offline = useOfflineLocks()
@@ -134,10 +139,10 @@ export function useFarAway() {
   }
 
   const refusalLine = (reason: PlanRefusal, amount: bigint) =>
-    text(copy.refusal[reason].text, {
-      max: formatMoney(PAY_LIMITS.maxPayment, BUILD_TOKEN.decimals),
-      amount: formatMoney(amount, BUILD_TOKEN.decimals),
-      allowance: formatMoney(offline.allowance(), BUILD_TOKEN.decimals),
+    t(`payment:refusal.${reason}.text`, {
+      max: formatMoney(PAY_LIMITS.maxPayment, BUILD_TOKEN.decimals, currentLanguage()),
+      amount: formatMoney(amount, BUILD_TOKEN.decimals, currentLanguage()),
+      allowance: formatMoney(offline.allowance(), BUILD_TOKEN.decimals, currentLanguage()),
     })
 
   async function pay(contact: Contact, amount: bigint): Promise<RemoteOutcome | undefined> {
@@ -178,13 +183,13 @@ export function useFarAway() {
         sign: signStoredIssue,
         authenticate: (due) =>
           authenticate(
-            copy.review.promptTitle,
-            text(copy.review.promptSubtitle, {
-              amount: formatMoney(due, BUILD_TOKEN.decimals),
+            t('payment:review.promptTitle'),
+            t('payment:review.promptSubtitle', {
+              amount: formatMoney(due, BUILD_TOKEN.decimals, currentLanguage()),
               symbol: BUILD_TOKEN.symbol,
               code: contact.name,
             }),
-            copy.review.cancel,
+            t('payment:review.cancel'),
           ),
         noteDomain: domains.noteDomain,
         now: nowSeconds,
@@ -194,7 +199,7 @@ export function useFarAway() {
       await reload()
       return outcome
     } catch (failure) {
-      if (!(failure instanceof PayError && failure.code === 'Declined')) setError(remoteCopy.failed)
+      if (!(failure instanceof PayError && failure.code === 'Declined')) setError(t('remote:failed'))
       return undefined
     } finally {
       setBusy(false)
@@ -203,11 +208,11 @@ export function useFarAway() {
 
   /** Saves a pay link from a scan or a paste; the message says why it was not accepted. */
   async function addLink(link: string): Promise<string | undefined> {
-    if (!db) return remoteCopy.failed
+    if (!db) return t('remote:failed')
     try {
       await saveContact(db, decodePayLink(link), nowSeconds(), online ? client.rpc : null)
     } catch {
-      return remoteCopy.notALink
+      return t('remote:notALink')
     }
     await reload()
     return undefined

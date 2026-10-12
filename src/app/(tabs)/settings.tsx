@@ -1,3 +1,6 @@
+import { formatDuration, formatMoney, parseAmount } from '../../i18n/format'
+import { currentLanguage, NAMESPACES } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Linking } from 'react-native'
@@ -14,12 +17,12 @@ import { carried } from '../../features/relay/inbox'
 import { usePrivateData } from '../../features/zk/use-private-data'
 import { useSettlementRunner } from '../../features/settlement/use-settlement-runner'
 import { usePayments } from '../../features/payment/payments-provider'
-import { formatMoney, parseAmount } from '../../utils/format-amount'
-import { formatDuration } from '../../utils/format-duration'
 
-const money = (units: bigint) => `${formatMoney(units, BUILD_TOKEN.decimals)} ${BUILD_TOKEN.symbol}`
+const money = (units: bigint) => `${formatMoney(units, BUILD_TOKEN.decimals, currentLanguage())} ${BUILD_TOKEN.symbol}`
 
 export default function SettingsTab() {
+  useTranslation(NAMESPACES)
+
   const { unsettled } = useSettlementRunner()
   const { db, witnessSettings, setWitnessSettings } = usePayments()
   const [warnings, setWarnings] = useState(0)
@@ -35,7 +38,9 @@ export default function SettingsTab() {
     if (mesh.enabled) void syncRelay()
   }, [mesh.enabled])
   const [requireFrom, setRequireFrom] = useState(
-    witnessSettings.requireFrom === null ? '' : formatMoney(witnessSettings.requireFrom, BUILD_TOKEN.decimals),
+    witnessSettings.requireFrom === null
+      ? ''
+      : formatMoney(witnessSettings.requireFrom, BUILD_TOKEN.decimals, currentLanguage()),
   )
   return (
     <Settings

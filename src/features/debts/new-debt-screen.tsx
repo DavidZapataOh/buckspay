@@ -1,3 +1,6 @@
+import { parseAmount } from '../../i18n/format'
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { useState } from 'react'
 import { View } from 'react-native'
 import { AppText } from '../../components/app-text'
@@ -5,8 +8,7 @@ import { Button } from '../../components/button'
 import { Screen } from '../../components/screen'
 import { StatusNote } from '../../components/status-note'
 import { TextField } from '../../components/text-field'
-import { parseAmount } from '../../utils/format-amount'
-import { debtsCopy } from './copy'
+
 import { MAX_MEMO_BYTES, type TabIntent } from './tab'
 
 const DAY = 24 * 60 * 60
@@ -38,6 +40,8 @@ export function NewDebtScreen({
   error: string | null
   onSubmit: (intent: Pick<TabIntent, 'kind' | 'amount' | 'due' | 'memo'>) => void
 }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const [kind, setKind] = useState<'lent' | 'borrowed'>('lent')
   const [amount, setAmount] = useState('')
   const [memo, setMemo] = useState('')
@@ -46,8 +50,8 @@ export function NewDebtScreen({
 
   function submit() {
     const units = parseAmount(amount, decimals)
-    if (units === undefined || units === 0n) return setProblem(debtsCopy.errors.amount)
-    if (new TextEncoder().encode(memo).length > MAX_MEMO_BYTES) return setProblem(debtsCopy.errors.memo)
+    if (units === undefined || units === 0n) return setProblem(t('debts:errors.amount'))
+    if (new TextEncoder().encode(memo).length > MAX_MEMO_BYTES) return setProblem(t('debts:errors.memo'))
     setProblem(undefined)
     const days = DUE_CHOICES.find((choice) => choice.key === due)?.days ?? 0
     onSubmit({
@@ -60,42 +64,46 @@ export function NewDebtScreen({
 
   return (
     <Screen testID="new-debt">
-      <AppText variant="headline">{debtsCopy.newDebt}</AppText>
+      <AppText variant="headline">{t('debts:newDebt')}</AppText>
       {peerLabel ? (
         <AppText variant="label" tone="muted">
           {peerLabel}
         </AppText>
       ) : null}
       <View className="flex-row gap-2">
-        <Button variant={kind === 'lent' ? 'filled' : 'tonal'} label={debtsCopy.lent} onPress={() => setKind('lent')} />
+        <Button
+          variant={kind === 'lent' ? 'filled' : 'tonal'}
+          label={t('debts:lent')}
+          onPress={() => setKind('lent')}
+        />
         <Button
           variant={kind === 'borrowed' ? 'filled' : 'tonal'}
-          label={debtsCopy.borrowed}
+          label={t('debts:borrowed')}
           onPress={() => setKind('borrowed')}
         />
       </View>
-      <TextField label={debtsCopy.amount} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
+      <TextField label={t('debts:amount')} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
       <AppText variant="label" tone="muted">
         {symbol}
       </AppText>
-      <TextField label={debtsCopy.memo} value={memo} onChangeText={setMemo} />
+      <TextField label={t('debts:memo')} value={memo} onChangeText={setMemo} />
       <View className="flex-row flex-wrap gap-2">
         {DUE_CHOICES.map((choice) => (
           <Button
             key={choice.key}
             variant={due === choice.key ? 'filled' : 'tonal'}
-            label={debtsCopy.due[choice.key]}
+            label={t(`debts:due.${choice.key}`)}
             onPress={() => setDue(choice.key)}
           />
         ))}
       </View>
       {viaCode ? (
         <AppText variant="label" tone="muted">
-          {debtsCopy.viaCode}
+          {t('debts:viaCode')}
         </AppText>
       ) : null}
       <StatusNote tone="danger" message={problem ?? error ?? undefined} />
-      <Button variant="filled" label={debtsCopy.send} busy={busy} onPress={submit} />
+      <Button variant="filled" label={t('debts:send')} busy={busy} onPress={submit} />
     </Screen>
   )
 }

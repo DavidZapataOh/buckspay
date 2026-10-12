@@ -1,8 +1,10 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { Pressable, View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import { Screen } from '../../components/screen'
-import { debtsCopy } from './copy'
+
 import { balanceLine, money, type TabSummary } from './format'
 
 /** One line for a tab, with the notes that say what is happening to it. */
@@ -25,11 +27,13 @@ export function DebtsScreen({
   onOpen: (tab: Uint8Array) => void
   onNew: () => void
 }) {
+  const { t } = useTranslation(NAMESPACES)
+
   return (
     <Screen testID="debts">
-      <AppText variant="headline">{debtsCopy.title}</AppText>
+      <AppText variant="headline">{t('debts:title')}</AppText>
       <AppText variant="label" tone="muted">
-        {debtsCopy.intro}
+        {t('debts:intro')}
       </AppText>
       {tabs.map((tab) => {
         const sentence = tabSentence(tab, decimals, symbol)
@@ -44,29 +48,29 @@ export function DebtsScreen({
             <AppText variant="body">{sentence}</AppText>
             {tab.waiting ? (
               <AppText variant="label" tone="muted">
-                {debtsCopy.waiting(tab.peerLabel)}
+                {t('debts:waiting', { peer: tab.peerLabel })}
               </AppText>
             ) : null}
             {tab.locked ? (
               <AppText variant="label" tone="muted">
-                {debtsCopy.locked}
+                {t('debts:locked')}
               </AppText>
             ) : null}
             {tab.settling ? (
               <AppText variant="label" tone="muted">
-                {debtsCopy.settling(money(tab.settlingAmount, decimals, symbol))}
+                {t('debts:settling', { amount: money(tab.settlingAmount, decimals, symbol) })}
               </AppText>
             ) : null}
             {tab.orphaned ? (
               <AppText variant="label" tone="danger">
-                {debtsCopy.orphaned}
+                {t('debts:orphaned')}
               </AppText>
             ) : null}
           </Pressable>
         )
       })}
       <View className="gap-2">
-        <Button variant="filled" label={debtsCopy.newDebt} onPress={onNew} />
+        <Button variant="filled" label={t('debts:newDebt')} onPress={onNew} />
       </View>
     </Screen>
   )

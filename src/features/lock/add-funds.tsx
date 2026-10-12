@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, View } from 'react-native'
@@ -18,6 +20,8 @@ import { useOperationContext } from './use-operation-context'
 
 /** Adds a lock to an activated phone: the same funds, terms and costs as the first one. */
 export function AddFunds() {
+  const { t } = useTranslation(NAMESPACES)
+
   const ctx = useOperationContext()
   const { wallet, deviceKey, disconnect } = useDeviceIdentity()
   const { nextLockSeq, refresh } = useLocks()
@@ -41,12 +45,11 @@ export function AddFunds() {
   return (
     <Screen testID="add-funds">
       <View className="flex-row items-center -ml-3">
-        <IconButton testID="add-funds-close" icon="close" label="Close" onPress={() => router.back()} />
+        <IconButton testID="add-funds-close" icon="close" label={t('common:close')} onPress={() => router.back()} />
       </View>
-      <AppText variant="headline">Add funds</AppText>
+      <AppText variant="headline">{t('lock:addFundsTitle')}</AppText>
       <AppText variant="body" tone="muted">
-        New funds go into another lock that backs what you pay. You can take them back after the lock ends and its
-        withdrawal window opens.
+        {t('lock:addFundsBody')}
       </AppText>
       {offer && wallet && deviceKey && nextLockSeq !== undefined ? (
         <ActivationForm
@@ -54,7 +57,7 @@ export function AddFunds() {
           sponsorship={sponsorship}
           windows={ctx.windows}
           busy={busy}
-          action="Add funds"
+          action={t('lock:addFundsTitle')}
           onSubmit={(input) => {
             setBusy(true)
             setError(undefined)
@@ -73,7 +76,7 @@ export function AddFunds() {
           }}
         />
       ) : error ? null : (
-        <ActivityIndicator testID="add-funds-loading" accessibilityLabel="Reading your wallet" color={primary} />
+        <ActivityIndicator testID="add-funds-loading" accessibilityLabel={t('lock:readingWallet')} color={primary} />
       )}
       <StatusNote testID="add-funds-error" tone="danger" message={error} />
     </Screen>

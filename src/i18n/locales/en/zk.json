@@ -17,5 +17,9 @@
       "retry": "The server did not answer. This phone will try again.",
       "invalid": "This note could not be settled privately."
     }
+  },
+  "privateData": {
+    "title": "Private settlement data",
+    "download": "Download now"
   }
 }

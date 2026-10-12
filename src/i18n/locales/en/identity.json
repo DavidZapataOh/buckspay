@@ -90,5 +90,11 @@
       "body": "Paying and receiving need a wallet and this phone’s key, registered on Solana.",
       "action": "Set up payments"
     }
-  }
+  },
+  "walletHas": "Your wallet has {{amount}} {{symbol}}.",
+  "amountToAdd": "Amount to add ({{symbol}})",
+  "lockLengthDays": "Lock length (days)",
+  "keyProtectionLine": "Key protection: {{value}}",
+  "viewTransaction": "View the transaction in the explorer",
+  "waitingForSolana": "Waiting for Solana"
 }

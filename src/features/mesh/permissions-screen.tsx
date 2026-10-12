@@ -1,8 +1,10 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { useState } from 'react'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import { Screen } from '../../components/screen'
-import { meshCopy } from './copy'
+
 import type { PermissionGroup } from './native'
 
 export type PermissionsScreenProps = {
@@ -12,6 +14,8 @@ export type PermissionsScreenProps = {
 
 /** Says what Buckspay asks for and why, asks once, and continues whatever the answer. */
 export function PermissionsScreen({ request, onDone }: PermissionsScreenProps) {
+  const { t } = useTranslation(NAMESPACES)
+
   const [answer, setAnswer] = useState<'granted' | 'denied'>()
   const [busy, setBusy] = useState(false)
 
@@ -24,15 +28,15 @@ export function PermissionsScreen({ request, onDone }: PermissionsScreenProps) {
   return (
     <Screen testID="permissions">
       <AppText variant="headline" accessibilityRole="header">
-        {meshCopy.title}
+        {t('mesh:title')}
       </AppText>
-      <AppText variant="body">{meshCopy.body}</AppText>
+      <AppText variant="body">{t('mesh:body')}</AppText>
       {answer ? (
-        <Button variant="filled" label={meshCopy.continue} onPress={() => onDone({ mesh: answer === 'granted' })} />
+        <Button variant="filled" label={t('mesh:continue')} onPress={() => onDone({ mesh: answer === 'granted' })} />
       ) : (
-        <Button variant="filled" label={meshCopy.allow} busy={busy} onPress={() => void allow()} />
+        <Button variant="filled" label={t('mesh:allow')} busy={busy} onPress={() => void allow()} />
       )}
-      <AppText variant="body">{meshCopy.footnote}</AppText>
+      <AppText variant="body">{t('mesh:footnote')}</AppText>
     </Screen>
   )
 }

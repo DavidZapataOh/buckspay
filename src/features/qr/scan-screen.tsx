@@ -1,9 +1,10 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import type { TransferProgress } from '../../transport/types'
-import { copy, text } from '../payment/copy'
 import { QrScanner } from './qr-scanner'
 
 /** The camera under a short instruction, with the progress of a code made of several parts and a way out. */
@@ -25,6 +26,8 @@ export function ScanScreen({
   onCancel: () => void
   cancelLabel: string
 }) {
+  const { t } = useTranslation(NAMESPACES)
+
   const insets = useSafeAreaInsets()
   return (
     <View
@@ -35,7 +38,9 @@ export function ScanScreen({
         {hint}
       </AppText>
       <AppText variant="label" tone="muted" accessibilityLiveRegion="polite">
-        {progress && progress.total > 1 ? text(copy.scan.progress, { done: progress.done, total: progress.total }) : ''}
+        {progress && progress.total > 1
+          ? t('payment:scan.progress', { done: progress.done, total: progress.total })
+          : ''}
       </AppText>
       <AppText variant="body" tone="danger" accessibilityLiveRegion="polite">
         {notice ?? ''}

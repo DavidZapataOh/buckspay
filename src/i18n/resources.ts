@@ -14,6 +14,7 @@ import enMesh from './locales/en/mesh.json'
 import enIdentity from './locales/en/identity.json'
 import enLock from './locales/en/lock.json'
 import enSettlement from './locales/en/settlement.json'
+import enSettings from './locales/en/settings.json'
 
 export const resources = {
   en: {
@@ -31,7 +32,10 @@ export const resources = {
     identity: enIdentity,
     lock: enLock,
     settlement: enSettlement,
+    settings: enSettings,
   },
   es: { common: esCommon },
   pt: { common: ptCommon },
 } as const
+
+export const NAMESPACES = Object.keys(resources.en) as (keyof (typeof resources)['en'])[]

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { NAMESPACES } from '../../i18n'
 import { openURL } from 'expo-linking'
 import { router } from 'expo-router'
 import { useState } from 'react'
@@ -17,13 +19,15 @@ import { useDeviceIdentity } from './use-device-identity'
 
 /** Sets up paying and receiving: a wallet, this phone's key and its first lock. */
 export function Onboarding() {
+  const { t } = useTranslation(NAMESPACES)
+
   const { getExplorerUrl } = useNetwork()
   const { step, busy, error, details, signature, activation, sponsorship, wallet, device, deviceKey, next } =
     useDeviceIdentity()
   const [showDetails, setShowDetails] = useState(false)
   const [primary] = useThemeColors('primary')
   // While loading, the screen shows a spinner, or a retry once the derivation failed.
-  const content = step === 'ready' || (step === 'loading' && !error) ? undefined : stepCopy[step]
+  const content = step === 'ready' || (step === 'loading' && !error) ? undefined : stepCopy(step)
   const notice =
     step === 'confirming'
       ? confirmingNotice(signature)
@@ -34,7 +38,7 @@ export function Onboarding() {
   return (
     <Screen>
       <View className="flex-row items-center justify-between -ml-3">
-        <IconButton testID="onboarding-close" icon="close" label="Close" onPress={() => router.back()} />
+        <IconButton testID="onboarding-close" icon="close" label={t('common:close')} onPress={() => router.back()} />
         {content?.progress ? (
           <AppText testID="onboarding-progress" variant="label" tone="muted">
             {content.progress}
@@ -58,12 +62,12 @@ export function Onboarding() {
             />
           ) : null}
           {step === 'other-wallet' && device ? (
-            <AddressRow testID="registered-wallet" address={device.wallet} label="Registered to" />
+            <AddressRow testID="registered-wallet" address={device.wallet} label={t('common:registeredTo')} />
           ) : null}
           {wallet ? (
             <View className="gap-1">
               <AppText variant="label" tone="muted">
-                Connected wallet
+                {t('common:connectedWallet')}
               </AppText>
               <AppText testID="wallet-address" variant="label" selectable>
                 {wallet}
@@ -72,7 +76,7 @@ export function Onboarding() {
           ) : null}
           {deviceKey ? (
             <AppText testID="security-level" variant="label" tone="muted">
-              Key protection: {keyProtection[deviceKey.securityLevel]}
+              {t('identity:keyProtectionLine', { value: keyProtection(deviceKey.securityLevel) })}
             </AppText>
           ) : null}
           <StatusNote testID="onboarding-notice" tone="default" message={notice} />
@@ -81,7 +85,7 @@ export function Onboarding() {
             <Button
               testID="onboarding-details"
               variant="text"
-              label={showDetails ? 'Hide details' : 'Details'}
+              label={showDetails ? t('common:hideDetails') : t('common:details')}
               onPress={() => setShowDetails(!showDetails)}
             />
           ) : null}
@@ -93,13 +97,17 @@ export function Onboarding() {
           {signature && (step === 'confirming' || showDetails) ? (
             <Button
               variant="text"
-              label="View the transaction in the explorer"
+              label={t('identity:viewTransaction')}
               onPress={() => void openURL(getExplorerUrl(`tx/${signature}`))}
             />
           ) : null}
           <View className="grow" />
           {step === 'confirming' && !error ? (
-            <ActivityIndicator testID="onboarding-waiting" accessibilityLabel="Waiting for Solana" color={primary} />
+            <ActivityIndicator
+              testID="onboarding-waiting"
+              accessibilityLabel={t('identity:waitingForSolana')}
+              color={primary}
+            />
           ) : step === 'activate' && activation ? null : (
             <Button
               testID="onboarding-next"
@@ -111,7 +119,7 @@ export function Onboarding() {
           )}
         </View>
       ) : (
-        <ActivityIndicator testID="onboarding-loading" accessibilityLabel="Checking this phone" color={primary} />
+        <ActivityIndicator testID="onboarding-loading" accessibilityLabel={t('common:checkingPhone')} color={primary} />
       )}
     </Screen>
   )

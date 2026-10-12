@@ -1,3 +1,6 @@
+import { formatCountdown, formatMoney } from '../../i18n/format'
+import { currentLanguage, NAMESPACES } from '../../i18n'
+import { useTranslation } from 'react-i18next'
 import { router } from 'expo-router'
 import { useEffect, useRef } from 'react'
 import { View } from 'react-native'
@@ -6,12 +9,11 @@ import { Button } from '../../components/button'
 import { Screen } from '../../components/screen'
 import { PAY_LIMITS, MIN_WINDOW } from '../../features/pay/limits'
 import { BUILD_TOKEN } from '../../features/pay/tokens'
-import { copy, text } from '../../features/payment/copy'
 import { QrPresenter } from '../../features/qr/qr-presenter'
 import { ScanScreen } from '../../features/qr/scan-screen'
 import { WaitingScreen } from '../../features/transport/waiting'
 import { NearbyCheck } from '../../features/witness/nearby-check'
-import { witnessCopy } from '../../features/witness/copy'
+
 import { AcceptedResult, RejectedResult } from '../../features/receive/result'
 import { useSecondsLeft } from '../../features/receive/use-seconds-left'
 import { pointReasonText } from '../../features/event/copy'
@@ -19,10 +21,10 @@ import { usePointMode } from '../../features/event/use-point-mode'
 import { useReceiveFlow } from '../../features/receive/use-receive-flow'
 import { useSettlementRunner } from '../../features/settlement/use-settlement-runner'
 import { safetyCode } from '../../payment/messages'
-import { formatMoney } from '../../utils/format-amount'
-import { formatCountdown } from '../../utils/format-duration'
 
 export default function ReceiveSession() {
+  const { t } = useTranslation(NAMESPACES)
+
   const flow = useReceiveFlow()
   const { mode: point } = usePointMode()
   const settlement = useSettlementRunner()
@@ -59,26 +61,26 @@ export default function ReceiveSession() {
     return state.name === 'scanning' && flow.how.chosen !== 'qr' ? (
       <WaitingScreen
         medium={flow.how.chosen}
-        title={copy.receive.waitingForPayment}
-        notice={flow.wrongCode ? copy.scan.wrongPayment : undefined}
-        detail={text(copy.receive.countdown, { time: formatCountdown(left) })}
+        title={t('payment:receive.waitingForPayment')}
+        notice={flow.wrongCode ? t('payment:scan.wrongPayment') : undefined}
+        detail={t('payment:receive.countdown', { time: formatCountdown(left) })}
         onCancel={flow.back}
-        cancelLabel={copy.review.cancel}
+        cancelLabel={t('payment:review.cancel')}
       />
     ) : state.name === 'scanning' ? (
       <ScanScreen
-        hint={copy.receive.scanning}
+        hint={t('payment:receive.scanning')}
         hintTestID="receive-scanning"
         progress={flow.progress}
-        notice={flow.wrongCode ? copy.scan.wrongPayment : undefined}
+        notice={flow.wrongCode ? t('payment:scan.wrongPayment') : undefined}
         onText={flow.submitText}
         onCancel={flow.back}
-        cancelLabel={copy.review.cancel}
+        cancelLabel={t('payment:review.cancel')}
       />
     ) : (
       <Screen testID="receive-verifying">
         <AppText variant="headline" accessibilityLiveRegion="polite">
-          {copy.receive.checking}
+          {t('payment:receive.checking')}
         </AppText>
       </Screen>
     )
@@ -92,7 +94,9 @@ export default function ReceiveSession() {
           symbol={BUILD_TOKEN.symbol}
           decimals={BUILD_TOKEN.decimals}
           receipt={
-            flow.texts ? <QrPresenter texts={flow.texts} accessibilityLabel={copy.receive.receiptLabel} /> : undefined
+            flow.texts ? (
+              <QrPresenter texts={flow.texts} accessibilityLabel={t('payment:receive.receiptLabel')} />
+            ) : undefined
           }
           witness={(() => {
             const check = flow.witness()
@@ -128,52 +132,52 @@ export default function ReceiveSession() {
   if (state.name === 'expired') {
     return (
       <Screen testID="receive-expired">
-        <AppText variant="headline">{copy.receive.expired}</AppText>
-        <Button testID="receive-new" variant="filled" label={copy.receive.newRequest} onPress={flow.finish} />
+        <AppText variant="headline">{t('payment:receive.expired')}</AppText>
+        <Button testID="receive-new" variant="filled" label={t('payment:receive.newRequest')} onPress={flow.finish} />
       </Screen>
     )
   }
 
   if (state.name === 'requesting') {
     const { request } = state
-    const amount = formatMoney(request.amount, BUILD_TOKEN.decimals)
+    const amount = formatMoney(request.amount, BUILD_TOKEN.decimals, currentLanguage())
     return (
       <Screen testID="receive-request">
-        <AppText variant="headline">{copy.receive.requestTitle[flow.how.chosen]}</AppText>
+        <AppText variant="headline">{t(`payment:receive.requestTitle.${flow.how.chosen}`)}</AppText>
         {flow.texts ? (
           <QrPresenter
             texts={flow.texts}
-            accessibilityLabel={text(copy.receive.requestLabel, { amount, symbol: BUILD_TOKEN.symbol })}
+            accessibilityLabel={t('payment:receive.requestLabel', { amount, symbol: BUILD_TOKEN.symbol })}
           />
         ) : null}
         <AppText variant="title">{`${amount} ${BUILD_TOKEN.symbol}`}</AppText>
         {request.witness !== 'none' ? (
           <AppText variant="label" tone="muted">
-            {`${witnessCopy.willAsk} ${request.witness === 'audible' ? witnessCopy.soundAudible : witnessCopy.soundUltrasound}`}
+            {`${t('witness:willAsk')} ${request.witness === 'audible' ? t('witness:soundAudible') : t('witness:soundUltrasound')}`}
           </AppText>
         ) : null}
         <View testID="receive-code" accessible>
-          <AppText variant="body">{text(copy.receive.code, { code: safetyCode(request.owner) })}</AppText>
+          <AppText variant="body">{t('payment:receive.code', { code: safetyCode(request.owner) })}</AppText>
           <AppText variant="label" tone="muted">
-            {copy.receive.payerSeesCode}
+            {t('payment:receive.payerSeesCode')}
           </AppText>
         </View>
         <AppText testID="receive-countdown" variant="body" tone="muted">
-          {text(copy.receive.countdown, { time: formatCountdown(left) })}
+          {t('payment:receive.countdown', { time: formatCountdown(left) })}
         </AppText>
         <View className="gap-3">
           {flow.how.chosen === 'qr' ? (
             <Button
               testID="receive-scan-payment"
               variant="filled"
-              label={copy.receive.scanPayment}
+              label={t('payment:receive.scanPayment')}
               onPress={flow.scanPayment}
             />
           ) : null}
           <Button
             testID="receive-cancel"
             variant="text"
-            label={copy.receive.cancelRequest}
+            label={t('payment:receive.cancelRequest')}
             onPress={() => {
               flow.cancel()
             }}

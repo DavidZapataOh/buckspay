@@ -1,7 +1,8 @@
+import { i18n } from '../../i18n'
 import { act } from 'react'
 import { create, type ReactTestInstance } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
-import { witnessCopy } from './copy'
+import { resources } from '../../i18n/resources'
 import { NearbyCheckSettings } from './nearby-check-settings'
 import type { WitnessPolicy } from './policy'
 import { WitnessRow } from './witness-row'
@@ -61,17 +62,19 @@ const result = (status: 'seen' | 'not-seen' | 'unavailable'): WitnessEvent => ({
 describe('the nearby check row', () => {
   it('shows the sentence of each state', async () => {
     const checking = stateAfter(start('auto'))
-    expect(texts(await row('receiver', 'auto', checking))).toContain(witnessCopy.receiverChecking)
-    expect(texts(await row('payer', 'auto', checking))).toContain(witnessCopy.payerChecking)
-    expect(texts(await row('receiver', 'auto', stateAfter(start('auto'), result('seen'))))).toContain(witnessCopy.seen)
+    expect(texts(await row('receiver', 'auto', checking))).toContain(i18n.t('witness:receiverChecking'))
+    expect(texts(await row('payer', 'auto', checking))).toContain(i18n.t('witness:payerChecking'))
+    expect(texts(await row('receiver', 'auto', stateAfter(start('auto'), result('seen'))))).toContain(
+      i18n.t('witness:seen'),
+    )
     expect(texts(await row('receiver', 'auto', stateAfter(start('auto'), result('not-seen'))))).toContain(
-      witnessCopy.notSeen,
+      i18n.t('witness:notSeen'),
     )
     expect(texts(await row('receiver', 'auto', stateAfter(start('auto'), result('unavailable'))))).toContain(
-      witnessCopy.unavailable,
+      i18n.t('witness:unavailable'),
     )
     expect(texts(await row('receiver', 'auto', stateAfter(start('auto'), { type: 'skip' })))).toContain(
-      witnessCopy.skipped,
+      i18n.t('witness:skipped'),
     )
   })
 
@@ -98,12 +101,12 @@ describe('the nearby check row', () => {
 
   it('holds the required headline until the check is seen or Continue anyway is pressed', async () => {
     const required = stateAfter(start('require'))
-    expect(texts(await row('receiver', 'require', required))).toContain(witnessCopy.requiredChecking)
+    expect(texts(await row('receiver', 'require', required))).toContain(i18n.t('witness:requiredChecking'))
     const missed = witnessReducer(required, result('not-seen'))
-    expect(texts(await row('receiver', 'require', missed))).toContain(witnessCopy.requiredNotSeen)
+    expect(texts(await row('receiver', 'require', missed))).toContain(i18n.t('witness:requiredNotSeen'))
     const continued = witnessReducer(missed, { type: 'continue' })
-    expect(texts(await row('receiver', 'require', continued))).toContain(witnessCopy.notSeen)
-    expect(texts(await row('payer', 'require', missed))).toContain(witnessCopy.notSeen)
+    expect(texts(await row('receiver', 'require', continued))).toContain(i18n.t('witness:notSeen'))
+    expect(texts(await row('payer', 'require', missed))).toContain(i18n.t('witness:notSeen'))
   })
 
   it('calls back for each button', async () => {
@@ -118,7 +121,7 @@ describe('the nearby check row', () => {
   it('contains no word from the forbidden list', () => {
     const sentences = (value: unknown): string[] =>
       typeof value === 'string' ? [value] : Object.values(value as object).flatMap(sentences)
-    for (const sentence of sentences(witnessCopy)) {
+    for (const sentence of sentences(resources.en.witness)) {
       expect(sentence.toLowerCase()).not.toMatch(/verified|proof|confirmed|secure|present|inaudible/)
     }
   })
@@ -138,7 +141,11 @@ describe('the nearby check row', () => {
       />,
     )
     expect(texts(root)).toEqual(
-      expect.arrayContaining([witnessCopy.settings.answer, witnessCopy.settings.ask, witnessCopy.settings.footnote]),
+      expect.arrayContaining([
+        i18n.t('witness:settings.answer'),
+        i18n.t('witness:settings.ask'),
+        i18n.t('witness:settings.footnote'),
+      ]),
     )
     root.findAllByType('Switch' as never)[1].props.onValueChange(true)
     expect(onAsk).toHaveBeenCalledWith(true)

@@ -1,6 +1,5 @@
-import { formatMoney } from '../../utils/format-amount'
-import { text } from '../payment/copy'
-import { rewardsCopy } from './copy'
+import { formatMoney } from '../../i18n/format'
+import { i18n, currentLanguage } from '../../i18n'
 
 export const REWARDS_URL = 'buckspay://activity/rewards'
 
@@ -25,11 +24,11 @@ export async function notifyHeldWord(
 ): Promise<void> {
   if (await seen.has(word.id)) return
   const body = options.showAmounts
-    ? text(rewardsCopy.notification.bodyAmount, {
-        amount: formatMoney(word.value, options.decimals),
+    ? i18n.t('rewards:notification.bodyAmount', {
+        amount: formatMoney(word.value, options.decimals, currentLanguage()),
         symbol: options.symbol,
       })
-    : rewardsCopy.notification.body
-  await schedule({ title: rewardsCopy.notification.title, body, url: REWARDS_URL })
+    : i18n.t('rewards:notification.body')
+  await schedule({ title: i18n.t('rewards:notification.title'), body, url: REWARDS_URL })
   await seen.add(word.id)
 }
