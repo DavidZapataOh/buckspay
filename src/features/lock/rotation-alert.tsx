@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { Chip } from '../../components/chip'
+import { Info } from '../../components/info'
 import { StatusNote } from '../../components/status-note'
 import { useDeviceIdentity } from '../identity/use-device-identity'
 import { rotationNotice } from './lock-copy'
@@ -52,9 +54,12 @@ export function RotationAlert() {
   }
 
   return (
-    <View testID="rotation-alert" className="rounded-3xl bg-surface p-5 gap-3">
-      <AppText variant="headline">{t('lock:rotationTitle')}</AppText>
-      <AppText variant="body">{rotationNotice(alert.newWallet, alert.effectiveAt)}</AppText>
+    <View testID="rotation-alert" className="gap-3 rounded-3xl border border-danger bg-danger-container p-5">
+      <View className="flex-row items-center justify-between gap-2">
+        <Chip kind="problem" label={t('lock:rotationTitle')} />
+        <Info title={t('lock:rotationTitle')} lines={[rotationNotice(alert.newWallet, alert.effectiveAt)]} />
+      </View>
+      <AppText variant="body">{t('lock:rotationAsk')}</AppText>
       <StatusNote testID="rotation-error" tone="danger" message={error} />
       <Button
         testID="rotation-cancel"

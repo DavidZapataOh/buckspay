@@ -5,8 +5,8 @@ import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { View } from 'react-native'
 import { AppText } from '../../components/app-text'
-import { Button } from '../../components/button'
-import { ListRow } from '../../components/list-row'
+import { Chip } from '../../components/chip'
+import { Tile } from '../../components/tile'
 import { Screen } from '../../components/screen'
 
 import { listEvents, type StoredEvent } from '../../features/event/store'
@@ -36,7 +36,6 @@ export default function Events() {
 
   return (
     <Screen testID="events">
-      <AppText variant="headline">{t('event:title')}</AppText>
       <View className="gap-1">
         <AppText variant="title" accessibilityRole="header">
           {t('event:joined')}
@@ -47,7 +46,15 @@ export default function Events() {
           </AppText>
         ) : null}
         {joined.map((event) => (
-          <ListRow key={event.name + event.endsAt} testID="event-joined" title={event.name} value={ends(event)} />
+          <View
+            key={event.name + event.endsAt}
+            testID="event-joined"
+            accessible
+            className="gap-1 rounded-3xl border border-outline bg-surface p-4"
+          >
+            <AppText variant="title">{event.name}</AppText>
+            <Chip kind="info" icon="event" label={ends(event)} />
+          </View>
         ))}
       </View>
       {organised.length > 0 ? (
@@ -56,17 +63,28 @@ export default function Events() {
             {t('event:organised')}
           </AppText>
           {organised.map((event) => (
-            <ListRow key={event.name + event.endsAt} testID="event-organised" title={event.name} value={ends(event)} />
+            <View
+              key={event.name + event.endsAt}
+              testID="event-organised"
+              accessible
+              className="gap-1 rounded-3xl border border-outline bg-surface p-4"
+            >
+              <AppText variant="title">{event.name}</AppText>
+              <Chip kind="info" icon="event" label={ends(event)} />
+            </View>
           ))}
         </View>
       ) : null}
-      <Button
-        testID="events-join"
-        variant="filled"
-        label={t('event:join')}
-        onPress={() => router.push('/events/join')}
-      />
-      <Button testID="events-run" variant="tonal" label={t('event:run')} onPress={() => router.push('/events/run')} />
+      <View className="flex-row gap-3">
+        <Tile
+          testID="events-join"
+          highlight
+          icon="qr_code_scanner"
+          title={t('event:join')}
+          onPress={() => router.push('/events/join')}
+        />
+        <Tile testID="events-run" icon="campaign" title={t('event:run')} onPress={() => router.push('/events/run')} />
+      </View>
     </Screen>
   )
 }

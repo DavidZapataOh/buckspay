@@ -52,5 +52,6 @@
     "rejected": "Solana rechazó la transacción. No se movió dinero.",
     "unconfirmed": "Solana aún no confirma la transacción. Todavía puede completarse; revisa tus reservas en un minuto.",
     "lowSol": "Tu billetera tiene {{balance}} SOL y esto cuesta cerca de {{cost}} SOL en costos de red. Agrega SOL a tu billetera e inténtalo de nuevo. No se envió nada."
-  }
+  },
+  "rotationAsk": "¿Fuiste tú? Si no, cancélalo ya."
 }

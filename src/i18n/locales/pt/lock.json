@@ -52,5 +52,6 @@
     "rejected": "A Solana recusou a transação. Nenhum dinheiro foi movido.",
     "unconfirmed": "A Solana ainda não confirmou a transação. Ela ainda pode ser concluída; confira suas reservas em um minuto.",
     "lowSol": "Sua carteira tem {{balance}} SOL e isto custa cerca de {{cost}} SOL em custos de rede. Adicione SOL à sua carteira e tente de novo. Nada foi enviado."
-  }
+  },
+  "rotationAsk": "Foi você? Se não, cancele agora."
 }

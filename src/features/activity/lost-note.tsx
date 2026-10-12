@@ -3,6 +3,7 @@ import { currentLanguage, NAMESPACES } from '../../i18n'
 import { useTranslation } from 'react-i18next'
 import { View } from 'react-native'
 import { AppText } from '../../components/app-text'
+import { Chip } from '../../components/chip'
 import { safetyCode } from '../../payment/messages'
 
 /** What a note that lost to a double spend says: who spent it twice, and what their bond lost. */
@@ -28,8 +29,8 @@ export function LostNote({
 
   const code = safetyCode({ type: 'device', key: culprit })
   return (
-    <View className="gap-2" testID="lost-note">
-      <AppText variant="headline">{t('payment:activity.lost.title')}</AppText>
+    <View className="gap-2 rounded-3xl border border-danger bg-danger-container p-5" testID="lost-note">
+      <Chip kind="problem" label={t('payment:activity.lost.title')} />
       <AppText variant="body">
         {hop === null
           ? t('payment:activity.lost.issuer', { code })

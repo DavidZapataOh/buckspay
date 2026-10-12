@@ -52,5 +52,6 @@
     "rejected": "Solana rejected the transaction. No funds moved.",
     "unconfirmed": "Solana hasn’t confirmed the transaction yet. It may still go through; check your reserves in a minute.",
     "lowSol": "Your wallet has {{balance}} SOL and this costs about {{cost}} SOL in network costs. Add SOL to your wallet, then try again. Nothing was sent."
-  }
+  },
+  "rotationAsk": "Was this you? If not, cancel it now."
 }
