@@ -109,15 +109,18 @@ export function useHostSession() {
   const deps = useDeps(state.onEvent, state.consent)
   const controller = useRef(new AbortController())
   const release = useRef<(() => void) | undefined>(undefined)
+  const opened = useRef(false)
   const [invite, setInvite] = useState<Invite>()
+  const { setRun, failures } = state
 
   const open = useCallback(async () => {
-    if (!deps) return
+    if (!deps || opened.current) return
+    opened.current = true
     const next = newInvite(deps.random)
     setInvite(next)
     try {
       const wire = await openHub(next)
-      state.setRun((r) => ({
+      setRun((r) => ({
         ...r,
         phase: 'running',
         view: sessionView(
@@ -148,10 +151,10 @@ export function useHostSession() {
       ).finally(() => void wire.close())
     } catch (error) {
       if (!(error instanceof GroupError)) throw error
-      state.failures.current++
-      state.setRun((r) => ({ ...r, failure: { reason: error.reason, count: state.failures.current } }))
+      failures.current++
+      setRun((r) => ({ ...r, failure: { reason: error.reason, count: failures.current } }))
     }
-  }, [deps, state])
+  }, [deps, setRun, failures])
 
   return {
     ...state.run,
