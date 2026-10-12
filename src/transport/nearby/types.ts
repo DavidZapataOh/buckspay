@@ -15,6 +15,9 @@ export type NearbyEvent =
   | { type: 'message'; endpointId: string }
   | { type: 'disconnected'; endpointId: string }
 
+/** `pay` is the one-to-one payment link; `group` is the one-to-many hub; `groupSequential` is the hub's one-at-a-time fallback. */
+export type NearbyMode = 'pay' | 'group' | 'groupSequential'
+
 export type NearbyErrorCode = 'RadioOff' | 'PermissionMissing' | 'Unsupported' | 'AlreadyActive' | 'Failed'
 
 export class NearbyError extends Error {
@@ -25,14 +28,14 @@ export class NearbyError extends Error {
 }
 
 /**
- * The native module, as the JavaScript side sees it. Strategy P2P_POINT_TO_POINT, low power and the
- * non-disruptive connection type are fixed inside it: nothing here lets a caller change them.
+ * The native module, as the JavaScript side sees it. The strategy follows the mode (`pay` and `groupSequential` use
+ * P2P_POINT_TO_POINT, `group` uses P2P_STAR); low power and the non-disruptive connection type are fixed inside it.
  */
 export interface NearbyNative {
   support(): Promise<NearbySupport>
-  startAdvertising(infoHex: string): Promise<void>
+  startAdvertising(infoHex: string, mode?: NearbyMode): Promise<void>
   stopAdvertising(): Promise<void>
-  startDiscovery(): Promise<void>
+  startDiscovery(mode?: NearbyMode): Promise<void>
   stopDiscovery(): Promise<void>
   requestConnection(endpointId: string, infoHex: string): Promise<void>
   acceptConnection(endpointId: string): Promise<void>

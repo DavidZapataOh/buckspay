@@ -35,9 +35,9 @@ function toEvent(event: NearbyEventPayload): NearbyEvent {
 /** The only place that touches the native module. */
 export const nearbyNative: NearbyNative = {
   support: () => call(Nearby.support()),
-  startAdvertising: (infoHex) => call(Nearby.startAdvertising(infoHex)),
+  startAdvertising: (infoHex, mode) => call(Nearby.startAdvertising(infoHex, mode)),
   stopAdvertising: () => call(Nearby.stopAdvertising()),
-  startDiscovery: () => call(Nearby.startDiscovery()),
+  startDiscovery: (mode) => call(Nearby.startDiscovery(mode)),
   stopDiscovery: () => call(Nearby.stopDiscovery()),
   requestConnection: (endpointId, infoHex) => call(Nearby.requestConnection(endpointId, infoHex)),
   acceptConnection: (endpointId) => call(Nearby.acceptConnection(endpointId)),

@@ -1,10 +1,14 @@
-import { NearbyError, type NearbyEvent, type NearbyNative, type NearbySupport } from '../types'
+import { NearbyError, type NearbyEvent, type NearbyMode, type NearbyNative, type NearbySupport } from '../types'
 
 type Listener = (event: NearbyEvent) => void
+
+const serviceOf = (mode: NearbyMode) => (mode === 'pay' ? 'pay' : 'group')
 
 /** Phones in one room, with the callback order of Nearby Connections. Test double, never shipped. */
 export class FakeAir {
   readonly phones: FakePhone[] = []
+  /** How many connections a `group` hub can hold before the radio refuses the next one. */
+  starLimit = 7
   phone(support: Partial<NearbySupport> = {}): FakePhone {
     const phone = new FakePhone(this, `E${this.phones.length + 1}`, {
       playServices: true,
@@ -30,7 +34,10 @@ export class FakeAir {
 export class FakePhone implements NearbyNative {
   readonly calls: { method: string; args: unknown[] }[] = []
   advertising: string | null = null
+  advertisingMode: NearbyMode | null = null
   discovering = false
+  discoveringMode: NearbyMode | null = null
+  private requestMode: NearbyMode = 'pay'
   failNext: NearbyError | null = null
   private listeners = new Set<Listener>()
   private inbox = new Map<string, Uint8Array[]>()
@@ -65,33 +72,52 @@ export class FakePhone implements NearbyNative {
     return () => void this.listeners.delete(listener)
   }
 
-  async startAdvertising(infoHex: string) {
-    this.log('startAdvertising', infoHex)
+  private enter(mode: NearbyMode) {
+    const active = this.advertisingMode ?? this.discoveringMode
+    if (active && active !== mode) throw new NearbyError('AlreadyActive')
+  }
+
+  async startAdvertising(infoHex: string, mode?: NearbyMode) {
+    this.log('startAdvertising', ...(mode ? [infoHex, mode] : [infoHex]))
+    const effective = mode ?? 'pay'
     if (this.advertising) throw new NearbyError('AlreadyActive')
+    this.enter(effective)
     this.advertising = infoHex
+    this.advertisingMode = effective
     for (const other of this.air.phones)
-      if (other.discovering) other.emit({ type: 'found', endpointId: this.id, infoHex })
+      if (other.discovering && other.discoveringMode && serviceOf(other.discoveringMode) === serviceOf(effective))
+        other.emit({ type: 'found', endpointId: this.id, infoHex })
   }
   async stopAdvertising() {
     this.log('stopAdvertising')
     if (!this.advertising) return
     this.advertising = null
+    this.advertisingMode = null
     for (const other of this.air.phones) if (other.discovering) other.emit({ type: 'lost', endpointId: this.id })
   }
-  async startDiscovery() {
-    this.log('startDiscovery')
+  async startDiscovery(mode?: NearbyMode) {
+    this.log('startDiscovery', ...(mode ? [mode] : []))
+    const effective = mode ?? 'pay'
+    this.enter(effective)
     this.discovering = true
+    this.discoveringMode = effective
+    this.requestMode = effective
     for (const other of this.air.phones)
-      if (other.advertising) this.emit({ type: 'found', endpointId: other.id, infoHex: other.advertising })
+      if (other.advertising && other.advertisingMode && serviceOf(other.advertisingMode) === serviceOf(effective))
+        this.emit({ type: 'found', endpointId: other.id, infoHex: other.advertising })
   }
   async stopDiscovery() {
     this.log('stopDiscovery')
     this.discovering = false
+    this.discoveringMode = null
   }
   async requestConnection(endpointId: string, infoHex: string) {
     this.log('requestConnection', endpointId, infoHex)
     const target = this.air.byId(endpointId)
-    if (!target?.advertising) throw new NearbyError('Failed')
+    if (!target?.advertising || !target.advertisingMode) throw new NearbyError('Failed')
+    if (serviceOf(target.advertisingMode) !== serviceOf(this.requestMode)) throw new NearbyError('Failed')
+    const room = target.advertisingMode === 'group' ? this.air.starLimit : 1
+    if (target.connected.size >= room) throw new NearbyError('Failed')
     const digits = String(1000 + Math.floor(Math.random() * 9000))
     this.digitsFor.set(endpointId, digits)
     target.digitsFor.set(this.id, digits)
@@ -138,7 +164,9 @@ export class FakePhone implements NearbyNative {
   async stopAll() {
     this.log('stopAll')
     this.advertising = null
+    this.advertisingMode = null
     this.discovering = false
+    this.discoveringMode = null
     for (const id of [...this.connected]) await this.disconnect(id)
   }
 
