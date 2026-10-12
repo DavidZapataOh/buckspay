@@ -315,6 +315,7 @@ describe('settleHeld', () => {
     expect((await settleHeld(deps())).stalled).toEqual([{ outputId, kind: 'offline' }])
     answers = [() => Promise.reject(new GatewayError(409, 'no_lock', {}))]
     expect((await settleHeld(deps())).refused).toMatchObject([{ kind: 'lock', reason: 'no_lock' }])
+    clock += 7_200
     answers = [() => Promise.reject(new GatewayError(400, 'bad_chain', {}))]
     expect((await settleHeld(deps())).refused).toMatchObject([{ kind: 'invalid', reason: 'bad_chain' }])
   })
@@ -355,14 +356,16 @@ describe('settleHeld', () => {
 
   it('reports a refusal the wallet can answer itself, and one with a time', async () => {
     const { outputId } = await receive()
+    const at = clock + 7200
     answers = [
       () => Promise.reject(new GatewayError(422, 'invalid', { selfPay: true })),
-      () => Promise.reject(new GatewayError(409, 'horizon', { retryAt: clock + 7200 })),
+      () => Promise.reject(new GatewayError(409, 'horizon', { retryAt: at })),
     ]
     const first = await settleHeld(deps())
     expect(first.refused).toEqual([{ outputId, kind: 'invalid', selfPay: true, reason: 'invalid' }])
+    clock += 60
     const second = await settleHeld(deps())
-    expect(second.refused).toEqual([{ outputId, kind: 'horizon', selfPay: false, retryAt: clock + 7200 }])
+    expect(second.refused).toEqual([{ outputId, kind: 'horizon', selfPay: false, retryAt: at }])
     expect(await stateOf(outputId)).toBe('settling')
   })
 
@@ -391,6 +394,52 @@ describe('settleHeld', () => {
     const after = await settleHeld(deps({ pauses }))
     expect(sent.length).toBeGreaterThan(1)
     expect(after.settled).toBeGreaterThan(0)
+  })
+
+  it('remembers on disk when to ask again, so a phone that restarts does not ask before its time', async () => {
+    await receive()
+    answers = [() => Promise.reject(new GatewayError(422, 'below_minimum', { minimum: '100000' }))]
+    await settleHeld(deps())
+    expect(sent).toHaveLength(1)
+
+    const restarted = await settleHeld(deps({ attempts: new Map(), pauses: new Map() }))
+    expect(sent).toHaveLength(1)
+    expect(restarted.waiting).toBe(1)
+    expect(restarted.retryIn).toBeGreaterThan(0)
+
+    clock += 3_600
+    await settleHeld(deps({ attempts: new Map(), pauses: new Map() }))
+    expect(sent).toHaveLength(2)
+  })
+
+  it('waits longer after each answer of the same kind, across restarts', async () => {
+    await receive()
+    const waits: number[] = []
+    for (let round = 0; round < 3; round++) {
+      answers = [() => Promise.reject(new GatewayError(422, 'below_minimum', { minimum: '100000' }))]
+      const report = await settleHeld(deps({ attempts: new Map(), pauses: new Map() }))
+      waits.push(report.retryIn ?? 0)
+      clock += 7_200
+    }
+    expect(waits[1]).toBeGreaterThan(waits[0])
+    expect(waits[2]).toBeGreaterThan(waits[1])
+  })
+
+  it('asks again at once when the person asks to settle the note now', async () => {
+    const { outputId } = await receive()
+    answers = [() => Promise.reject(new GatewayError(422, 'below_minimum', { minimum: '100000' }))]
+    await settleHeld(deps())
+    const asked = { settler: { advance: vi.fn() }, userAsked: (id: string) => id === bytesToHex(outputId) }
+    await settleHeld(deps({ private: asked as never }))
+    expect(sent).toHaveLength(2)
+  })
+
+  it('does not hold back a note whose last try never got an answer', async () => {
+    await receive()
+    answers = [() => Promise.reject(new Error('network down'))]
+    await settleHeld(deps())
+    await settleHeld(deps({ attempts: new Map(), pauses: new Map() }))
+    expect(sent).toHaveLength(2)
   })
 
   it('goes on asking for a payer that is not the one over the limit', async () => {

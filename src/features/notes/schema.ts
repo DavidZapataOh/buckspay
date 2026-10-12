@@ -9,10 +9,12 @@ import { migrateWords } from '../relay/words-store'
 import { migrateDebts, DEBTS_SCHEMA_VERSION } from '../debts/store'
 import { migrateRewards } from '../rewards/secrets-store'
 import { migrateZk } from '../zk/proof-store'
+import { migrateRetry, RETRY_SCHEMA_VERSION } from '../settlement/retry-store'
 
 export const SCHEMA_VERSION = 1
 export const RESPEND_SCHEMA_VERSION = 3
 export const PASS_ON_SCHEMA_VERSION = 13
+export const SETTLEMENT_RETRY_SCHEMA_VERSION = RETRY_SCHEMA_VERSION
 
 const receivedNote = (name: string, states: string) => `CREATE TABLE ${name} (
   output_id BLOB PRIMARY KEY CHECK (length(output_id) = 32),
@@ -110,7 +112,7 @@ CREATE TABLE lock_cursor (
 /** Creates the tables on a new database and applies the later migrations; refuses a database of a newer version. Versioned with `PRAGMA user_version`. */
 export async function migrate(db: NoteDb): Promise<void> {
   const [row] = await db.all<{ user_version: number }>('PRAGMA user_version')
-  if (row.user_version > PASS_ON_SCHEMA_VERSION)
+  if (row.user_version > SETTLEMENT_RETRY_SCHEMA_VERSION)
     throw new Error(`The note store is version ${row.user_version}, newer than this app.`)
   if (row.user_version < SCHEMA_VERSION)
     await db.exec(`BEGIN; ${SCHEMA} PRAGMA user_version = ${SCHEMA_VERSION}; COMMIT;`)
@@ -126,6 +128,7 @@ export async function migrate(db: NoteDb): Promise<void> {
   await migrateRewards(db)
   await migrateDebts(db)
   await migratePassOn(db)
+  await migrateRetry(db)
 }
 
 /** Adds the mark of a note kept for passing on: the phone settles it later than the others. Does nothing at 13 or above. */

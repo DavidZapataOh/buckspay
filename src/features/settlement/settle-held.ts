@@ -28,6 +28,7 @@ import {
 import type { NoteDb } from '../notes/db'
 import { type NoteChain, settlementRequest } from './chain'
 import { needsClearNotice } from './clear-notice'
+import { clearRetry, loadRetries, saveRetry } from './retry-store'
 import { type ClaimOutcome, fileClaim, type Refusal, settle } from './settle'
 import { privatePath } from '../zk/policy'
 import type { PrivateNote } from '../zk/private-settler'
@@ -177,13 +178,33 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
     return { ...report, waiting: notes.length, blocked: 'label' }
   }
   const delays: number[] = []
+  const retries = await loadRetries(db)
   for (const note of notes) {
     const key = bytesToHex(note.outputId)
+    const saved = retries.get(key)
+    if (saved && deps.private?.userAsked(key) !== true) {
+      if (!deps.attempts.has(key)) deps.attempts.set(key, saved.attempts)
+      const left = saved.nextAt - deps.now()
+      if (left > 0) {
+        report.waiting++
+        delays.push(left)
+        report.refused.push({
+          outputId: note.outputId,
+          kind: saved.kind,
+          selfPay: saved.selfPay,
+          ...(saved.retryAt === undefined ? {} : { retryAt: saved.retryAt }),
+          ...(saved.reason === undefined ? {} : { reason: saved.reason }),
+        })
+        continue
+      }
+    }
     const wait = (seconds?: number) => {
       const failures = deps.attempts.get(key) ?? 0
+      const delay = seconds ?? settlementDelay(failures, deps.random)
       report.waiting++
-      delays.push(seconds ?? settlementDelay(failures, deps.random))
+      delays.push(delay)
       deps.attempts.set(key, failures + 1)
+      return { attempts: failures + 1, nextAt: deps.now() + delay }
     }
     let wire = note.settlementSpend
     const bundle = decodeBundle(note.bundle)
@@ -249,6 +270,7 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
       if (state.kind === 'settled' || state.kind === 'submitting') {
         await setNoteState(db, note.outputId, 'settled', deps.now())
         deps.attempts.delete(key)
+        await clearRetry(db, note.outputId)
         report.settled++
       } else if (state.kind === 'failed' && state.reason === 'expired') {
         await setNoteState(db, note.outputId, 'expired', deps.now())
@@ -276,6 +298,7 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
     if (outcome.kind === 'sent' || outcome.kind === 'settled') {
       await setNoteState(db, note.outputId, 'settled', deps.now())
       deps.attempts.delete(key)
+      await clearRetry(db, note.outputId)
       report.settled++
     } else if (outcome.kind === 'unknown') {
       await deps.queueRelay?.({ outputId: note.outputId, chain, expiry: note.expiry }).catch(() => undefined)
@@ -296,18 +319,20 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
         report.failed++
       } else if (['window', 'closed', 'deadline', 'lock_ended'].includes(refusal.kind)) {
         await setNoteState(db, note.outputId, 'expired', deps.now())
+        await clearRetry(db, note.outputId)
         report.failed++
       } else {
         const pausedUntil =
           refusal.kind === 'limited' && refusal.reason === 'key_limit' ? startOfNextDay(deps.now()) : undefined
         if (pausedUntil !== undefined) deps.pauses?.set(issuer, { reason: 'key_limit', until: pausedUntil })
         const retryAt = refusal.kind === 'horizon' ? refusal.retryAt : pausedUntil
+        const reason = reasonOf(refusal)
         report.refused.push({
           outputId: note.outputId,
           kind: refusal.kind,
           selfPay: outcome.selfPay,
           ...(retryAt === undefined ? {} : { retryAt }),
-          ...(reasonOf(refusal) === undefined ? {} : { reason: reasonOf(refusal) }),
+          ...(reason === undefined ? {} : { reason }),
         })
         const hint =
           retryAt === undefined
@@ -315,7 +340,13 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
               ? refusal.retryAfter
               : undefined
             : Math.max(0, retryAt - deps.now())
-        wait(hint)
+        await saveRetry(db, note.outputId, {
+          ...wait(hint),
+          kind: refusal.kind,
+          selfPay: outcome.selfPay,
+          ...(reason === undefined ? {} : { reason }),
+          ...(retryAt === undefined ? {} : { retryAt }),
+        })
       }
     }
   }

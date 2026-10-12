@@ -9,7 +9,7 @@ import {
   setNoteState,
   settleable,
 } from './ledger'
-import { migrate, PASS_ON_SCHEMA_VERSION } from './schema'
+import { migrate, SETTLEMENT_RETRY_SCHEMA_VERSION } from './schema'
 import { createNodeDb } from './testing/node-db'
 
 const id = (n: number) => new Uint8Array(32).fill(n)
@@ -60,7 +60,7 @@ const keepOf = async (outputId: Uint8Array) =>
 describe('the migration that lets a note wait for being passed on', () => {
   it('is the last version of the store and leaves a note kept for settling by default', async () => {
     const [row] = await db.all<{ user_version: number }>('PRAGMA user_version')
-    expect(row.user_version).toBe(PASS_ON_SCHEMA_VERSION)
+    expect(row.user_version).toBe(SETTLEMENT_RETRY_SCHEMA_VERSION)
     expect(await keepOf(await store())).toBe(0)
   })
 
