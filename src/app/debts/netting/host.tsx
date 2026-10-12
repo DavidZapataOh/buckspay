@@ -14,7 +14,14 @@ export default function NettingHost() {
     void open()
   }, [open])
   if (session.outcome && session.view) {
-    return <SessionScreen view={session.view} symbol={BUILD_TOKEN.symbol} decimals={BUILD_TOKEN.decimals} />
+    return (
+      <SessionScreen
+        view={session.view}
+        rows={session.remainder}
+        symbol={BUILD_TOKEN.symbol}
+        decimals={BUILD_TOKEN.decimals}
+      />
+    )
   }
   if (session.consent) {
     return (

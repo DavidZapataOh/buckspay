@@ -24,6 +24,7 @@ import { AbortReason, type Proposal, type SessionMessage, type SignedRosterEntry
 import {
   EXPIRES_SECS,
   GRIND_SECS,
+  peersOf,
   review,
   SIGN_MARGIN_SECS,
   type SessionDeps,
@@ -224,11 +225,18 @@ export async function runHost(deps: HostDeps, invite: Invite, signal: AbortSigna
     agreed.push({ debt, slot, debtor, creditor })
     pairs.push({ i, j, slot })
   }
+  const joinOf = (m: number): SignedRosterEntry => ({ index: m, join: m === 0 ? ownJoin : members[m - 1].join })
+  const rosterOf = (m: number): SignedRosterEntry[] => {
+    const wanted = new Set<number>([m])
+    for (const p of pairs) if (p.i === m || p.j === m) wanted.add(p.i === m ? p.j : p.i)
+    return [...wanted].sort((x, y) => x - y).map(joinOf)
+  }
   const cancellation = debts.length ? cancelCycles(n, debts) : { cancel: [] as bigint[], total: 0n }
   if (cancellation.total === 0n) {
+    for (const m of members) await send(m.index, { type: 'Roster', entries: rosterOf(m.index) }).catch(() => undefined)
     await abort(AbortReason.NothingToNet)
     await abandonSession(db, invite.session, deps.now())
-    return done({ status: 'nothing' })
+    return done({ status: 'nothing', peers: peersOf(rosterOf(0), 0) })
   }
   agreed.forEach((a, k) => {
     a.slot.cancel = cancellation.cancel[k]
@@ -266,12 +274,6 @@ export async function runHost(deps: HostDeps, invite: Invite, signal: AbortSigna
       .filter((p) => p.i === m || p.j === m)
       .map((p) => ({ slot: slotIndex(p.i, p.j), baseSeq: p.slot.seq, cancel: p.slot.cancel }))
       .sort((x, y) => x.slot - y.slot)
-  const joinOf = (m: number): SignedRosterEntry => ({ index: m, join: m === 0 ? ownJoin : members[m - 1].join })
-  const rosterOf = (m: number): SignedRosterEntry[] => {
-    const wanted = new Set<number>([m])
-    for (const p of pairs) if (p.i === m || p.j === m) wanted.add(p.i === m ? p.j : p.i)
-    return [...wanted].sort((x, y) => x - y).map(joinOf)
-  }
   const proposalFor = (m: number): Proposal => ({ statement, digests, slots: slotsOf(m) })
   for (const m of members) {
     await send(m.index, { type: 'Roster', entries: rosterOf(m.index) })

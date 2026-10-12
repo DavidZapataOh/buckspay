@@ -19,6 +19,9 @@ import {
 } from './member'
 import { openHub, openSpoke } from './open-group'
 import { proveNetting, verifyNettingProof } from './prove'
+import { collectRemainder, type RemainderTab } from './remainder'
+import { loadRemainderRows, remainderTabsOf } from './remainder-rows'
+import type { RemainderRow } from './remainder-section'
 import { type SessionView, sessionView, viewOfOutcome } from './session-view'
 
 const PROGRAM = getAddressEncoder().encode(ACTIVE_PROFILE.programId as never)
@@ -28,6 +31,8 @@ export type SessionRun = {
   consent: ProposalView | undefined
   outcome: SessionOutcome | undefined
   failure: { reason: GroupError['reason']; count: number } | undefined
+  /** What is left to pay once the session ended, one row for every tab of this phone that has something left. */
+  remainder: readonly RemainderRow[]
   phase: 'idle' | 'scan' | 'connecting' | 'not-found' | 'running'
 }
 
@@ -63,6 +68,7 @@ function useRun(role: 0 | 1) {
     consent: undefined,
     outcome: undefined,
     failure: undefined,
+    remainder: [],
     phase: 'idle',
   })
   const decide = useRef<((ok: boolean) => void) | undefined>(undefined)
@@ -123,6 +129,17 @@ function useRun(role: 0 | 1) {
   return { run, setRun, decide, consent, onEvent, failures, count }
 }
 
+/** Writes down what is left to pay of every tab of this phone and returns it as the screen shows it. */
+async function afterSession(
+  deps: SessionDeps,
+  session: Uint8Array,
+  outcome: SessionOutcome,
+): Promise<{ tabs: RemainderTab[]; rows: RemainderRow[] }> {
+  const tabs = await remainderTabsOf(deps.db, { session, deviceKey: deps.deviceKey, mint: deps.mint, outcome })
+  await collectRemainder(deps.db, session, tabs)
+  return { tabs, rows: await loadRemainderRows(deps.db, session, tabs) }
+}
+
 /** Hosts a session: shows the invite, runs the host until the person presses Start. */
 export function useHostSession() {
   const state = useRun(0)
@@ -168,7 +185,11 @@ export function useHostSession() {
         },
         next,
         controller.current.signal,
-      ).finally(() => void wire.close())
+      )
+        .then((outcome) => afterSession(deps, next.session, outcome))
+        .then(({ rows }) => setRun((r) => ({ ...r, remainder: rows })))
+        .catch((error) => console.warn('The session ended but its remainder could not be read.', error))
+        .finally(() => void wire.close())
     } catch (error) {
       if (!(error instanceof GroupError)) throw error
       failures.current++
@@ -239,7 +260,11 @@ export function useJoinSession() {
             0,
           ),
         }))
-        void runMember({ ...deps, wire }, invite, controller.current.signal).finally(() => void wire.close())
+        void runMember({ ...deps, wire }, invite, controller.current.signal)
+          .then((outcome) => afterSession(deps, invite.session, outcome))
+          .then(({ rows }) => state.setRun((r) => ({ ...r, remainder: rows })))
+          .catch((error) => console.warn('The session ended but its remainder could not be read.', error))
+          .finally(() => void wire.close())
       } catch (error) {
         if (!(error instanceof GroupError)) throw error
         state.setRun((r) => ({ ...r, phase: 'not-found' }))

@@ -330,11 +330,17 @@ export type SessionEvent =
   | { type: 'refused'; refusal: NettingRefusal['code'] }
   | { type: 'ended'; outcome: SessionOutcome }
 
+/** Someone this phone has a tab with in the session: the index the host gave them and their device key. */
+export type SessionPeer = { index: number; key: Uint8Array }
+
+export const peersOf = (roster: readonly SignedRosterEntry[], me: number): SessionPeer[] =>
+  roster.filter((e) => e.index !== me).map((e) => ({ index: e.index, key: decodeJoin(e.join.body).key }))
+
 export type SessionOutcome =
   | { status: 'agreed'; proof: FinalCheck['proof']; view: ProposalView }
   | { status: 'pending'; expires: number }
   | { status: 'abandoned'; reason: number }
-  | { status: 'nothing' }
+  | { status: 'nothing'; peers: SessionPeer[] }
   | { status: 'refused'; refusal: RefusalCode }
 
 export type SessionDeps = {
@@ -545,7 +551,8 @@ export async function runMember(
     }
     if (message.type === 'Abort') {
       return message.reason === AbortReason.NothingToNet
-        ? (await abandonSession(db, invite.session, deps.now()), finish({ status: 'nothing' }))
+        ? (await abandonSession(db, invite.session, deps.now()),
+          finish({ status: 'nothing', peers: roster ? peersOf(roster, index) : [] }))
         : aborted(message.reason)
     }
     if (message.type === 'Roster') {

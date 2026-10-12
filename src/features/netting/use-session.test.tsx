@@ -22,12 +22,19 @@ vi.mock('../debts/use-debts', () => ({ useDebts: () => (renders++ > 30 ? undefin
 vi.mock('../../keys', () => ({ deviceKeyCluster: () => 'devnet' }))
 vi.mock('./open-group', () => ({ openHub: () => openHub(), openSpoke: vi.fn() }))
 let fire: (event: SessionEvent) => void = () => undefined
+let hostEnds: Promise<unknown> = new Promise<never>(() => undefined)
 vi.mock('./host', () => ({
   runHost: (deps: { onEvent: (event: SessionEvent) => void }) => {
     fire = deps.onEvent
-    return new Promise<never>(() => undefined)
+    return hostEnds
   },
 }))
+const rows = [{ tab: 'aa', role: 'debtor' as const, amount: 5n, state: 'due' as const }]
+vi.mock('./remainder-rows', () => ({
+  remainderTabsOf: vi.fn(async () => [{ tab: new Uint8Array(32) }]),
+  loadRemainderRows: vi.fn(async () => rows),
+}))
+vi.mock('./remainder', () => ({ collectRemainder: vi.fn(async () => undefined) }))
 vi.mock('./prove', () => ({ proveNetting: vi.fn(), verifyNettingProof: vi.fn() }))
 
 declare global {
@@ -54,6 +61,7 @@ describe('useHostSession', () => {
   beforeEach(() => {
     renders = 0
     openHub.mockClear()
+    hostEnds = new Promise<never>(() => undefined)
   })
 
   it('opens_the_radio_once_however_many_times_the_screen_renders', async () => {
@@ -80,7 +88,16 @@ describe('useHostSession', () => {
     })
     await act(async () => fire({ type: 'phase', status: 2 }))
     expect(seen.current?.view?.state).toBe('waiting')
-    await act(async () => fire({ type: 'ended', outcome: { status: 'nothing' } }))
-    expect(seen.current?.outcome).toEqual({ status: 'nothing' })
+    await act(async () => fire({ type: 'ended', outcome: { status: 'nothing', peers: [] } }))
+    expect(seen.current?.outcome).toEqual({ status: 'nothing', peers: [] })
+  })
+
+  it('lists_what_is_left_to_pay_once_the_session_ends', async () => {
+    hostEnds = Promise.resolve({ status: 'nothing', peers: [] })
+    await act(async () => {
+      create(<Probe />)
+      for (let tick = 0; tick < 30; tick++) await Promise.resolve()
+    })
+    expect(seen.current?.remainder).toEqual(rows)
   })
 })

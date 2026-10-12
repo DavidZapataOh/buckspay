@@ -1,3 +1,4 @@
+import { bytesToHex } from '@noble/hashes/utils.js'
 import { describe, expect, it } from 'vitest'
 import { cancelCycles } from './cycles'
 import { listTabs } from '../debts/store'
@@ -65,6 +66,26 @@ describe('a full session', () => {
     expect((await r.run()).map((o) => o.status)).toEqual(['nothing', 'nothing', 'nothing'])
     expect(types(r)).not.toContain(SessionType.Proposal)
     for (const p of r.people) expect(await p.db.all('SELECT * FROM netting_bases')).toHaveLength(0)
+  })
+
+  it('nothing_to_net_still_tells_each_phone_who_its_tabs_are_with', async () => {
+    const r = await rig(3, [
+      { a: 0, b: 1, amount: 4n * U, debtor: 'a' },
+      { a: 1, b: 2, amount: 4n * U, debtor: 'a' },
+    ])
+    const outcomes = await r.run()
+    const peers = outcomes.map((o) =>
+      o.status === 'nothing' ? o.peers.map((p) => [p.index, bytesToHex(p.key)]) : null,
+    )
+    const key = (i: number) => bytesToHex(r.people[i].party.key)
+    expect(peers).toEqual([
+      [[1, key(1)]],
+      [
+        [0, key(0)],
+        [2, key(2)],
+      ],
+      [[1, key(1)]],
+    ])
   })
 
   it('there_is_no_states_or_counterparts_traffic_and_those_types_are_refused', async () => {

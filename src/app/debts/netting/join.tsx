@@ -19,7 +19,14 @@ export default function NettingJoin() {
     )
   }
   if (session.view && (session.outcome || session.phase === 'running')) {
-    return <SessionScreen view={session.view} symbol={BUILD_TOKEN.symbol} decimals={BUILD_TOKEN.decimals} />
+    return (
+      <SessionScreen
+        view={session.view}
+        rows={session.remainder}
+        symbol={BUILD_TOKEN.symbol}
+        decimals={BUILD_TOKEN.decimals}
+      />
+    )
   }
   return (
     <JoinScreen

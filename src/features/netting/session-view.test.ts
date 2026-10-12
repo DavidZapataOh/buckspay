@@ -95,7 +95,7 @@ describe('the states before a session has anything to agree', () => {
 describe('viewOfOutcome', () => {
   const when = NOW + 3600
   it.each([
-    [{ status: 'nothing' as const }, 'nothing'],
+    [{ status: 'nothing' as const, peers: [] }, 'nothing'],
     [{ status: 'abandoned' as const, reason: 1 }, 'abandoned'],
     [{ status: 'refused' as const, refusal: 'NetChanged' as const }, 'abandoned'],
     [{ status: 'pending' as const, expires: when }, 'waiting'],
