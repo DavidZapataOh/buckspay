@@ -1,5 +1,5 @@
-import { i18n } from '../../i18n'
-import { formatAmount } from '../../i18n/format'
+import { currentLanguage, i18n } from '../../i18n'
+import { formatMoney } from '../../i18n/format'
 import { getDeviceSize, getLedgerSize, getLockSize } from '@project/anchor'
 import {
   type Address,
@@ -81,8 +81,8 @@ export function checkInput(activation: Activation, input: ActivationInput, spons
   const total = input.amount + (sponsored && quote ? quote.fee : 0n)
   if (total > funding.balance) {
     return i18n.t('identity:problem.input.balance', {
-      have: formatAmount(funding.balance, funding.decimals),
-      need: formatAmount(total, funding.decimals),
+      have: formatMoney(funding.balance, funding.decimals, currentLanguage()),
+      need: formatMoney(total, funding.decimals, currentLanguage()),
       symbol: FUNDING_SYMBOL,
     })
   }

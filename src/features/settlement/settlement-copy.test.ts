@@ -25,7 +25,7 @@ describe('what the user is told about settling and reclaiming', () => {
 
   it('tells the payee until when it must settle', () => {
     const expiry = Date.UTC(2030, 0, 10) / 1000
-    expect(payeeObligation(expiry, windows)).toContain('before 2030-01-17 (UTC)')
+    expect(payeeObligation(expiry, windows)).toContain('before Jan 17, 2030 (UTC)')
     expect(payeeObligation(expiry, windows)).toContain("their security deposit won't cover your loss")
   })
 
@@ -39,7 +39,7 @@ describe('what the user is told about settling and reclaiming', () => {
   it('answers each refusal in words, and offers to pay when the sponsor cannot', () => {
     expect(refusalNotice('conflict')).toContain('spent this money twice')
     expect(refusalNotice('conflict')).toContain("You weren't repaid")
-    expect(refusalNotice('horizon', Date.UTC(2030, 5, 1) / 1000)).toContain('2030-06-01')
+    expect(refusalNotice('horizon', Date.UTC(2030, 5, 1) / 1000)).toContain('Jun 1, 2030')
     expect(refusalNotice('below_minimum')).toContain('pay it yourself')
     expect(refusalNotice('busy')).toContain('pay it yourself')
     expect(refusalNotice('horizon')).not.toContain('undefined')

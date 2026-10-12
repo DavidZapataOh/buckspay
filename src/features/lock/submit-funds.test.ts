@@ -150,7 +150,7 @@ describe('adding funds', () => {
     expect(outcome).toEqual({
       status: 'failed',
       error:
-        'Your wallet has 20 USDC and this needs 30 USDC. Add USDC to your wallet, then try again. Nothing was sent.',
+        'Your wallet has 20.00 USDC and this needs 30.00 USDC. Add USDC to your wallet, then try again. Nothing was sent.',
       payInstead: false,
     })
     expect(requests).toHaveLength(0)

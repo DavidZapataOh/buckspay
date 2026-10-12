@@ -1,13 +1,14 @@
 import type { Windows } from '../../protocol'
-import { i18n } from '../../i18n'
-import { formatAmount } from '../../i18n/format'
+import { currentLanguage, i18n } from '../../i18n'
+import { formatDate, formatMoney } from '../../i18n/format'
 import { formatSol } from '../../utils/format-sol'
 import { isWithdrawable, type LockRecord, withdrawalOpensAt } from './locks'
 
 /** The symbol of the token that funds locks. */
 export const FUNDING_SYMBOL = 'USDC'
 
-const amount = (units: bigint, decimals: number) => `${formatAmount(units, decimals)} ${FUNDING_SYMBOL}`
+const amount = (units: bigint, decimals: number) =>
+  `${formatMoney(units, decimals, currentLanguage())} ${FUNDING_SYMBOL}`
 
 export const minimumNotice = (minimum: bigint, decimals: number) =>
   i18n.t('lock:minimum', { amount: amount(minimum, decimals) })
@@ -20,7 +21,7 @@ export const feeNotice = (fee: bigint, decimals: number) =>
 export const networkCostNotice = (sponsored: boolean, cost: bigint) =>
   sponsored ? i18n.t('lock:networkCost.sponsored') : i18n.t('lock:networkCost.wallet', { sol: formatSol(cost, 'up') })
 
-const date = (seconds: number) => new Date(seconds * 1000).toISOString().slice(0, 10)
+const date = (seconds: number) => formatDate(seconds, currentLanguage(), 'UTC')
 
 /** When the wallet can take its funds back from a lock that ends at `lockUntil`. */
 export const withdrawalDateNotice = (lockUntil: number, { claimWindow }: Windows) =>

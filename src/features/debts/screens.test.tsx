@@ -197,7 +197,7 @@ describe('debt screens', () => {
     const all = shown(r)
     expect(all).toContain('Before: Friend aaaaaa owes you 25.00 USDC')
     expect(all).toContain('After: Friend aaaaaa owes you 55.00 USDC')
-    expect(all).toMatch(/Due \d/)
+    expect(all).toMatch(/Due [A-Z][a-z]{2} \d/)
     expect(all).toContain('Taxi')
     expect(all).toContain(i18n.t('debts:signNote'))
     expect(all).not.toContain(i18n.t('debts:viaCode'))

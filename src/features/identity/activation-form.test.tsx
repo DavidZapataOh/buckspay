@@ -79,18 +79,18 @@ describe('activation form', () => {
 
   it('shows the funds, that nothing else is charged, and the withdrawal date before the wallet is asked', async () => {
     const root = await render(activation({}), 'free')
-    expect(text(root, 'funding-balance')).toBe('Your wallet has 100 USDC.')
+    expect(text(root, 'funding-balance')).toBe('Your wallet has 100.00 USDC.')
     expect(field(root, 'funding-amount').props.value).toBe('5')
     expect(field(root, 'lock-days').props.value).toBe('30')
-    expect(text(root, 'funding-minimum')).toBe('The minimum to add is 5 USDC.')
+    expect(text(root, 'funding-minimum')).toBe('The minimum to add is 5.00 USDC.')
     expect(text(root, 'funding-fee')).toBe('There is no fee.')
     expect(text(root, 'network-cost')).toBe('Buckspay pays the network costs. Your wallet pays nothing else.')
-    expect(text(root, 'withdrawal-date')).toBe('You can take your funds back from 2030-02-07 (UTC).')
+    expect(text(root, 'withdrawal-date')).toBe('You can take your funds back from Feb 7, 2030 (UTC).')
   })
 
   it.each([
-    [50, 5_000_000n, 90_000n, '5 USDC', 'Buckspay charges a fee of 0.09 USDC, on top of your funds.'],
-    [90, 50_000_000n, 150_000n, '50 USDC', 'Buckspay charges a fee of 0.15 USDC, on top of your funds.'],
+    [50, 5_000_000n, 90_000n, '5.00 USDC', 'Buckspay charges a fee of 0.09 USDC, on top of your funds.'],
+    [90, 50_000_000n, 150_000n, '50.00 USDC', 'Buckspay charges a fee of 0.15 USDC, on top of your funds.'],
   ])(
     'shows the current minimum and the forced fee at %i% pressure',
     async (pressure, minFunding, fee, minimum, notice) => {
@@ -108,7 +108,7 @@ describe('activation form', () => {
     )
     await act(async () => field(root, 'funding-amount').props.onChangeText('10'))
     expect(text(root, 'funding-minimum')).toBe(
-      'The minimum to add is 50 USDC. Below that, your wallet pays the network costs.',
+      'The minimum to add is 50.00 USDC. Below that, your wallet pays the network costs.',
     )
     expect(text(root, 'funding-fee')).toBe('There is no fee.')
     expect(text(root, 'network-cost')).toBe('Your wallet pays the network costs, about 0.0063 SOL. Not refundable.')

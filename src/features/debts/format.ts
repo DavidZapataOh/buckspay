@@ -1,4 +1,4 @@
-import { formatMoney } from '../../i18n/format'
+import { formatDate as formatLongDate, formatMoney } from '../../i18n/format'
 import { i18n, currentLanguage } from '../../i18n'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, concatBytes, hexToBytes } from '@noble/hashes/utils.js'
@@ -89,8 +89,8 @@ export function signedChange(
   return change.cause === IouCause.Open ? toward : -toward
 }
 
-/** A date as a person reads it (UTC, year first: the same on both phones). */
-export const formatDate = (seconds: number): string => new Date(seconds * 1000).toISOString().slice(0, 10)
+/** A date as a person reads it, in their language and in UTC, so both phones show the same day. */
+export const formatDate = (seconds: number): string => formatLongDate(seconds, currentLanguage(), 'UTC')
 
 const FRIEND_PREFIX = 'buckspay://debts?friend='
 

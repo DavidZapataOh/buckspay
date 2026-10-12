@@ -684,7 +684,7 @@ describe('device identity', () => {
     await cluster.fund(ALICE, 3_000_000n)
     const poor = await advanceIdentity(context(), atActivate, { amount: 5_000_000n, lockDays: 30 })
     expect(poor.error).toBe(
-      'Your wallet has 3 USDC and this needs 5 USDC. Add USDC to your wallet, then try again. Nothing was sent.',
+      'Your wallet has 3.00 USDC and this needs 5.00 USDC. Add USDC to your wallet, then try again. Nothing was sent.',
     )
     const short = await advanceIdentity(context(), atActivate, { amount: 1_000_000n, lockDays: 400 })
     expect(short.error).toBe('Choose a reserve of 15 to 365 days. Nothing was sent.')
@@ -1263,7 +1263,7 @@ describe('device identity', () => {
     await cluster.fund(ALICE, 5_000_000n)
     const short = await advanceIdentity(context(), atActivate)
     expect(short.error).toBe(
-      'Your wallet has 5 USDC and this needs 5.15 USDC. Add USDC to your wallet, then try again. Nothing was sent.',
+      'Your wallet has 5.00 USDC and this needs 5.15 USDC. Add USDC to your wallet, then try again. Nothing was sent.',
     )
     expect(walletCalls).toBe(0)
     await cluster.fund(ALICE, 5_150_000n)

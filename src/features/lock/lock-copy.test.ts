@@ -37,7 +37,7 @@ describe('lock copy', () => {
   })
 
   it('shows the minimum, the fee or that there is none, and who pays the network', () => {
-    expect(minimumNotice(5_000_000n, 6)).toBe('The minimum to add is 5 USDC.')
+    expect(minimumNotice(5_000_000n, 6)).toBe('The minimum to add is 5.00 USDC.')
     expect(feeNotice(0n, 6)).toBe('There is no fee.')
     expect(feeNotice(150_000n, 6)).toBe('Buckspay charges a fee of 0.15 USDC, on top of your funds.')
     expect(networkCostNotice(true, 0n)).toBe('Buckspay pays the network costs. Your wallet pays nothing else.')
@@ -47,13 +47,13 @@ describe('lock copy', () => {
   })
 
   it('names the date funds can be taken back, a claim window after the lock', () => {
-    expect(withdrawalDateNotice(1_900_000_000, windows)).toBe('You can take your funds back from 2030-03-24 (UTC).')
+    expect(withdrawalDateNotice(1_900_000_000, windows)).toBe('You can take your funds back from Mar 24, 2030 (UTC).')
   })
 
   it('summarizes what a lock holds, with the slashed pool only when there is one', () => {
-    expect(lockSummary(lock, 6)).toBe('2.5 USDC available offline, 1.5 USDC security deposit free')
+    expect(lockSummary(lock, 6)).toBe('2.50 USDC available offline, 1.50 USDC security deposit free')
     expect(lockSummary({ ...lock, bondSlashed: 500_000n }, 6)).toBe(
-      '2.5 USDC available offline, 1.5 USDC security deposit free, 0.5 USDC destroyed',
+      '2.50 USDC available offline, 1.50 USDC security deposit free, 0.50 USDC destroyed',
     )
   })
 
@@ -72,7 +72,7 @@ describe('lock copy', () => {
 
   it('names the wallet a pending rotation moves this phone to, and when it takes effect', () => {
     expect(rotationNotice(ALICE, 1_900_000_000)).toBe(
-      `Someone asked to move this phone to wallet ${ALICE}. It takes effect on 2030-03-17 (UTC). If this wasn't you, cancel it now.`,
+      `Someone asked to move this phone to wallet ${ALICE}. It takes effect on Mar 17, 2030 (UTC). If this wasn't you, cancel it now.`,
     )
   })
 })

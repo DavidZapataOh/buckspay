@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import { NAMESPACES } from '../../i18n'
-import { formatAmount, parseAmount } from '../../i18n/format'
+import { currentLanguage, NAMESPACES } from '../../i18n'
+import { formatAmount, formatMoney, parseAmount } from '../../i18n/format'
 import { useState } from 'react'
 import { View } from 'react-native'
 import type { Windows } from '../../protocol'
@@ -48,7 +48,10 @@ export function ActivationForm({
   return (
     <View testID="activation-form" className="gap-4">
       <AppText testID="funding-balance" variant="body">
-        {t('identity:walletHas', { amount: formatAmount(funding.balance, funding.decimals), symbol: FUNDING_SYMBOL })}
+        {t('identity:walletHas', {
+          amount: formatMoney(funding.balance, funding.decimals, currentLanguage()),
+          symbol: FUNDING_SYMBOL,
+        })}
       </AppText>
       <TextField
         testID="funding-amount"

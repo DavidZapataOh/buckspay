@@ -1,5 +1,6 @@
 import type { Windows } from '../../protocol'
-import { i18n } from '../../i18n'
+import { currentLanguage, i18n } from '../../i18n'
+import { formatDate } from '../../i18n/format'
 import type { ClaimOutcome } from './settle'
 
 /**
@@ -17,7 +18,7 @@ export const gatewayLabel = () => i18n.t('settlement:gatewayLabel')
 /** What a wallet that pays for itself adds: its address is kept in the records it pays for. */
 export const selfPayLabel = () => i18n.t('settlement:selfPayLabel')
 
-const date = (seconds: number) => new Date(seconds * 1000).toISOString().slice(0, 10)
+const date = (seconds: number) => formatDate(seconds, currentLanguage(), 'UTC')
 
 /** The payee's obligation: after this date the spender may take the payment back, and the bond does not cover it. */
 export const payeeObligation = (expiry: number, { grace }: Windows) =>
