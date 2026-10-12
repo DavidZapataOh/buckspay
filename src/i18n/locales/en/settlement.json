@@ -1,0 +1,36 @@
+{
+  "settlementLabel": "Settling this payment publishes the keys of the people it passed through, every amount, and the account that is paid.",
+  "reclaimLabel": "Taking this payment back publishes the whole chain it passed through, your key and the amounts, even if the payment would otherwise have settled privately.",
+  "gatewayLabel": "Buckspay's server sees this chain, your network address and the time. The private path (when it exists) does not show it the keys.",
+  "selfPayLabel": "Your wallet address is stored in the records it pays for, until they are closed.",
+  "payeeObligation": "Settle this payment before {{date}} (UTC). After that the person who paid you may take it back, and the loss is not covered by their bond.",
+  "reclaimWindow": "You can take an unsettled payment back for {{duration}} after its settlement window, or until its lock ends if that is sooner. An output of a key with no registered device cannot be taken back at all.",
+  "duration": {
+    "minutes_one": "{{count}} minute",
+    "minutes_other": "{{count}} minutes",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days"
+  },
+  "claim": {
+    "late": "This loss was reported too late: nothing was burned. You were not repaid: the bond is not paid out.",
+    "already": "The payer signed this money twice and their bond was already destroyed. You were not repaid: the bond is not paid out.",
+    "reported": "The payer signed this money twice. Their bond is destroyed. You were not repaid: the bond is not paid out.",
+    "noBond": "The payer's lock has nothing left to burn. You were not repaid: the bond is not paid out.",
+    "lockEnded": "The payer's lock has ended, so the loss can no longer be filed. You were not repaid: the bond is not paid out.",
+    "cannotFile": "This loss cannot be filed against the payer's lock. You were not repaid: the bond is not paid out.",
+    "unavailable": "Buckspay could not file the loss now. Keep this payment and try again later."
+  },
+  "refusal": {
+    "conflict": "The payer signed this money twice: another payment of it was settled first. You were not repaid: the bond is not paid out. Keep this payment.",
+    "noTokenAccount": "The account that is paid has no token account for this money yet. Create it in the wallet, then settle again.",
+    "window": "The time to settle this payment has run out.",
+    "closed": "The time to take this payment back has run out.",
+    "deadline": "The signature to take this payment back is out of date. Sign it again.",
+    "lockEnded": "The issuer’s lock has ended.",
+    "horizonUnknown": "Buckspay cannot pay for this yet.",
+    "horizon": "Buckspay cannot pay for this before {{date}} (UTC). You can pay for it yourself now.",
+    "belowMinimum": "This amount is too small for Buckspay to pay for. You can pay for it yourself.",
+    "default": "Buckspay cannot pay for this now. You can pay for it yourself."
+  },
+  "balance": "The balance adds up every account of this wallet that holds this money."
+}

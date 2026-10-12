@@ -1,0 +1,28 @@
+{
+  "labels": {
+    "qr": "Code",
+    "nfc": "Tap",
+    "nearby": "Nearby"
+  },
+  "hints": {
+    "nfc": {
+      "disabled": "Turn on NFC to pay by tapping phones.",
+      "permission-denied": "Allow NFC to pay by tapping phones."
+    },
+    "nearby": {
+      "disabled": "Turn on Bluetooth to pay nearby.",
+      "permission-denied": "Pay nearby needs Bluetooth and permission to find nearby devices."
+    }
+  },
+  "fix": {
+    "nfc": "Open NFC settings",
+    "bluetooth": "Open Bluetooth settings",
+    "allow": "Allow",
+    "permission": "Open app settings"
+  },
+  "waiting": {
+    "nfc": "Hold the phones together",
+    "nearby": "Waiting for the other phone"
+  },
+  "waitingForRequest": "Waiting for the request"
+}

@@ -1,0 +1,21 @@
+{
+  "title": "Private settlement",
+  "settleNow": "Settle now",
+  "downloadNow": "Download 123 MB now",
+  "settleInClear": "Settle now in clear",
+  "scope": "The people who held this note before you are hidden from chain observers when settled through ZK. The person who paid you and later holders still see its history.",
+  "clearPublishes": "Settling in the clear publishes the keys, signatures and amounts of everyone who held this note.",
+  "state": {
+    "needsKey": "Downloading private settlement data · {{percent}}",
+    "preparing": "Preparing private settlement · {{proved}} of {{total}}",
+    "ready": "Ready to settle privately",
+    "submitting": "Settling privately",
+    "settled": "Settled privately",
+    "failed": {
+      "staleKey": "Updating private settlement data",
+      "expired": "This payment can no longer be settled. The payer may take it back.",
+      "retry": "The server did not answer. This phone will try again.",
+      "invalid": "This note could not be settled privately."
+    }
+  }
+}

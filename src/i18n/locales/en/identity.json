@@ -1,0 +1,94 @@
+{
+  "step": {
+    "loading": {
+      "title": "Check this phone",
+      "body": "Buckspay reads your wallet connection and this phone’s registration on Solana.",
+      "action": "Try again"
+    },
+    "unreachable": {
+      "title": "Can’t reach Solana",
+      "body": "Buckspay needs a connection to read this phone’s registration on Solana.",
+      "action": "Try again"
+    },
+    "connect": {
+      "title": "Connect your wallet",
+      "body": "Buckspay pays from and settles to a wallet you already use. Connecting shares its address and charges nothing.",
+      "action": "Connect wallet",
+      "progress": "Step 1 of 2"
+    },
+    "create-key": {
+      "title": "Create this phone’s key",
+      "body": "A key made in this phone’s secure hardware signs your payments. It never leaves the phone.",
+      "action": "Create key",
+      "progress": "Step 1 of 2"
+    },
+    "activate": {
+      "title": "Add funds",
+      "body": "Your funds go into a lock that backs what you pay. Activating links this phone to your wallet publicly and permanently. Anyone can see the link on Solana, and it can’t be undone.",
+      "action": "Activate",
+      "progress": "Step 2 of 2"
+    },
+    "confirming": {
+      "title": "Activating this phone",
+      "body": "Your wallet approved the activation.",
+      "action": "Check again",
+      "progress": "Step 2 of 2"
+    },
+    "other-wallet": {
+      "title": "Registered to another wallet",
+      "body": "This phone is permanently linked to the wallet below. Connect that wallet to pay and receive on this phone.",
+      "action": "Connect another wallet"
+    }
+  },
+  "shortfall": "Your wallet has {{sol}} SOL. Add SOL to it before you activate.",
+  "sponsorshipUnavailable": "Buckspay can’t pay for activations right now, so your wallet pays the network costs.",
+  "confirmingNotice": {
+    "sent": "Sent to Solana. Waiting for confirmation, usually under a minute. You can leave this screen; this can’t be cancelled.",
+    "unknown": "Your wallet may have sent the activation. Waiting until Solana confirms it or it expires, usually under a minute. You can leave this screen."
+  },
+  "keyProtection": {
+    "strongbox": "Secure chip (StrongBox)",
+    "tee": "Secure hardware (TEE)",
+    "hardware": "Secure hardware",
+    "software": "Software only",
+    "unknown": "Unknown"
+  },
+  "softwareKeyWarning": "This phone keeps its key in software, where malware can reach it more easily than in secure hardware.",
+  "home": {
+    "checkFailed": {
+      "title": "Couldn’t check this phone",
+      "retry": "Try again"
+    },
+    "loading": {
+      "title": "Checking this phone…"
+    },
+    "unreachable": {
+      "title": "Can’t reach Solana",
+      "body": "Buckspay couldn’t read this phone’s registration. Check your connection.",
+      "retry": "Try again"
+    },
+    "ready": {
+      "title": "This phone is registered to your wallet"
+    },
+    "confirming": {
+      "title": "Activating this phone",
+      "body": "Waiting for Solana to confirm it, usually under a minute.",
+      "action": "See progress"
+    },
+    "otherWallet": {
+      "title": "Registered to another wallet",
+      "body": "Connect the wallet this phone is linked to, to pay and receive.",
+      "action": "Connect another wallet"
+    },
+    "reconnect": {
+      "title": "Reconnect your wallet to pay",
+      "body": "This phone is registered. Connect the wallet it is linked to.",
+      "action": "Reconnect wallet"
+    },
+    "setup": {
+      "title": "Set up payments",
+      "body": "Paying and receiving need a wallet and this phone’s key, registered on Solana.",
+      "action": "Set up payments"
+    }
+  }
+}
