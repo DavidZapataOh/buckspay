@@ -15,7 +15,7 @@ const entry = (id: 'qr' | 'nearby') => {
     return transport
   })
   return {
-    entry: { id, label: id, check: async () => ({ ready: true as const }), start } as TransportEntry,
+    entry: { id, check: async () => ({ ready: true as const }), start } as TransportEntry,
     closed,
     start,
   }

@@ -182,4 +182,59 @@ describe('Settings', () => {
       expect(root.findAllByProps({ testID: 'tip-switch' })).toHaveLength(0)
     })
   })
+
+  it('groups what it shows under Language, Wallet, Limits and Advanced, in that order, with the engineering last', async () => {
+    const device = { address: wallet, wallet, key: deviceKey.publicKey }
+    const root = await render(
+      { step: 'ready', wallet, deviceKey, device, busy: false },
+      {
+        unsettled: 0,
+        onReset: vi.fn(),
+        onEvents: vi.fn(),
+        limits: {
+          perPayment: '100.00 USDC',
+          biometricFrom: '20.00 USDC',
+          biometricDaily: '50.00 USDC',
+          window: '1 hour',
+        },
+        nearbyCheck: {
+          answer: false,
+          ask: true,
+          audible: false,
+          requireFrom: '',
+          onAnswer: vi.fn(),
+          onAsk: vi.fn(),
+          onAudible: vi.fn(),
+          onRequireFrom: vi.fn(),
+        },
+      },
+    )
+    const marks = ['wallet', 'limit-per-payment', 'uninstall', 'network', 'security-level', 'events']
+    const walk = root
+      .findAll(
+        (node) =>
+          typeof node.type === 'string' &&
+          (node.props.accessibilityRole === 'header' || marks.includes(node.props.testID)),
+      )
+      .map((node) =>
+        node.props.accessibilityRole === 'header'
+          ? [node.props.children].flat().join('')
+          : (node.props.testID as string),
+      )
+    const unique = walk.filter((item, index) => walk.indexOf(item) === index)
+    expect(unique).toEqual([
+      'Settings',
+      'Language',
+      'Wallet',
+      'wallet',
+      'Limits',
+      'limit-per-payment',
+      'uninstall',
+      'Advanced',
+      'network',
+      'security-level',
+      'events',
+      'Technical details',
+    ])
+  })
 })

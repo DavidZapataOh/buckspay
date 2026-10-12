@@ -38,9 +38,12 @@ export function HowControl({
   chosen,
   onChoose,
   onRecheck,
+  role,
 }: {
   offered: readonly Offered[]
   chosen: TransportId
+  /** Who is using it: the help line says what each side does. */
+  role: 'pay' | 'receive'
   onChoose: (id: TransportId) => void
   onRecheck: () => void
 }) {
@@ -72,6 +75,9 @@ export function HowControl({
           </Pressable>
         ))}
       </View>
+      <AppText variant="label" tone="muted">
+        {t(`transport:modeHelp.${role}.${chosen}`)}
+      </AppText>
       {shown.flatMap(({ entry, availability }) => {
         if (availability.ready) return []
         const action = fix(entry.id, availability.reason, asked, () => setAsked(true), onRecheck)

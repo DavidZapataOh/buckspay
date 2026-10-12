@@ -1,6 +1,6 @@
 {
   "labels": {
-    "qr": "Código",
+    "qr": "Código QR",
     "nfc": "Juntar",
     "nearby": "Por cercanía"
   },
@@ -24,5 +24,17 @@
     "nfc": "Junta los celulares",
     "nearby": "Esperando al otro celular"
   },
-  "waitingForRequest": "Esperando el cobro"
+  "waitingForRequest": "Esperando el cobro",
+  "modeHelp": {
+    "pay": {
+      "qr": "Escanea el código de la otra persona.",
+      "nfc": "Junta los celulares.",
+      "nearby": "Paga a alguien cerca, sin código."
+    },
+    "receive": {
+      "qr": "La otra persona escanea tu código.",
+      "nfc": "Junta los celulares.",
+      "nearby": "La otra persona te encuentra, sin código."
+    }
+  }
 }

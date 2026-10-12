@@ -14,5 +14,9 @@
   "language": {
     "title": "Idioma",
     "system": "Idioma del celular"
+  },
+  "sections": {
+    "wallet": "Billetera",
+    "advanced": "Avanzado"
   }
 }

@@ -21,12 +21,12 @@ globalThis.IS_REACT_NATIVE_TEST_ENVIRONMENT = true
 
 const ready = { ready: true as const }
 const off = (reason: 'disabled' | 'permission-denied' | 'unsupported') => ({ ready: false as const, reason })
-const e = (id: 'qr' | 'nfc' | 'nearby'): TransportEntry => ({ id, label: id, check: async () => ready, start: vi.fn() })
+const e = (id: 'qr' | 'nfc' | 'nearby'): TransportEntry => ({ id, check: async () => ready, start: vi.fn() })
 
-const mount = async (props: Parameters<typeof HowControl>[0]) => {
+const mount = async (props: Omit<Parameters<typeof HowControl>[0], 'role'> & { role?: 'pay' | 'receive' }) => {
   let renderer!: ReturnType<typeof create>
   await act(async () => {
-    renderer = create(<HowControl {...props} />)
+    renderer = create(<HowControl role="pay" {...props} />)
   })
   return renderer
 }
@@ -62,7 +62,7 @@ describe('HowControl', () => {
       onChoose,
       onRecheck: () => {},
     })
-    expect(tabs(r).map((t) => t.props.accessibilityLabel)).toEqual(['Code', 'Nearby'])
+    expect(tabs(r).map((t) => t.props.accessibilityLabel)).toEqual(['QR code', 'Nearby'])
     await act(async () => tabs(r)[1].props.onPress())
     expect(onChoose).toHaveBeenCalledWith('nearby')
     expect(tabs(r)[0].props.accessibilityState.selected).toBe(true)
@@ -95,7 +95,7 @@ describe('HowControl', () => {
       onChoose,
       onRecheck: () => {},
     })
-    expect(tabs(r).map((t) => t.props.accessibilityLabel)).toEqual(['Code', 'Nearby'])
+    expect(tabs(r).map((t) => t.props.accessibilityLabel)).toEqual(['QR code', 'Nearby'])
     expect(tabs(r)[1].props.accessibilityState.disabled).toBe(true)
     await act(async () => tabs(r)[1].props.onPress())
     expect(onChoose).not.toHaveBeenCalled()
@@ -125,5 +125,19 @@ describe('HowControl', () => {
     await press()
     expect(openSettings).toHaveBeenCalledTimes(1)
     expect(requestNearbyPermissions).toHaveBeenCalledTimes(1)
+  })
+
+  it('says in one line what the chosen medium asks of the person, for the one who pays and for the one who is paid', async () => {
+    const offered = [
+      { entry: e('qr'), availability: ready },
+      { entry: e('nearby'), availability: ready },
+    ]
+    const props = { offered, onChoose: () => {}, onRecheck: () => {} }
+    const pay = await mount({ ...props, chosen: 'qr', role: 'pay' })
+    expect(words(pay)).toContain("Scan the other person's code.")
+    const nearby = await mount({ ...props, chosen: 'nearby', role: 'pay' })
+    expect(words(nearby)).toContain('Pay someone close, no code needed.')
+    const receive = await mount({ ...props, chosen: 'qr', role: 'receive' })
+    expect(words(receive)).toContain('The other person scans your code.')
   })
 })

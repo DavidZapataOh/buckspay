@@ -45,9 +45,9 @@ vi.mock('../transport/use-transports', () => ({
   }),
 }))
 vi.mock('../transport/registry', () => ({
-  qrEntry: () => ({ id: 'qr', label: 'Code', check: async () => ({ ready: true }), start: () => mocks.start?.() }),
+  qrEntry: () => ({ id: 'qr', check: async () => ({ ready: true }), start: () => mocks.start?.() }),
   nfcEntry: { id: 'nfc' },
-  nearbyEntry: { id: 'nearby', label: 'Nearby', check: async () => ({ ready: true }), start: () => mocks.start?.() },
+  nearbyEntry: { id: 'nearby', check: async () => ({ ready: true }), start: () => mocks.start?.() },
 }))
 vi.mock('../../payment/receive-flow', () => ({ showRequest: vi.fn(async () => {}), receivePayment: vi.fn() }))
 

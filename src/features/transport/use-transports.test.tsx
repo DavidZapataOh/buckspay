@@ -17,7 +17,6 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 const entry = (id: 'qr' | 'nfc' | 'nearby', ready = true): TransportEntry => ({
   id,
-  label: id,
   check: async () => (ready ? { ready: true } : { ready: false, reason: 'disabled' }),
   start: async () => createLoopbackPair()[0],
 })

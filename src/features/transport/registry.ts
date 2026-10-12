@@ -1,4 +1,3 @@
-import { i18n } from '../../i18n'
 import { openPairing, type PairingRole } from '../nearby/handoff'
 import { nearbyNative } from '../../transport/nearby/native'
 import { nearbyAvailability } from '../../transport/nearby/transport'
@@ -14,7 +13,6 @@ export type { PairingRole }
 /** A way to move messages, as the pay and receive screens offer it. */
 export type TransportEntry = {
   id: TransportId
-  label: string
   check(): Promise<Availability>
   /** Resolves with a transport that is ready to send and receive; pairing screens open first where the medium needs them. */
   start(role: PairingRole): Promise<Transport>
@@ -24,7 +22,6 @@ export type TransportEntry = {
 export function qrEntry(session: { transport: Transport }): TransportEntry {
   return {
     id: 'qr',
-    label: i18n.t('transport:labels.qr'),
     check: async () => ({ ready: true }),
     start: async () => session.transport,
   }
@@ -35,7 +32,6 @@ export const nfcRoleFor = (role: PairingRole): NfcRole => (role === 'receiver' ?
 
 export const nfcEntry: TransportEntry = {
   id: 'nfc',
-  label: i18n.t('transport:labels.nfc'),
   check: async () => nfcAvailability(await nfcNative.support()),
   start: async (role) => createNfcTransport(nfcNative, nfcRoleFor(role)),
 }
@@ -43,7 +39,6 @@ export const nfcEntry: TransportEntry = {
 export function createNearbyEntry(open: (role: PairingRole) => Promise<Transport>): TransportEntry {
   return {
     id: 'nearby',
-    label: i18n.t('transport:labels.nearby'),
     check: async () => nearbyAvailability(await nearbyNative.support()),
     async start(role) {
       await meshPause()

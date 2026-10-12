@@ -28,6 +28,7 @@ export default function Pay() {
       credit={{ events: flow.events, selected: flow.creditEvent, onSelect: flow.setCreditEvent }}
       how={
         <HowControl
+          role="pay"
           offered={flow.how.offered}
           chosen={flow.how.chosen}
           onChoose={flow.how.choose}

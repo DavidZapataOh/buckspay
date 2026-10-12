@@ -52,6 +52,7 @@ export default function Receive() {
     <Screen testID="receive">
       <AppText variant="headline">{t('payment:receive.title')}</AppText>
       <HowControl
+        role="receive"
         offered={flow.how.offered}
         chosen={flow.how.chosen}
         onChoose={flow.how.choose}

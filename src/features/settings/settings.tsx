@@ -69,7 +69,9 @@ export function Settings({
     <Screen testID="settings">
       <AppText variant="headline">{t('settings:title')}</AppText>
       <LanguageSetting />
-      <ListRow testID="network" title={t('settings:network')} value={t(`common:network.${BUILD_NETWORK.labelKey}`)} />
+      <AppText variant="title" accessibilityRole="header" className="mt-4">
+        {t('settings:sections.wallet')}
+      </AppText>
       {wallet ? (
         <AddressRow testID="wallet" address={wallet} label={t('common:connectedWallet')} />
       ) : (
@@ -88,16 +90,6 @@ export function Settings({
           value={checking ? t('common:checking') : t('common:notRegistered')}
         />
       )}
-      <ListRow
-        testID="security-level"
-        title={t('settings:keyProtection')}
-        value={
-          checking ? t('common:checking') : deviceKey ? keyProtection(deviceKey.securityLevel) : t('settings:noKey')
-        }
-      />
-      {deviceKey?.securityLevel === 'software' ? (
-        <StatusNote tone="danger" message={t('identity:softwareKeyWarning')} />
-      ) : null}
       <StatusNote tone="danger" message={error} />
       {wallet ? (
         <Button
@@ -114,7 +106,6 @@ export function Settings({
           <AppText variant="title" accessibilityRole="header" className="mt-4">
             {t('payment:settings.limits')}
           </AppText>
-          <Button testID="events" variant="tonal" label={t('event:settings')} onPress={payments.onEvents} />
           <ListRow
             testID="limit-per-payment"
             title={t('payment:settings.perPayment')}
@@ -131,7 +122,6 @@ export function Settings({
             value={payments.limits.biometricDaily}
           />
           <ListRow testID="limit-window" title={t('payment:settings.window')} value={payments.limits.window} />
-          <NearbyCheckSettings {...payments.nearbyCheck} />
           <ListRow
             testID="uninstall"
             title={t('payment:settings.uninstall')}
@@ -146,9 +136,27 @@ export function Settings({
           />
         </>
       ) : null}
-      {mesh ? <MeshSettings {...mesh} /> : null}
-      {privateData ? <PrivateDataRow {...privateData} /> : null}
       {tipping ? <TipRow {...tipping} /> : null}
+      {mesh ? <MeshSettings {...mesh} /> : null}
+      <AppText variant="title" accessibilityRole="header" className="mt-4">
+        {t('settings:sections.advanced')}
+      </AppText>
+      <ListRow testID="network" title={t('settings:network')} value={t(`common:network.${BUILD_NETWORK.labelKey}`)} />
+      <ListRow
+        testID="security-level"
+        title={t('settings:keyProtection')}
+        value={
+          checking ? t('common:checking') : deviceKey ? keyProtection(deviceKey.securityLevel) : t('settings:noKey')
+        }
+      />
+      {deviceKey?.securityLevel === 'software' ? (
+        <StatusNote tone="danger" message={t('identity:softwareKeyWarning')} />
+      ) : null}
+      {payments ? (
+        <Button testID="events" variant="tonal" label={t('event:settings')} onPress={payments.onEvents} />
+      ) : null}
+      {payments ? <NearbyCheckSettings {...payments.nearbyCheck} /> : null}
+      {privateData ? <PrivateDataRow {...privateData} /> : null}
       <AppText variant="title" accessibilityRole="header" className="mt-4">
         {t('settings:technicalDetails')}
       </AppText>

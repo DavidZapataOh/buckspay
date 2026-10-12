@@ -1,6 +1,6 @@
 {
   "labels": {
-    "qr": "Código",
+    "qr": "Código QR",
     "nfc": "Encostar",
     "nearby": "Por proximidade"
   },
@@ -24,5 +24,17 @@
     "nfc": "Encoste os celulares",
     "nearby": "Esperando o outro celular"
   },
-  "waitingForRequest": "Esperando a cobrança"
+  "waitingForRequest": "Esperando a cobrança",
+  "modeHelp": {
+    "pay": {
+      "qr": "Escaneie o código da outra pessoa.",
+      "nfc": "Encoste os celulares.",
+      "nearby": "Pague alguém por perto, sem código."
+    },
+    "receive": {
+      "qr": "A outra pessoa escaneia o seu código.",
+      "nfc": "Encoste os celulares.",
+      "nearby": "A outra pessoa encontra você, sem código."
+    }
+  }
 }

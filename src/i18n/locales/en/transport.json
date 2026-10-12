@@ -1,6 +1,6 @@
 {
   "labels": {
-    "qr": "Code",
+    "qr": "QR code",
     "nfc": "Tap",
     "nearby": "Nearby"
   },
@@ -24,5 +24,17 @@
     "nfc": "Hold the phones together",
     "nearby": "Waiting for the other phone"
   },
-  "waitingForRequest": "Waiting for the request"
+  "waitingForRequest": "Waiting for the request",
+  "modeHelp": {
+    "pay": {
+      "qr": "Scan the other person's code.",
+      "nfc": "Hold the phones together.",
+      "nearby": "Pay someone close, no code needed."
+    },
+    "receive": {
+      "qr": "The other person scans your code.",
+      "nfc": "Hold the phones together.",
+      "nearby": "The other person finds you, no code needed."
+    }
+  }
 }
