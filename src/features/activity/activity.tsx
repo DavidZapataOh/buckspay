@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import { NAMESPACES } from '../../i18n'
+import { currentLanguage, NAMESPACES } from '../../i18n'
+import { formatDate } from '../../i18n/format'
 import type { ReactNode } from 'react'
 import { Pressable, View } from 'react-native'
 import { AppText } from '../../components/app-text'
@@ -36,7 +37,7 @@ export function ActivityList({
   const headings = rows.map((row, index) => {
     const start = dayStart(row.at)
     if (index > 0 && dayStart(rows[index - 1].at) === start) return undefined
-    return start === today ? t('payment:activity.today') : new Date(start).toLocaleDateString()
+    return start === today ? t('payment:activity.today') : formatDate(start / 1000, currentLanguage())
   })
   return (
     <Screen testID="activity">
