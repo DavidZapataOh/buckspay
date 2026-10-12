@@ -60,7 +60,7 @@ export function WitnessRow({
   }[phase] as 'done' | 'waiting' | 'problem' | 'info'
   return (
     <View testID="witness-row" accessibilityLiveRegion="polite" className="w-full items-center gap-3">
-      <Chip kind={kind} icon="hearing" label={sentence} />
+      <Chip center kind={kind} icon="hearing" label={sentence} />
       <View className="w-full gap-2">
         {role === 'receiver' && phase === 'checking' && !held ? (
           <Button testID="witness-skip" variant="text" label={t('witness:skip')} onPress={onSkip} />

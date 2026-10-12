@@ -52,7 +52,7 @@ export function HomeSummary({
         ) : (
           <Amount value={formatMoney(allowance, decimals, currentLanguage())} symbol={symbol} />
         )}
-        {settling > 0 ? <Chip kind="waiting" label={t('common:home.settling', { count: settling })} /> : null}
+        {settling > 0 ? <Chip center kind="waiting" label={t('common:home.settling', { count: settling })} /> : null}
       </View>
       <View className="flex-row gap-3">
         {allowance === null || funded ? (

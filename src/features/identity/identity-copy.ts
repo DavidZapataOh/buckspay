@@ -10,7 +10,7 @@ export const stepCopy = (step: Exclude<IdentityStep, 'ready'>) => ({
   title: i18n.t(`identity:step.${step}.title`),
   body: i18n.t(`identity:step.${step}.body`),
   action: i18n.t(`identity:step.${step}.action`),
-  progress: translateIfKnown(`identity:step.${step}.progress`),
+  line: translateIfKnown(`identity:step.${step}.line`),
 })
 
 /** What the wallet lacks in SOL to pay the network costs itself, if anything; nothing while Buckspay pays. */

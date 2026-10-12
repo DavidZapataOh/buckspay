@@ -23,12 +23,15 @@ export function Chip({
   kind,
   label,
   icon,
+  center = false,
   testID,
 }: {
   kind: keyof typeof kinds
   label: string
   /** An icon that says it better than the kind's own. */
   icon?: AndroidSymbol
+  /** Sits in the middle of a column instead of at its start. */
+  center?: boolean
   testID?: string
 }) {
   const { container, text, token, icon: own } = kinds[kind]
@@ -36,7 +39,7 @@ export function Chip({
   return (
     <View
       testID={testID}
-      className={`self-start flex-row items-center gap-1.5 rounded-full py-1 pl-2 pr-3 ${container}`}
+      className={`${center ? 'self-center' : 'self-start'} flex-row items-center gap-1.5 rounded-full py-1 pl-2 pr-3 ${container}`}
     >
       <Icon name={icon ?? own} size={18} color={color} />
       <Text className={`text-sm leading-5 font-medium ${text}`}>{label}</Text>

@@ -1,10 +1,13 @@
 import { useTranslation } from 'react-i18next'
 import { NAMESPACES } from '../../i18n'
 import { router } from 'expo-router'
-import { ActivityIndicator, View } from 'react-native'
-import { AddressRow } from '../../components/address-row'
+import { View } from 'react-native'
 import { AppText } from '../../components/app-text'
+import { AddressRow } from '../../components/address-row'
 import { Button } from '../../components/button'
+import { Hero } from '../../components/hero'
+import { Info } from '../../components/info'
+import { Stage } from '../../components/stage'
 import { Screen } from '../../components/screen'
 import { HomeSummary } from '../../features/home/home-summary'
 import { homeStatus } from '../../features/identity/identity-copy'
@@ -15,7 +18,6 @@ import { RotationAlert } from '../../features/lock/rotation-alert'
 import { BUILD_NETWORK } from '../../features/network/build-network'
 import { SettlementLabel } from '../../features/settlement/settlement-label'
 import { useSettlementRunner } from '../../features/settlement/use-settlement-runner'
-import { useThemeColors } from '../../theme/use-theme-colors'
 
 export default function Home() {
   const { t } = useTranslation(NAMESPACES)
@@ -26,7 +28,6 @@ export default function Home() {
   const { busy, device, next } = identity
   const status = homeStatus(identity)
   const ready = status.testID === 'device-ready'
-  const [primary] = useThemeColors('primary')
 
   return (
     <Screen testID="home">
@@ -49,16 +50,24 @@ export default function Home() {
           />
         </>
       ) : (
-        <View testID={status.testID} className="rounded-3xl bg-surface p-5 gap-3">
-          <AppText variant="headline">{status.title}</AppText>
-          {status.testID === 'home-loading' ? (
-            <ActivityIndicator accessibilityLabel={t('common:checkingPhone')} color={primary} className="self-start" />
-          ) : null}
-          {status.body ? (
-            <AppText variant="body" tone="muted">
-              {status.body}
-            </AppText>
-          ) : null}
+        <View testID={status.testID} className="gap-4">
+          <Stage
+            hero={
+              <Hero
+                kind={
+                  status.testID === 'home-loading'
+                    ? 'waiting'
+                    : status.testID === 'home-unreachable'
+                      ? 'problem'
+                      : 'wallet'
+                }
+                decorative
+              />
+            }
+            title={status.title}
+          >
+            {status.body ? <Info title={status.title} lines={[status.body]} /> : null}
+          </Stage>
           {device ? <AddressRow address={device.wallet} label={t('common:registeredTo')} /> : null}
           {status.action ? (
             <Button

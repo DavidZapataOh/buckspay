@@ -1,43 +1,49 @@
 {
   "step": {
     "loading": {
-      "title": "Verificar este celular",
+      "title": "Verificando…",
       "body": "O Buckspay lê a conexão da sua carteira e o registro deste celular na Solana.",
       "action": "Tentar de novo"
     },
     "unreachable": {
-      "title": "Não foi possível acessar a Solana",
+      "title": "Sem conexão",
       "body": "O Buckspay precisa de conexão para ler o registro deste celular na Solana.",
-      "action": "Tentar de novo"
+      "action": "Tentar de novo",
+      "line": "Verifique sua internet"
     },
     "connect": {
       "title": "Conecte sua carteira",
       "body": "O Buckspay paga a partir de, e credita em, uma carteira que você já usa. Conectar compartilha o endereço dela e não custa nada.",
-      "action": "Conectar carteira",
-      "progress": "Passo 1 de 2"
+      "action": "Conectar",
+      "progress": "Passo 1 de 2",
+      "line": "Seu dinheiro fica nela"
     },
     "create-key": {
-      "title": "Crie a chave deste celular",
+      "title": "Proteja este celular",
       "body": "Uma chave criada no hardware seguro deste celular aprova seus pagamentos. Ela nunca sai do celular.",
       "action": "Criar chave",
-      "progress": "Passo 1 de 2"
+      "progress": "Passo 1 de 2",
+      "line": "Uma chave que nunca sai dele"
     },
     "activate": {
-      "title": "Adicionar saldo",
+      "title": "Adicione saldo",
       "body": "Seu dinheiro entra em uma reserva que sustenta o que você paga. Ativar vincula este celular à sua carteira de forma pública e permanente. Qualquer pessoa pode ver o vínculo na Solana e ele não pode ser desfeito.",
       "action": "Ativar",
-      "progress": "Passo 2 de 2"
+      "progress": "Passo 2 de 2",
+      "line": "Vínculo público e permanente com sua carteira"
     },
     "confirming": {
-      "title": "Ativando este celular",
+      "title": "Ativando…",
       "body": "Sua carteira aprovou a ativação.",
-      "action": "Verificar de novo",
-      "progress": "Passo 2 de 2"
+      "action": "Verificar",
+      "progress": "Passo 2 de 2",
+      "line": "Cerca de um minuto"
     },
     "other-wallet": {
-      "title": "Registrado em outra carteira",
+      "title": "Outra carteira",
       "body": "Este celular está vinculado para sempre à carteira abaixo. Conecte essa carteira para pagar e cobrar com este celular.",
-      "action": "Conectar outra carteira"
+      "action": "Conectar outra",
+      "line": "Este celular é de outra carteira"
     }
   },
   "shortfall": "Sua carteira tem {{sol}} SOL. Adicione SOL a ela antes de ativar.",
@@ -56,14 +62,14 @@
   "softwareKeyWarning": "Este celular guarda a chave no software, onde um vírus pode alcançá-la com mais facilidade do que no hardware seguro.",
   "home": {
     "checkFailed": {
-      "title": "Não foi possível verificar este celular",
+      "title": "Não foi possível verificar",
       "retry": "Tentar de novo"
     },
     "loading": {
       "title": "Verificando este celular…"
     },
     "unreachable": {
-      "title": "Não foi possível acessar a Solana",
+      "title": "Sem conexão",
       "body": "O Buckspay não conseguiu ler o registro deste celular. Confira sua conexão.",
       "retry": "Tentar de novo"
     },
@@ -71,29 +77,29 @@
       "title": "Este celular está registrado na sua carteira"
     },
     "confirming": {
-      "title": "Ativando este celular",
+      "title": "Ativando…",
       "body": "Esperando a Solana confirmar, geralmente menos de um minuto.",
       "action": "Ver andamento"
     },
     "otherWallet": {
-      "title": "Registrado em outra carteira",
+      "title": "Outra carteira",
       "body": "Conecte a carteira à qual este celular está vinculado, para pagar e cobrar.",
       "action": "Conectar outra carteira"
     },
     "reconnect": {
-      "title": "Reconecte sua carteira para pagar",
+      "title": "Reconecte sua carteira",
       "body": "Este celular está registrado. Conecte a carteira à qual ele está vinculado.",
       "action": "Reconectar carteira"
     },
     "setup": {
-      "title": "Configure os pagamentos",
+      "title": "Ative os pagamentos",
       "body": "Para pagar e cobrar são necessários uma carteira e a chave deste celular, registradas na Solana.",
       "action": "Configurar pagamentos"
     }
   },
   "walletHas": "Sua carteira tem {{amount}} {{symbol}}.",
-  "amountToAdd": "Valor a adicionar ({{symbol}})",
-  "lockLengthDays": "Duração da reserva (dias)",
+  "amountToAdd": "Valor ({{symbol}})",
+  "lockLengthDays": "Dias",
   "keyProtectionLine": "Armazenamento da chave: {{value}}",
   "viewTransaction": "Ver a transação no explorador",
   "waitingForSolana": "Esperando a Solana",
@@ -145,5 +151,12 @@
       "days": "Escolha uma reserva de {{min}} a {{max}} dias. Nada foi enviado.",
       "balance": "Sua carteira tem {{have}} {{symbol}} e isto precisa de {{need}} {{symbol}}. Adicione {{symbol}} à sua carteira e tente de novo. Nada foi enviado."
     }
-  }
+  },
+  "walletHasShort": "{{amount}} {{symbol}} na carteira",
+  "minShort": "Mín. {{amount}} {{symbol}}",
+  "feeShort": "Taxa {{amount}} {{symbol}}",
+  "noFee": "Sem taxa",
+  "networkPaid": "Rede paga por nós",
+  "networkWallet": "Rede ≈ {{sol}} SOL",
+  "takeBackFrom": "Retire a partir de {{date}}"
 }

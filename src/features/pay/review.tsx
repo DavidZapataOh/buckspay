@@ -161,7 +161,7 @@ export function PayReviewActions({
 
   return (
     <View className="gap-3">
-      {review.biometric ? <Chip kind="info" icon="fingerprint" label={t('payment:review.fingerprint')} /> : null}
+      {review.biometric ? <Chip center kind="info" icon="fingerprint" label={t('payment:review.fingerprint')} /> : null}
       <Button
         testID="pay-confirm"
         variant="filled"

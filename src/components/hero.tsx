@@ -19,7 +19,7 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 const AnimatedPath = Animated.createAnimatedComponent(Path)
 const AnimatedRect = Animated.createAnimatedComponent(Rect)
 
-export type HeroKind = 'done' | 'waiting' | 'nearby' | 'problem' | 'scan'
+export type HeroKind = 'done' | 'waiting' | 'nearby' | 'problem' | 'scan' | 'wallet' | 'key' | 'coins'
 
 const RING = 2 * Math.PI * 58
 const CHECK = 80
@@ -191,7 +191,81 @@ function Scan({ size }: { size: number }) {
   )
 }
 
-const scenes = { done: Done, waiting: Waiting, nearby: Nearby, problem: Problem, scan: Scan }
+/** A float that rises and settles, so a still picture feels alive without asking for attention. */
+function useBob(distance: number) {
+  const calm = useReducedMotion()
+  const rise = useSharedValue(0)
+  useEffect(() => {
+    if (!calm) rise.set(withRepeat(withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.quad) }), -1, true))
+  }, [calm, rise])
+  return useAnimatedStyle(() => ({ transform: [{ translateY: -distance * rise.get() }] }))
+}
+
+/** A wallet: the money stays in the person's own. */
+function Wallet({ size }: { size: number }) {
+  const [primary, container, onPrimary] = useThemeColors('primary', 'secondary-container', 'on-primary')
+  const bob = useBob(6)
+  return (
+    <Animated.View style={bob}>
+      <Frame size={size}>
+        <Circle cx={80} cy={80} r={62} fill={container} />
+        <Rect x={36} y={52} width={88} height={64} rx={14} fill={primary} />
+        <Rect x={36} y={52} width={88} height={20} rx={10} fill={primary} opacity={0.75} />
+        <Rect x={92} y={80} width={32} height={22} rx={10} fill={onPrimary} />
+        <Circle cx={103} cy={91} r={4} fill={primary} />
+      </Frame>
+    </Animated.View>
+  )
+}
+
+/** A key: this phone's own, made in its secure hardware. */
+function Key({ size }: { size: number }) {
+  const [primary, container] = useThemeColors('primary', 'secondary-container')
+  const calm = useReducedMotion()
+  const tilt = useSharedValue(0)
+  useEffect(() => {
+    if (!calm) tilt.set(withRepeat(withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.quad) }), -1, true))
+  }, [calm, tilt])
+  const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${-8 + 16 * tilt.get()}deg` }] }))
+  return (
+    <Animated.View style={style}>
+      <Frame size={size}>
+        <Circle cx={80} cy={80} r={62} fill={container} />
+        <Circle cx={62} cy={80} r={20} fill="none" stroke={primary} strokeWidth={10} />
+        <Rect x={80} y={75} width={50} height={10} rx={5} fill={primary} />
+        <Rect x={108} y={85} width={9} height={16} rx={3} fill={primary} />
+        <Rect x={121} y={85} width={9} height={11} rx={3} fill={primary} />
+      </Frame>
+    </Animated.View>
+  )
+}
+
+/** A coin that bounces: money going in. */
+function Coins({ size }: { size: number }) {
+  const [primary, container, onPrimary] = useThemeColors('primary', 'secondary-container', 'on-primary')
+  const bob = useBob(8)
+  return (
+    <Animated.View style={bob}>
+      <Frame size={size}>
+        <Circle cx={80} cy={80} r={62} fill={container} />
+        <Circle cx={80} cy={80} r={36} fill={primary} />
+        <Circle cx={80} cy={80} r={27} fill="none" stroke={onPrimary} strokeWidth={4} opacity={0.7} />
+        <Rect x={76} y={64} width={8} height={32} rx={4} fill={onPrimary} />
+      </Frame>
+    </Animated.View>
+  )
+}
+
+const scenes = {
+  done: Done,
+  waiting: Waiting,
+  nearby: Nearby,
+  problem: Problem,
+  scan: Scan,
+  wallet: Wallet,
+  key: Key,
+  coins: Coins,
+}
 
 /** The picture of what is going on, so the screen needs fewer words. */
 export function Hero({

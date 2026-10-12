@@ -1,5 +1,5 @@
 {
-  "title": "Nearby payments",
+  "title": "Pay nearby",
   "body": "Buckspay uses Bluetooth to find phones nearby, pass on warnings about cheating and hand payments to a phone with internet. It never shares your balance or where you are.",
   "allow": "Allow",
   "continue": "Continue",
@@ -17,5 +17,6 @@
   "warnings_one": "Warnings received: {{count}}",
   "warnings_other": "Warnings received: {{count}}",
   "passedOn_one": "Payments passed on: {{count}}",
-  "passedOn_other": "Payments passed on: {{count}}"
+  "passedOn_other": "Payments passed on: {{count}}",
+  "line": "Needs Bluetooth"
 }

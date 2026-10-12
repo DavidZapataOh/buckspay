@@ -3,9 +3,11 @@ import { NAMESPACES, i18n } from '../../i18n'
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, View } from 'react-native'
-import { AppText } from '../../components/app-text'
+import { Hero } from '../../components/hero'
 import { IconButton } from '../../components/icon-button'
+import { Info } from '../../components/info'
 import { Screen } from '../../components/screen'
+import { Stage } from '../../components/stage'
 import { StatusNote } from '../../components/status-note'
 import { useThemeColors } from '../../theme/use-theme-colors'
 import { formatError } from '../../utils/format-error'
@@ -47,10 +49,9 @@ export function AddFunds() {
       <View className="flex-row items-center -ml-3">
         <IconButton testID="add-funds-close" icon="close" label={t('common:close')} onPress={() => router.back()} />
       </View>
-      <AppText variant="headline">{t('lock:addFundsTitle')}</AppText>
-      <AppText variant="body" tone="muted">
-        {t('lock:addFundsBody')}
-      </AppText>
+      <Stage hero={<Hero kind="coins" decorative />} title={t('lock:addFundsTitle')}>
+        <Info title={t('lock:addFundsTitle')} lines={[t('lock:addFundsBody')]} />
+      </Stage>
       {offer && wallet && deviceKey && nextLockSeq !== undefined ? (
         <ActivationForm
           activation={offer}

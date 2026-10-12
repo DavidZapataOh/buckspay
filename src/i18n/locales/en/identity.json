@@ -1,43 +1,49 @@
 {
   "step": {
     "loading": {
-      "title": "Check this phone",
+      "title": "Checking…",
       "body": "Buckspay reads your wallet connection and this phone’s registration on Solana.",
       "action": "Try again"
     },
     "unreachable": {
-      "title": "Can’t reach Solana",
+      "title": "No connection",
       "body": "Buckspay needs a connection to read this phone’s registration on Solana.",
-      "action": "Try again"
+      "action": "Try again",
+      "line": "Check your internet"
     },
     "connect": {
-      "title": "Connect your wallet",
+      "title": "Connect wallet",
       "body": "Buckspay pays from, and credits to, a wallet you already use. Connecting shares its address and costs nothing.",
-      "action": "Connect wallet",
-      "progress": "Step 1 of 2"
+      "action": "Connect",
+      "progress": "Step 1 of 2",
+      "line": "Your money stays in it"
     },
     "create-key": {
-      "title": "Create this phone’s key",
+      "title": "Secure this phone",
       "body": "A key made in this phone's secure hardware approves your payments. It never leaves the phone.",
       "action": "Create key",
-      "progress": "Step 1 of 2"
+      "progress": "Step 1 of 2",
+      "line": "A key that never leaves it"
     },
     "activate": {
-      "title": "Add funds",
+      "title": "Add money",
       "body": "Your funds go into a reserve that backs what you pay. Activating links this phone to your wallet publicly and permanently. Anyone can see the link on Solana, and it can't be undone.",
       "action": "Activate",
-      "progress": "Step 2 of 2"
+      "progress": "Step 2 of 2",
+      "line": "Public, permanent link to your wallet"
     },
     "confirming": {
-      "title": "Activating this phone",
+      "title": "Activating…",
       "body": "Your wallet approved the activation.",
       "action": "Check again",
-      "progress": "Step 2 of 2"
+      "progress": "Step 2 of 2",
+      "line": "About a minute"
     },
     "other-wallet": {
-      "title": "Registered to another wallet",
+      "title": "Another wallet",
       "body": "This phone is permanently linked to the wallet below. Connect that wallet to pay and receive on this phone.",
-      "action": "Connect another wallet"
+      "action": "Connect other",
+      "line": "This phone belongs to another wallet"
     }
   },
   "shortfall": "Your wallet has {{sol}} SOL. Add SOL to it before you activate.",
@@ -56,14 +62,14 @@
   "softwareKeyWarning": "This phone keeps its key in software, where malware can reach it more easily than in secure hardware.",
   "home": {
     "checkFailed": {
-      "title": "Couldn’t check this phone",
+      "title": "Couldn’t check",
       "retry": "Try again"
     },
     "loading": {
       "title": "Checking this phone…"
     },
     "unreachable": {
-      "title": "Can’t reach Solana",
+      "title": "No connection",
       "body": "Buckspay couldn’t read this phone’s registration. Check your connection.",
       "retry": "Try again"
     },
@@ -71,17 +77,17 @@
       "title": "This phone is registered to your wallet"
     },
     "confirming": {
-      "title": "Activating this phone",
+      "title": "Activating…",
       "body": "Waiting for Solana to confirm it, usually under a minute.",
       "action": "See progress"
     },
     "otherWallet": {
-      "title": "Registered to another wallet",
+      "title": "Another wallet",
       "body": "Connect the wallet this phone is linked to, to pay and receive.",
       "action": "Connect another wallet"
     },
     "reconnect": {
-      "title": "Reconnect your wallet to pay",
+      "title": "Reconnect wallet",
       "body": "This phone is registered. Connect the wallet it is linked to.",
       "action": "Reconnect wallet"
     },
@@ -92,8 +98,8 @@
     }
   },
   "walletHas": "Your wallet has {{amount}} {{symbol}}.",
-  "amountToAdd": "Amount to add ({{symbol}})",
-  "lockLengthDays": "Reserve length (days)",
+  "amountToAdd": "Amount ({{symbol}})",
+  "lockLengthDays": "Days",
   "keyProtectionLine": "Key storage: {{value}}",
   "viewTransaction": "View the transaction in the explorer",
   "waitingForSolana": "Waiting for Solana",
@@ -145,5 +151,12 @@
       "days": "Choose a reserve of {{min}} to {{max}} days. Nothing was sent.",
       "balance": "Your wallet has {{have}} {{symbol}} and this needs {{need}} {{symbol}}. Add {{symbol}} to your wallet, then try again. Nothing was sent."
     }
-  }
+  },
+  "walletHasShort": "{{amount}} {{symbol}} in wallet",
+  "minShort": "Min {{amount}} {{symbol}}",
+  "feeShort": "Fee {{amount}} {{symbol}}",
+  "noFee": "No fee",
+  "networkPaid": "Network paid for you",
+  "networkWallet": "Network ≈ {{sol}} SOL",
+  "takeBackFrom": "Take back from {{date}}"
 }

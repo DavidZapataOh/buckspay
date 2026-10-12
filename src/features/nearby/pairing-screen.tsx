@@ -98,7 +98,7 @@ export function PairingScreen({ role }: { role: PairingRole }) {
           </View>
           {searchedLong && pairing.peers.length === 0 ? (
             <View className="flex-row items-center justify-center gap-1">
-              <Chip kind="waiting" label={t('nearby:nobodyYet')} />
+              <Chip center kind="waiting" label={t('nearby:nobodyYet')} />
               <Info title={t('nearby:nobodyYet')} lines={[t('nearby:noneFound')]} />
             </View>
           ) : null}
@@ -114,7 +114,7 @@ export function PairingScreen({ role }: { role: PairingRole }) {
             >
               <Text className="text-6xl leading-[68px] font-bold tracking-widest text-strong">{confirming.digits}</Text>
             </View>
-            <Chip kind="waiting" label={t('nearby:secondsLeft', { seconds: left })} />
+            <Chip center kind="waiting" label={t('nearby:secondsLeft', { seconds: left })} />
           </Stage>
           <View className="w-full gap-3">
             <Button variant="filled" label={t('nearby:match')} onPress={pairing.confirm} />

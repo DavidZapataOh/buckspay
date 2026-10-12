@@ -71,13 +71,14 @@ export function ReceiveForm({
         <View className="items-center gap-2">
           {typedWrong ? (
             <Chip
+              center
               testID="receive-needs-amount"
               kind="problem"
               label={t('payment:receive.amountUnclear', { max: maxText })}
             />
           ) : null}
           {belowMinimum ? (
-            <Chip testID="receive-below-minimum" kind="waiting" label={t('payment:receive.belowMinimum')} />
+            <Chip center testID="receive-below-minimum" kind="waiting" label={t('payment:receive.belowMinimum')} />
           ) : null}
         </View>
       ) : null}

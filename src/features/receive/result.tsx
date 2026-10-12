@@ -48,9 +48,10 @@ export function AcceptedResult({
     <View testID="receive-result-accepted" className="items-center gap-4">
       <Stage hero={<Hero kind="done" decorative />} title={t('payment:receive.gotIt')} tone="success">
         <Amount value={shown} symbol={symbol} tone="success" />
-        {outcome.duplicate ? <Chip kind="info" label={t('payment:receive.already')} /> : null}
+        {outcome.duplicate ? <Chip center kind="info" label={t('payment:receive.already')} /> : null}
         {requestedAmount !== null && requestedAmount !== amount ? (
           <Chip
+            center
             kind="waiting"
             label={t('payment:receive.differs', {
               asked: formatMoney(requestedAmount, decimals, currentLanguage()),

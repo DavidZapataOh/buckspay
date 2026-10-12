@@ -1,43 +1,49 @@
 {
   "step": {
     "loading": {
-      "title": "Revisar este celular",
+      "title": "Comprobando…",
       "body": "Buckspay lee la conexión de tu billetera y el registro de este celular en Solana.",
       "action": "Intentar de nuevo"
     },
     "unreachable": {
-      "title": "No se puede conectar con Solana",
+      "title": "Sin conexión",
       "body": "Buckspay necesita conexión para leer el registro de este celular en Solana.",
-      "action": "Intentar de nuevo"
+      "action": "Intentar de nuevo",
+      "line": "Revisa tu internet"
     },
     "connect": {
       "title": "Conecta tu billetera",
       "body": "Buckspay paga desde, y acredita en, una billetera que ya usas. Conectarla comparte su dirección y no cuesta nada.",
-      "action": "Conectar billetera",
-      "progress": "Paso 1 de 2"
+      "action": "Conectar",
+      "progress": "Paso 1 de 2",
+      "line": "Tu dinero queda en ella"
     },
     "create-key": {
-      "title": "Crea la llave de este celular",
+      "title": "Protege este celular",
       "body": "Una llave creada en el hardware seguro de este celular aprueba tus pagos. Nunca sale del celular.",
       "action": "Crear llave",
-      "progress": "Paso 1 de 2"
+      "progress": "Paso 1 de 2",
+      "line": "Una llave que nunca sale de él"
     },
     "activate": {
-      "title": "Cargar saldo",
+      "title": "Carga saldo",
       "body": "Tu dinero entra en una reserva que respalda lo que pagas. Activar vincula este celular con tu billetera de forma pública y permanente. Cualquiera puede ver el vínculo en Solana y no se puede deshacer.",
       "action": "Activar",
-      "progress": "Paso 2 de 2"
+      "progress": "Paso 2 de 2",
+      "line": "Vínculo público y permanente con tu billetera"
     },
     "confirming": {
-      "title": "Activando este celular",
+      "title": "Activando…",
       "body": "Tu billetera aprobó la activación.",
-      "action": "Revisar de nuevo",
-      "progress": "Paso 2 de 2"
+      "action": "Revisar",
+      "progress": "Paso 2 de 2",
+      "line": "Cerca de un minuto"
     },
     "other-wallet": {
-      "title": "Registrado con otra billetera",
+      "title": "Otra billetera",
       "body": "Este celular está vinculado para siempre a la billetera de abajo. Conecta esa billetera para pagar y cobrar con este celular.",
-      "action": "Conectar otra billetera"
+      "action": "Conectar otra",
+      "line": "Este celular es de otra billetera"
     }
   },
   "shortfall": "Tu billetera tiene {{sol}} SOL. Agrégale SOL antes de activar.",
@@ -56,14 +62,14 @@
   "softwareKeyWarning": "Este celular guarda su llave en el software, donde el malware puede alcanzarla con más facilidad que en el hardware seguro.",
   "home": {
     "checkFailed": {
-      "title": "No se pudo revisar este celular",
+      "title": "No se pudo comprobar",
       "retry": "Intentar de nuevo"
     },
     "loading": {
       "title": "Revisando este celular…"
     },
     "unreachable": {
-      "title": "No se puede conectar con Solana",
+      "title": "Sin conexión",
       "body": "Buckspay no pudo leer el registro de este celular. Revisa tu conexión.",
       "retry": "Intentar de nuevo"
     },
@@ -71,29 +77,29 @@
       "title": "Este celular está registrado con tu billetera"
     },
     "confirming": {
-      "title": "Activando este celular",
+      "title": "Activando…",
       "body": "Esperando a que Solana lo confirme, normalmente menos de un minuto.",
       "action": "Ver avance"
     },
     "otherWallet": {
-      "title": "Registrado con otra billetera",
+      "title": "Otra billetera",
       "body": "Conecta la billetera a la que está vinculado este celular, para pagar y cobrar.",
       "action": "Conectar otra billetera"
     },
     "reconnect": {
-      "title": "Reconecta tu billetera para pagar",
+      "title": "Reconecta tu billetera",
       "body": "Este celular está registrado. Conecta la billetera a la que está vinculado.",
       "action": "Reconectar billetera"
     },
     "setup": {
-      "title": "Configura los pagos",
+      "title": "Activa los pagos",
       "body": "Para pagar y cobrar se necesitan una billetera y la llave de este celular, registradas en Solana.",
       "action": "Configurar pagos"
     }
   },
   "walletHas": "Tu billetera tiene {{amount}} {{symbol}}.",
-  "amountToAdd": "Monto a cargar ({{symbol}})",
-  "lockLengthDays": "Duración de la reserva (días)",
+  "amountToAdd": "Monto ({{symbol}})",
+  "lockLengthDays": "Días",
   "keyProtectionLine": "Almacenamiento de la llave: {{value}}",
   "viewTransaction": "Ver la transacción en el explorador",
   "waitingForSolana": "Esperando a Solana",
@@ -145,5 +151,12 @@
       "days": "Elige una reserva de {{min}} a {{max}} días. No se envió nada.",
       "balance": "Tu billetera tiene {{have}} {{symbol}} y esto necesita {{need}} {{symbol}}. Agrega {{symbol}} a tu billetera e inténtalo de nuevo. No se envió nada."
     }
-  }
+  },
+  "walletHasShort": "{{amount}} {{symbol}} en tu billetera",
+  "minShort": "Mín. {{amount}} {{symbol}}",
+  "feeShort": "Comisión {{amount}} {{symbol}}",
+  "noFee": "Sin comisión",
+  "networkPaid": "Red pagada por nosotros",
+  "networkWallet": "Red ≈ {{sol}} SOL",
+  "takeBackFrom": "Retira desde {{date}}"
 }

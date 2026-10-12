@@ -33,13 +33,9 @@ describe('identity copy', () => {
   })
 
   it('tells the public, permanent link before activating, and that a sent activation cannot be cancelled', () => {
-    expect(stepCopy('activate').title).toBe('Add funds')
+    expect(stepCopy('activate').title).toBe('Add money')
+    expect(stepCopy('activate').line).toBe('Public, permanent link to your wallet')
     expect(stepCopy('activate').body).toContain('publicly and permanently')
-    expect([stepCopy('connect').progress, stepCopy('create-key').progress, stepCopy('activate').progress]).toEqual([
-      'Step 1 of 2',
-      'Step 1 of 2',
-      'Step 2 of 2',
-    ])
     const sent = getBase58Decoder().decode(new Uint8Array(64).fill(1)) as Signature
     expect(confirmingNotice(sent)).toBe(
       'Sent to Solana. Waiting for confirmation, usually under a minute. You can leave this screen; this can’t be cancelled.',
@@ -66,7 +62,7 @@ describe('identity copy', () => {
     })
     expect(status({ step: 'connect', device })).toMatchObject({
       testID: 'home-reconnect',
-      title: 'Reconnect your wallet to pay',
+      title: 'Reconnect wallet',
       action: 'Reconnect wallet',
     })
     expect(status({ step: 'other-wallet', wallet: ALICE, device })).toMatchObject({
@@ -76,7 +72,7 @@ describe('identity copy', () => {
     expect(status({ step: 'confirming' })).toMatchObject({ testID: 'home-confirming', action: 'See progress' })
     expect(status({ step: 'unreachable', error: 'offline' })).toMatchObject({
       testID: 'home-unreachable',
-      title: 'Can’t reach Solana',
+      title: 'No connection',
       retry: 'Try again',
     })
     expect(status({ step: 'loading', error: 'Keystore failed' })).toMatchObject({ retry: 'Try again' })

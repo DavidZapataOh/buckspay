@@ -75,6 +75,7 @@ export function PayTab({
             {allowance > 0n ? (
               <View testID="pay-allowance">
                 <Chip
+                  center
                   kind="info"
                   icon="wifi_off"
                   label={`${formatMoney(allowance, decimals, currentLanguage())} ${symbol}`}
@@ -127,7 +128,7 @@ export function PayTab({
                         code: row.code,
                       })}
                     </AppText>
-                    {row.signed ? <Chip kind="waiting" label={t('payment:pay.notConfirmed')} /> : null}
+                    {row.signed ? <Chip center kind="waiting" label={t('payment:pay.notConfirmed')} /> : null}
                     {discarding === id ? (
                       <>
                         <AppText variant="body" tone="danger">

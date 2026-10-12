@@ -7,8 +7,11 @@ import { ActivityIndicator, View } from 'react-native'
 import { AddressRow } from '../../components/address-row'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { Hero, type HeroKind } from '../../components/hero'
 import { IconButton } from '../../components/icon-button'
+import { Info } from '../../components/info'
 import { Screen } from '../../components/screen'
+import { Stage } from '../../components/stage'
 import { StatusNote } from '../../components/status-note'
 import { useThemeColors } from '../../theme/use-theme-colors'
 import { useNetwork } from '../network/use-network'
@@ -16,6 +19,17 @@ import { ACTIVE_PROFILE } from '../../protocol/active-profile'
 import { ActivationForm } from './activation-form'
 import { confirmingNotice, keyProtection, sponsorshipNotice, stepCopy } from './identity-copy'
 import { useDeviceIdentity } from './use-device-identity'
+
+const STAGE = { connect: 0, 'create-key': 1, activate: 2, confirming: 3 } as const
+const HEROES: Record<string, HeroKind> = {
+  loading: 'waiting',
+  unreachable: 'problem',
+  connect: 'wallet',
+  'create-key': 'key',
+  activate: 'coins',
+  confirming: 'waiting',
+  'other-wallet': 'problem',
+}
 
 /** Sets up paying and receiving: a wallet, this phone's key and its first lock. */
 export function Onboarding() {
@@ -36,21 +50,15 @@ export function Onboarding() {
         : undefined
 
   return (
-    <Screen>
+    <Screen steps={step in STAGE ? { total: 3, current: STAGE[step as keyof typeof STAGE] } : undefined}>
       <View className="flex-row items-center justify-between -ml-3">
         <IconButton testID="onboarding-close" icon="close" label={t('common:close')} onPress={() => router.back()} />
-        {content?.progress ? (
-          <AppText testID="onboarding-progress" variant="label" tone="muted">
-            {content.progress}
-          </AppText>
-        ) : null}
       </View>
       {content ? (
         <View testID={`onboarding-${step}`} className="grow gap-4">
-          <AppText variant="headline">{content.title}</AppText>
-          <AppText variant="body" tone="muted">
-            {content.body}
-          </AppText>
+          <Stage hero={<Hero kind={HEROES[step] ?? 'waiting'} decorative />} title={content.title} line={content.line}>
+            <Info title={content.title} lines={[content.body]} />
+          </Stage>
           {step === 'activate' && activation ? (
             <ActivationForm
               activation={activation}

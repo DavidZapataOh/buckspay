@@ -33,10 +33,10 @@ export function WaitingScreen({
     <Screen testID="waiting-for-phone" steps={steps}>
       <Stage hero={<Hero kind="nearby" decorative />} title={title}>
         <View className="items-center gap-2">
-          {detail ? <Chip kind="waiting" label={detail} /> : null}
+          {detail ? <Chip center kind="waiting" label={detail} /> : null}
           {notice ? (
             <View accessibilityLiveRegion="polite">
-              <Chip kind="problem" label={notice} />
+              <Chip center kind="problem" label={notice} />
             </View>
           ) : null}
         </View>

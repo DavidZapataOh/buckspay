@@ -1,21 +1,25 @@
 import { useTranslation } from 'react-i18next'
 import { currentLanguage, NAMESPACES } from '../../i18n'
-import { formatAmount, formatMoney, parseAmount } from '../../i18n/format'
+import { formatAmount, formatDate, formatMoney, parseAmount } from '../../i18n/format'
 import { useState } from 'react'
 import { View } from 'react-native'
 import type { Windows } from '../../protocol'
-import { AppText } from '../../components/app-text'
+import { AmountField } from '../../components/amount-field'
 import { Button } from '../../components/button'
+import { Chip } from '../../components/chip'
+import { Info } from '../../components/info'
 import { TextField } from '../../components/text-field'
 
 import { FUNDING_SYMBOL, feeNotice, minimumNotice, networkCostNotice, withdrawalDateNotice } from '../lock/lock-copy'
+import { formatSol } from '../../utils/format-sol'
 import { type Activation, type ActivationInput, isSponsored, lockUntil } from './activation'
 import { shortfallNotice } from './identity-copy'
 import type { Sponsorship } from './device-identity'
 
 /**
  * The "Add funds" step: how much to lock and for how long, with what it costs, who pays the network
- * and when the funds can be taken back, all shown before the wallet is asked for anything.
+ * and when the funds can be taken back, all shown before the wallet is asked for anything: as chips, with
+ * the full sentences one tap away.
  */
 export function ActivationForm({
   activation,
@@ -44,22 +48,46 @@ export function ActivationForm({
   const belowMinimum =
     sponsorship === 'free' && quote !== undefined && amount !== undefined && amount < quote.minFunding
   const shortfall = shortfallNotice(activation, sponsored)
+  const fee = sponsored && quote ? quote.fee : 0n
+  const sentences = [
+    feeNotice(fee, funding.decimals),
+    networkCostNotice(sponsored, sol.cost),
+    ...(lockDays !== undefined ? [withdrawalDateNotice(lockUntil(lockDays), windows)] : []),
+    ...(sponsorship === 'free' && quote ? [minimumNotice(quote.minFunding, funding.decimals)] : []),
+  ]
 
   return (
     <View testID="activation-form" className="gap-4">
-      <AppText testID="funding-balance" variant="body">
-        {t('identity:walletHas', {
-          amount: formatMoney(funding.balance, funding.decimals, currentLanguage()),
-          symbol: FUNDING_SYMBOL,
-        })}
-      </AppText>
-      <TextField
+      <View testID="funding-balance" className="items-center">
+        <Chip
+          center
+          kind="info"
+          icon="account_balance_wallet"
+          label={t('identity:walletHasShort', {
+            amount: formatMoney(funding.balance, funding.decimals, currentLanguage()),
+            symbol: FUNDING_SYMBOL,
+          })}
+        />
+      </View>
+      <AmountField
         testID="funding-amount"
         label={t('identity:amountToAdd', { symbol: FUNDING_SYMBOL })}
+        symbol={FUNDING_SYMBOL}
         value={amountText}
         onChangeText={setAmountText}
-        keyboardType="decimal-pad"
       />
+      {sponsorship === 'free' && quote && belowMinimum ? (
+        <View testID="funding-minimum" className="items-center">
+          <Chip
+            center
+            kind="waiting"
+            label={t('identity:minShort', {
+              amount: formatMoney(quote.minFunding, funding.decimals, currentLanguage()),
+              symbol: FUNDING_SYMBOL,
+            })}
+          />
+        </View>
+      ) : null}
       <TextField
         testID="lock-days"
         label={t('identity:lockLengthDays')}
@@ -67,27 +95,50 @@ export function ActivationForm({
         onChangeText={setDaysText}
         keyboardType="numeric"
       />
-      {sponsorship === 'free' && quote ? (
-        <AppText testID="funding-minimum" variant="body" tone="muted">
-          {minimumNotice(quote.minFunding, funding.decimals)}
-          {belowMinimum ? ` ${t('identity:belowMinimumNote')}` : ''}
-        </AppText>
-      ) : null}
-      <AppText testID="funding-fee" variant="body">
-        {feeNotice(sponsored && quote ? quote.fee : 0n, funding.decimals)}
-      </AppText>
-      <AppText testID="network-cost" variant="body">
-        {networkCostNotice(sponsored, sol.cost)}
-      </AppText>
-      {lockDays !== undefined ? (
-        <AppText testID="withdrawal-date" variant="body" tone="muted">
-          {withdrawalDateNotice(lockUntil(lockDays), windows)}
-        </AppText>
-      ) : null}
+      <View className="flex-row flex-wrap items-center justify-center gap-2">
+        <View testID="funding-fee">
+          <Chip
+            center
+            kind="info"
+            icon="payments"
+            label={
+              fee > 0n
+                ? t('identity:feeShort', {
+                    amount: formatMoney(fee, funding.decimals, currentLanguage()),
+                    symbol: FUNDING_SYMBOL,
+                  })
+                : t('identity:noFee')
+            }
+          />
+        </View>
+        <View testID="network-cost">
+          <Chip
+            center
+            kind="info"
+            icon="bolt"
+            label={
+              sponsored ? t('identity:networkPaid') : t('identity:networkWallet', { sol: formatSol(sol.cost, 'up') })
+            }
+          />
+        </View>
+        {lockDays !== undefined ? (
+          <View testID="withdrawal-date">
+            <Chip
+              center
+              kind="info"
+              icon="event"
+              label={t('identity:takeBackFrom', {
+                date: formatDate(lockUntil(lockDays) + windows.claimWindow, currentLanguage(), 'UTC'),
+              })}
+            />
+          </View>
+        ) : null}
+        <Info title={action} lines={sentences} />
+      </View>
       {shortfall ? (
-        <AppText testID="sol-shortfall" variant="body" tone="danger">
-          {shortfall}
-        </AppText>
+        <View testID="sol-shortfall" className="items-center">
+          <Chip center kind="problem" label={shortfall} />
+        </View>
       ) : null}
       <Button
         testID="onboarding-next"

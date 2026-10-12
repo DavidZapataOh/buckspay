@@ -109,6 +109,7 @@ export default function PaySend() {
         ) : null}
         <View testID="pay-status" className="items-center gap-2" accessibilityLiveRegion="polite">
           <Chip
+            center
             kind="waiting"
             label={
               state.unconfirmed
