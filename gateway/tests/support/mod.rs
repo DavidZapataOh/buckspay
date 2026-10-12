@@ -80,7 +80,7 @@ pub fn program() -> Program {
 pub struct Cluster {
     pub url: String,
     pub mint: Pubkey,
-    payer: Keypair,
+    pub payer: Keypair,
 }
 
 fn free_port() -> u16 {
@@ -535,6 +535,33 @@ impl Sponsor {
             ClientAddress::Peer,
             rents().await,
         )
+    }
+
+    /// A gateway on the test validator that runs a faucet of the test mint, whose authority is the
+    /// validator's payer.
+    pub async fn with_faucet(faucet: buckspay_gateway::faucet::Faucet) -> Self {
+        let fee_payer = funded(1_000_000_000).await;
+        let fee_payer_address = fee_payer.pubkey();
+        let gateway = Arc::new(
+            Gateway::new(
+                rpc(&cluster().url),
+                fee_payer,
+                settings(),
+                rents().await,
+                Limits {
+                    requests: RequestLimits::new(NonZeroU32::new(1_000).unwrap()),
+                    sponsor: SponsorLimits::new(caps()),
+                    settlements: SettlementLimits::new(float_caps()),
+                },
+                hpke(),
+            )
+            .with_faucet(faucet),
+        );
+        Self {
+            fee_payer: fee_payer_address,
+            app: router(Arc::clone(&gateway), ClientAddress::Peer),
+            gateway,
+        }
     }
 
     /// A gateway whose RPC is `url`.

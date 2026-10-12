@@ -178,6 +178,17 @@ pub struct Config {
     /// Other addresses the gateway signs for, besides the fee payer: no endpoint accepts them as a
     /// wallet.
     pub held_keys: Vec<Pubkey>,
+    /// The faucet of the test mint, when the operator holds the mint's authority and asks for it.
+    pub faucet: Option<FaucetSettings>,
+}
+
+/// What the faucet of the test mint is given: the key that may mint, what a claim receives and the
+/// claims a day allows.
+pub struct FaucetSettings {
+    pub authority: Keypair,
+    pub amount: u64,
+    pub daily_cap: u32,
+    pub per_network_daily: u32,
 }
 
 /// The slots of the HPKE keys from a JSON file `[{ "path", "notBefore", "notAfter" }]`, current
@@ -307,6 +318,15 @@ impl Config {
             env::var("SETTLEMENT_PER_KEY_PER_DAY").ok().as_deref(),
             env::var("SETTLEMENT_PER_KEY_PER_30_DAYS").ok().as_deref(),
         )?;
+        let faucet = match env::var("FAUCET_AUTHORITY_KEYPAIR") {
+            Ok(path) => Some(FaucetSettings {
+                authority: read_keypair(Path::new(&path))?,
+                amount: var("FAUCET_AMOUNT", "20000000")?,
+                daily_cap: var("FAUCET_DAILY_CAP", "150")?,
+                per_network_daily: var("FAUCET_PER_NETWORK_DAILY", "10")?,
+            }),
+            Err(_) => None,
+        };
         Ok(Self {
             cluster,
             rpc_url,
@@ -370,6 +390,7 @@ impl Config {
                     .collect::<Result<_, _>>()?,
                 Err(_) => Vec::new(),
             },
+            faucet,
         })
     }
 }

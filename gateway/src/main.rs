@@ -4,6 +4,7 @@ use buckspay_gateway::{
     channels::{ChannelJobs, Channels},
     claims,
     config::{Config, Listen},
+    faucet::Faucet,
     float::{Caps as FloatCaps, SettlementLimits},
     janitor,
     jobs::Jobs,
@@ -178,31 +179,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.reward_daily_budget,
         reward_jobs,
     );
-    let gateway = Arc::new(
-        Gateway::new(
-            rpc,
-            config.fee_payer,
-            settings,
-            rents,
-            Limits {
-                requests: RequestLimits::new(config.requests_per_minute),
-                sponsor,
-                settlements,
-            },
-            config.hpke,
-        )
-        .with_jobs(jobs)
-        .with_relay(Relay::with_delay(config.relay_delay_max_secs))
-        .with_words(words)
-        .with_channels(Channels::new(
-            config.max_open_channels,
-            config.new_channels_per_network_day,
-            channel_jobs,
-        ))
-        .with_rewards(rewards)
-        .with_zk(zk)
-        .with_nettings(nettings),
-    );
+    let mut gateway = Gateway::new(
+        rpc,
+        config.fee_payer,
+        settings,
+        rents,
+        Limits {
+            requests: RequestLimits::new(config.requests_per_minute),
+            sponsor,
+            settlements,
+        },
+        config.hpke,
+    )
+    .with_jobs(jobs)
+    .with_relay(Relay::with_delay(config.relay_delay_max_secs))
+    .with_words(words)
+    .with_channels(Channels::new(
+        config.max_open_channels,
+        config.new_channels_per_network_day,
+        channel_jobs,
+    ))
+    .with_rewards(rewards)
+    .with_zk(zk)
+    .with_nettings(nettings);
+    if let Some(settings) = config.faucet {
+        // Only the one that holds the mint's authority can mint: a wrong key is a misconfiguration.
+        let authority = settings.authority.pubkey();
+        if mint.data.get(..4) != Some(&[1, 0, 0, 0])
+            || mint.data.get(4..36) != Some(authority.as_ref())
+        {
+            return Err("FAUCET_AUTHORITY_KEYPAIR is not the mint authority of MINT".into());
+        }
+        gateway = gateway.with_faucet(Faucet::open(
+            settings.authority,
+            mint.owner,
+            settings.amount,
+            settings.daily_cap,
+            settings.per_network_daily,
+            Some(&config.state_directory.join("faucet.json")),
+        )?);
+    }
+    let gateway = Arc::new(gateway);
     rewards::check_economics(&gateway).await?;
     relay::resume_pending(&gateway);
     janitor::spawn(Arc::clone(&gateway), JANITOR_INTERVAL);

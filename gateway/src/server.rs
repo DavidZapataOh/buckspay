@@ -2,6 +2,7 @@ use crate::{
     chain::Rents,
     channels::{self, Channels},
     claims,
+    faucet::{self, Faucet},
     float::SettlementLimits,
     group_settlements,
     hpke::{HpkeKeys, PublishedKey},
@@ -107,6 +108,8 @@ pub struct Gateway {
     pub zk: crate::zk::Zk,
     /// What bounds the netting records the gateway pays for.
     pub nettings: Nettings,
+    /// The test-token faucet, on gateways that run on a test network and hold the mint's authority.
+    pub faucet: Option<Faucet>,
     /// What the program's accounts cost, as last read from the cluster.
     pub(crate) rents: Mutex<Rents>,
     /// Prepared transactions by device key.
@@ -160,6 +163,12 @@ impl Gateway {
         self
     }
 
+    /// Offers a faucet of the test mint.
+    pub fn with_faucet(mut self, faucet: Faucet) -> Self {
+        self.faucet = Some(faucet);
+        self
+    }
+
     /// Keeps the jobs in `jobs`, which survives a restart, in place of the ones in memory.
     pub fn with_jobs(mut self, jobs: Jobs) -> Self {
         self.jobs = jobs;
@@ -189,6 +198,7 @@ impl Gateway {
             rewards: Rewards::default(),
             zk: crate::zk::Zk::default(),
             nettings: Nettings::default(),
+            faucet: None,
             rents: Mutex::new(rents),
             pending: Mutex::default(),
             rotation_keys: Mutex::default(),
@@ -230,6 +240,7 @@ pub fn router(state: Arc<Gateway>, client: ClientAddress) -> Router {
         .route("/v1/rewards/key", get(crate::reward_reads::key))
         .route("/v1/rewards/trees/{epoch}", get(crate::reward_reads::tree))
         .route("/v1/onboarding/quote", get(onboard::quote))
+        .route("/v1/faucet", get(faucet::offer).post(faucet::claim))
         .route("/v1/onboard", post(onboard::prepare))
         .route("/v1/onboard/submit", post(sponsored::submit))
         .route("/v1/locks", post(operations::lock))
@@ -405,6 +416,8 @@ pub enum Error {
     Retry,
     /// Solana could not be read, or did not answer whether it took a transaction.
     Upstream,
+    /// The faucet refuses this claim.
+    Faucet(faucet::Refusal),
 }
 
 impl Error {
@@ -425,6 +438,7 @@ impl Error {
             Error::Busy => "busy".to_owned(),
             Error::Retry => "retry".to_owned(),
             Error::Upstream => "upstream".to_owned(),
+            Error::Faucet(_) => "faucet".to_owned(),
         }
     }
 }
@@ -500,6 +514,26 @@ impl IntoResponse for Error {
             }
             Error::Upstream => {
                 json(StatusCode::BAD_GATEWAY, "Solana is unreachable").into_response()
+            }
+            Error::Faucet(faucet::Refusal::Wait(seconds)) => (
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(serde_json::json!({
+                    "error": "this wallet claimed lately",
+                    "retryAfter": seconds,
+                })),
+            )
+                .into_response(),
+            Error::Faucet(faucet::Refusal::NetworkSpentToday) => json(
+                StatusCode::TOO_MANY_REQUESTS,
+                "the faucet is used up for this network today",
+            )
+            .into_response(),
+            Error::Faucet(faucet::Refusal::SpentToday) => {
+                json(StatusCode::TOO_MANY_REQUESTS, "the faucet is used up for today")
+                    .into_response()
+            }
+            Error::Faucet(faucet::Refusal::Unwritable) => {
+                json(StatusCode::SERVICE_UNAVAILABLE, "the faucet is unavailable").into_response()
             }
         }
     }

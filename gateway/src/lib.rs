@@ -7,6 +7,7 @@ pub mod chain;
 pub mod channels;
 pub mod claims;
 pub mod config;
+pub mod faucet;
 pub mod fees;
 pub mod float;
 pub mod group_settlements;
