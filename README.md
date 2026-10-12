@@ -1,4 +1,4 @@
-# Buckspay
+# Lateo
 
 Offline bearer payments on Solana for Android. Built with Expo, Anchor and Mobile Wallet Adapter.
 

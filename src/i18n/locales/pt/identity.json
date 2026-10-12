@@ -2,18 +2,18 @@
   "step": {
     "loading": {
       "title": "Verificando…",
-      "body": "O Buckspay lê a conexão da sua carteira e o registro deste celular na Solana.",
+      "body": "O Lateo lê a conexão da sua carteira e o registro deste celular na Solana.",
       "action": "Tentar de novo"
     },
     "unreachable": {
       "title": "Sem conexão",
-      "body": "O Buckspay precisa de conexão para ler o registro deste celular na Solana.",
+      "body": "O Lateo precisa de conexão para ler o registro deste celular na Solana.",
       "action": "Tentar de novo",
       "line": "Verifique sua internet"
     },
     "connect": {
       "title": "Conecte sua carteira",
-      "body": "O Buckspay paga a partir de, e credita em, uma carteira que você já usa. Conectar compartilha o endereço dela e não custa nada.",
+      "body": "O Lateo paga a partir de, e credita em, uma carteira que você já usa. Conectar compartilha o endereço dela e não custa nada.",
       "action": "Conectar",
       "progress": "Passo 1 de 2",
       "line": "Seu dinheiro fica nela"
@@ -47,7 +47,7 @@
     }
   },
   "shortfall": "Sua carteira tem {{sol}} SOL. Adicione SOL a ela antes de ativar.",
-  "sponsorshipUnavailable": "O Buckspay não pode pagar as ativações agora, então sua carteira paga os custos da rede.",
+  "sponsorshipUnavailable": "O Lateo não pode pagar as ativações agora, então sua carteira paga os custos da rede.",
   "confirmingNotice": {
     "sent": "Enviado à Solana. Esperando confirmação, geralmente menos de um minuto. Você pode sair desta tela; não dá para cancelar.",
     "unknown": "Sua carteira pode ter enviado a ativação. Esperando a Solana confirmar ou expirar, geralmente menos de um minuto. Você pode sair desta tela."
@@ -70,7 +70,7 @@
     },
     "unreachable": {
       "title": "Sem conexão",
-      "body": "O Buckspay não conseguiu ler o registro deste celular. Confira sua conexão.",
+      "body": "O Lateo não conseguiu ler o registro deste celular. Confira sua conexão.",
       "retry": "Tentar de novo"
     },
     "ready": {
@@ -113,11 +113,11 @@
     "stalled": "A Solana ainda não confirmou a ativação. Ela ainda pode ser concluída; confira de novo em um minuto.",
     "payInstead": "Você pode ativar agora e pagar os custos da rede com sua carteira.",
     "addSol": "Para ativar agora, adicione SOL à sua carteira e pague com ela.",
-    "feeChanged": "As condições do Buckspay mudaram enquanto você olhava. Revise e tente de novo. Nada foi enviado.",
+    "feeChanged": "As condições do Lateo mudaram enquanto você olhava. Revise e tente de novo. Nada foi enviado.",
     "sponsor": {
-      "unavailable": "O Buckspay não conseguiu pagar esta ativação.",
-      "mismatch": "O servidor do Buckspay ofereceu uma ativação que este app não pediu, então sua carteira nunca a viu.",
-      "unsupported": "Sua carteira não pode assinar uma ativação paga pelo Buckspay.",
+      "unavailable": "O Lateo não conseguiu pagar esta ativação.",
+      "mismatch": "O servidor do Lateo ofereceu uma ativação que este app não pediu, então sua carteira nunca a viu.",
+      "unsupported": "Sua carteira não pode assinar uma ativação paga pelo Lateo.",
       "altered": "Sua carteira alterou a ativação antes de assinar, então ela não foi enviada.",
       "unsigned": "Sua carteira não conseguiu assinar a ativação."
     },
@@ -127,14 +127,14 @@
       "activate": "A ativação não foi concluída."
     },
     "declined": "Você recusou na sua carteira.",
-    "notRecognized": "Sua carteira não reconhece mais o Buckspay.",
+    "notRecognized": "Sua carteira não reconhece mais o Lateo.",
     "connectAgain": "Conecte-a de novo.",
     "connectionDeclined": "A carteira recusou a conexão. Nada foi compartilhado e nada foi cobrado.",
     "couldNotSend": "Sua carteira não conseguiu enviar a ativação.",
-    "noWalletApp": "Nenhum app de carteira neste celular funciona com o Buckspay. Instale a Phantom ou a Solflare e tente de novo.",
+    "noWalletApp": "Nenhum app de carteira neste celular funciona com o Lateo. Instale a Phantom ou a Solflare e tente de novo.",
     "unreachableConfirm": "Não foi possível acessar a Solana para conferir a ativação. Ela ainda pode ser concluída; confira de novo quando estiver online.",
     "unreachable": "Não foi possível acessar a Solana. Confira sua conexão e tente de novo. Nada foi enviado.",
-    "couldNotCheck": "O Buckspay não conseguiu verificar este celular. Nada foi enviado. Tente de novo.",
+    "couldNotCheck": "O Lateo não conseguiu verificar este celular. Nada foi enviado. Tente de novo.",
     "tx": {
       "key": "A Solana não aceitou a assinatura da chave deste celular.",
       "registered": "A chave deste celular já está registrada na Solana.",

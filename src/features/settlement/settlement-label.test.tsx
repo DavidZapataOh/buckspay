@@ -28,7 +28,7 @@ describe('SettlementLabel', () => {
     )
     const shown = texts(renderer.root).join('\n')
     expect(shown).toContain('makes public who held the money, every amount, and the wallet that receives it')
-    expect(shown).toContain("Buckspay's server also sees the payment, your network address and the time.")
+    expect(shown).toContain("Lateo's server also sees the payment, your network address and the time.")
     expect(shown).toMatch(/2 payments are waiting to be credited\. Do it by /)
     expect(onContinue).not.toHaveBeenCalled()
     await act(async () => host(renderer.root, 'settlement-continue')[0].props.onPress())

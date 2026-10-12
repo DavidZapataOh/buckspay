@@ -15,7 +15,7 @@
   "notChecked": "Ainda sem verificar",
   "noAccount": "Ainda não pode receber",
   "pendingWarning": "Um pagamento ainda está a caminho",
-  "privacy": "Quem está por perto e repassa não consegue ver quem paga nem quanto. O servidor do Buckspay vê o pagamento e a rede do celular que o enviou.",
+  "privacy": "Quem está por perto e repassa não consegue ver quem paga nem quanto. O servidor do Lateo vê o pagamento e a rede do celular que o enviou.",
   "offlineNote": "Você está sem internet: um celular por perto com internet precisa levar o pagamento.",
   "onlineNote": "Você está online: ele é enviado à rede agora.",
   "receiveTitle": "Cobrar de longe",

@@ -3,7 +3,7 @@
   "intro": "Una deuda es un registro entre tú y un amigo, confirmado en los dos celulares.",
   "stillValid": "Un cambio que enviaste sigue siendo válido si tu amigo lo confirma más tarde. Solo suma ese cambio.",
   "clearPending": "Puedes saldar esta deuda cuando su pago esté hecho.",
-  "payWithBuckspay": "Pagar con Buckspay",
+  "payWithBuckspay": "Pagar con Lateo",
   "sendPaymentAgain": "Enviar el pago de nuevo",
   "repayNote": "Tu pago se envía solo después de que tu amigo confirme que salda esta deuda.",
   "locked": "Se está resolviendo con amigos",
@@ -31,7 +31,7 @@
     "resend": "Enviar de nuevo"
   },
   "acceptTitle": "¿Confirmas esta deuda?",
-  "signNote": "Al confirmar, esto queda registrado en los dos celulares. Buckspay solo guarda el registro; no presta ni cobra.",
+  "signNote": "Al confirmar, esto queda registrado en los dos celulares. Lateo solo guarda el registro; no presta ni cobra.",
   "sign": "Confirmar",
   "decline": "Rechazar",
   "viaCode": "Cualquiera que vea el código puede leer esta deuda.",
@@ -63,8 +63,8 @@
   "readyToReceive": "Listo para recibir una deuda",
   "cause": {
     "open": "Agregado",
-    "repay": "Pagado con Buckspay",
-    "outside": "Pagado por fuera de Buckspay"
+    "repay": "Pagado con Lateo",
+    "outside": "Pagado por fuera de Lateo"
   },
   "receive": "Recibir una deuda",
   "showCode": "Tu amigo escanea este código para enviarte una deuda.",

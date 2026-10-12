@@ -28,7 +28,7 @@ import { useThemeColors } from '../theme/use-theme-colors'
 const cache = createAuthorizationCache(BUILD_NETWORK.network.id)
 // Wallets verify this origin against the app's signing certificate through its Digital Asset Links file.
 const identity: AppIdentity = {
-  name: 'Buckspay',
+  name: 'Lateo',
   uri: process.env.EXPO_PUBLIC_APP_IDENTITY_URI ?? 'https://buckspay.xyz',
   icon: 'favicon.png',
 }

@@ -15,7 +15,7 @@
   "notChecked": "Not checked yet",
   "noAccount": "Can't receive yet",
   "pendingWarning": "A payment is still on its way",
-  "privacy": "People nearby who pass it on can't see who pays or how much. The Buckspay server sees the payment and the network of the phone that sent it on.",
+  "privacy": "People nearby who pass it on can't see who pays or how much. The Lateo server sees the payment and the network of the phone that sent it on.",
   "offlineNote": "You are offline: a phone nearby with internet has to take it.",
   "onlineNote": "You are online: it is sent to the network now.",
   "receiveTitle": "Get paid from far away",

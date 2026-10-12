@@ -95,28 +95,21 @@ describe('activation form', () => {
     for (const full of [
       'The minimum to add is 5.00 USDC.',
       'There is no fee.',
-      'Buckspay pays the network costs. Your wallet pays nothing else.',
+      'Lateo pays the network costs. Your wallet pays nothing else.',
       'You can take your funds back from Feb 7, 2030 (UTC).',
     ])
       expect(sentences).toContain(full)
   })
 
   it.each([
-    [
-      50,
-      5_000_000n,
-      90_000n,
-      '5.00 USDC',
-      'Fee 0.09 USDC',
-      'Buckspay charges a fee of 0.09 USDC, on top of your funds.',
-    ],
+    [50, 5_000_000n, 90_000n, '5.00 USDC', 'Fee 0.09 USDC', 'Lateo charges a fee of 0.09 USDC, on top of your funds.'],
     [
       90,
       50_000_000n,
       150_000n,
       '50.00 USDC',
       'Fee 0.15 USDC',
-      'Buckspay charges a fee of 0.15 USDC, on top of your funds.',
+      'Lateo charges a fee of 0.15 USDC, on top of your funds.',
     ],
   ])(
     'shows the current minimum and the forced fee at %i% pressure',

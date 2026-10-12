@@ -1,12 +1,12 @@
 {
-  "walletChangedTransaction": "Your wallet changed the transaction, so Buckspay couldn't cover its network cost. Nothing was sent and nothing was charged. Open Buckspay in Phantom or Solflare, or add about 0.005 SOL to activate with your own wallet.",
+  "walletChangedTransaction": "Your wallet changed the transaction, so Lateo couldn't cover its network cost. Nothing was sent and nothing was charged. Open Lateo in Phantom or Solflare, or add about 0.005 SOL to activate with your own wallet.",
   "minimum": "The minimum to add is {{amount}}.",
   "fee": {
-    "charged": "Buckspay charges a fee of {{amount}}, on top of your funds.",
+    "charged": "Lateo charges a fee of {{amount}}, on top of your funds.",
     "none": "There is no fee."
   },
   "networkCost": {
-    "sponsored": "Buckspay pays the network costs. Your wallet pays nothing else.",
+    "sponsored": "Lateo pays the network costs. Your wallet pays nothing else.",
     "wallet": "Your wallet pays the network costs, about {{sol}} SOL. Not refundable."
   },
   "withdrawalDate": "You can take your funds back from {{date}} (UTC).",
@@ -35,18 +35,18 @@
   "problem": {
     "nothingSent": "Nothing was sent and nothing was charged.",
     "sponsor": {
-      "unavailable": "Buckspay couldn’t pay for this.",
-      "mismatch": "Buckspay’s server offered a transaction this app didn’t ask for, so your wallet never saw it.",
-      "unsupported": "Your wallet can’t sign a transaction that Buckspay pays for.",
+      "unavailable": "Lateo couldn’t pay for this.",
+      "mismatch": "Lateo’s server offered a transaction this app didn’t ask for, so your wallet never saw it.",
+      "unsupported": "Your wallet can’t sign a transaction that Lateo pays for.",
       "altered": "Your wallet changed the transaction before signing it, so it wasn’t sent.",
       "unsigned": "Your wallet couldn’t sign the transaction."
     },
-    "reconnect": "Your wallet no longer recognizes Buckspay. Connect it again.",
+    "reconnect": "Your wallet no longer recognizes Lateo. Connect it again.",
     "wouldReject": "Solana would reject this.",
     "declined": "You declined in your wallet.",
-    "cantReachBuckspay": "Can’t reach Buckspay.",
+    "cantReachBuckspay": "Can’t reach Lateo.",
     "checkConnection": "Check your connection and try again.",
-    "cantReachBoth": "Can’t reach Solana or Buckspay. Check your connection. The transaction may not have been sent; check before trying again.",
+    "cantReachBoth": "Can’t reach Solana or Lateo. Check your connection. The transaction may not have been sent; check before trying again.",
     "incomplete": "The transaction didn’t complete. It may or may not have been sent; check before trying again.",
     "slow": "Solana was slow to see the transaction.",
     "rejected": "Solana rejected the transaction. No funds moved.",

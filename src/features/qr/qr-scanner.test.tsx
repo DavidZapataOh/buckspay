@@ -85,10 +85,10 @@ describe('QrScanner', () => {
     camera.clipboard = 'BP:ABC'
     await act(async () => button(root, 'Paste code').props.onPress())
     expect(onText).toHaveBeenCalledWith('BP:ABC')
-    expect(labels(root)).not.toContain("That isn't a Buckspay code.")
+    expect(labels(root)).not.toContain("That isn't a Lateo code.")
     camera.clipboard = ''
     await act(async () => button(root, 'Paste code').props.onPress())
-    expect(labels(root)).toContain("That isn't a Buckspay code.")
+    expect(labels(root)).toContain("That isn't a Lateo code.")
   })
 
   it('remembers the camera the person chose', async () => {

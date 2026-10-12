@@ -2,18 +2,18 @@
   "step": {
     "loading": {
       "title": "Comprobando…",
-      "body": "Buckspay lee la conexión de tu billetera y el registro de este celular en Solana.",
+      "body": "Lateo lee la conexión de tu billetera y el registro de este celular en Solana.",
       "action": "Intentar de nuevo"
     },
     "unreachable": {
       "title": "Sin conexión",
-      "body": "Buckspay necesita conexión para leer el registro de este celular en Solana.",
+      "body": "Lateo necesita conexión para leer el registro de este celular en Solana.",
       "action": "Intentar de nuevo",
       "line": "Revisa tu internet"
     },
     "connect": {
       "title": "Conecta tu billetera",
-      "body": "Buckspay paga desde, y acredita en, una billetera que ya usas. Conectarla comparte su dirección y no cuesta nada.",
+      "body": "Lateo paga desde, y acredita en, una billetera que ya usas. Conectarla comparte su dirección y no cuesta nada.",
       "action": "Conectar",
       "progress": "Paso 1 de 2",
       "line": "Tu dinero queda en ella"
@@ -47,7 +47,7 @@
     }
   },
   "shortfall": "Tu billetera tiene {{sol}} SOL. Agrégale SOL antes de activar.",
-  "sponsorshipUnavailable": "Buckspay no puede pagar las activaciones ahora, así que tu billetera paga los costos de la red.",
+  "sponsorshipUnavailable": "Lateo no puede pagar las activaciones ahora, así que tu billetera paga los costos de la red.",
   "confirmingNotice": {
     "sent": "Enviado a Solana. Esperando confirmación, normalmente menos de un minuto. Puedes salir de esta pantalla; no se puede cancelar.",
     "unknown": "Es posible que tu billetera haya enviado la activación. Esperando a que Solana la confirme o venza, normalmente menos de un minuto. Puedes salir de esta pantalla."
@@ -70,7 +70,7 @@
     },
     "unreachable": {
       "title": "Sin conexión",
-      "body": "Buckspay no pudo leer el registro de este celular. Revisa tu conexión.",
+      "body": "Lateo no pudo leer el registro de este celular. Revisa tu conexión.",
       "retry": "Intentar de nuevo"
     },
     "ready": {
@@ -113,11 +113,11 @@
     "stalled": "Solana aún no confirma la activación. Todavía puede completarse; revisa de nuevo en un minuto.",
     "payInstead": "Puedes activar ahora y pagar los costos de la red desde tu billetera.",
     "addSol": "Para activar ahora, agrega SOL a tu billetera y paga desde ella.",
-    "feeChanged": "Las condiciones de Buckspay cambiaron mientras mirabas. Revísalas e inténtalo de nuevo. No se envió nada.",
+    "feeChanged": "Las condiciones de Lateo cambiaron mientras mirabas. Revísalas e inténtalo de nuevo. No se envió nada.",
     "sponsor": {
-      "unavailable": "Buckspay no pudo pagar esta activación.",
-      "mismatch": "El servidor de Buckspay ofreció una activación que esta app no pidió, así que tu billetera nunca la vio.",
-      "unsupported": "Tu billetera no puede firmar una activación que paga Buckspay.",
+      "unavailable": "Lateo no pudo pagar esta activación.",
+      "mismatch": "El servidor de Lateo ofreció una activación que esta app no pidió, así que tu billetera nunca la vio.",
+      "unsupported": "Tu billetera no puede firmar una activación que paga Lateo.",
       "altered": "Tu billetera cambió la activación antes de firmarla, así que no se envió.",
       "unsigned": "Tu billetera no pudo firmar la activación."
     },
@@ -127,14 +127,14 @@
       "activate": "La activación no se completó."
     },
     "declined": "Lo rechazaste en tu billetera.",
-    "notRecognized": "Tu billetera ya no reconoce a Buckspay.",
+    "notRecognized": "Tu billetera ya no reconoce a Lateo.",
     "connectAgain": "Conéctala de nuevo.",
     "connectionDeclined": "La billetera rechazó la conexión. No se compartió nada y no se cobró nada.",
     "couldNotSend": "Tu billetera no pudo enviar la activación.",
-    "noWalletApp": "Ninguna app de billetera de este celular funciona con Buckspay. Instala Phantom o Solflare e inténtalo de nuevo.",
+    "noWalletApp": "Ninguna app de billetera de este celular funciona con Lateo. Instala Phantom o Solflare e inténtalo de nuevo.",
     "unreachableConfirm": "No se puede conectar con Solana para revisar la activación. Todavía puede completarse; revisa de nuevo cuando tengas conexión.",
     "unreachable": "No se puede conectar con Solana. Revisa tu conexión e inténtalo de nuevo. No se envió nada.",
-    "couldNotCheck": "Buckspay no pudo revisar este celular. No se envió nada. Inténtalo de nuevo.",
+    "couldNotCheck": "Lateo no pudo revisar este celular. No se envió nada. Inténtalo de nuevo.",
     "tx": {
       "key": "Solana no aceptó la firma de la llave de este celular.",
       "registered": "La llave de este celular ya está registrada en Solana.",

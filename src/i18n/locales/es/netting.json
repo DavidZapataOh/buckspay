@@ -133,7 +133,7 @@
   "payFee": "Pagar la comisión, cerca de 0.001 SOL",
   "remainder": {
     "title": "Lo que queda",
-    "intro": "Pagar el resto es un pago normal de Buckspay. La deuda baja definitivamente cuando el pago se acredita.",
+    "intro": "Pagar el resto es un pago normal de Lateo. La deuda baja definitivamente cuando el pago se acredita.",
     "pay": "Pagar {{amount}}",
     "later": "Después",
     "sending": "Enviando…",

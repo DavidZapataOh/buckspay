@@ -3,7 +3,7 @@
   "intro": "A debt is a record between you and a friend, confirmed on both phones.",
   "stillValid": "A change you sent stays valid if your friend confirms it later. It adds only that change.",
   "clearPending": "You can clear this debt once its payment is done.",
-  "payWithBuckspay": "Pay with Buckspay",
+  "payWithBuckspay": "Pay with Lateo",
   "sendPaymentAgain": "Send the payment again",
   "repayNote": "Your payment is sent only after your friend confirms it repays this debt.",
   "locked": "Being worked out with friends",
@@ -31,7 +31,7 @@
     "resend": "Send again"
   },
   "acceptTitle": "Confirm this debt?",
-  "signNote": "Confirming records this on both phones. Buckspay only keeps the record; it doesn't lend or collect.",
+  "signNote": "Confirming records this on both phones. Lateo only keeps the record; it doesn't lend or collect.",
   "sign": "Confirm",
   "decline": "Decline",
   "viaCode": "Anyone who sees the code can read this debt.",
@@ -63,8 +63,8 @@
   "readyToReceive": "Ready to receive a debt",
   "cause": {
     "open": "Added",
-    "repay": "Paid with Buckspay",
-    "outside": "Paid outside Buckspay"
+    "repay": "Paid with Lateo",
+    "outside": "Paid outside Lateo"
   },
   "receive": "Receive a debt",
   "showCode": "Your friend scans this code to send you a debt.",

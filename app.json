@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Buckspay",
+    "name": "Lateo",
     "slug": "buckspay",
     "scheme": "buckspay",
     "userInterfaceStyle": "automatic",
@@ -43,7 +43,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Buckspay uses the camera to read the code on the other phone. Nothing is recorded or sent.",
+          "cameraPermission": "Lateo uses the camera to read the code on the other phone. Nothing is recorded or sent.",
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
         }

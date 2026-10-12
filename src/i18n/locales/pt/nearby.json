@@ -1,6 +1,6 @@
 {
   "needsPermission": "Permita celulares por perto",
-  "needsLocation": "Nesta versão, o Android pede a localização para encontrar dispositivos Bluetooth. O Buckspay nunca lê nem guarda sua localização.",
+  "needsLocation": "Nesta versão, o Android pede a localização para encontrar dispositivos Bluetooth. O Lateo nunca lê nem guarda sua localização.",
   "allow": "Permitir",
   "bluetoothOff": "Ative o Bluetooth",
   "openBluetooth": "Abrir ajustes do Bluetooth",

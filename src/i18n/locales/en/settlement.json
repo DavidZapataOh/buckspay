@@ -1,7 +1,7 @@
 {
   "settlementLabel": "Crediting this payment in the open makes public the keys of the people it passed through, every amount, and the account that is paid.",
   "reclaimLabel": "Taking this payment back makes public the whole chain it passed through, your key and the amounts, even if it could have been credited privately.",
-  "gatewayLabel": "Buckspay's server sees this chain, your network address and the time. The private way, when available, doesn't show it the keys.",
+  "gatewayLabel": "Lateo's server sees this chain, your network address and the time. The private way, when available, doesn't show it the keys.",
   "selfPayLabel": "Your wallet address is stored in the records it pays for, until they are closed.",
   "payeeObligation": "Get this payment credited before {{date}} (UTC). After that the person who paid you may take it back, and their security deposit won't cover your loss.",
   "reclaimWindow": "You can take an uncredited payment back for {{duration}} after its crediting window, or until its reserve ends if that is sooner. A payment from a key with no registered phone can't be taken back at all.",
@@ -18,7 +18,7 @@
     "noBond": "The payer's reserve has nothing left to destroy. You weren't repaid: the security deposit isn't paid out.",
     "lockEnded": "The payer's reserve has ended, so the loss can't be reported any more. You weren't repaid.",
     "cannotFile": "This loss can't be reported against the payer's reserve. You weren't repaid.",
-    "unavailable": "Buckspay could not file the loss now. Keep this payment and try again later."
+    "unavailable": "Lateo could not file the loss now. Keep this payment and try again later."
   },
   "refusal": {
     "conflict": "The payer spent this money twice and another payment of it was credited first. You weren't repaid, so keep this payment.",
@@ -27,10 +27,10 @@
     "closed": "The time to take this payment back has run out.",
     "deadline": "The approval to take this payment back is out of date. Approve it again.",
     "lockEnded": "The payer's reserve has ended.",
-    "horizonUnknown": "Buckspay can't cover the network fee yet. Try again later, or pay it yourself.",
-    "horizon": "Buckspay can't cover the network fee before {{date}} (UTC). You can pay it yourself now.",
-    "belowMinimum": "This amount is too small for Buckspay to cover the network fee. You can pay it yourself.",
-    "default": "Buckspay can't cover the network fee now. You can pay it yourself."
+    "horizonUnknown": "Lateo can't cover the network fee yet. Try again later, or pay it yourself.",
+    "horizon": "Lateo can't cover the network fee before {{date}} (UTC). You can pay it yourself now.",
+    "belowMinimum": "This amount is too small for Lateo to cover the network fee. You can pay it yourself.",
+    "default": "Lateo can't cover the network fee now. You can pay it yourself."
   },
   "balance": "The balance adds up every account of this wallet that holds this money."
 }

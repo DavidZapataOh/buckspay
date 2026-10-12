@@ -24,7 +24,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 globalThis.IS_REACT_NATIVE_TEST_ENVIRONMENT = true
 
 const localnet = getBuildNetwork('localnet')
-const identity = { name: 'Buckspay', uri: 'https://buckspay.xyz', icon: 'favicon.png' }
+const identity = { name: 'Lateo', uri: 'https://buckspay.xyz', icon: 'favicon.png' }
 const account = { address: address('Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS'), addressBase64: '', label: '' }
 
 let seen: DeviceIdentity[]

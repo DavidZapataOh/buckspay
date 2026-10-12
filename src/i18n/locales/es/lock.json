@@ -1,12 +1,12 @@
 {
-  "walletChangedTransaction": "Tu billetera cambió la transacción, así que Buckspay no pudo cubrir su costo de red. No se envió nada y no se cobró nada. Abre Buckspay en Phantom o Solflare, o agrega cerca de 0,005 SOL para activar con tu propia billetera.",
+  "walletChangedTransaction": "Tu billetera cambió la transacción, así que Lateo no pudo cubrir su costo de red. No se envió nada y no se cobró nada. Abre Lateo en Phantom o Solflare, o agrega cerca de 0,005 SOL para activar con tu propia billetera.",
   "minimum": "El mínimo para cargar es {{amount}}.",
   "fee": {
-    "charged": "Buckspay cobra una comisión de {{amount}}, además de tu dinero.",
+    "charged": "Lateo cobra una comisión de {{amount}}, además de tu dinero.",
     "none": "No hay comisión."
   },
   "networkCost": {
-    "sponsored": "Buckspay paga los costos de la red. Tu billetera no paga nada más.",
+    "sponsored": "Lateo paga los costos de la red. Tu billetera no paga nada más.",
     "wallet": "Tu billetera paga los costos de la red, cerca de {{sol}} SOL. No se reembolsa."
   },
   "withdrawalDate": "Puedes retirar tu dinero desde el {{date}} (UTC).",
@@ -35,18 +35,18 @@
   "problem": {
     "nothingSent": "No se envió nada y no se cobró nada.",
     "sponsor": {
-      "unavailable": "Buckspay no pudo pagar esto.",
-      "mismatch": "El servidor de Buckspay ofreció una transacción que esta app no pidió, así que tu billetera nunca la vio.",
-      "unsupported": "Tu billetera no puede firmar una transacción que paga Buckspay.",
+      "unavailable": "Lateo no pudo pagar esto.",
+      "mismatch": "El servidor de Lateo ofreció una transacción que esta app no pidió, así que tu billetera nunca la vio.",
+      "unsupported": "Tu billetera no puede firmar una transacción que paga Lateo.",
       "altered": "Tu billetera cambió la transacción antes de firmarla, así que no se envió.",
       "unsigned": "Tu billetera no pudo firmar la transacción."
     },
-    "reconnect": "Tu billetera ya no reconoce a Buckspay. Conéctala de nuevo.",
+    "reconnect": "Tu billetera ya no reconoce a Lateo. Conéctala de nuevo.",
     "wouldReject": "Solana rechazaría esto.",
     "declined": "Lo rechazaste en tu billetera.",
-    "cantReachBuckspay": "No se puede conectar con Buckspay.",
+    "cantReachBuckspay": "No se puede conectar con Lateo.",
     "checkConnection": "Revisa tu conexión e inténtalo de nuevo.",
-    "cantReachBoth": "No se puede conectar con Solana ni con Buckspay. Revisa tu conexión. Puede que la transacción no se haya enviado; revisa antes de intentarlo de nuevo.",
+    "cantReachBoth": "No se puede conectar con Solana ni con Lateo. Revisa tu conexión. Puede que la transacción no se haya enviado; revisa antes de intentarlo de nuevo.",
     "incomplete": "La transacción no se completó. Puede que se haya enviado o no; revisa antes de intentarlo de nuevo.",
     "slow": "Solana tardó en ver la transacción.",
     "rejected": "Solana rechazó la transacción. No se movió dinero.",

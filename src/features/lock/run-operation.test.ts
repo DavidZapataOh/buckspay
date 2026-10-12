@@ -200,7 +200,7 @@ describe('running an operation', () => {
     }
     const failed = await runOperation(context(), withdrawalOperation(params), true)
     expect(failed).toMatchObject({ status: 'failed', payInstead: false })
-    expect(failed.status === 'failed' && failed.error).toMatch(/Can’t reach Buckspay.*Nothing was sent.*try again/)
+    expect(failed.status === 'failed' && failed.error).toMatch(/Can’t reach Lateo.*Nothing was sent.*try again/)
     expect(walletEvents).toEqual(['wallet'])
 
     gateway.submit = submit
@@ -242,7 +242,7 @@ describe('running an operation', () => {
     }
     expect(await runOperation(context(), withdrawalOperation(params), true)).toMatchObject({
       status: 'failed',
-      error: 'Buckspay couldn’t pay for this. Nothing was sent and nothing was charged.',
+      error: 'Lateo couldn’t pay for this. Nothing was sent and nothing was charged.',
       payInstead: true,
     })
     expect(gateway.submitted).toBe(0)
@@ -262,7 +262,7 @@ describe('running an operation', () => {
     walletAnswer = 'unsupported'
     expect(await runOperation(context(), withdrawalOperation(params), true)).toMatchObject({
       status: 'failed',
-      error: 'Your wallet can’t sign a transaction that Buckspay pays for. Nothing was sent and nothing was charged.',
+      error: 'Your wallet can’t sign a transaction that Lateo pays for. Nothing was sent and nothing was charged.',
       payInstead: true,
     })
   })

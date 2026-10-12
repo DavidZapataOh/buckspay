@@ -32,7 +32,7 @@
     "newPhone": "New phone",
     "compare": "Same code on both phones?",
     "note": "Note from the receiver",
-    "noteWarning": "Written by the other phone. Buckspay hasn't checked it.",
+    "noteWarning": "Written by the other phone. Lateo hasn't checked it.",
     "from": "From",
     "source": "Your offline balance",
     "left": "{{amount}} {{symbol}} left",
@@ -61,7 +61,7 @@
   },
   "refusal": {
     "UnknownMint": {
-      "text": "This request is for a currency Buckspay doesn't support.",
+      "text": "This request is for a currency Lateo doesn't support.",
       "action": "Back"
     },
     "SelfPayment": {
@@ -299,7 +299,7 @@
   },
   "settlement": {
     "labelTitle": "Crediting in the open",
-    "labelBody": "Crediting this payment in the open makes public who held the money, every amount, and the wallet that receives it. Buckspay's server also sees the payment, your network address and the time.",
+    "labelBody": "Crediting this payment in the open makes public who held the money, every amount, and the wallet that receives it. Lateo's server also sees the payment, your network address and the time.",
     "labelContinue": "Continue",
     "labelNotNow": "Not now",
     "noticeTitle": "Crediting in the open",
@@ -314,7 +314,7 @@
     "title": "Reset this phone's identity?",
     "newKey": "This phone gets a new key. The old key is deleted and can't be recovered.",
     "lost": "Payments you received and that aren't credited yet are lost, because they belong to the old key. The people who paid you can take them back after {{date}}.",
-    "registration": "Your wallet will register the new key, which costs about 0.0016 SOL that Buckspay pays when it can. The old registration stays on Solana for good.",
+    "registration": "Your wallet will register the new key, which costs about 0.0016 SOL that Lateo pays when it can. The old registration stays on Solana for good.",
     "lockStays": "Your reserved money stays yours. You can withdraw it with your wallet when its reserve ends.",
     "none": "No payments are waiting to be credited.",
     "confirm": "Reset identity",

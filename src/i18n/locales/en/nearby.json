@@ -1,6 +1,6 @@
 {
   "needsPermission": "Allow nearby phones",
-  "needsLocation": "Android asks for location to find Bluetooth devices on this version. Buckspay never reads or stores your location.",
+  "needsLocation": "Android asks for location to find Bluetooth devices on this version. Lateo never reads or stores your location.",
   "allow": "Allow",
   "bluetoothOff": "Turn on Bluetooth",
   "openBluetooth": "Open Bluetooth settings",

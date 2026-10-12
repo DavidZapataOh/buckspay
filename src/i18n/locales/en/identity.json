@@ -2,18 +2,18 @@
   "step": {
     "loading": {
       "title": "Checking…",
-      "body": "Buckspay reads your wallet connection and this phone’s registration on Solana.",
+      "body": "Lateo reads your wallet connection and this phone’s registration on Solana.",
       "action": "Try again"
     },
     "unreachable": {
       "title": "No connection",
-      "body": "Buckspay needs a connection to read this phone’s registration on Solana.",
+      "body": "Lateo needs a connection to read this phone’s registration on Solana.",
       "action": "Try again",
       "line": "Check your internet"
     },
     "connect": {
       "title": "Connect wallet",
-      "body": "Buckspay pays from, and credits to, a wallet you already use. Connecting shares its address and costs nothing.",
+      "body": "Lateo pays from, and credits to, a wallet you already use. Connecting shares its address and costs nothing.",
       "action": "Connect",
       "progress": "Step 1 of 2",
       "line": "Your money stays in it"
@@ -47,7 +47,7 @@
     }
   },
   "shortfall": "Your wallet has {{sol}} SOL. Add SOL to it before you activate.",
-  "sponsorshipUnavailable": "Buckspay can’t pay for activations right now, so your wallet pays the network costs.",
+  "sponsorshipUnavailable": "Lateo can’t pay for activations right now, so your wallet pays the network costs.",
   "confirmingNotice": {
     "sent": "Sent to Solana. Waiting for confirmation, usually under a minute. You can leave this screen; this can’t be cancelled.",
     "unknown": "Your wallet may have sent the activation. Waiting until Solana confirms it or it expires, usually under a minute. You can leave this screen."
@@ -70,7 +70,7 @@
     },
     "unreachable": {
       "title": "No connection",
-      "body": "Buckspay couldn’t read this phone’s registration. Check your connection.",
+      "body": "Lateo couldn’t read this phone’s registration. Check your connection.",
       "retry": "Try again"
     },
     "ready": {
@@ -113,11 +113,11 @@
     "stalled": "Solana hasn’t confirmed the activation yet. It may still go through; check again in a minute.",
     "payInstead": "You can activate now and pay the network costs from your wallet.",
     "addSol": "To activate now, add SOL to your wallet and pay from it.",
-    "feeChanged": "Buckspay’s terms changed while you were looking. Review them and try again. Nothing was sent.",
+    "feeChanged": "Lateo’s terms changed while you were looking. Review them and try again. Nothing was sent.",
     "sponsor": {
-      "unavailable": "Buckspay couldn’t pay for this activation.",
-      "mismatch": "Buckspay’s server offered an activation this app didn’t ask for, so your wallet never saw it.",
-      "unsupported": "Your wallet can’t sign an activation that Buckspay pays for.",
+      "unavailable": "Lateo couldn’t pay for this activation.",
+      "mismatch": "Lateo’s server offered an activation this app didn’t ask for, so your wallet never saw it.",
+      "unsupported": "Your wallet can’t sign an activation that Lateo pays for.",
       "altered": "Your wallet changed the activation before signing it, so it wasn’t sent.",
       "unsigned": "Your wallet couldn’t sign the activation."
     },
@@ -127,14 +127,14 @@
       "activate": "The activation didn’t go through."
     },
     "declined": "You declined in your wallet.",
-    "notRecognized": "Your wallet no longer recognizes Buckspay.",
+    "notRecognized": "Your wallet no longer recognizes Lateo.",
     "connectAgain": "Connect it again.",
     "connectionDeclined": "The wallet declined the connection. Nothing was shared and nothing was charged.",
     "couldNotSend": "Your wallet couldn’t send the activation.",
-    "noWalletApp": "No wallet app on this phone works with Buckspay. Install Phantom or Solflare, then try again.",
+    "noWalletApp": "No wallet app on this phone works with Lateo. Install Phantom or Solflare, then try again.",
     "unreachableConfirm": "Can’t reach Solana to check the activation. It may still go through; check again once you’re online.",
     "unreachable": "Can’t reach Solana. Check your connection and try again. Nothing was sent.",
-    "couldNotCheck": "Buckspay couldn’t check this phone. Nothing was sent. Try again.",
+    "couldNotCheck": "Lateo couldn’t check this phone. Nothing was sent. Try again.",
     "tx": {
       "key": "Solana didn’t accept this phone’s key signature.",
       "registered": "This phone’s key is already registered on Solana.",

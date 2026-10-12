@@ -144,15 +144,15 @@ describe('debt screens', () => {
     expect(all).toMatch(/#4 .*#3 /s)
   })
 
-  it('clear is disabled with its reason while pending, and only a debtor can pay with Buckspay', async () => {
+  it('clear is disabled with its reason while pending, and only a debtor can pay with Lateo', async () => {
     const pending = await mount(<TabScreen {...tabProps} summary={summary({ pending: true })} />)
     expect(shown(pending)).toContain(i18n.t('debts:clearPending'))
     expect(byLabel(pending.root, 'Clear it')).toBeUndefined()
-    expect(byLabel(pending.root, 'Pay with Buckspay')).toBeUndefined()
+    expect(byLabel(pending.root, 'Pay with Lateo')).toBeUndefined()
     const onRepay = vi.fn()
     const owing = await mount(<TabScreen {...tabProps} summary={summary({ direction: 'owe' })} onRepay={onRepay} />)
     expect(shown(owing)).toContain(i18n.t('debts:repayNote'))
-    await press(owing.root, 'Pay with Buckspay')
+    await press(owing.root, 'Pay with Lateo')
     expect(onRepay).toHaveBeenCalledTimes(1)
     expect(byLabel(owing.root, 'Clear it')).toBeDefined()
   })

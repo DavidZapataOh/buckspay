@@ -3,7 +3,7 @@
   "intro": "Uma dívida é um registro entre você e um amigo, confirmado nos dois celulares.",
   "stillValid": "Uma alteração que você enviou continua válida se seu amigo confirmar mais tarde. Só entra essa alteração.",
   "clearPending": "Você pode quitar esta dívida quando o pagamento dela estiver feito.",
-  "payWithBuckspay": "Pagar com o Buckspay",
+  "payWithBuckspay": "Pagar com o Lateo",
   "sendPaymentAgain": "Enviar o pagamento de novo",
   "repayNote": "Seu pagamento só é enviado depois que seu amigo confirmar que ele quita esta dívida.",
   "locked": "Sendo resolvida com amigos",
@@ -31,7 +31,7 @@
     "resend": "Enviar de novo"
   },
   "acceptTitle": "Confirma esta dívida?",
-  "signNote": "Ao confirmar, isso fica registrado nos dois celulares. O Buckspay só guarda o registro; ele não empresta nem cobra.",
+  "signNote": "Ao confirmar, isso fica registrado nos dois celulares. O Lateo só guarda o registro; ele não empresta nem cobra.",
   "sign": "Confirmar",
   "decline": "Recusar",
   "viaCode": "Qualquer pessoa que vir o código pode ler esta dívida.",
@@ -63,8 +63,8 @@
   "readyToReceive": "Pronto para receber uma dívida",
   "cause": {
     "open": "Adicionado",
-    "repay": "Pago com o Buckspay",
-    "outside": "Pago fora do Buckspay"
+    "repay": "Pago com o Lateo",
+    "outside": "Pago fora do Lateo"
   },
   "receive": "Receber uma dívida",
   "showCode": "Seu amigo escaneia este código para enviar uma dívida a você.",

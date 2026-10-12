@@ -25,7 +25,7 @@ const WRONG: Record<'es' | 'pt', RegExp[]> = {
   pt: [/\btelefone\b/i, /\btelem[oó]vel\b/i, /\becr[ãa]\b/i, /\butilizador(es)?\b/i, /\bportf[oó]lio\b/i],
 }
 const ENGLISH = /\b(the|and|your|you|with|from|payment request|wallet|settle|lock|bond|nearby check)\b/i
-const BRANDS = /USDC|Buckspay|Nearby|NFC|QR|SOL|Phantom|Solflare|Solana/g
+const BRANDS = /USDC|Lateo|Nearby|NFC|QR|SOL|Phantom|Solflare|Solana/g
 
 describe.each(['es', 'pt'] as const)('the glossary in %s', (language) => {
   it('uses none of the words the style guide rules out', () => {

@@ -32,7 +32,7 @@
     "newPhone": "Celular novo",
     "compare": "Mesmo código nos dois?",
     "note": "Nota de quem cobra",
-    "noteWarning": "Escrita pelo outro celular. O Buckspay não verificou.",
+    "noteWarning": "Escrita pelo outro celular. O Lateo não verificou.",
     "from": "De",
     "source": "Seu saldo sem internet",
     "left": "Restam {{amount}} {{symbol}}",
@@ -62,7 +62,7 @@
   },
   "refusal": {
     "UnknownMint": {
-      "text": "Esta cobrança é de uma moeda que o Buckspay não aceita.",
+      "text": "Esta cobrança é de uma moeda que o Lateo não aceita.",
       "action": "Voltar"
     },
     "SelfPayment": {
@@ -300,7 +300,7 @@
   },
   "settlement": {
     "labelTitle": "Creditar de forma pública",
-    "labelBody": "Creditar este pagamento de forma pública torna público quem teve o dinheiro, cada valor e a carteira que o recebe. O servidor do Buckspay também vê o pagamento, o endereço da sua rede e a hora.",
+    "labelBody": "Creditar este pagamento de forma pública torna público quem teve o dinheiro, cada valor e a carteira que o recebe. O servidor do Lateo também vê o pagamento, o endereço da sua rede e a hora.",
     "labelContinue": "Continuar",
     "labelNotNow": "Agora não",
     "noticeTitle": "Creditar de forma pública",
@@ -316,7 +316,7 @@
     "title": "Redefinir a identidade deste celular?",
     "newKey": "Este celular recebe uma chave nova. A chave antiga é apagada e não pode ser recuperada.",
     "lost": "Os pagamentos que você recebeu e que ainda não foram creditados são perdidos, porque pertencem à chave antiga. Quem pagou você pode pegá-los de volta depois de {{date}}.",
-    "registration": "Sua carteira vai registrar a chave nova, o que custa cerca de 0,0016 SOL que o Buckspay paga quando pode. O registro antigo fica na Solana para sempre.",
+    "registration": "Sua carteira vai registrar a chave nova, o que custa cerca de 0,0016 SOL que o Lateo paga quando pode. O registro antigo fica na Solana para sempre.",
     "lockStays": "Seu dinheiro em reserva continua sendo seu. Você pode retirá-lo com sua carteira quando a reserva terminar.",
     "none": "Nenhum pagamento está esperando para ser creditado.",
     "confirm": "Redefinir identidade",

@@ -83,7 +83,7 @@ describe('finding a receiver', () => {
     expect(finder.peers).toEqual([])
   })
 
-  it('ignores an advertiser that is not Buckspay', async () => {
+  it('ignores an advertiser that is not Lateo', async () => {
     const air = new FakeAir()
     const stranger = air.phone()
     const buyer = air.phone()

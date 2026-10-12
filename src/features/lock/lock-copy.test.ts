@@ -32,15 +32,15 @@ const lock: LockRecord = {
 describe('lock copy', () => {
   it('says exactly what a wallet that changed the transaction costs the user', () => {
     expect(i18n.t('lock:walletChangedTransaction')).toBe(
-      "Your wallet changed the transaction, so Buckspay couldn't cover its network cost. Nothing was sent and nothing was charged. Open Buckspay in Phantom or Solflare, or add about 0.005 SOL to activate with your own wallet.",
+      "Your wallet changed the transaction, so Lateo couldn't cover its network cost. Nothing was sent and nothing was charged. Open Lateo in Phantom or Solflare, or add about 0.005 SOL to activate with your own wallet.",
     )
   })
 
   it('shows the minimum, the fee or that there is none, and who pays the network', () => {
     expect(minimumNotice(5_000_000n, 6)).toBe('The minimum to add is 5.00 USDC.')
     expect(feeNotice(0n, 6)).toBe('There is no fee.')
-    expect(feeNotice(150_000n, 6)).toBe('Buckspay charges a fee of 0.15 USDC, on top of your funds.')
-    expect(networkCostNotice(true, 0n)).toBe('Buckspay pays the network costs. Your wallet pays nothing else.')
+    expect(feeNotice(150_000n, 6)).toBe('Lateo charges a fee of 0.15 USDC, on top of your funds.')
+    expect(networkCostNotice(true, 0n)).toBe('Lateo pays the network costs. Your wallet pays nothing else.')
     expect(networkCostNotice(false, 4_600_000n)).toBe(
       'Your wallet pays the network costs, about 0.0046 SOL. Not refundable.',
     )

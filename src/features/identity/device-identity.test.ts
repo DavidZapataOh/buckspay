@@ -1027,9 +1027,9 @@ describe('device identity', () => {
     ).toEqual([
       'You declined in your wallet. Nothing was sent and nothing was charged.',
       'The wallet declined the connection. Nothing was shared and nothing was charged.',
-      'Your wallet no longer recognizes Buckspay. Nothing was sent and nothing was charged. Connect it again.',
+      'Your wallet no longer recognizes Lateo. Nothing was sent and nothing was charged. Connect it again.',
       'Your wallet couldn’t send the activation. Nothing was charged and this phone is not activated. Try again.',
-      'No wallet app on this phone works with Buckspay. Install Phantom or Solflare, then try again.',
+      'No wallet app on this phone works with Lateo. Install Phantom or Solflare, then try again.',
       UNREACHABLE,
       UNCONFIRMED,
       'This phone couldn’t create its key. Nothing was charged. Try again.',
@@ -1060,13 +1060,13 @@ describe('device identity', () => {
   })
 
   it.each([
-    ['own-key', 'Buckspay’s server offered an activation this app didn’t ask for'],
-    ['transfer', 'Buckspay’s server offered an activation this app didn’t ask for'],
-    ['price', 'Buckspay’s server offered an activation this app didn’t ask for'],
-    ['unquoted-fee', 'Buckspay’s server offered an activation this app didn’t ask for'],
-    ['unparsable', 'Buckspay’s server offered an activation this app didn’t ask for'],
-    ['refuses', 'Buckspay couldn’t pay for this activation.'],
-    ['rejects', 'Buckspay couldn’t pay for this activation.'],
+    ['own-key', 'Lateo’s server offered an activation this app didn’t ask for'],
+    ['transfer', 'Lateo’s server offered an activation this app didn’t ask for'],
+    ['price', 'Lateo’s server offered an activation this app didn’t ask for'],
+    ['unquoted-fee', 'Lateo’s server offered an activation this app didn’t ask for'],
+    ['unparsable', 'Lateo’s server offered an activation this app didn’t ask for'],
+    ['refuses', 'Lateo couldn’t pay for this activation.'],
+    ['rejects', 'Lateo couldn’t pay for this activation.'],
   ] as const)(
     'never shows the wallet an activation the gateway changed, and offers to pay instead (%s)',
     async (mode, error) => {
@@ -1095,7 +1095,7 @@ describe('device identity', () => {
     ['can pay', 2_000_000_000n, 'You can activate now and pay the network costs from your wallet.'],
     ['cannot pay', 0n, 'To activate now, add SOL to your wallet and pay from it.'],
   ] as const)(
-    'falls back when Buckspay’s activation would fail, and says whether the wallet %s instead',
+    'falls back when Lateo’s activation would fail, and says whether the wallet %s instead',
     async (_, balance, instead) => {
       const sponsor = (gateway = new Gateway())
       cluster.balances.set(ALICE, balance)
@@ -1105,7 +1105,7 @@ describe('device identity', () => {
       const refused = await advanceIdentity(context(), atActivate)
       expect(refused).toMatchObject({ step: 'activate', sponsorship: 'unavailable', activation: atActivate.activation })
       expect(refused.error).toBe(
-        `Buckspay couldn’t pay for this activation. Nothing was sent and nothing was charged. ${instead}`,
+        `Lateo couldn’t pay for this activation. Nothing was sent and nothing was charged. ${instead}`,
       )
       expect(walletCalls).toBe(0)
       expect(sponsor.submitted).toBe(0)
@@ -1153,7 +1153,7 @@ describe('device identity', () => {
   })
 
   it.each([
-    ['unsupported', 'Your wallet can’t sign an activation that Buckspay pays for.'],
+    ['unsupported', 'Your wallet can’t sign an activation that Lateo pays for.'],
     ['altered', 'Your wallet changed the activation before signing it, so it wasn’t sent.'],
   ] as const)('offers to pay from the wallet when it cannot sign for a sponsor (%s)', async (failure, error) => {
     const sponsor = (gateway = new Gateway())
@@ -1278,14 +1278,14 @@ describe('device identity', () => {
     sponsor.terms = { ...sponsor.terms, fee: 90_000n, feeMode: 'cost_plus', minFunding: 10_000_000n }
     const changed = await advanceIdentity(context(), atActivate)
     expect(changed.error).toBe(
-      'Buckspay’s terms changed while you were looking. Review them and try again. Nothing was sent.',
+      'Lateo’s terms changed while you were looking. Review them and try again. Nothing was sent.',
     )
     expect(changed.activation!.quote).toMatchObject({ fee: 90_000n, minFunding: 10_000_000n })
     expect(walletCalls).toBe(0)
     expect(sponsor.prepares).toBe(0)
   })
 
-  it('has the wallet pay below the minimum Buckspay covers, and says it before the wallet is asked', async () => {
+  it('has the wallet pay below the minimum Lateo covers, and says it before the wallet is asked', async () => {
     const sponsor = (gateway = new Gateway())
     sponsor.terms = { ...sponsor.terms, minFunding: 50_000_000n, pressure: 90 }
     const atActivate = await walk('connect', 'create-key', 'activate')

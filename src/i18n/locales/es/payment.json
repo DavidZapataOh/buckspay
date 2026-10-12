@@ -32,7 +32,7 @@
     "newPhone": "Celular nuevo",
     "compare": "¿Mismo código en ambos?",
     "note": "Nota de quien cobra",
-    "noteWarning": "La escribió el otro celular. Buckspay no la ha revisado.",
+    "noteWarning": "La escribió el otro celular. Lateo no la ha revisado.",
     "from": "Desde",
     "source": "Tu saldo sin internet",
     "left": "Te quedan {{amount}} {{symbol}}",
@@ -62,7 +62,7 @@
   },
   "refusal": {
     "UnknownMint": {
-      "text": "Este cobro es de una moneda que Buckspay no admite.",
+      "text": "Este cobro es de una moneda que Lateo no admite.",
       "action": "Volver"
     },
     "SelfPayment": {
@@ -300,7 +300,7 @@
   },
   "settlement": {
     "labelTitle": "Acreditar de forma pública",
-    "labelBody": "Acreditar este pago de forma pública hace público quién tuvo el dinero, cada monto y la billetera que lo recibe. El servidor de Buckspay también ve el pago, la dirección de tu red y la hora.",
+    "labelBody": "Acreditar este pago de forma pública hace público quién tuvo el dinero, cada monto y la billetera que lo recibe. El servidor de Lateo también ve el pago, la dirección de tu red y la hora.",
     "labelContinue": "Continuar",
     "labelNotNow": "Ahora no",
     "noticeTitle": "Acreditar de forma pública",
@@ -316,7 +316,7 @@
     "title": "¿Restablecer la identidad de este celular?",
     "newKey": "Este celular recibe una llave nueva. La llave anterior se borra y no se puede recuperar.",
     "lost": "Los pagos que recibiste y que aún no se han acreditado se pierden, porque pertenecen a la llave anterior. Quienes te pagaron pueden recuperarlos después del {{date}}.",
-    "registration": "Tu billetera registrará la llave nueva, lo que cuesta cerca de 0,0016 SOL que Buckspay paga cuando puede. El registro anterior queda en Solana para siempre.",
+    "registration": "Tu billetera registrará la llave nueva, lo que cuesta cerca de 0,0016 SOL que Lateo paga cuando puede. El registro anterior queda en Solana para siempre.",
     "lockStays": "Tu dinero en reserva sigue siendo tuyo. Puedes retirarlo con tu billetera cuando termine su reserva.",
     "none": "No hay pagos esperando ser acreditados.",
     "confirm": "Restablecer identidad",

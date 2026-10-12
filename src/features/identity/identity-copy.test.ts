@@ -15,7 +15,7 @@ const ALICE = address('Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS')
 const device = { address: ALICE, wallet: ALICE, key: new Uint8Array(33) }
 
 describe('identity copy', () => {
-  it('says what the wallet lacks in SOL to pay the network itself, rounded down, and nothing while Buckspay pays', () => {
+  it('says what the wallet lacks in SOL to pay the network itself, rounded down, and nothing while Lateo pays', () => {
     const activation = (balance: bigint, cost: bigint) => ({ sol: { balance, cost } }) as Activation
     expect(shortfallNotice(activation(1_099_999n, 4_600_000n), false)).toBe(
       'Your wallet has 0.001 SOL. Add SOL to it before you activate.',
@@ -24,9 +24,9 @@ describe('identity copy', () => {
     expect(shortfallNotice(activation(0n, 4_600_000n), true)).toBeUndefined()
   })
 
-  it('says why the wallet pays when Buckspay does not', () => {
+  it('says why the wallet pays when Lateo does not', () => {
     expect(sponsorshipNotice('unavailable')).toBe(
-      'Buckspay can’t pay for activations right now, so your wallet pays the network costs.',
+      'Lateo can’t pay for activations right now, so your wallet pays the network costs.',
     )
     expect(sponsorshipNotice('free')).toBeUndefined()
     expect(sponsorshipNotice()).toBeUndefined()

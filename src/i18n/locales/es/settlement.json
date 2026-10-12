@@ -1,7 +1,7 @@
 {
   "settlementLabel": "Acreditar este pago de forma pública hace públicas las llaves de las personas por las que pasó, cada monto y la cuenta que recibe el pago.",
   "reclaimLabel": "Recuperar este pago hace pública toda la cadena por la que pasó, tu llave y los montos, aunque se hubiera podido acreditar en privado.",
-  "gatewayLabel": "El servidor de Buckspay ve esta cadena, la dirección de tu red y la hora. La vía privada, cuando existe, no le muestra las llaves.",
+  "gatewayLabel": "El servidor de Lateo ve esta cadena, la dirección de tu red y la hora. La vía privada, cuando existe, no le muestra las llaves.",
   "selfPayLabel": "La dirección de tu billetera queda guardada en los registros que paga, hasta que se cierren.",
   "payeeObligation": "Haz que este pago se acredite antes del {{date}} (UTC). Después, quien te pagó puede recuperarlo, y su depósito de seguridad no cubrirá tu pérdida.",
   "reclaimWindow": "Puedes recuperar un pago sin acreditar durante {{duration}} después de su plazo de acreditación, o hasta que termine su reserva si eso ocurre antes. Un pago de una llave sin celular registrado no se puede recuperar.",
@@ -20,7 +20,7 @@
     "noBond": "La reserva de quien pagó no tiene nada que destruir. No se te devolvió el dinero: el depósito de seguridad no se paga.",
     "lockEnded": "La reserva de quien pagó terminó, así que la pérdida ya no se puede reportar. No se te devolvió el dinero.",
     "cannotFile": "Esta pérdida no se puede reportar contra la reserva de quien pagó. No se te devolvió el dinero.",
-    "unavailable": "Buckspay no pudo reportar la pérdida ahora. Guarda este pago e inténtalo más tarde."
+    "unavailable": "Lateo no pudo reportar la pérdida ahora. Guarda este pago e inténtalo más tarde."
   },
   "refusal": {
     "conflict": "Quien pagó gastó este dinero dos veces y antes se acreditó otro pago del mismo dinero. No se te devolvió el dinero, así que guarda este pago.",
@@ -29,10 +29,10 @@
     "closed": "Se acabó el tiempo para recuperar este pago.",
     "deadline": "La aprobación para recuperar este pago está vencida. Apruébala de nuevo.",
     "lockEnded": "La reserva de quien pagó terminó.",
-    "horizonUnknown": "Buckspay todavía no puede cubrir el costo de red. Inténtalo más tarde o págalo tú.",
-    "horizon": "Buckspay no puede cubrir el costo de red antes del {{date}} (UTC). Ahora puedes pagarlo tú.",
-    "belowMinimum": "Este monto es muy pequeño para que Buckspay cubra el costo de red. Puedes pagarlo tú.",
-    "default": "Buckspay no puede cubrir el costo de red ahora. Puedes pagarlo tú."
+    "horizonUnknown": "Lateo todavía no puede cubrir el costo de red. Inténtalo más tarde o págalo tú.",
+    "horizon": "Lateo no puede cubrir el costo de red antes del {{date}} (UTC). Ahora puedes pagarlo tú.",
+    "belowMinimum": "Este monto es muy pequeño para que Lateo cubra el costo de red. Puedes pagarlo tú.",
+    "default": "Lateo no puede cubrir el costo de red ahora. Puedes pagarlo tú."
   },
   "balance": "El saldo suma todas las cuentas de esta billetera que tienen este dinero."
 }

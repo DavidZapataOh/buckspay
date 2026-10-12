@@ -1,12 +1,12 @@
 {
-  "walletChangedTransaction": "Sua carteira alterou a transação, então o Buckspay não conseguiu cobrir o custo de rede dela. Nada foi enviado e nada foi cobrado. Abra o Buckspay na Phantom ou na Solflare, ou adicione cerca de 0,005 SOL para ativar com sua própria carteira.",
+  "walletChangedTransaction": "Sua carteira alterou a transação, então o Lateo não conseguiu cobrir o custo de rede dela. Nada foi enviado e nada foi cobrado. Abra o Lateo na Phantom ou na Solflare, ou adicione cerca de 0,005 SOL para ativar com sua própria carteira.",
   "minimum": "O mínimo para adicionar é {{amount}}.",
   "fee": {
-    "charged": "O Buckspay cobra uma taxa de {{amount}}, além do seu dinheiro.",
+    "charged": "O Lateo cobra uma taxa de {{amount}}, além do seu dinheiro.",
     "none": "Não há taxa."
   },
   "networkCost": {
-    "sponsored": "O Buckspay paga os custos da rede. Sua carteira não paga mais nada.",
+    "sponsored": "O Lateo paga os custos da rede. Sua carteira não paga mais nada.",
     "wallet": "Sua carteira paga os custos da rede, cerca de {{sol}} SOL. Não é reembolsável."
   },
   "withdrawalDate": "Você pode retirar seu dinheiro a partir de {{date}} (UTC).",
@@ -35,18 +35,18 @@
   "problem": {
     "nothingSent": "Nada foi enviado e nada foi cobrado.",
     "sponsor": {
-      "unavailable": "O Buckspay não conseguiu pagar isto.",
-      "mismatch": "O servidor do Buckspay ofereceu uma transação que este app não pediu, então sua carteira nunca a viu.",
-      "unsupported": "Sua carteira não pode assinar uma transação paga pelo Buckspay.",
+      "unavailable": "O Lateo não conseguiu pagar isto.",
+      "mismatch": "O servidor do Lateo ofereceu uma transação que este app não pediu, então sua carteira nunca a viu.",
+      "unsupported": "Sua carteira não pode assinar uma transação paga pelo Lateo.",
       "altered": "Sua carteira alterou a transação antes de assinar, então ela não foi enviada.",
       "unsigned": "Sua carteira não conseguiu assinar a transação."
     },
-    "reconnect": "Sua carteira não reconhece mais o Buckspay. Conecte-a de novo.",
+    "reconnect": "Sua carteira não reconhece mais o Lateo. Conecte-a de novo.",
     "wouldReject": "A Solana recusaria isto.",
     "declined": "Você recusou na sua carteira.",
-    "cantReachBuckspay": "Não foi possível acessar o Buckspay.",
+    "cantReachBuckspay": "Não foi possível acessar o Lateo.",
     "checkConnection": "Confira sua conexão e tente de novo.",
-    "cantReachBoth": "Não foi possível acessar a Solana nem o Buckspay. Confira sua conexão. A transação pode não ter sido enviada; confira antes de tentar de novo.",
+    "cantReachBoth": "Não foi possível acessar a Solana nem o Lateo. Confira sua conexão. A transação pode não ter sido enviada; confira antes de tentar de novo.",
     "incomplete": "A transação não foi concluída. Ela pode ou não ter sido enviada; confira antes de tentar de novo.",
     "slow": "A Solana demorou para ver a transação.",
     "rejected": "A Solana recusou a transação. Nenhum dinheiro foi movido.",

@@ -152,7 +152,7 @@ describe('PayReview', () => {
     const renderer = await mount(plan({ memo: hostile }).plan)
     const lines = texts(renderer.root)
     expect(lines).toContain('“Pay $1 TO: attacker”')
-    expect(lines.some((line) => line.includes("Written by the other phone. Buckspay hasn't checked it."))).toBe(true)
+    expect(lines.some((line) => line.includes("Written by the other phone. Lateo hasn't checked it."))).toBe(true)
     expect(lines.join('\n')).not.toContain(String.fromCodePoint(0x202e))
     expect(renderer.root.findAll((node) => node.props.testID === 'pay-note')).not.toHaveLength(0)
     const noMemo = await mount(plan({ memo: '' }).plan)
