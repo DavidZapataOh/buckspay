@@ -1,7 +1,16 @@
 import { bytesToHex, concatBytes, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { describe, expect, it, vi } from 'vitest'
-import { decodeIssue, interval, issueSlot, recordAddress, outputId, content, encodeIssueBody } from '../../protocol'
+import {
+  decodeIou,
+  decodeIssue,
+  interval,
+  issueSlot,
+  recordAddress,
+  outputId,
+  content,
+  encodeIssueBody,
+} from '../../protocol'
 import { decodeDebtMessage } from '../debts/exchange'
 import { MessageKind } from '../../transport/types'
 import { receivePayment } from '../../payment/receive-flow'
@@ -135,6 +144,35 @@ describe('Repay before release', () => {
     expect(rowsAtAccept).toBe(1)
   })
 
+  it('a_repay_offer_for_another_amount_than_the_tab_has_left_is_declined_and_no_repay_is_stored', async () => {
+    const w = await remainderWorld()
+    const asked = w.c.deps.requestFor(w.c.tab)
+    const creditor = { ...w.c.deps, requestFor: () => asked }
+    const ctl = new AbortController()
+    const [paid, received] = await Promise.all([
+      payRemainder(w.d.deps, w.d.tab, ctl.signal),
+      receiveRemainder(creditor, { ...w.c.tab, remaining: w.c.tab.remaining + 1n }, ctl.signal),
+    ])
+    expect([paid.status, received.status]).toEqual(['declined', 'declined'])
+    expect(await notes(w, 'c')).toHaveLength(0)
+  })
+
+  it('a_repay_offer_naming_a_reference_the_tab_already_has_is_declined_and_counts_once', async () => {
+    const w = await remainderWorld()
+    w.net.onFrame(MessageKind.Debts, async (relay) => {
+      const message = decodeDebtMessage({ kind: relay.kind, payload: relay.payload })
+      if (relay.from !== 1 || message.type !== 0x01) return
+      const { tab, reference } = decodeIou(message.offer.body)
+      await w.c.db.run(
+        'INSERT INTO repay_notes (tab, seq, reference, payee, reduction, request, status, checked_at) VALUES (?, 999, ?, ?, 1, NULL, 0, NULL)',
+        [tab, reference, new Uint8Array(32).fill(7)],
+      )
+    })
+    const [paid, received] = await run(w)
+    expect([paid.status, received.status]).toEqual(['declined', 'declined'])
+    expect(await notes(w, 'c')).toHaveLength(1)
+  })
+
   it('a_lost_receipt_changes_nothing_because_the_cosigned_repay_is_the_receipt', async () => {
     const w = await remainderWorld()
     w.net.drop(MessageKind.Receipt)
@@ -245,6 +283,14 @@ describe('sweeps (N4)', () => {
     await reconcileRepays({ ...w.c.sweepDeps(), noteState: seen })
     expect((await notes(w, 'c'))[0].request).not.toBeNull()
     expect(seen).toHaveBeenCalledTimes(1)
+    expect((await notes(w, 'c'))[0].status).toBe(1)
+  })
+
+  it('bilateral_repay_row_is_swept_and_counts_after_settlement', async () => {
+    const w = await remainderWorld()
+    await run(w)
+    await w.c.db.run('DELETE FROM netting_remainder')
+    await reconcileRepays({ ...w.c.sweepDeps(), noteState: async () => 'settled' })
     expect((await notes(w, 'c'))[0].status).toBe(1)
   })
 

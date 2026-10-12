@@ -54,6 +54,20 @@ describe('checkProposal (member B, index 1)', () => {
     expect(await refusal(async () => check(f, f.rebuild({ debt: { 'A>B': 11_000_000n } })))).toBe('DigestMismatch')
   })
 
+  it('member_takes_the_debt_from_its_balance_and_not_from_the_amount_of_its_latest_state', async () => {
+    const f = await triangle()
+    const mine = await f.mineOf(1)
+    const skewed = {
+      ...mine,
+      tabs: mine.tabs.map((t) => ({
+        ...t,
+        state: { ...t.state, iou: { ...t.state.iou, amount: t.state.iou.amount + 1n } },
+      })),
+    }
+    const view = checkProposal(f.built.proposal, f.rosterOfBuilt(f.built, 1), skewed, f.now, f.deps)
+    expect(view.netBefore).toBe(3_000_000n)
+  })
+
   it('member_refuses_digest_mismatch', async () => {
     const f = await triangle()
     const built = {
