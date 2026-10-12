@@ -4,11 +4,12 @@ import { useTranslation } from 'react-i18next'
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { View } from 'react-native'
-import { AppText } from '../../components/app-text'
+import { AmountField } from '../../components/amount-field'
 import { Button } from '../../components/button'
+import { Hero } from '../../components/hero'
 import { Screen } from '../../components/screen'
+import { Stage } from '../../components/stage'
 import { StatusNote } from '../../components/status-note'
-import { TextField } from '../../components/text-field'
 
 import { decodePairing } from '../../features/event/payloads'
 import { PointStatus } from '../../features/event/point-status'
@@ -88,8 +89,11 @@ export default function Point() {
 
   return (
     <Screen testID="point">
-      <AppText variant="headline">{t('event:pointTitle')}</AppText>
-      <AppText variant="body">{t('event:pointFor', { event: mode.pairing.name })}</AppText>
+      <Stage
+        hero={<Hero kind="wallet" decorative size={110} />}
+        title={t('event:pointTitle')}
+        line={t('event:pointFor', { event: mode.pairing.name })}
+      />
       <PointStatus status={status} now={now} />
       <View className="gap-3">
         <Button
@@ -105,10 +109,10 @@ export default function Point() {
           onPress={() => void link('payer')}
         />
       </View>
-      <TextField
+      <AmountField
         testID="point-amount"
-        label={`${t('event:amount')} (${BUILD_TOKEN.symbol})`}
-        keyboardType="decimal-pad"
+        label={t('event:amount')}
+        symbol={BUILD_TOKEN.symbol}
         value={amount}
         onChangeText={setAmount}
       />

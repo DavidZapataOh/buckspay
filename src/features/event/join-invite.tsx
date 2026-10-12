@@ -5,9 +5,10 @@ import { getAddressDecoder } from '@solana/kit'
 import { useState } from 'react'
 import { View } from 'react-native'
 import { AddressRow } from '../../components/address-row'
-import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
-import { StatusNote } from '../../components/status-note'
+import { Chip } from '../../components/chip'
+import { Hero } from '../../components/hero'
+import { Stage } from '../../components/stage'
 
 import type { EventInvite } from './payloads'
 
@@ -44,16 +45,24 @@ export function JoinInvite({
 
   return (
     <View testID="join-invite" className="gap-4">
-      <AppText variant="headline">{invite.name}</AppText>
+      <Stage hero={<Hero kind={result === 'ended' ? 'problem' : 'coins'} decorative size={120} />} title={invite.name}>
+        {message ? (
+          <View accessibilityLiveRegion="polite">
+            <Chip center kind={result === 'ended' ? 'problem' : 'done'} label={message} />
+          </View>
+        ) : null}
+      </Stage>
       <AddressRow
         testID="join-organiser"
         address={getAddressDecoder().decode(invite.authority)}
         label={t('event:organiser')}
       />
-      <AppText variant="body" tone="muted">
-        {t('event:ends', { date: formatDateTime(invite.endsAt, currentLanguage()) })}
-      </AppText>
-      <StatusNote tone={result === 'ended' ? 'danger' : 'default'} message={message} />
+      <Chip
+        center
+        kind="info"
+        icon="event"
+        label={t('event:ends', { date: formatDateTime(invite.endsAt, currentLanguage()) })}
+      />
       {result === 'joined' || result === 'known' ? (
         <Button testID="join-done" variant="filled" label={t('common:done')} onPress={onDone} />
       ) : (

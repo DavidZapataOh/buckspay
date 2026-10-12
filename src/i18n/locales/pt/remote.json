@@ -1,7 +1,7 @@
 {
   "title": "Pagar para alguém longe",
   "contacts": "Contatos",
-  "noContacts": "Ainda não há contatos. Peça ao seu amigo que compartilhe o link de pagamento dele e adicione aqui.",
+  "noContacts": "Ainda sem contatos",
   "addLink": "Adicionar de um link de pagamento",
   "scanLink": "Aponte a câmera para o link de pagamento do seu amigo, ou cole.",
   "paste": "Colar um link de pagamento",
@@ -10,11 +10,11 @@
   "amount": "Valor",
   "review": "Revisar",
   "confirm": "Pagar",
-  "edit": "Alterar",
+  "edit": "Mudar",
   "reviewLine": "{{name}} recebe {{amount}} {{symbol}} na carteira quando um celular com internet enviar. Se nenhum enviar antes de {{deadline}}, não é pago e o dinheiro continua sendo seu, na sua reserva.",
-  "notChecked": "Não conferido: se a carteira da pessoa não puder receber USDC, o pagamento não é entregue e o dinheiro continua sendo seu depois do prazo mostrado na revisão.",
-  "noAccount": "A carteira da pessoa ainda não tem conta de USDC. Peça que abra a tela do link de pagamento e crie a conta, e depois adicione o link de novo.",
-  "pendingWarning": "Um pagamento para este contato ainda está a caminho. Se você pagar de novo, os dois podem ser pagos.",
+  "notChecked": "Ainda sem verificar",
+  "noAccount": "Ainda não pode receber",
+  "pendingWarning": "Um pagamento ainda está a caminho",
   "privacy": "Quem está por perto e repassa não consegue ver quem paga nem quanto. O servidor do Buckspay vê o pagamento e a rede do celular que o enviou.",
   "offlineNote": "Você está sem internet: um celular por perto com internet precisa levar o pagamento.",
   "onlineNote": "Você está online: ele é enviado à rede agora.",
@@ -47,5 +47,6 @@
   "paidFar": "Você pagou {{amount}} {{symbol}} · {{payee}} · {{status}}",
   "someone": "alguém longe",
   "from": "De {{name}}",
-  "fromUnknown": "De alguém longe"
+  "fromUnknown": "De alguém longe",
+  "pickContact": "A quem você paga?"
 }

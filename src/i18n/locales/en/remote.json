@@ -1,7 +1,7 @@
 {
   "title": "Pay someone far away",
   "contacts": "Contacts",
-  "noContacts": "No contacts yet. Ask your friend to share their pay link, then add it here.",
+  "noContacts": "No contacts yet",
   "addLink": "Add from a pay link",
   "scanLink": "Point the camera at your friend’s pay link, or paste it.",
   "paste": "Paste a pay link",
@@ -12,9 +12,9 @@
   "confirm": "Pay",
   "edit": "Change",
   "reviewLine": "{{name}} gets {{amount}} {{symbol}} in their wallet when a phone with internet sends it on. If none does before {{deadline}}, it isn't paid and the money stays yours, in your reserve.",
-  "notChecked": "Not checked: if their wallet can't receive USDC, the payment isn't delivered and the money stays yours after the deadline in the review.",
-  "noAccount": "Their wallet has no USDC account yet. Ask them to open the pay link screen and create it, then add the link again.",
-  "pendingWarning": "A payment to this contact is still on its way. If you pay again, both may be paid.",
+  "notChecked": "Not checked yet",
+  "noAccount": "Can't receive yet",
+  "pendingWarning": "A payment is still on its way",
   "privacy": "People nearby who pass it on can't see who pays or how much. The Buckspay server sees the payment and the network of the phone that sent it on.",
   "offlineNote": "You are offline: a phone nearby with internet has to take it.",
   "onlineNote": "You are online: it is sent to the network now.",
@@ -47,5 +47,6 @@
   "paidFar": "Paid {{amount}} {{symbol}} · {{payee}} · {{status}}",
   "someone": "someone far away",
   "from": "From {{name}}",
-  "fromUnknown": "From someone far away"
+  "fromUnknown": "From someone far away",
+  "pickContact": "Who do you pay?"
 }

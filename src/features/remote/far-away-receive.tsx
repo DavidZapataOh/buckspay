@@ -2,9 +2,11 @@ import { useTranslation } from 'react-i18next'
 import { NAMESPACES } from '../../i18n'
 import { useState } from 'react'
 import { View } from 'react-native'
-import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { Hero } from '../../components/hero'
+import { Info } from '../../components/info'
 import { Screen } from '../../components/screen'
+import { Stage } from '../../components/stage'
 import { TextField } from '../../components/text-field'
 import { QrCode } from '../qr/qr-code'
 
@@ -32,20 +34,27 @@ export function FarAwayReceive({
   const link = tokenAccount === 'exists' ? encodePayLink({ wallet, mint, name }) : undefined
   return (
     <Screen testID="far-away-receive">
-      <AppText variant="headline">{t('remote:receiveTitle')}</AppText>
-      {tokenAccount === 'checking' ? <AppText variant="body">{t('remote:checking')}</AppText> : null}
+      {tokenAccount === 'checking' ? (
+        <Stage hero={<Hero kind="waiting" decorative />} title={t('remote:checking')} />
+      ) : null}
       {tokenAccount === 'missing' ? (
-        <View className="gap-3">
-          <AppText variant="body">{t('remote:needsAccount')}</AppText>
+        <>
+          <Stage hero={<Hero kind="problem" decorative />} title={t('remote:needsAccount')} />
           <Button variant="filled" label={t('remote:createAccount')} busy={busy} onPress={() => onCreate?.()} />
-        </View>
+        </>
       ) : null}
       {link ? (
-        <View className="gap-3">
-          <AppText variant="body">{t('remote:receiveIntro')}</AppText>
-          <TextField label={t('remote:name')} value={name} onChangeText={setName} />
+        <View className="items-center gap-4">
+          <Stage hero={<Hero kind="wallet" decorative size={110} />} title={t('remote:receiveTitle')}>
+            <Info title={t('remote:receiveTitle')} lines={[t('remote:receiveIntro')]} />
+          </Stage>
+          <View className="w-full">
+            <TextField label={t('remote:name')} value={name} onChangeText={setName} />
+          </View>
           <QrCode text={link} accessibilityLabel={t('remote:linkLabel')} />
-          <Button variant="filled" label={t('remote:share')} onPress={() => onShare?.(link)} />
+          <View className="w-full">
+            <Button variant="filled" label={t('remote:share')} onPress={() => onShare?.(link)} />
+          </View>
         </View>
       ) : null}
     </Screen>
