@@ -1,0 +1,10 @@
+{
+  "duration": {
+    "hour_one": "{{count}} hora",
+    "hour_other": "{{count}} horas",
+    "minute_one": "{{count}} minuto",
+    "minute_other": "{{count}} minutos",
+    "second_one": "{{count}} segundo",
+    "second_other": "{{count}} segundos"
+  }
+}
