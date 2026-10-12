@@ -44,7 +44,9 @@ export function ExchangeView<T>({
   useEffect(() => {
     latest.current = { link, run, onDone, onFail }
   })
+  const { decided } = link
   useEffect(() => {
+    if (!decided) return
     const controller = new AbortController()
     let opened: Transport | undefined
     latest.current.link
@@ -61,8 +63,9 @@ export function ExchangeView<T>({
       controller.abort()
       void opened?.close()
     }
-  }, [])
+  }, [decided])
 
+  if (!decided) return null
   if (overlay) return <>{overlay}</>
   if (link.chosen !== 'qr') {
     return (

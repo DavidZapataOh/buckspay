@@ -55,13 +55,15 @@ export type DebtLink = ReturnType<typeof useDebtLink>
 export function useDebtLink(role: 'payer' | 'receiver') {
   const session = useQrSession()
   const entries = useMemo(() => [qrEntry({ transport: session.transport }), nearbyEntry], [session.transport])
-  const { offered, ready, refresh } = useTransports(entries)
-  const { chosen, choose } = useTransportChoice(role, ready)
+  const { offered, checked, ready, refresh } = useTransports(entries)
+  const { chosen, choose, loaded } = useTransportChoice(role, ready)
   const medium = chosen ?? entries[0]
   return {
     session,
     offered,
     chosen: medium.id,
+    /** True once the available media and the remembered choice are known, so `connect` opens the right one. */
+    decided: checked && loaded,
     choose,
     refresh,
     connect: (): Promise<Transport> => medium.start(role),

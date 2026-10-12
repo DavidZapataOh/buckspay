@@ -1,5 +1,6 @@
 import { Text } from 'react-native'
 import { describe, expect, it, vi } from 'vitest'
+import { act } from 'react'
 import { mount, texts } from '../remote/ui-testing'
 import { ExchangeView } from './exchange-view'
 import type { DebtLink } from './use-debts'
@@ -16,16 +17,17 @@ vi.mock('../qr/qr-presenter', () => ({
   QrPresenter: ({ texts: codes }: { texts: string[] }) => <Text>{`code:${codes[0]}`}</Text>,
 }))
 
-const link = (chosen: 'qr' | 'nearby') =>
+const link = (chosen: 'qr' | 'nearby', decided = true, connect = () => new Promise<never>(() => undefined)) =>
   ({
     chosen,
+    decided,
     session: { texts: undefined, progress: undefined, push: vi.fn() },
-    connect: () => new Promise<never>(() => undefined),
+    connect,
   }) as unknown as DebtLink
 
-const view = (chosen: 'qr' | 'nearby', idleCode?: string) => (
+const view = (chosen: 'qr' | 'nearby', idleCode?: string, l: DebtLink = link(chosen)) => (
   <ExchangeView
-    link={link(chosen)}
+    link={l}
     title="Ready to receive a debt"
     run={async () => undefined}
     onDone={vi.fn()}
@@ -46,5 +48,13 @@ describe('the debt exchange while it waits', () => {
   it('shows no code when there is none to show', async () => {
     const r = await mount(view('nearby'))
     expect(texts(r.root).join('\n')).not.toContain('code:')
+  })
+
+  it('connects only once the medium is decided, and over that medium', async () => {
+    const connect = vi.fn(() => new Promise<never>(() => undefined))
+    const r = await mount(view('qr', undefined, link('qr', false, connect)))
+    expect(connect).not.toHaveBeenCalled()
+    await act(async () => r.update(view('nearby', undefined, link('nearby', true, connect))))
+    expect(connect).toHaveBeenCalledTimes(1)
   })
 })

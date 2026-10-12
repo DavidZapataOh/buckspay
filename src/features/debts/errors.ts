@@ -1,4 +1,5 @@
 import { i18n } from '../../i18n'
+import { PairingError } from '../../transport/nearby/pairing'
 import { TransportError } from '../../transport/types'
 
 import { DeclineReason, TabDeclined } from './exchange'
@@ -38,5 +39,6 @@ export function failureText(error: unknown, peer: string): string {
         return i18n.t('debts:refused.invalid')
     }
   }
+  if (error instanceof PairingError) return i18n.t(`nearby:failed.${error.reason}`)
   return error instanceof TransportError ? error.message : error instanceof Error ? error.message : String(error)
 }
