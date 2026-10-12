@@ -27,10 +27,10 @@
     "closed": "O prazo para pegar este pagamento de volta acabou.",
     "deadline": "A aprovação para pegar este pagamento de volta está vencida. Aprove de novo.",
     "lockEnded": "A reserva de quem pagou terminou.",
-    "horizonUnknown": "O Buckspay ainda não pode pagar isto.",
-    "horizon": "O Buckspay não pode pagar isto antes de {{date}} (UTC). Agora você pode pagar por conta própria.",
-    "belowMinimum": "Este valor é pequeno demais para o Buckspay pagar. Você pode pagar por conta própria.",
-    "default": "O Buckspay não pode pagar isto agora. Você pode pagar por conta própria."
+    "horizonUnknown": "O Buckspay ainda não pode cobrir o custo de rede. Tente mais tarde ou pague você mesmo.",
+    "horizon": "O Buckspay não pode cobrir o custo de rede antes de {{date}} (UTC). Agora você pode pagá-lo.",
+    "belowMinimum": "Este valor é pequeno demais para o Buckspay cobrir o custo de rede. Você pode pagá-lo.",
+    "default": "O Buckspay não pode cobrir o custo de rede agora. Você pode pagá-lo."
   },
   "balance": "O saldo soma todas as contas desta carteira que têm este dinheiro."
 }

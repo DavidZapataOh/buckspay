@@ -27,10 +27,10 @@
     "closed": "Se acabó el tiempo para recuperar este pago.",
     "deadline": "La aprobación para recuperar este pago está vencida. Apruébala de nuevo.",
     "lockEnded": "La reserva de quien pagó terminó.",
-    "horizonUnknown": "Buckspay todavía no puede pagar esto.",
-    "horizon": "Buckspay no puede pagar esto antes del {{date}} (UTC). Ahora puedes pagarlo tú.",
-    "belowMinimum": "Este monto es muy pequeño para que Buckspay lo pague. Puedes pagarlo tú.",
-    "default": "Buckspay no puede pagar esto ahora. Puedes pagarlo tú."
+    "horizonUnknown": "Buckspay todavía no puede cubrir el costo de red. Inténtalo más tarde o págalo tú.",
+    "horizon": "Buckspay no puede cubrir el costo de red antes del {{date}} (UTC). Ahora puedes pagarlo tú.",
+    "belowMinimum": "Este monto es muy pequeño para que Buckspay cubra el costo de red. Puedes pagarlo tú.",
+    "default": "Buckspay no puede cubrir el costo de red ahora. Puedes pagarlo tú."
   },
   "balance": "El saldo suma todas las cuentas de esta billetera que tienen este dinero."
 }

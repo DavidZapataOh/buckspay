@@ -133,8 +133,8 @@
     "NoKey": "Este celular não pode fazer pagamentos agora. Você pode redefinir a identidade dele, mas perderá os pagamentos que ainda não foram creditados a você.",
     "SignFailed": "Não foi possível concluir o pagamento. Toque em Continuar para tentar de novo.",
     "SendFailed": "Não foi possível mostrar o pagamento. Toque em Continuar.",
-    "IntervalTaken": "Este pagamento já está em andamento.",
-    "Mismatch": "Algo deu errado com este pagamento. Ele não foi enviado."
+    "IntervalTaken": "Este pagamento já está em andamento. Espere um momento e confira em Movimentações.",
+    "Mismatch": "Algo deu errado com este pagamento. Ele não foi enviado: tente de novo ou peça uma nova cobrança."
   },
   "receive": {
     "title": "Cobrar",
@@ -184,20 +184,20 @@
     "less": "Menos informações"
   },
   "reason": {
-    "1": "Não foi possível ler este pagamento.",
-    "2": "Este pagamento não é válido.",
-    "3": "Não foi possível verificar este pagamento.",
-    "4": "A comprovação de fundos de quem paga está ausente, vencida ou vem de uma fonte em que este celular não confia.",
-    "5": "Este pagamento expirou.",
-    "6": "Este pagamento expira cedo demais para ser creditado com segurança. Este celular precisa de pelo menos {{window}}.",
-    "7": "Este pagamento é para outro celular.",
-    "8": "Este celular não pode aceitar este pagamento.",
-    "9": "Quem paga já usou esse dinheiro em outro pagamento. Nada foi recebido.",
-    "10": "Quem paga chegou ao máximo que este celular aceita de uma pessoa.",
-    "11": "É mais do que este celular aceita em um pagamento: {{max}}.",
+    "1": "Não foi possível ler este pagamento. Peça a quem paga que mostre de novo.",
+    "2": "Este pagamento não é válido. Peça a quem paga que faça um novo.",
+    "3": "Não foi possível verificar este pagamento. Peça a quem paga que tente de novo.",
+    "4": "Este celular não consegue conferir a comprovação de fundos de quem paga. Peça que a pessoa se conecte à internet uma vez e tente de novo.",
+    "5": "Este pagamento expirou. Peça uma nova cobrança.",
+    "6": "Este pagamento expira cedo demais para ser creditado. Ele precisa valer por pelo menos {{window}}: peça uma nova cobrança.",
+    "7": "Este pagamento é para outro celular. Peça uma nova cobrança.",
+    "8": "Este celular não pode aceitar este pagamento. Tente outra forma de pagar.",
+    "9": "Quem paga já usou esse dinheiro em outro pagamento, então nada foi recebido. Peça que pague com outro dinheiro.",
+    "10": "Quem paga chegou ao máximo que este celular aceita de uma pessoa. Peça um valor menor.",
+    "11": "É mais do que este celular aceita em um pagamento: {{max}}. Peça um valor menor.",
     "12": "Este celular não conseguiu salvar o pagamento, então nada foi recebido. Tente de novo.",
-    "13": "Alguém que teve este dinheiro antes o gastou duas vezes, e os celulares por perto sabem disso. Nada foi recebido.",
-    "14": "Depois dos custos de creditar este pagamento você receberia menos do que pediu. Nada foi recebido."
+    "13": "Alguém que teve este dinheiro antes o gastou duas vezes, então nada foi recebido. Peça a quem paga que use outro dinheiro.",
+    "14": "Os custos de creditar este pagamento deixariam você com menos do que pediu, então nada foi recebido. Peça um pouco mais."
   },
   "activity": {
     "lost": {

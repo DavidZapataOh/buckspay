@@ -133,8 +133,8 @@
     "NoKey": "Este celular no puede hacer pagos ahora. Puedes restablecer su identidad, pero perderás los pagos que aún no te hayan acreditado.",
     "SignFailed": "No se pudo completar el pago. Toca Continuar para intentarlo de nuevo.",
     "SendFailed": "No se pudo mostrar el pago. Toca Continuar.",
-    "IntervalTaken": "Este pago ya está en curso.",
-    "Mismatch": "Algo salió mal con este pago. No se envió."
+    "IntervalTaken": "Este pago ya está en curso. Espera un momento y revisa Movimientos.",
+    "Mismatch": "Algo salió mal con este pago. No se envió: inténtalo de nuevo o pide un cobro nuevo."
   },
   "receive": {
     "title": "Cobrar",
@@ -184,20 +184,20 @@
     "less": "Menos información"
   },
   "reason": {
-    "1": "No se pudo leer este pago.",
-    "2": "Este pago no es válido.",
-    "3": "No se pudo verificar este pago.",
-    "4": "Falta el respaldo de fondos de quien paga, venció o viene de una fuente en la que este celular no confía.",
-    "5": "Este pago venció.",
-    "6": "Este pago vence muy pronto para acreditarlo con seguridad. Este celular necesita al menos {{window}}.",
-    "7": "Este pago es para otro celular.",
-    "8": "Este celular no puede aceptar este pago.",
-    "9": "Quien paga ya usó ese dinero en otro pago. No se recibió nada.",
-    "10": "Quien paga llegó al máximo que este celular acepta de una persona.",
-    "11": "Es más de lo que este celular acepta en un pago: {{max}}.",
+    "1": "No se pudo leer este pago. Pide a quien paga que lo muestre de nuevo.",
+    "2": "Este pago no es válido. Pide a quien paga que haga uno nuevo.",
+    "3": "No se pudo verificar este pago. Pide a quien paga que lo intente de nuevo.",
+    "4": "Este celular no puede comprobar el respaldo de fondos de quien paga. Pídele que se conecte a internet una vez e inténtalo de nuevo.",
+    "5": "Este pago venció. Pide un cobro nuevo.",
+    "6": "Este pago vence muy pronto para acreditarse. Debe seguir siendo válido al menos {{window}}: pide un cobro nuevo.",
+    "7": "Este pago es para otro celular. Pide un cobro nuevo.",
+    "8": "Este celular no puede aceptar este pago. Prueba otra forma de pagar.",
+    "9": "Quien paga ya usó ese dinero en otro pago, así que no se recibió nada. Pídele que pague con otro dinero.",
+    "10": "Quien paga llegó al máximo que este celular acepta de una persona. Pide un monto menor.",
+    "11": "Es más de lo que este celular acepta en un pago: {{max}}. Pide un monto menor.",
     "12": "Este celular no pudo guardar el pago, así que no se recibió nada. Inténtalo de nuevo.",
-    "13": "Alguien que tuvo este dinero antes lo gastó dos veces, y los celulares cercanos lo saben. No se recibió nada.",
-    "14": "Después de los costos de acreditar este pago recibirías menos de lo que pediste. No se recibió nada."
+    "13": "Alguien que tuvo este dinero antes lo gastó dos veces, así que no se recibió nada. Pide a quien paga que use otro dinero.",
+    "14": "Los costos de acreditar este pago te dejarían con menos de lo que pediste, así que no se recibió nada. Pide un poco más."
   },
   "activity": {
     "lost": {

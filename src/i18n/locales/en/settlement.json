@@ -27,10 +27,10 @@
     "closed": "The time to take this payment back has run out.",
     "deadline": "The approval to take this payment back is out of date. Approve it again.",
     "lockEnded": "The payer's reserve has ended.",
-    "horizonUnknown": "Buckspay cannot pay for this yet.",
-    "horizon": "Buckspay cannot pay for this before {{date}} (UTC). You can pay for it yourself now.",
-    "belowMinimum": "This amount is too small for Buckspay to pay for. You can pay for it yourself.",
-    "default": "Buckspay cannot pay for this now. You can pay for it yourself."
+    "horizonUnknown": "Buckspay can't cover the network fee yet. Try again later, or pay it yourself.",
+    "horizon": "Buckspay can't cover the network fee before {{date}} (UTC). You can pay it yourself now.",
+    "belowMinimum": "This amount is too small for Buckspay to cover the network fee. You can pay it yourself.",
+    "default": "Buckspay can't cover the network fee now. You can pay it yourself."
   },
   "balance": "The balance adds up every account of this wallet that holds this money."
 }

@@ -15,7 +15,7 @@
       "staleKey": "Updating private crediting data",
       "expired": "This payment can no longer be credited. The payer may take it back.",
       "retry": "The server did not answer. This phone will try again.",
-      "invalid": "This payment couldn't be credited privately."
+      "invalid": "This payment couldn't be credited privately. You can credit it in the open instead."
     }
   },
   "privateData": {

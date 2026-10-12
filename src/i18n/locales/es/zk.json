@@ -15,7 +15,7 @@
       "staleKey": "Actualizando los datos de acreditación privada",
       "expired": "Este pago ya no se puede acreditar. Quien pagó puede recuperarlo.",
       "retry": "El servidor no respondió. Este celular lo intentará de nuevo.",
-      "invalid": "Este pago no se pudo acreditar en privado."
+      "invalid": "Este pago no se pudo acreditar en privado. Puedes acreditarlo de forma pública."
     }
   },
   "privateData": {

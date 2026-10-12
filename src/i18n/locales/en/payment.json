@@ -133,8 +133,8 @@
     "NoKey": "This phone can't make payments right now. You can reset its identity, but payments not yet credited to you are lost.",
     "SignFailed": "Couldn't complete the payment. Tap Resume to try again.",
     "SendFailed": "Couldn't show the payment. Tap Resume.",
-    "IntervalTaken": "This payment is already in progress.",
-    "Mismatch": "Something went wrong with this payment. It wasn't sent."
+    "IntervalTaken": "This payment is already in progress. Wait a moment, then check Activity.",
+    "Mismatch": "Something went wrong with this payment. It wasn't sent: try again, or ask for a new request."
   },
   "receive": {
     "title": "Get paid",
@@ -184,20 +184,20 @@
     "less": "Less information"
   },
   "reason": {
-    "1": "Couldn't read this payment.",
-    "2": "This payment isn't valid.",
-    "3": "This payment couldn't be verified.",
-    "4": "The payer's proof of funds is missing, expired, or from a source this phone doesn't trust.",
-    "5": "This payment has expired.",
-    "6": "This payment expires too soon to be credited safely. This phone needs at least {{window}}.",
-    "7": "This payment is for a different phone.",
-    "8": "This phone can't accept this payment.",
-    "9": "This payer already used that money for another payment. Nothing was received.",
-    "10": "This payer has reached the most this phone accepts from one person.",
-    "11": "This is more than the {{max}} this phone accepts in one payment.",
+    "1": "Couldn't read this payment. Ask the payer to show it again.",
+    "2": "This payment isn't valid. Ask the payer to make a new one.",
+    "3": "This payment couldn't be verified. Ask the payer to try again.",
+    "4": "This phone can't check the payer's proof of funds. Ask the payer to connect to the internet once, then try again.",
+    "5": "This payment has expired. Ask for a new request.",
+    "6": "This payment expires too soon to be credited. It must stay valid for at least {{window}}: ask for a new request.",
+    "7": "This payment is for a different phone. Ask for a new request.",
+    "8": "This phone can't accept this payment. Try another way of paying.",
+    "9": "This payer already used that money for another payment, so nothing was received. Ask them to pay with other money.",
+    "10": "This payer has reached the most this phone accepts from one person. Ask for a smaller amount.",
+    "11": "This is more than the {{max}} this phone accepts in one payment. Ask for a smaller amount.",
     "12": "This phone couldn't save the payment, so nothing was received. Try again.",
-    "13": "Someone who held this money before spent it twice, and nearby phones know it. Nothing was received.",
-    "14": "After the fees of crediting this payment you would receive less than you asked for. Nothing was received."
+    "13": "Someone who held this money before spent it twice, so nothing was received. Ask the payer to pay with other money.",
+    "14": "The fees of crediting this payment would leave you with less than you asked for, so nothing was received. Ask for a little more."
   },
   "activity": {
     "lost": {

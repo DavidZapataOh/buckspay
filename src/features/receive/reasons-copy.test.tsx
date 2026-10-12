@@ -61,7 +61,7 @@ describe('what the receiver says', () => {
     const window = texts(
       await render(<RejectedResult reason={Reason.Window} limits={limits} onRetry={() => {}} onDone={() => {}} />),
     ).join('\n')
-    expect(window).toContain('at least 1 hour.')
+    expect(window).toContain('at least 1 hour')
     const max = texts(
       await render(<RejectedResult reason={Reason.AboveMax} limits={limits} onRetry={() => {}} onDone={() => {}} />),
     ).join('\n')

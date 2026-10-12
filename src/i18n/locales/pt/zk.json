@@ -15,7 +15,7 @@
       "staleKey": "Atualizando os dados do crédito privado",
       "expired": "Este pagamento não pode mais ser creditado. Quem pagou pode pegá-lo de volta.",
       "retry": "O servidor não respondeu. Este celular vai tentar de novo.",
-      "invalid": "Este pagamento não pôde ser creditado em privado."
+      "invalid": "Este pagamento não pôde ser creditado em privado. Você pode creditá-lo de forma pública."
     }
   },
   "privateData": {
