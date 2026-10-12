@@ -16,7 +16,8 @@
         "foregroundImage": "./assets/adaptive-icon-foreground.png",
         "monochromeImage": "./assets/adaptive-icon-monochrome.png",
         "backgroundColor": "#0B0F14"
-      }
+      },
+      "versionCode": 1
     },
     "plugins": [
       [
@@ -69,7 +70,9 @@
         }
       ],
       "./plugins/with-gradle-heap",
-      "./plugins/with-no-backup"
-    ]
+      "./plugins/with-no-backup",
+      "./plugins/with-release-signing"
+    ],
+    "version": "1.0.0"
   }
 }
