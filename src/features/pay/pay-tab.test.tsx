@@ -74,11 +74,12 @@ describe('PayTab', () => {
 
   it("shows the allowance from the payer's own locks and the Add money action when it is zero", async () => {
     const full = await mount()
-    expect(texts(full.root)).toContain('You can pay up to 43.00 USDC without internet.')
+    expect(texts(full.root)).toContain('43.00 USDC')
     expect(has(full.root, 'pay-scan')).toBe(true)
     expect(has(full.root, 'pay-paste')).toBe(true)
     const none = await mount({ allowance: 0n })
-    expect(texts(none.root)).toContain('Add money to pay without internet.')
+    expect(has(none.root, 'add-money')).toBe(true)
+    expect(texts(none.root)).toContain('Add money')
     const onAddMoney = vi.fn()
     const empty = await mount({ allowance: 0n, onAddMoney })
     await act(async () => empty.root.findByProps({ testID: 'add-money' }).props.onPress())
@@ -102,10 +103,8 @@ describe('PayTab', () => {
       onDiscard,
     })
     const shown = texts(renderer.root).join('\n')
-    expect(shown).toMatch(
-      /Unfinished payment: 5\.00 USDC to phone [A-Z2-9]{4}-[A-Z2-9]{4}\. It was left before the other phone confirmed it\./,
-    )
-    expect(shown).toContain('Not confirmed: ask the other person whether it arrived.')
+    expect(shown).toMatch(/5\.00 USDC to [A-Z2-9]{4}-[A-Z2-9]{4}/)
+    expect(shown).toContain('Not confirmed')
     const resume = renderer.root.findAll((node) => node.props.testID === 'pay-resume' && typeof node.type === 'string')
     expect(resume).toHaveLength(2)
     await act(async () => resume[0].props.onPress())

@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Switch, View } from 'react-native'
+import { AmountField } from '../../components/amount-field'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { Chip } from '../../components/chip'
+import { Info } from '../../components/info'
 import { StatusNote } from '../../components/status-note'
 import { TextField } from '../../components/text-field'
 import { NAMESPACES } from '../../i18n'
@@ -29,7 +32,7 @@ export type ReceiveFormProps = {
   windowText: string
 }
 
-/** The request a person makes to be paid: what they ask for, and the limits only when they ask to see them. */
+/** The request a person makes to be paid: the amount, big, and the rest only when they reach for it. */
 export function ReceiveForm({
   amount,
   onAmountChange,
@@ -47,18 +50,46 @@ export function ReceiveForm({
   windowText,
 }: ReceiveFormProps) {
   const { t } = useTranslation(NAMESPACES)
-  const [more, setMore] = useState(false)
+  const [noting, setNoting] = useState(memo !== '')
+  const typedWrong = !amountValid && amount.trim() !== ''
+  const help = [
+    t('payment:receive.passOnHelp'),
+    t('payment:receive.limits', { max: maxText, window: windowText }),
+    t('payment:receive.bondLimit'),
+    ...(minimumText !== undefined ? [t('payment:receive.minimum', { amount: minimumText })] : []),
+  ]
   return (
     <>
-      <TextField
+      <AmountField
         testID="receive-amount"
-        label={`${t('payment:receive.amount')} (${symbol})`}
-        keyboardType="decimal-pad"
+        label={t('payment:receive.amount')}
+        symbol={symbol}
         value={amount}
         onChangeText={onAmountChange}
       />
-      <TextField testID="receive-memo" label={t('payment:receive.memo')} value={memo} onChangeText={onMemoChange} />
-      <View className="min-h-14 flex-row items-center justify-between gap-4">
+      <View className="items-center gap-2">
+        {typedWrong ? (
+          <Chip
+            testID="receive-needs-amount"
+            kind="problem"
+            label={t('payment:receive.amountUnclear', { max: maxText })}
+          />
+        ) : null}
+        {belowMinimum ? (
+          <Chip testID="receive-below-minimum" kind="waiting" label={t('payment:receive.belowMinimum')} />
+        ) : null}
+      </View>
+      {noting ? (
+        <TextField testID="receive-memo" label={t('payment:receive.memo')} value={memo} onChangeText={onMemoChange} />
+      ) : (
+        <Button
+          testID="receive-add-note"
+          variant="text"
+          label={t('payment:receive.addNote')}
+          onPress={() => setNoting(true)}
+        />
+      )}
+      <View className="min-h-14 flex-row items-center justify-between gap-2">
         <View className="flex-1">
           <AppText variant="body">{t('payment:receive.passOn')}</AppText>
         </View>
@@ -68,23 +99,9 @@ export function ReceiveForm({
           value={passOn}
           onValueChange={onPassOnChange}
         />
+        <Info title={t('payment:receive.passOn')} lines={help} />
       </View>
-      <AppText variant="label" tone="muted">
-        {t('payment:receive.passOnHelp')}
-      </AppText>
-      {belowMinimum ? (
-        <AppText testID="receive-below-minimum" variant="label">
-          {t('payment:receive.belowMinimum')}
-        </AppText>
-      ) : null}
       <StatusNote tone="danger" message={error} />
-      {amountValid ? null : (
-        <AppText testID="receive-needs-amount" variant="label" tone="muted">
-          {amount.trim() === ''
-            ? t('payment:receive.amountNeeded')
-            : t('payment:receive.amountUnclear', { max: maxText })}
-        </AppText>
-      )}
       <Button
         testID="receive-create"
         variant="filled"
@@ -92,27 +109,6 @@ export function ReceiveForm({
         disabled={!amountValid}
         onPress={onShow}
       />
-      <Button
-        testID="receive-more"
-        variant="text"
-        label={more ? t('payment:receive.less') : t('payment:receive.more')}
-        onPress={() => setMore(!more)}
-      />
-      {more ? (
-        <View className="gap-2">
-          <AppText testID="receive-limits" variant="body" tone="muted">
-            {t('payment:receive.limits', { max: maxText, window: windowText })}
-          </AppText>
-          <AppText variant="label" tone="muted">
-            {t('payment:receive.bondLimit')}
-          </AppText>
-          {minimumText !== undefined ? (
-            <AppText testID="receive-minimum" variant="label" tone="muted">
-              {t('payment:receive.minimum', { amount: minimumText })}
-            </AppText>
-          ) : null}
-        </View>
-      ) : null}
     </>
   )
 }

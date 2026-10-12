@@ -5,13 +5,17 @@ import { type ReactNode, useState } from 'react'
 import { Switch, View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { Chip } from '../../components/chip'
+import { Hero } from '../../components/hero'
 import { Screen } from '../../components/screen'
+import { Tile } from '../../components/tile'
+import type { TransportId } from '../../transport/types'
 
 import type { StoredEvent } from '../event/store'
 
 import type { UnfinishedView } from './unfinished'
 
-/** The Pay tab: what can be paid without internet, the way to scan a request, and what was left unfinished. */
+/** The Pay tab: a picture of how the other phone will be found, what can be paid, and the one way to start. */
 export function PayTab({
   ready,
   allowance,
@@ -19,6 +23,7 @@ export function PayTab({
   decimals,
   unfinished,
   credit,
+  medium = 'qr',
   onSetup,
   onScan,
   how,
@@ -39,6 +44,8 @@ export function PayTab({
     selected: StoredEvent | null
     onSelect: (event: StoredEvent | null) => void
   }
+  /** How the other phone is reached, which the picture shows. */
+  medium?: TransportId
   onSetup: () => void
   onScan: () => void
   /** The control that picks the medium, shown above the actions. */
@@ -54,28 +61,35 @@ export function PayTab({
 
   const [discarding, setDiscarding] = useState<string>()
   return (
-    <Screen testID="pay">
-      <AppText variant="headline">{t('payment:pay.title')}</AppText>
+    <Screen testID="pay" steps={{ total: 3, current: 0 }}>
       {ready ? how : null}
       {!ready ? (
-        <View className="gap-4">
-          <AppText variant="body">{t('payment:pay.setup')}</AppText>
+        <View className="items-center gap-6 pt-6">
+          <Hero kind="scan" decorative />
           <Button testID="setup-payments" variant="filled" label={t('payment:pay.setupAction')} onPress={onSetup} />
         </View>
       ) : (
         <>
-          <View className="gap-3">
+          <View className="items-center gap-4 pt-2">
+            <Hero kind={medium === 'qr' ? 'scan' : 'nearby'} decorative size={150} />
             {allowance > 0n ? (
-              <AppText testID="pay-allowance" variant="body">
-                {t('payment:pay.allowance', { amount: formatMoney(allowance, decimals, currentLanguage()), symbol })}
-              </AppText>
+              <View testID="pay-allowance">
+                <Chip
+                  kind="info"
+                  icon="wifi_off"
+                  label={`${formatMoney(allowance, decimals, currentLanguage())} ${symbol}`}
+                />
+              </View>
             ) : (
-              <>
-                <AppText testID="pay-allowance" variant="body">
-                  {t('payment:pay.noAllowance')}
-                </AppText>
-                <Button testID="add-money" variant="tonal" label={t('payment:pay.addMoney')} onPress={onAddMoney} />
-              </>
+              <View testID="pay-allowance" className="w-full">
+                <Tile
+                  testID="add-money"
+                  highlight
+                  icon="add_circle"
+                  title={t('payment:pay.addMoney')}
+                  onPress={onAddMoney}
+                />
+              </View>
             )}
           </View>
           {credit?.events.map((event) => (
@@ -91,31 +105,29 @@ export function PayTab({
               />
             </View>
           ))}
-          <View className="gap-3">
+          <View className="gap-2">
             <Button testID="pay-scan" variant="filled" label={t('payment:pay.scan')} onPress={onScan} />
-            <Button testID="pay-paste" variant="text" label={t('payment:pay.paste')} onPress={onPaste} />
-            {onFarAway ? (
-              <Button testID="pay-far-away" variant="tonal" label={t('remote:title')} onPress={onFarAway} />
-            ) : null}
+            <View className="flex-row justify-center gap-2">
+              <Button testID="pay-paste" variant="text" label={t('payment:pay.paste')} onPress={onPaste} />
+              {onFarAway ? (
+                <Button testID="pay-far-away" variant="text" label={t('remote:title')} onPress={onFarAway} />
+              ) : null}
+            </View>
           </View>
           {unfinished.length > 0 ? (
             <View testID="pay-unfinished" className="gap-3">
               {unfinished.map((row) => {
                 const id = Array.from(row.messageId, (b) => b.toString(16).padStart(2, '0')).join('')
                 return (
-                  <View key={id} className="gap-3 rounded-3xl bg-surface p-5">
-                    <AppText variant="body">
+                  <View key={id} className="gap-3 rounded-3xl border border-outline bg-surface p-5">
+                    <AppText variant="title">
                       {t('payment:pay.unfinished', {
                         amount: formatMoney(row.amount, decimals, currentLanguage()),
                         symbol,
                         code: row.code,
                       })}
                     </AppText>
-                    {row.signed ? (
-                      <AppText variant="body" tone="muted">
-                        {t('payment:pay.notConfirmed')}
-                      </AppText>
-                    ) : null}
+                    {row.signed ? <Chip kind="waiting" label={t('payment:pay.notConfirmed')} /> : null}
                     {discarding === id ? (
                       <>
                         <AppText variant="body" tone="danger">

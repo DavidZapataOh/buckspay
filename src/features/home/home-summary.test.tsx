@@ -43,9 +43,9 @@ beforeEach(() => {
 })
 
 describe('HomeSummary', () => {
-  it('says what the person can pay without internet and offers Pay and Get paid first', async () => {
+  it('shows what the person can pay without internet as one big number and offers Pay and Get paid first', async () => {
     const root = await render(summary(11_440_000n))
-    expect(texts(root).join('\n')).toContain('You can pay up to 11.44 USDC without internet')
+    expect(texts(root)).toEqual(expect.arrayContaining(['11.44', 'USDC', 'Offline']))
     await press(root, 'home-pay')
     await press(root, 'home-receive')
     expect(onPay).toHaveBeenCalledTimes(1)
@@ -54,7 +54,7 @@ describe('HomeSummary', () => {
 
   it('asks to add money, with that as the main action, when there is nothing to pay with', async () => {
     const root = await render(summary(0n))
-    expect(texts(root).join('\n')).toContain('Add money to pay without internet')
+    expect(texts(root)).toEqual(expect.arrayContaining(['0.00', 'Add money']))
     expect(root.findAllByProps({ testID: 'home-pay' })).toHaveLength(0)
     await press(root, 'home-add-money')
     expect(onAdd).toHaveBeenCalledTimes(1)
@@ -70,8 +70,26 @@ describe('HomeSummary', () => {
     expect(onPay).toHaveBeenCalledTimes(1)
   })
 
-  it('says what USDC is, because the person may not know it', async () => {
-    expect(texts(await render(summary(5_000_000n))).join('\n')).toContain('USDC is digital dollars')
+  it('says what USDC is behind an info button, because the person may not know it', async () => {
+    const root = await render(summary(5_000_000n))
+    expect(texts(root).join('\n')).toContain('USDC is digital dollars')
+    expect(root.findAllByProps({ accessibilityLabel: 'More info' }).length).toBeGreaterThan(0)
+  })
+
+  it('says how many payments are on the way, and nothing when none is', async () => {
+    const some = await render(
+      <HomeSummary
+        allowance={5_000_000n}
+        symbol="USDC"
+        decimals={6}
+        settling={2}
+        onPay={onPay}
+        onReceive={onReceive}
+        onAddMoney={onAdd}
+      />,
+    )
+    expect(texts(some).join('\n')).toContain('2 on the way')
+    expect(texts(await render(summary(5_000_000n))).join('\n')).not.toContain('on the way')
   })
 
   it('writes no word of the engineering: no wallet address, reserve, deposit or network name', async () => {

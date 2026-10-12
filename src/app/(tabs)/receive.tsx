@@ -49,8 +49,7 @@ export default function Receive() {
   }
 
   return (
-    <Screen testID="receive">
-      <AppText variant="headline">{t('payment:receive.title')}</AppText>
+    <Screen testID="receive" steps={{ total: 3, current: 0 }}>
       <HowControl
         role="receive"
         offered={flow.how.offered}

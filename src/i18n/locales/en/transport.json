@@ -36,5 +36,6 @@
       "nfc": "Hold the phones together.",
       "nearby": "The other person finds you, no code needed."
     }
-  }
+  },
+  "howTitle": "How"
 }

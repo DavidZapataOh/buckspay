@@ -33,7 +33,11 @@
   "notRegistered": "Sin registrar",
   "home": {
     "addFunds": "Cargar saldo",
-    "locksAndWithdrawals": "Reservas y retiros"
+    "locksAndWithdrawals": "Reservas y retiros",
+    "offline": "Sin internet",
+    "settling_one": "{{count}} en camino",
+    "settling_other": "{{count}} en camino",
+    "settling_many": "{{count}} en camino"
   },
   "qr": {
     "tooSmall": "Esta pantalla es muy pequeña para mostrar el código con nitidez. Prueba otra forma de enviarlo o pega el código.",

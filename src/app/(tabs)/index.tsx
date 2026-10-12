@@ -34,6 +34,7 @@ export default function Home() {
         <>
           <HomeSummary
             allowance={flow.offline.loaded ? flow.offline.allowance() : null}
+            settling={settlement.unsettled?.count ?? 0}
             symbol={BUILD_TOKEN.symbol}
             decimals={BUILD_TOKEN.decimals}
             onPay={() => router.navigate('/pay')}

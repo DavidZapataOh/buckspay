@@ -19,12 +19,26 @@ const kinds: Record<
 }
 
 /** How something stands, in an icon, a tint and a word, so colour is never the only thing that says it. */
-export function Chip({ kind, label }: { kind: keyof typeof kinds; label: string }) {
-  const { container, text, token, icon } = kinds[kind]
+export function Chip({
+  kind,
+  label,
+  icon,
+  testID,
+}: {
+  kind: keyof typeof kinds
+  label: string
+  /** An icon that says it better than the kind's own. */
+  icon?: AndroidSymbol
+  testID?: string
+}) {
+  const { container, text, token, icon: own } = kinds[kind]
   const [color] = useThemeColors(token)
   return (
-    <View className={`self-start flex-row items-center gap-1.5 rounded-full py-1 pl-2 pr-3 ${container}`}>
-      <Icon name={icon} size={18} color={color} />
+    <View
+      testID={testID}
+      className={`self-start flex-row items-center gap-1.5 rounded-full py-1 pl-2 pr-3 ${container}`}
+    >
+      <Icon name={icon ?? own} size={18} color={color} />
       <Text className={`text-sm leading-5 font-medium ${text}`}>{label}</Text>
     </View>
   )

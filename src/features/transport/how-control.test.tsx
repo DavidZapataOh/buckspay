@@ -7,6 +7,7 @@ import { requestNearbyPermissions } from '../../transport/nearby/native'
 import { HowControl } from './how-control'
 
 vi.mock('react-native', () => import('../../test-support/react-native'))
+vi.mock('expo-symbols', () => ({ unstable_getMaterialSymbolSourceAsync: vi.fn(async () => ({ uri: 'icon.png' })) }))
 vi.mock('../../transport/nearby/native', () => ({ requestNearbyPermissions: vi.fn(async () => {}) }))
 vi.mock('uniwind', () => ({
   useCSSVariable: (name: string | string[]) => (Array.isArray(name) ? name.map(() => '#000000') : '#000000'),

@@ -24,6 +24,7 @@ export default function Pay() {
       allowance={flow.offline.allowance()}
       symbol={BUILD_TOKEN.symbol}
       decimals={BUILD_TOKEN.decimals}
+      medium={flow.how.chosen}
       unfinished={flow.unfinished.map(unfinishedView)}
       credit={{ events: flow.events, selected: flow.creditEvent, onSelect: flow.setCreditEvent }}
       how={
