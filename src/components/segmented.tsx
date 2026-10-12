@@ -5,7 +5,7 @@ import { useThemeColors } from '../theme/use-theme-colors'
 import { AppText } from './app-text'
 import { Icon } from './icon'
 
-export type SegmentOption<T extends string> = { id: T; label: string; icon?: AndroidSymbol }
+export type SegmentOption<T extends string> = { id: T; label: string; icon?: AndroidSymbol; testID?: string }
 
 /** A few options side by side, the chosen one filled: a tap picks it and answers with a tick. */
 export function Segmented<T extends string>({
@@ -27,6 +27,7 @@ export function Segmented<T extends string>({
         return (
           <Pressable
             key={option.id}
+            testID={option.testID}
             accessibilityRole="radio"
             accessibilityLabel={option.label}
             accessibilityState={{ selected }}
