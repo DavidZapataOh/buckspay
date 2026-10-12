@@ -80,7 +80,9 @@ export function PayTab({
           </View>
           {credit?.events.map((event) => (
             <View key={event.name + event.endsAt} className="min-h-14 flex-row items-center justify-between gap-4">
-              <AppText variant="body">{t('event:creditFor', { event: event.name })}</AppText>
+              <View className="flex-1">
+                <AppText variant="body">{t('event:creditFor', { event: event.name })}</AppText>
+              </View>
               <Switch
                 testID="pay-event-credit"
                 accessibilityLabel={t('event:creditFor', { event: event.name })}

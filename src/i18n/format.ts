@@ -50,11 +50,20 @@ const dateTime = (language: Language, options: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat(NUMBER_LOCALE[language], options)
 
 export function formatDateTime(epochSeconds: number, language: Language, timeZone?: string): string {
-  return dateTime(language, { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(new Date(epochSeconds * 1000))
+  return dateTime(language, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone,
+  }).format(new Date(epochSeconds * 1000))
 }
 
 export function formatDate(epochSeconds: number, language: Language, timeZone?: string): string {
-  return dateTime(language, { dateStyle: 'medium', timeZone }).format(new Date(epochSeconds * 1000))
+  return dateTime(language, { day: 'numeric', month: 'short', year: 'numeric', timeZone }).format(
+    new Date(epochSeconds * 1000),
+  )
 }
 
 /** Time left as `m:ss`. */

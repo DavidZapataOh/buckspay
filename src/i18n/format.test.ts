@@ -90,13 +90,26 @@ describe('what the old helpers already guaranteed', () => {
 describe('dates', () => {
   it('follow the language, not the phone', () => {
     const at = 1_800_000_000
-    const options = { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' } as const
+    const options = {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'UTC',
+    } as const
     expect(formatDateTime(at, 'es', 'UTC')).toBe(new Intl.DateTimeFormat('es-CO', options).format(new Date(at * 1000)))
     expect(formatDateTime(at, 'pt', 'UTC')).toBe(new Intl.DateTimeFormat('pt-BR', options).format(new Date(at * 1000)))
     expect(formatDateTime(at, 'es', 'UTC')).not.toBe(formatDateTime(at, 'en', 'UTC'))
     expect(formatDate(at, 'en', 'UTC')).toBe(
-      new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(at * 1000)),
+      new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(
+        new Date(at * 1000),
+      ),
     )
+    for (const language of ['en', 'es', 'pt'] as const) {
+      expect(formatDate(at, language, 'UTC'), language).toMatch(/\p{L}{3,}/u)
+      expect(formatDate(at, language, 'UTC'), language).not.toContain('/')
+    }
   })
 })
 

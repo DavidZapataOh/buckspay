@@ -24,3 +24,11 @@ describe.each(Object.keys(resources) as (keyof typeof resources)[])('the buttons
     }
   })
 })
+
+describe.each(Object.keys(resources) as (keyof typeof resources)[])('the tab names in %s', (language) => {
+  it('fit in 10 characters, so the bar shows them whole', () => {
+    for (const [name, text] of Object.entries(resources[language].common.tabs)) {
+      expect(text.length, name).toBeLessThanOrEqual(10)
+    }
+  })
+})

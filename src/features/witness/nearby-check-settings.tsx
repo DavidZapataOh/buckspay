@@ -29,7 +29,9 @@ function SwitchRow({
 }) {
   return (
     <View className="min-h-14 flex-row items-center justify-between">
-      <AppText variant="body">{label}</AppText>
+      <View className="flex-1 pr-4">
+        <AppText variant="body">{label}</AppText>
+      </View>
       <Switch testID={testID} accessibilityLabel={label} value={value} onValueChange={onChange} />
     </View>
   )

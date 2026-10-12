@@ -59,7 +59,9 @@ export function ReceiveForm({
       />
       <TextField testID="receive-memo" label={t('payment:receive.memo')} value={memo} onChangeText={onMemoChange} />
       <View className="min-h-14 flex-row items-center justify-between gap-4">
-        <AppText variant="body">{t('payment:receive.passOn')}</AppText>
+        <View className="flex-1">
+          <AppText variant="body">{t('payment:receive.passOn')}</AppText>
+        </View>
         <Switch
           testID="receive-pass-on"
           accessibilityLabel={t('payment:receive.passOn')}
