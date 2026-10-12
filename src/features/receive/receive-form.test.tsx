@@ -58,6 +58,14 @@ describe('ReceiveForm', () => {
     expect(on.findAllByProps({ testID: 'receive-create' })[0].props.disabled).toBe(false)
   })
 
+  it('says what is wrong with an amount that was typed and is not accepted', async () => {
+    const root = await render(<ReceiveForm {...base} amount="1.000" />)
+    const shown = texts(root).join('\n')
+    expect(shown).toContain('Check the amount')
+    expect(shown).toContain('100.00 USDC')
+    expect(shown).not.toContain('Enter an amount')
+  })
+
   it('keeps the limits out of sight until the person asks, and shows no counter of bytes', async () => {
     const root = await render(<ReceiveForm {...base} />)
     expect(texts(root).join('\n')).not.toMatch(/bytes|bond|settle|server|\/ 48/i)

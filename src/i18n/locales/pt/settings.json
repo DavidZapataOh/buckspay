@@ -18,5 +18,6 @@
   "sections": {
     "wallet": "Carteira",
     "advanced": "Avançado"
-  }
+  },
+  "certificates_many": "Cadeia de {{count}} certificados"
 }

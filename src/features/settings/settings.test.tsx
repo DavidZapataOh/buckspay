@@ -174,7 +174,7 @@ describe('Settings', () => {
       const root = await mount({ tipping: t })
       expect(tipSwitch(root).props.value).toBe(false)
       expect(tipSwitch(root).props.disabled).toBe(true)
-      expect(texts(root)).toContain('Tipping needs a security deposit of at least 32 USDC.')
+      expect(texts(root)).toContain('Tipping needs a security deposit of at least 32.00 USDC.')
     })
 
     it('does not show the section without a tipping setting', async () => {

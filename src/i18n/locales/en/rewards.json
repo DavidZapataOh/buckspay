@@ -4,7 +4,7 @@
   "loading": "Loading rewards…",
   "empty": "Nothing yet. When you hand a nearby payment in and it's credited, the fee shows up here.",
   "trust": "Tips are paid on trust. The network checks that a tip is real, not that you carried the payment: the payer and the service that credits it decide. Only the phone that hands the payment in gets the tip; phones that pass it along get nothing.",
-  "waiting": "Delivered a payment · fee {{amount}} {{symbol}}, waiting to be paid",
+  "waiting": "Delivered a payment · fee {{amount}} {{symbol}}, not paid yet",
   "ready": "Ready to claim · {{amount}} {{symbol}}",
   "claiming": "Claiming to a new address",
   "claimed": "Claimed · {{amount}} {{symbol}} to a new address",
@@ -32,12 +32,12 @@
   "working": "Working",
   "summary": {
     "ready": "{{amount}} {{symbol}} ready to claim",
-    "waiting": "{{amount}} {{symbol}} waiting to be paid",
+    "waiting": "{{amount}} {{symbol}} not paid yet",
     "none": "No rewards yet"
   },
   "tipSwitch": "Tip people who carry my payments",
   "tipAmount": "{{amount}} {{symbol}} per delivered payment",
-  "tipNeedsBond": "Tipping needs a security deposit of at least 32 USDC.",
+  "tipNeedsBond": "Tipping needs a security deposit of at least {{amount}}.",
   "tipReview": "Delivery tip · up to {{amount}} {{symbol}}, paid only if your payment is credited",
   "tipSection": "Tips",
   "notification": {
@@ -51,6 +51,8 @@
     "saveTipping": "Couldn’t save the tipping setting. Try again.",
     "moveRefused": "The server refused to move the rewards: {{reason}}.",
     "moveBusy": "The server is busy. Try again in about {{minutes}} minutes.",
-    "moveNoJob": "The server didn’t say which job to watch. Try again."
+    "moveNoJob": "The server didn’t say which job to watch. Try again.",
+    "movePending": "The move is still pending. Look again in a few minutes.",
+    "moveNothing": "There is nothing to move yet."
   }
 }

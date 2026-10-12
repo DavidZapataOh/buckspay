@@ -80,7 +80,9 @@ export function ReceiveForm({
       <StatusNote tone="danger" message={error} />
       {amountValid ? null : (
         <AppText testID="receive-needs-amount" variant="label" tone="muted">
-          {t('payment:receive.amountNeeded')}
+          {amount.trim() === ''
+            ? t('payment:receive.amountNeeded')
+            : t('payment:receive.amountUnclear', { max: maxText })}
         </AppText>
       )}
       <Button

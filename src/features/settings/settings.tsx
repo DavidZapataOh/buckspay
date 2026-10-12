@@ -189,7 +189,9 @@ function TipRow({ on, wordValue, bond, symbol, decimals, onToggle }: TippingSett
           <AppText variant="label" tone="muted">
             {covered
               ? t('rewards:tipAmount', { amount: formatMoney(wordValue, decimals, currentLanguage()), symbol })
-              : t('rewards:tipNeedsBond')}
+              : t('rewards:tipNeedsBond', {
+                  amount: formatMoney(MIN_TIP_BOND, decimals, currentLanguage()) + ' ' + symbol,
+                })}
           </AppText>
         </View>
         <Switch

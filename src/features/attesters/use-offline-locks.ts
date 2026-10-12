@@ -53,6 +53,7 @@ export function useOfflineLocks() {
   }, [key, onChain])
   const active = onChain ?? remembered
 
+  const [loaded, setLoaded] = useState(false)
   const snapshot = useCallback(async () => {
     if (!key || !db) return undefined
     const cursorsOf = await Promise.all(active.map(async (seq) => [seq, await nextCumEnd(db, key, seq)] as const))
@@ -73,6 +74,7 @@ export function useOfflineLocks() {
       if (!current || !stored) return
       setTickets(stored.tickets)
       setCursors(stored.cursors)
+      setLoaded(true)
     })
     return () => {
       current = false
@@ -112,6 +114,7 @@ export function useOfflineLocks() {
 
   return {
     locks,
+    loaded,
     refused,
     allowance: () => allowance(locks, nowSeconds()),
     /** Reads the locks and the tickets again, after a payment, a new lock or a refresh. */

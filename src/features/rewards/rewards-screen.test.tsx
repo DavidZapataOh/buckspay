@@ -41,7 +41,7 @@ describe('RewardsScreen', () => {
     const r = await mount(<RewardsScreen {...base} rows={mixed} onClaim={vi.fn()} onMove={vi.fn()} />)
     const all = shown(r)
     expect(all).toContain('Ready to claim · 0.98 USDC')
-    expect(all).toContain('Delivered a payment · fee 0.49 USDC, waiting to be paid')
+    expect(all).toContain('Delivered a payment · fee 0.49 USDC, not paid yet')
     expect(all).toContain('Claiming to a new address')
     expect(all).toContain('Claimed · 0.49 USDC to a new address')
     expect(all).toContain('Not paid: the payment was not delivered')

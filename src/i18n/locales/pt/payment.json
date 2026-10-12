@@ -56,7 +56,8 @@
     "promptTitle": "Confirmar pagamento",
     "promptSubtitle": "Pagar {{amount}} {{symbol}} ao celular {{code}}",
     "hops_one": "Pode ser usado de novo mais 1 vez",
-    "hops_other": "Pode ser usado de novo mais {{count}} vezes"
+    "hops_other": "Pode ser usado de novo mais {{count}} vezes",
+    "hops_many": "Pode ser usado de novo mais {{count}} vezes"
   },
   "refusal": {
     "UnknownMint": {
@@ -81,7 +82,7 @@
     },
     "AlreadyPaid": {
       "text": "Você já pagou esta cobrança.",
-      "action": "Movimentações"
+      "action": "Histórico"
     },
     "NoLock": {
       "text": "Você não tem saldo sem internet nesta moeda. Adicione saldo quando tiver conexão.",
@@ -114,7 +115,7 @@
     "waiting": "Esperando o outro celular…",
     "unconfirmed": "O outro celular não confirmou, mas o pagamento pode ter chegado: confira esse celular antes de tentar de novo. Esse dinheiro fica em espera até ser confirmado ou descartado.",
     "waitAgain": "Esperar de novo",
-    "keepUp": "Deixe esta tela aberta até o outro celular dizer Recebido.",
+    "keepUp": "Deixe esta tela aberta até o outro celular dizer que recebeu o pagamento.",
     "scanReceipt": "Escanear confirmação",
     "done": "Concluir",
     "confirmed": "Você pagou {{amount}} {{symbol}}. O outro celular confirmou.",
@@ -133,7 +134,7 @@
     "NoKey": "Este celular não pode fazer pagamentos agora. Você pode redefinir a identidade dele, mas perderá os pagamentos que ainda não foram creditados a você.",
     "SignFailed": "Não foi possível concluir o pagamento. Toque em Continuar para tentar de novo.",
     "SendFailed": "Não foi possível mostrar o pagamento. Toque em Continuar.",
-    "IntervalTaken": "Este pagamento já está em andamento. Espere um momento e confira em Movimentações.",
+    "IntervalTaken": "Este pagamento já está em andamento. Espere um momento e confira o Histórico.",
     "Mismatch": "Algo deu errado com este pagamento. Ele não foi enviado: tente de novo ou peça uma nova cobrança."
   },
   "receive": {
@@ -181,7 +182,8 @@
     "passOnHelp": "Use para pagar outra pessoa, mesmo sem internet. Se não usar, é creditado na sua carteira em até um dia.",
     "amountNeeded": "Digite um valor",
     "more": "Mais informações",
-    "less": "Menos informações"
+    "less": "Menos informações",
+    "amountUnclear": "Confira o valor. Escreva os centavos depois de uma vírgula ou de um ponto, como 1,50, até {{max}}."
   },
   "reason": {
     "1": "Não foi possível ler este pagamento. Peça a quem paga que mostre de novo.",
@@ -208,7 +210,7 @@
       "already": "Esta perda já foi informada.",
       "late": "Informada tarde demais: nada foi destruído. Você não é reembolsado."
     },
-    "title": "Movimentações",
+    "title": "Histórico",
     "empty": "Ainda não há pagamentos.",
     "paid": "Você pagou {{amount}} {{symbol}} · celular {{code}} · {{status}}",
     "received": "Você recebeu {{amount}} {{symbol}} · {{status}}",
@@ -258,7 +260,7 @@
       "network_limit": "Esta rede chegou ao limite de pagamentos do dia ou do mês.",
       "key_limit": "Quem paga chegou ao limite de pagamentos que podem ser creditados no dia ou no mês.",
       "lock_limit": "A reserva de quem paga chegou ao limite de créditos de hoje.",
-      "too many requests": "Este celular pediu coisas demais ao servidor."
+      "too many requests": "Este celular fez pedidos demais ao servidor."
     },
     "serverMinimum": "Este pagamento é menor que o valor mínimo que o servidor credita.",
     "stalledSign": "Este celular não conseguiu concluir o crédito. Desbloqueie-o e toque em Creditar agora.",
@@ -295,7 +297,8 @@
     "noticeSettle": "Creditar",
     "noticeWait": "Esperar",
     "waiting_one": "1 pagamento espera para ser creditado. Faça isso antes de {{date}}.",
-    "waiting_other": "{{count}} pagamentos esperam para ser creditados. Faça isso antes de {{date}}."
+    "waiting_other": "{{count}} pagamentos esperam para ser creditados. Faça isso antes de {{date}}.",
+    "waiting_many": "{{count}} pagamentos esperam para ser creditados. Faça isso antes de {{date}}."
   },
   "reset": {
     "title": "Redefinir a identidade deste celular?",
@@ -311,7 +314,8 @@
     "done": "Este celular tem uma nova identidade.",
     "count_one": "1 pagamento, {{amount}} {{symbol}}",
     "count_other": "{{count}} pagamentos, {{amount}} {{symbol}}",
-    "failed": "Não foi possível redefinir este celular. Tente de novo."
+    "failed": "Não foi possível redefinir este celular. Tente de novo.",
+    "count_many": "{{count}} pagamentos, {{amount}} {{symbol}}"
   },
   "settings": {
     "limits": "Limites",

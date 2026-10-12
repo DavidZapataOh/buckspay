@@ -6,7 +6,7 @@
     "addMoney": "Cargar saldo",
     "scan": "Escanear para pagar",
     "paste": "Pegar un cobro",
-    "unfinished": "Pago sin terminar: {{amount}} {{symbol}} al celular {{code}}. Quedó antes de que el otro celular lo confirmara.",
+    "unfinished": "Pago sin terminar: {{amount}} {{symbol}} al celular {{code}}. Quedó pendiente antes de que el otro celular lo confirmara.",
     "resume": "Continuar",
     "discard": "Descartar",
     "discardWarning": "Esa parte de tu saldo sin internet puede quedar en espera.",
@@ -56,7 +56,8 @@
     "promptTitle": "Confirmar pago",
     "promptSubtitle": "Pagar {{amount}} {{symbol}} al celular {{code}}",
     "hops_one": "Se puede volver a usar 1 vez más",
-    "hops_other": "Se puede volver a usar {{count}} veces más"
+    "hops_other": "Se puede volver a usar {{count}} veces más",
+    "hops_many": "Se puede volver a usar {{count}} veces más"
   },
   "refusal": {
     "UnknownMint": {
@@ -81,7 +82,7 @@
     },
     "AlreadyPaid": {
       "text": "Ya pagaste este cobro.",
-      "action": "Movimientos"
+      "action": "Historial"
     },
     "NoLock": {
       "text": "No tienes saldo sin internet en esta moneda. Carga saldo cuando tengas conexión.",
@@ -114,7 +115,7 @@
     "waiting": "Esperando al otro celular…",
     "unconfirmed": "El otro celular no ha confirmado, pero el pago pudo haberle llegado: revisa ese celular antes de intentarlo de nuevo. Ese dinero queda en espera hasta que se confirme o se descarte.",
     "waitAgain": "Esperar de nuevo",
-    "keepUp": "Mantén esta pantalla hasta que el otro celular diga Recibido.",
+    "keepUp": "Mantén esta pantalla hasta que el otro celular diga que recibió el pago.",
     "scanReceipt": "Escanear confirmación",
     "done": "Listo",
     "confirmed": "Pagaste {{amount}} {{symbol}}. El otro celular lo confirmó.",
@@ -133,7 +134,7 @@
     "NoKey": "Este celular no puede hacer pagos ahora. Puedes restablecer su identidad, pero perderás los pagos que aún no te hayan acreditado.",
     "SignFailed": "No se pudo completar el pago. Toca Continuar para intentarlo de nuevo.",
     "SendFailed": "No se pudo mostrar el pago. Toca Continuar.",
-    "IntervalTaken": "Este pago ya está en curso. Espera un momento y revisa Movimientos.",
+    "IntervalTaken": "Este pago ya está en curso. Espera un momento y revisa el Historial.",
     "Mismatch": "Algo salió mal con este pago. No se envió: inténtalo de nuevo o pide un cobro nuevo."
   },
   "receive": {
@@ -169,7 +170,7 @@
     "received": "Recibiste {{amount}} {{symbol}}",
     "receivedSpoken": "Recibiste {{amount}} {{symbol}}.",
     "yours": "Ya es tuyo. Se acreditará en tu billetera cuando este celular tenga internet.",
-    "yoursPassOn": "Ya es tuyo. Puedes usarlo en tu próximo pago; si no, se acredita en tu billetera en un día.",
+    "yoursPassOn": "Ya es tuyo. Puedes usarlo en tu próximo pago; si no, se acredita en tu billetera como máximo en un día.",
     "bondNote": "Si quien paga gasta este dinero dos veces, su depósito de seguridad se destruye. Si desinstalas la app, pierdes los pagos que aún no te hayan acreditado.",
     "differs": "Pediste {{asked}} {{symbol}}; llegaron {{got}} {{symbol}}.",
     "already": "Ya lo habías recibido. No se sumó dos veces.",
@@ -178,10 +179,11 @@
     "done": "Listo",
     "notReceived": "No se recibió.",
     "tryAgain": "Intentar de nuevo",
-    "passOnHelp": "Úsalo para pagar a otra persona, incluso sin internet. Si no, se acredita en tu billetera en un día.",
+    "passOnHelp": "Úsalo para pagar a otra persona, incluso sin internet. Si no, se acredita en tu billetera como máximo en un día.",
     "amountNeeded": "Escribe un monto",
     "more": "Más información",
-    "less": "Menos información"
+    "less": "Menos información",
+    "amountUnclear": "Revisa el monto. Escribe los centavos después de una coma o un punto, como 1,50, hasta {{max}}."
   },
   "reason": {
     "1": "No se pudo leer este pago. Pide a quien paga que lo muestre de nuevo.",
@@ -208,7 +210,7 @@
       "already": "Esta pérdida ya se había reportado.",
       "late": "Se reportó muy tarde: no se destruyó nada. No se te devuelve el dinero."
     },
-    "title": "Movimientos",
+    "title": "Historial",
     "empty": "Aún no hay pagos.",
     "paid": "Pagaste {{amount}} {{symbol}} · celular {{code}} · {{status}}",
     "received": "Recibiste {{amount}} {{symbol}} · {{status}}",
@@ -295,7 +297,8 @@
     "noticeSettle": "Acreditar",
     "noticeWait": "Esperar",
     "waiting_one": "1 pago espera ser acreditado. Hazlo antes del {{date}}.",
-    "waiting_other": "{{count}} pagos esperan ser acreditados. Hazlo antes del {{date}}."
+    "waiting_other": "{{count}} pagos esperan ser acreditados. Hazlo antes del {{date}}.",
+    "waiting_many": "{{count}} pagos esperan ser acreditados. Hazlo antes del {{date}}."
   },
   "reset": {
     "title": "¿Restablecer la identidad de este celular?",
@@ -311,7 +314,8 @@
     "done": "Este celular tiene una identidad nueva.",
     "count_one": "1 pago, {{amount}} {{symbol}}",
     "count_other": "{{count}} pagos, {{amount}} {{symbol}}",
-    "failed": "No se pudo restablecer este celular. Inténtalo de nuevo."
+    "failed": "No se pudo restablecer este celular. Inténtalo de nuevo.",
+    "count_many": "{{count}} pagos, {{amount}} {{symbol}}"
   },
   "settings": {
     "limits": "Límites",

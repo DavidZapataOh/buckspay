@@ -5,7 +5,10 @@
     "minute_one": "{{count}} minuto",
     "minute_other": "{{count}} minutos",
     "second_one": "{{count}} segundo",
-    "second_other": "{{count}} segundos"
+    "second_other": "{{count}} segundos",
+    "hour_many": "{{count}} horas",
+    "minute_many": "{{count}} minutos",
+    "second_many": "{{count}} segundos"
   },
   "tabs": {
     "home": "Inicio",

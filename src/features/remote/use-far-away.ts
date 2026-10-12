@@ -138,11 +138,14 @@ export function useFarAway() {
     return planned?.ok ? planned.plan.review.expiry + GRACE : nowSeconds() + REMOTE_MIN_WINDOW + GRACE
   }
 
+  const money = (units: bigint) =>
+    `${formatMoney(units, BUILD_TOKEN.decimals, currentLanguage())} ${BUILD_TOKEN.symbol}`
+
   const refusalLine = (reason: PlanRefusal, amount: bigint) =>
     t(`payment:refusal.${reason}.text`, {
-      max: formatMoney(PAY_LIMITS.maxPayment, BUILD_TOKEN.decimals, currentLanguage()),
-      amount: formatMoney(amount, BUILD_TOKEN.decimals, currentLanguage()),
-      allowance: formatMoney(offline.allowance(), BUILD_TOKEN.decimals, currentLanguage()),
+      max: money(PAY_LIMITS.maxPayment),
+      amount: money(amount),
+      allowance: money(offline.allowance()),
     })
 
   async function pay(contact: Contact, amount: bigint): Promise<RemoteOutcome | undefined> {

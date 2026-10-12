@@ -4,7 +4,7 @@
   "loading": "Cargando recompensas…",
   "empty": "Aún no hay nada. Cuando entregues un pago cercano y se acredite, la comisión aparece aquí.",
   "trust": "Las propinas se pagan por confianza. La red comprueba que una propina es real, no que tú llevaste el pago: lo deciden quien paga y el servicio que lo acredita. Solo recibe la propina el celular que entrega el pago; los celulares que lo reenvían no reciben nada.",
-  "waiting": "Entregaste un pago · comisión {{amount}} {{symbol}}, esperando el pago",
+  "waiting": "Entregaste un pago · comisión {{amount}} {{symbol}}, pendiente de pago",
   "ready": "Lista para reclamar · {{amount}} {{symbol}}",
   "claiming": "Reclamando a una dirección nueva",
   "claimed": "Reclamada · {{amount}} {{symbol}} a una dirección nueva",
@@ -32,12 +32,12 @@
   "working": "Procesando",
   "summary": {
     "ready": "{{amount}} {{symbol}} listos para reclamar",
-    "waiting": "{{amount}} {{symbol}} esperando el pago",
+    "waiting": "{{amount}} {{symbol}} pendientes de pago",
     "none": "Aún no hay recompensas"
   },
   "tipSwitch": "Dar propina a quienes llevan mis pagos",
   "tipAmount": "{{amount}} {{symbol}} por pago entregado",
-  "tipNeedsBond": "Dar propina requiere un depósito de seguridad de al menos 32 USDC.",
+  "tipNeedsBond": "Dar propina requiere un depósito de seguridad de al menos {{amount}}.",
   "tipReview": "Propina de entrega · hasta {{amount}} {{symbol}}, se paga solo si tu pago se acredita",
   "tipSection": "Propinas",
   "notification": {
@@ -51,6 +51,8 @@
     "saveTipping": "No se pudo guardar el ajuste de propinas. Inténtalo de nuevo.",
     "moveRefused": "El servidor rechazó pasar las recompensas: {{reason}}.",
     "moveBusy": "El servidor está ocupado. Inténtalo de nuevo en unos {{minutes}} minutos.",
-    "moveNoJob": "El servidor no dijo qué tarea seguir. Inténtalo de nuevo."
+    "moveNoJob": "El servidor no dijo qué tarea seguir. Inténtalo de nuevo.",
+    "movePending": "El traspaso sigue pendiente. Vuelve a mirar en unos minutos.",
+    "moveNothing": "Todavía no hay nada que pasar."
   }
 }

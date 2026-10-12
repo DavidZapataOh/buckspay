@@ -90,13 +90,13 @@ describe('moving the rewards', () => {
 
   it('leaves dust that does not cover the fee where it is', async () => {
     const { deps, submitSweep } = await setup([20_000n])
-    await expect(moveRewards(deps)).rejects.toThrow('Nothing to move yet.')
+    await expect(moveRewards(deps)).rejects.toThrow('There is nothing to move yet.')
     expect(submitSweep).not.toHaveBeenCalled()
   })
 
   it('says nothing is waiting when no address holds a balance', async () => {
     const { deps } = await setup([0n])
-    await expect(moveRewards(deps)).rejects.toThrow('Nothing to move yet.')
+    await expect(moveRewards(deps)).rejects.toThrow('There is nothing to move yet.')
   })
 
   it('waits for a sweep the gateway accepted until it settles', async () => {

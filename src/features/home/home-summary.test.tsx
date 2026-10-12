@@ -53,13 +53,21 @@ describe('HomeSummary', () => {
   })
 
   it('asks to add money, with that as the main action, when there is nothing to pay with', async () => {
-    for (const allowance of [0n, null]) {
-      const root = await render(summary(allowance))
-      expect(texts(root).join('\n')).toContain('Add money to pay without internet')
-      expect(root.findAllByProps({ testID: 'home-pay' })).toHaveLength(0)
-      await press(root, 'home-add-money')
-    }
-    expect(onAdd).toHaveBeenCalledTimes(2)
+    const root = await render(summary(0n))
+    expect(texts(root).join('\n')).toContain('Add money to pay without internet')
+    expect(root.findAllByProps({ testID: 'home-pay' })).toHaveLength(0)
+    await press(root, 'home-add-money')
+    expect(onAdd).toHaveBeenCalledTimes(1)
+  })
+
+  it('claims nothing and moves no button while it does not know yet what the person has', async () => {
+    const root = await render(summary(null))
+    const shown = texts(root).join('\n')
+    expect(shown).toContain('Checking…')
+    expect(shown).not.toContain('Add money')
+    expect(root.findAllByProps({ testID: 'home-add-money' })).toHaveLength(0)
+    await press(root, 'home-pay')
+    expect(onPay).toHaveBeenCalledTimes(1)
   })
 
   it('says what USDC is, because the person may not know it', async () => {

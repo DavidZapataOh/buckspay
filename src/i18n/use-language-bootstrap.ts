@@ -6,8 +6,13 @@ import { initLanguage } from '.'
 export function useLanguageBootstrap(): boolean {
   const [ready, setReady] = useState(false)
   useEffect(() => {
-    void initLanguage().finally(() => setReady(true))
-    const state = AppState.addEventListener('change', (status) => status === 'active' && void initLanguage())
+    initLanguage()
+      .catch(() => {})
+      .finally(() => setReady(true))
+    const state = AppState.addEventListener(
+      'change',
+      (status) => status === 'active' && void initLanguage().catch(() => {}),
+    )
     return () => state.remove()
   }, [])
   return ready

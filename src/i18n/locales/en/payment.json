@@ -81,7 +81,7 @@
     },
     "AlreadyPaid": {
       "text": "You already paid this request.",
-      "action": "Activity"
+      "action": "History"
     },
     "NoLock": {
       "text": "You have no offline balance in this currency. Add money while you're online.",
@@ -133,7 +133,7 @@
     "NoKey": "This phone can't make payments right now. You can reset its identity, but payments not yet credited to you are lost.",
     "SignFailed": "Couldn't complete the payment. Tap Resume to try again.",
     "SendFailed": "Couldn't show the payment. Tap Resume.",
-    "IntervalTaken": "This payment is already in progress. Wait a moment, then check Activity.",
+    "IntervalTaken": "This payment is already in progress. Wait a moment, then check History.",
     "Mismatch": "Something went wrong with this payment. It wasn't sent: try again, or ask for a new request."
   },
   "receive": {
@@ -181,7 +181,8 @@
     "passOnHelp": "Use it to pay someone else, even offline. If you don't, it's credited to your wallet within a day.",
     "amountNeeded": "Enter an amount",
     "more": "More information",
-    "less": "Less information"
+    "less": "Less information",
+    "amountUnclear": "Check the amount. Write cents after a comma or a point, like 1.50, up to {{max}}."
   },
   "reason": {
     "1": "Couldn't read this payment. Ask the payer to show it again.",
@@ -208,7 +209,7 @@
       "already": "This loss was already reported.",
       "late": "Reported too late: nothing was destroyed. You are not repaid."
     },
-    "title": "Activity",
+    "title": "History",
     "empty": "No payments yet.",
     "paid": "Paid {{amount}} {{symbol}} · phone {{code}} · {{status}}",
     "received": "Received {{amount}} {{symbol}} · {{status}}",

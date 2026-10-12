@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { PluralRules } from './plural-rules'
 import { resources } from './resources'
 
 type Tree = { [key: string]: string | Tree }
@@ -44,6 +45,17 @@ describe.each(areas)('the catalog "%s"', (area) => {
           other.some(([k]) => k === `${key}_other`),
           key,
         ).toBe(true)
+    })
+
+    it.skipIf(!present)('has a form for every plural category the language has', () => {
+      const categories = new PluralRules(language).resolvedOptions().pluralCategories
+      const plurals = new Set(other.filter(([key]) => PLURAL.test(key)).map(([key]) => base(key)))
+      for (const key of plurals)
+        for (const category of categories)
+          expect(
+            other.some(([k]) => k === `${key}_${category}`),
+            `${key}_${category}`,
+          ).toBe(true)
     })
 
     it.skipIf(!present)('has the same placeholders as the English text, in every form', () => {

@@ -77,7 +77,7 @@ async function settle(answer: JobAnswer, deps: MoveDeps): Promise<void> {
     await sleep(POLL_MS)
     current = await deps.gateway.claimStatus(job)
   }
-  throw new Error('The move is still pending. Look again in a few minutes.')
+  throw new Error(i18n.t('rewards:problem.movePending'))
 }
 
 /**
@@ -124,6 +124,6 @@ export async function moveRewards(deps: MoveDeps): Promise<{ moved: number; amou
   }
   if (failures.length > 0)
     throw new Error(failures.length === 1 ? failures[0] : `${failures[0]} (${failures.length} moves failed.)`)
-  if (moved === 0) throw new Error('Nothing to move yet.')
+  if (moved === 0) throw new Error(i18n.t('rewards:problem.moveNothing'))
   return { moved, amount }
 }

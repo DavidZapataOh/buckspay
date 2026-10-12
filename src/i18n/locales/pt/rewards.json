@@ -4,7 +4,7 @@
   "loading": "Carregando recompensas…",
   "empty": "Nada ainda. Quando você entregar um pagamento por perto e ele for creditado, a taxa aparece aqui.",
   "trust": "As gorjetas são pagas na confiança. A rede confere que a gorjeta é real, não que você levou o pagamento: quem paga e o serviço que credita decidem. Só o celular que entrega o pagamento recebe a gorjeta; os celulares que apenas repassam não recebem nada.",
-  "waiting": "Você entregou um pagamento · taxa {{amount}} {{symbol}}, esperando o pagamento",
+  "waiting": "Você entregou um pagamento · taxa {{amount}} {{symbol}}, ainda não paga",
   "ready": "Pronta para resgatar · {{amount}} {{symbol}}",
   "claiming": "Resgatando para um novo endereço",
   "claimed": "Resgatada · {{amount}} {{symbol}} para um novo endereço",
@@ -32,12 +32,12 @@
   "working": "Processando",
   "summary": {
     "ready": "{{amount}} {{symbol}} prontos para resgatar",
-    "waiting": "{{amount}} {{symbol}} esperando o pagamento",
+    "waiting": "{{amount}} {{symbol}} ainda não pagos",
     "none": "Ainda não há recompensas"
   },
   "tipSwitch": "Dar gorjeta a quem leva meus pagamentos",
   "tipAmount": "{{amount}} {{symbol}} por pagamento entregue",
-  "tipNeedsBond": "Dar gorjeta exige um depósito de segurança de pelo menos 32 USDC.",
+  "tipNeedsBond": "Dar gorjeta exige um depósito de segurança de pelo menos {{amount}}.",
   "tipReview": "Gorjeta de entrega · até {{amount}} {{symbol}}, paga só se o seu pagamento for creditado",
   "tipSection": "Gorjetas",
   "notification": {
@@ -51,6 +51,8 @@
     "saveTipping": "Não foi possível salvar o ajuste de gorjetas. Tente de novo.",
     "moveRefused": "O servidor recusou passar as recompensas: {{reason}}.",
     "moveBusy": "O servidor está ocupado. Tente de novo em cerca de {{minutes}} minutos.",
-    "moveNoJob": "O servidor não disse qual tarefa acompanhar. Tente de novo."
+    "moveNoJob": "O servidor não disse qual tarefa acompanhar. Tente de novo.",
+    "movePending": "A transferência ainda está pendente. Confira de novo em alguns minutos.",
+    "moveNothing": "Ainda não há nada para passar."
   }
 }

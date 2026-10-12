@@ -17,5 +17,7 @@
   "warnings_one": "Avisos recibidos: {{count}}",
   "warnings_other": "Avisos recibidos: {{count}}",
   "passedOn_one": "Pagos entregados: {{count}}",
-  "passedOn_other": "Pagos entregados: {{count}}"
+  "passedOn_other": "Pagos entregados: {{count}}",
+  "warnings_many": "Avisos recibidos: {{count}}",
+  "passedOn_many": "Pagos entregados: {{count}}"
 }
