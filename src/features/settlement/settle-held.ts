@@ -71,6 +71,15 @@ export type SettlementDeps = {
    * the intermediaries stay off the chain. Without it, or when the person chose to settle in the clear,
    * the clear route and its notice apply.
    */
+  selfPay?: {
+    /** Whether the person asked to settle this note with their own wallet (hex of its output id). */
+    asked: (outputId: string) => boolean
+    /** Sends the settlement signed by the wallet; the person pays the network fee and nobody is asked for sponsorship. */
+    send: (
+      chain: NoteChain,
+      outputId: Uint8Array,
+    ) => Promise<{ kind: 'sent'; signature: string } | { kind: 'failed'; reason: string }>
+  }
   private?: {
     settler: { advance(note: PrivateNote): Promise<PrivateSettlementState> }
     /** Whether the person asked to settle this note now (hex of its output id). */
@@ -182,7 +191,7 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
   for (const note of notes) {
     const key = bytesToHex(note.outputId)
     const saved = retries.get(key)
-    if (saved && deps.private?.userAsked(key) !== true) {
+    if (saved && deps.private?.userAsked(key) !== true && deps.selfPay?.asked(key) !== true) {
       if (!deps.attempts.has(key)) deps.attempts.set(key, saved.attempts)
       const left = saved.nextAt - deps.now()
       if (left > 0) {
@@ -258,6 +267,19 @@ export async function settleHeld(deps: SettlementDeps): Promise<SettlementReport
     const chain: NoteChain = {
       issue: bundle.issue,
       spends: wire ? [...bundle.spends, decodeSpend(wire)] : bundle.spends,
+    }
+    if (deps.selfPay?.asked(key)) {
+      const paid = await deps.selfPay.send(chain, note.outputId)
+      if (paid.kind === 'sent') {
+        await setNoteState(db, note.outputId, 'settled', deps.now())
+        deps.attempts.delete(key)
+        await clearRetry(db, note.outputId)
+        report.settled++
+      } else {
+        report.refused.push({ outputId: note.outputId, kind: 'wallet', selfPay: true, reason: paid.reason })
+        report.waiting++
+      }
+      continue
     }
     if (privateRoute && deps.private && notice) {
       const state = await deps.private.settler.advance({

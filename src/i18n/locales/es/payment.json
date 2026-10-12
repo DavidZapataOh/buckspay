@@ -262,7 +262,7 @@
       "lock_limit": "La reserva de quien paga llegó al límite de créditos de hoy.",
       "too many requests": "Este celular le pidió demasiadas veces al servidor."
     },
-    "serverMinimum": "Este pago es menor que el monto mínimo que acredita el servidor.",
+    "serverMinimum": "Este pago es menor que el monto mínimo que el servidor acredita sin costo. Puedes acreditarlo tú mismo desde tu billetera por una pequeña comisión de red.",
     "stalledSign": "Este celular no pudo completar el crédito. Desbloquéalo y toca Acreditar ahora.",
     "stalledOffline": "No se pudo conectar con el servidor. Este celular lo intentará de nuevo.",
     "waitsForYou": "Esperando que decidas. Acreditar este pago de forma pública muestra quién tuvo el dinero antes que tú.",
@@ -284,7 +284,9 @@
     "paidTitle": "Pagaste {{amount}} {{symbol}}",
     "receivedTitle": "Recibiste {{amount}} {{symbol}}",
     "toWho": "Para {{who}} · {{status}}",
-    "codeHelp": "Revisa que coincida con el celular de la otra persona."
+    "codeHelp": "Revisa que coincida con el celular de la otra persona.",
+    "settleWithWallet": "Acreditarlo yo mismo",
+    "walletFailed": "Tu billetera no pudo acreditar este pago. No se cobró nada; inténtalo de nuevo."
   },
   "settlement": {
     "labelTitle": "Acreditar de forma pública",

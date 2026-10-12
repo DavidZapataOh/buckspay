@@ -3,7 +3,7 @@ import { i18n, currentLanguage, translateIfKnown } from '../../i18n'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import type { SettlementReport } from './settle-held'
 
-export type Why = { text: string; action?: 'settle-in-clear'; code?: string }
+export type Why = { text: string; action?: 'settle-in-clear' | 'settle-with-wallet'; code?: string }
 
 const same = (a: Uint8Array, b: Uint8Array) => bytesToHex(a) === bytesToHex(b)
 
@@ -30,13 +30,20 @@ export function whyWaiting(report: SettlementReport | undefined, outputId: Uint8
   const refused = report.refused.find((r) => same(r.outputId, outputId))
   if (refused) {
     if (refused.kind === 'no_token_account') return { text: i18n.t('payment:activity.noTokenAccount') }
+    if (refused.kind === 'wallet') return { text: i18n.t('payment:activity.walletFailed'), code: refused.reason }
+    if (refused.kind === 'below_minimum') {
+      return { text: i18n.t('payment:activity.serverMinimum'), action: 'settle-with-wallet' }
+    }
     if (refused.retryAt !== undefined) {
       const later = i18n.t('payment:activity.serverLater', { time: formatDateTime(refused.retryAt, currentLanguage()) })
       const said = refused.reason ? translateIfKnown(`payment:activity.serverReasons.${refused.reason}`) : undefined
-      return { text: said ? `${said} ${later}` : later, code: refused.reason }
+      return {
+        text: said ? `${said} ${later}` : later,
+        code: refused.reason,
+        ...(refused.kind === 'limited' ? { action: 'settle-with-wallet' as const } : {}),
+      }
     }
     if (refused.kind === 'limited' || refused.kind === 'busy') return busy(refused.reason ?? refused.kind)
-    if (refused.kind === 'below_minimum') return { text: i18n.t('payment:activity.serverMinimum') }
     return { text: i18n.t('payment:activity.serverCannot'), code: refused.reason ?? refused.kind }
   }
   if (report.private.some((p) => same(p.outputId, outputId))) return { text: i18n.t('payment:activity.privateProving') }

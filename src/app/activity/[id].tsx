@@ -121,6 +121,15 @@ export default function ActivityDetailScreen() {
             onPress={() => detail.outputId && void settlement.settleNow(detail.outputId)}
           />
         ) : null}
+        {why?.action === 'settle-with-wallet' && detail.outputId ? (
+          <Button
+            testID="settle-with-wallet"
+            variant="tonal"
+            label={t('payment:activity.settleWithWallet')}
+            busy={settlement.running}
+            onPress={() => detail.outputId && void settlement.settleWithWallet(detail.outputId)}
+          />
+        ) : null}
         {why?.action === 'settle-in-clear' && detail.outputId ? (
           <Button
             testID="settle-in-clear"

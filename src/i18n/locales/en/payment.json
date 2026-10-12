@@ -261,7 +261,7 @@
       "lock_limit": "This payer's reserve has reached today's limit of credits.",
       "too many requests": "This phone asked the server too often."
     },
-    "serverMinimum": "This payment is below the smallest amount the server credits.",
+    "serverMinimum": "This payment is below the smallest amount the server credits for free. You can credit it yourself from your wallet for a small network fee.",
     "stalledSign": "This phone couldn't complete the credit. Unlock it, then tap Credit now.",
     "stalledOffline": "The server couldn't be reached. This phone will try again.",
     "waitsForYou": "Waiting for you. Crediting this payment in the open shows who held the money before you.",
@@ -283,7 +283,9 @@
     "paidTitle": "Paid {{amount}} {{symbol}}",
     "receivedTitle": "Received {{amount}} {{symbol}}",
     "toWho": "To {{who}} · {{status}}",
-    "codeHelp": "Check that it matches the other person's phone."
+    "codeHelp": "Check that it matches the other person's phone.",
+    "settleWithWallet": "Credit it yourself",
+    "walletFailed": "Your wallet could not credit this payment. Nothing was charged; try again."
   },
   "settlement": {
     "labelTitle": "Crediting in the open",

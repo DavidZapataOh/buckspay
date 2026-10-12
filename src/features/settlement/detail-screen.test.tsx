@@ -56,13 +56,15 @@ const report = (over: object) => ({
 describe('a payment that is still settling', () => {
   let settleNow: ReturnType<typeof vi.fn>
   let confirmNotice: ReturnType<typeof vi.fn>
+  let settleWithWallet: ReturnType<typeof vi.fn>
   beforeEach(() => {
     settleNow = vi.fn(async () => {})
     confirmNotice = vi.fn(async () => {})
+    settleWithWallet = vi.fn(async () => {})
   })
 
   async function show(over: object) {
-    mocks.settlement = { report: report(over), settleNow, confirmNotice, running: false, notices: [] }
+    mocks.settlement = { report: report(over), settleNow, confirmNotice, settleWithWallet, running: false, notices: [] }
     const { default: Detail } = await import('../../app/activity/[id]')
     let tree!: ReturnType<typeof create>
     await act(async () => {
@@ -86,6 +88,18 @@ describe('a payment that is still settling', () => {
     expect(JSON.stringify(tree.toJSON())).toContain('Waiting for you.')
     await press(tree, 'settle-in-clear')
     expect(confirmNotice).toHaveBeenCalledWith(mocks.outputId)
+  })
+
+  it('offers to credit a payment below the minimum with the wallet of the person', async () => {
+    const tree = await show({ refused: [{ outputId: mocks.outputId, kind: 'below_minimum', selfPay: false }] })
+    expect(JSON.stringify(tree.toJSON())).toContain('yourself')
+    await press(tree, 'settle-with-wallet')
+    expect(settleWithWallet).toHaveBeenCalledWith(mocks.outputId)
+  })
+
+  it('offers no wallet when the server only needs time', async () => {
+    const tree = await show({ stalled: [{ outputId: mocks.outputId, kind: 'offline' }] })
+    expect(tree.root.findAll((n) => n.props.testID === 'settle-with-wallet')).toHaveLength(0)
   })
 
   it('says what the server answered', async () => {

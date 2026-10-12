@@ -85,3 +85,29 @@ describe('whyWaiting', () => {
     expect(whyWaiting(report({ retryIn: 30 }), id)?.text).toBe('Trying again in 30 s.')
   })
 })
+
+describe('what the person can do when the server will not credit a payment', () => {
+  it('offers the wallet for a payment below the smallest amount, and says so in plain words', () => {
+    const why = whyWaiting(report({ refused: [{ outputId: id, kind: 'below_minimum', selfPay: false }] }), id)
+    expect(why).toMatchObject({ action: 'settle-with-wallet' })
+    expect(why?.text).toContain('yourself')
+  })
+
+  it('offers the wallet for a payer over a limit of the day', () => {
+    const why = whyWaiting(
+      report({
+        refused: [{ outputId: id, kind: 'limited', selfPay: false, reason: 'key_limit', retryAt: 1_900_000_000 }],
+      }),
+      id,
+    )
+    expect(why).toMatchObject({ action: 'settle-with-wallet' })
+  })
+
+  it('offers nothing for a payment the server only needs more time for', () => {
+    const why = whyWaiting(
+      report({ refused: [{ outputId: id, kind: 'horizon', selfPay: false, retryAt: 1_900_000_000 }] }),
+      id,
+    )
+    expect(why?.action).toBeUndefined()
+  })
+})

@@ -46,6 +46,9 @@ export type SelfPay = {
   destination: Address
 }
 
+/** What settling or recording needs; reclaiming also names its domain. */
+export type SettlePay = Omit<SelfPay, 'reclaimDomain'>
+
 const writable = (address: Address) => ({ address, role: AccountRole.WRITABLE })
 
 /**
@@ -73,7 +76,7 @@ function recordAccounts(program: Uint8Array, outputs: Uint8Array[]): Address[] {
 const issueOutput = (last: Output[], consumed: ConsumedOutput[]) =>
   consumed.length === 0 ? [last[0].id] : consumed.map(({ output }) => output)
 
-async function accounts(pay: SelfPay, chain: NoteChain) {
+async function accounts(pay: SettlePay, chain: NoteChain) {
   const { issuer, lockSeq } = chain.issue.message
   const [lock] = await findLockPda(issuer, lockSeq, pay.programAddress)
   const [[ledger], [escrow]] = await Promise.all([
@@ -89,7 +92,7 @@ const toLinks = (links: ChainLink[]) => links.map(({ input, body }) => ({ input,
  * `[secp256r1 verification, settle_note]` for the wallet to sign: one spend fits one transaction,
  * with the signatures from `covered` on when records vouch for the earlier ones.
  */
-export async function settleInstructions(pay: SelfPay, chain: NoteChain, covered = 0): Promise<Instruction[]> {
+export async function settleInstructions(pay: SettlePay, chain: NoteChain, covered = 0): Promise<Instruction[]> {
   const walk = walkChain(pay.noteDomain, chain.issue, chain.spends)
   const { lock, ledger, escrow, program } = await accounts(pay, chain)
   const settle = getSettleNoteInstruction(
@@ -114,7 +117,7 @@ export async function settleInstructions(pay: SelfPay, chain: NoteChain, covered
  * `[secp256r1 verification, record_prefix]`: records the outputs a chain consumed without paying
  * anyone, so that a chain of two spends settles in two transactions a wallet can sign.
  */
-export async function recordPrefixInstructions(pay: SelfPay, chain: NoteChain, covered = 0): Promise<Instruction[]> {
+export async function recordPrefixInstructions(pay: SettlePay, chain: NoteChain, covered = 0): Promise<Instruction[]> {
   if (chain.spends.length === 0) throw new ProtocolError('Length')
   const walk = walkChain(pay.noteDomain, chain.issue, chain.spends)
   const { lock, program } = await accounts(pay, chain)

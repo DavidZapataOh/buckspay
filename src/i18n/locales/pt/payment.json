@@ -262,7 +262,7 @@
       "lock_limit": "A reserva de quem paga chegou ao limite de créditos de hoje.",
       "too many requests": "Este celular fez pedidos demais ao servidor."
     },
-    "serverMinimum": "Este pagamento é menor que o valor mínimo que o servidor credita.",
+    "serverMinimum": "Este pagamento é menor que o valor mínimo que o servidor credita sem custo. Você mesmo pode creditá-lo pela sua carteira por uma pequena taxa de rede.",
     "stalledSign": "Este celular não conseguiu concluir o crédito. Desbloqueie-o e toque em Creditar agora.",
     "stalledOffline": "Não foi possível chegar ao servidor. Este celular vai tentar de novo.",
     "waitsForYou": "Esperando você decidir. Creditar este pagamento de forma pública mostra quem teve o dinheiro antes de você.",
@@ -284,7 +284,9 @@
     "paidTitle": "Você pagou {{amount}} {{symbol}}",
     "receivedTitle": "Você recebeu {{amount}} {{symbol}}",
     "toWho": "Para {{who}} · {{status}}",
-    "codeHelp": "Confira se é igual ao celular da outra pessoa."
+    "codeHelp": "Confira se é igual ao celular da outra pessoa.",
+    "settleWithWallet": "Creditar eu mesmo",
+    "walletFailed": "Sua carteira não conseguiu creditar este pagamento. Nada foi cobrado; tente de novo."
   },
   "settlement": {
     "labelTitle": "Creditar de forma pública",

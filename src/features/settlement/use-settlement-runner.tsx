@@ -17,7 +17,9 @@ import { isNoticeShown, markNoticeShown } from './clear-notice'
 import { acknowledgeLabel, isLabelAcknowledged } from './label'
 import { useRewardsAdvance } from '../rewards/use-reward-claims'
 import { createDevicePrivateRoute } from '../zk/device'
+import { selfSettle } from './self-settle'
 import { type PendingNotice, settleHeld, type SettlementReport } from './settle-held'
+import { BUILD_FUNDING_MINT } from '../lock/build-funding'
 
 export type Settlement = {
   /** What this phone holds and has not seen settled. */
@@ -33,6 +35,8 @@ export type Settlement = {
   confirmNotice: (outputId: Uint8Array) => Promise<void>
   /** The person asked to settle this note now: proofs start at once, on any network, and submission is not delayed. */
   settleNow: (outputId: Uint8Array) => Promise<void>
+  /** The person asked to credit this note with their own wallet, which pays the network fee. */
+  settleWithWallet: (outputId: Uint8Array) => Promise<void>
   /** True while a run is under way. */
   running: boolean
   /** Settles what can be settled now: when a note was received, the app opened, or the connection came back. */
@@ -58,9 +62,10 @@ const SettlementContext = createContext<Settlement | undefined>(undefined)
 export function SettlementProvider({ children }: { children: ReactNode }) {
   const { db, domains } = usePayments()
   const { deviceKey, device } = useDeviceIdentity()
-  const { client } = useMobileWallet()
+  const { client, getTransactionSigner } = useMobileWallet()
   const advanceRewards = useRewardsAdvance()
   const asked = useRef(new Set<string>())
+  const walletAsked = useRef(new Set<string>())
   const [unsettled, setUnsettled] = useState<Unsettled>()
   const [report, setReport] = useState<SettlementReport>()
   const [labelPending, setLabelPending] = useState(false)
@@ -104,6 +109,26 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
         random: Math.random,
         attempts: attempts.current,
         pauses: pauses.current,
+        selfPay: {
+          asked: (id) => walletAsked.current.has(id),
+          send: async (chain, outputId) => {
+            try {
+              return await selfSettle(
+                {
+                  rpc: client.rpc,
+                  getTransactionSigner,
+                  programAddress: PROGRAM_ADDRESS,
+                  noteDomain: domains.noteDomain,
+                  mint: BUILD_FUNDING_MINT,
+                },
+                Uint8Array.from(getAddressEncoder().encode(wallet)),
+                chain,
+              )
+            } finally {
+              walletAsked.current.delete(bytesToHex(outputId))
+            }
+          },
+        },
         queueRelay: cluster ? relayQueue(db, genesisHashOf(cluster), nowSeconds) : undefined,
         private: createDevicePrivateRoute({
           db,
@@ -128,7 +153,7 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
         void run()
       }
     }
-  }, [advanceRewards, client.rpc, db, domains, key, wallet])
+  }, [advanceRewards, client.rpc, db, domains, getTransactionSigner, key, wallet])
 
   useEffect(() => {
     void run()
@@ -171,10 +196,30 @@ export function SettlementProvider({ children }: { children: ReactNode }) {
     [db, run],
   )
 
+  const settleWithWallet = useCallback(
+    async (outputId: Uint8Array) => {
+      if (db) await releaseHold(db, outputId)
+      walletAsked.current.add(bytesToHex(outputId))
+      await run()
+    },
+    [db, run],
+  )
+
   const notices = report?.notices ?? NO_NOTICES
   const value = useMemo<Settlement>(
-    () => ({ unsettled, report, labelPending, acknowledge, notices, confirmNotice, settleNow, running: busy, run }),
-    [unsettled, report, labelPending, busy, acknowledge, notices, confirmNotice, settleNow, run],
+    () => ({
+      unsettled,
+      report,
+      labelPending,
+      acknowledge,
+      notices,
+      confirmNotice,
+      settleNow,
+      settleWithWallet,
+      running: busy,
+      run,
+    }),
+    [unsettled, report, labelPending, busy, acknowledge, notices, confirmNotice, settleNow, settleWithWallet, run],
   )
   return <SettlementContext.Provider value={value}>{children}</SettlementContext.Provider>
 }

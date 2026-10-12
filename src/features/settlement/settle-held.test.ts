@@ -442,6 +442,46 @@ describe('settleHeld', () => {
     expect(sent).toHaveLength(2)
   })
 
+  it('settles with the wallet when the person asks for it, without asking the gateway', async () => {
+    const { outputId } = await receive()
+    const send = vi.fn(async () => ({ kind: 'sent' as const, signature: '5wallet' }))
+    const report = await settleHeld(deps({ selfPay: { asked: (id) => id === bytesToHex(outputId), send } }))
+    expect(sent).toHaveLength(0)
+    expect(send).toHaveBeenCalledTimes(1)
+    const [chain, id] = send.mock.calls[0] as unknown as [{ spends: unknown[] }, Uint8Array]
+    expect(bytesToHex(id)).toBe(bytesToHex(outputId))
+    expect(chain.spends).toHaveLength(1)
+    expect(report.settled).toBe(1)
+    expect(await stateOf(outputId)).toBe('settled')
+  })
+
+  it('keeps the note and says why when the wallet could not settle it', async () => {
+    const { outputId } = await receive()
+    const send = vi.fn(async () => ({ kind: 'failed' as const, reason: 'rejected' }))
+    const report = await settleHeld(deps({ selfPay: { asked: () => true, send } }))
+    expect(report.settled).toBe(0)
+    expect(report.refused).toEqual([expect.objectContaining({ outputId, kind: 'wallet', reason: 'rejected' })])
+    expect(await stateOf(outputId)).toBe('settling')
+  })
+
+  it('uses the wallet at once for a note that waits for its next try', async () => {
+    const { outputId } = await receive()
+    answers = [() => Promise.reject(new GatewayError(422, 'below_minimum', { minimum: '100000' }))]
+    await settleHeld(deps())
+    const send = vi.fn(async () => ({ kind: 'sent' as const, signature: '5wallet' }))
+    const report = await settleHeld(deps({ selfPay: { asked: (id) => id === bytesToHex(outputId), send } }))
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(report.settled).toBe(1)
+  })
+
+  it('does not use the wallet unless the person asked', async () => {
+    await receive()
+    const send = vi.fn(async () => ({ kind: 'sent' as const, signature: '5wallet' }))
+    await settleHeld(deps({ selfPay: { asked: () => false, send } }))
+    expect(send).not.toHaveBeenCalled()
+    expect(sent).toHaveLength(1)
+  })
+
   it('goes on asking for a payer that is not the one over the limit', async () => {
     await receive()
     const other = new Map([['ff'.repeat(33), { reason: 'key_limit', until: clock + 3_600 }]])
