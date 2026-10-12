@@ -7,7 +7,7 @@ import { AppText } from '../../components/app-text'
 import { Screen } from '../../components/screen'
 
 import type { ActivityRow } from '../notes/activity'
-import { activityId, sentence } from './format'
+import { activityId, rowParts, sentence } from './format'
 
 const dayStart = (seconds: number) => new Date(seconds * 1000).setHours(0, 0, 0, 0)
 
@@ -64,6 +64,7 @@ export function ActivityList({
       ) : null}
       {rows.map((row, index) => {
         const heading = headings[index]
+        const parts = rowParts(row, symbol, decimals)
         return (
           <View key={activityId(row)} className="gap-1">
             {heading ? (
@@ -73,10 +74,14 @@ export function ActivityList({
             ) : null}
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel={sentence(row, symbol, decimals)}
               onPress={() => onOpen(activityId(row))}
               className="min-h-14 justify-center py-2"
             >
-              <AppText variant="body">{sentence(row, symbol, decimals)}</AppText>
+              <AppText variant="title">{parts.title}</AppText>
+              <AppText variant="label" tone="muted">
+                {parts.detail}
+              </AppText>
             </Pressable>
           </View>
         )

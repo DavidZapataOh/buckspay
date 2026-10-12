@@ -278,7 +278,11 @@
     "expiredNote": "This payment can no longer be credited. The payer may take it back.",
     "details": {
       "code": "Code: {{code}}"
-    }
+    },
+    "paidTitle": "Paid {{amount}} {{symbol}}",
+    "receivedTitle": "Received {{amount}} {{symbol}}",
+    "toWho": "To {{who}} · {{status}}",
+    "codeHelp": "Check that it matches the other person's phone."
   },
   "settlement": {
     "labelTitle": "Crediting in the open",

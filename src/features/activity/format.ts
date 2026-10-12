@@ -23,6 +23,18 @@ export const statusWord = (row: Pick<ActivityRow, 'state' | 'handedTo'>) =>
         : i18n.t('payment:activity.relayHanded', { count: String(row.handedTo ?? 0) })
       : (translateIfKnown(`payment:activity.status.${row.state}`) ?? row.state)
 
+/** A row of the list in two lines: the amount that moved, and what became of it (and to whom, when far away). */
+export function rowParts(row: ActivityRow, symbol: string, decimals: number): { title: string; detail: string } {
+  const values = { amount: formatMoney(row.amount, decimals, currentLanguage()), symbol }
+  const status = statusWord(row)
+  return {
+    title: i18n.t(row.kind === 'paid' ? 'payment:activity.paidTitle' : 'payment:activity.receivedTitle', values),
+    detail: row.remote
+      ? i18n.t('payment:activity.toWho', { who: row.payee ?? i18n.t('remote:someone'), status })
+      : status,
+  }
+}
+
 /** "Paid 5.00 USDC · phone ABCD-EF23 · Confirmed" or "Received 5.00 USDC · Settled". */
 export function sentence(row: ActivityRow, symbol: string, decimals: number): string {
   const values = { amount: formatMoney(row.amount, decimals, currentLanguage()), symbol, status: statusWord(row) }

@@ -51,12 +51,22 @@ describe('ActivityList', () => {
       create(<ActivityList rows={rows} symbol="USDC" decimals={6} now={NOW} onOpen={() => {}} />),
     )
     const shown = texts(renderer.root)
-    const lines = shown.filter((line) => line.includes('USDC'))
-    expect(lines[0]).toBe('Received 5.00 USDC · Credited')
-    expect(lines[1]).toMatch(/^Paid 5\.00 USDC · phone [A-Z2-9]{4}-[A-Z2-9]{4} · Not confirmed$/)
-    expect(lines[2]).toMatch(/· Refused$/)
-    expect(lines[3]).toMatch(/· Cancelled$/)
-    expect(lines[4]).toBe('Received 5.00 USDC · Received')
+    const lines = shown.filter(
+      (line) => line.includes('USDC') || /^(Credited|Not confirmed|Refused|Cancelled|Received)$/.test(line),
+    )
+    expect(lines).toEqual([
+      'Received 5.00 USDC',
+      'Credited',
+      'Paid 5.00 USDC',
+      'Not confirmed',
+      'Paid 5.00 USDC',
+      'Refused',
+      'Paid 5.00 USDC',
+      'Cancelled',
+      'Received 5.00 USDC',
+      'Received',
+    ])
+    expect(shown.join('\n')).not.toMatch(/[A-Z2-9]{4}-[A-Z2-9]{4}/)
     expect(shown).toContain('Today')
   })
 
@@ -69,8 +79,8 @@ describe('ActivityList', () => {
     const renderer = await act(async () =>
       create(<ActivityList rows={rows} symbol="USDC" decimals={6} now={NOW} onOpen={() => {}} />),
     )
-    const lines = texts(renderer.root).filter((line) => line.includes('USDC'))
-    expect(lines.map((line) => line.split(' · ').pop())).toEqual(['Passed on', 'Sending…', 'Change'])
+    const lines = texts(renderer.root).filter((line) => ['Passed on', 'Sending…', 'Change'].includes(line))
+    expect(lines).toEqual(['Passed on', 'Sending…', 'Change'])
   })
 
   it('says there is nothing yet when there are no rows', async () => {

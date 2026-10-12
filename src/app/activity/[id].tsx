@@ -64,6 +64,11 @@ export default function ActivityDetailScreen() {
     <Screen testID="activity-detail">
       <AppText variant="headline">{t('payment:activity.detail')}</AppText>
       <AppText variant="body">{sentence({ ...detail }, symbol, decimals)}</AppText>
+      {detail.kind === 'paid' && !detail.remote ? (
+        <AppText variant="label" tone="muted">
+          {t('payment:activity.codeHelp')}
+        </AppText>
+      ) : null}
       <ListRow title={t('payment:activity.id')} value={ellipsify(bytesToHex(detail.id), 8)} />
       <ListRow title={t('payment:activity.time')} value={formatDateTime(detail.at, currentLanguage())} />
       {detail.remote && detail.deadline !== undefined ? (

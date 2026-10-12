@@ -278,7 +278,11 @@
     "expiredNote": "Este pagamento não pode mais ser creditado. Quem pagou pode pegá-lo de volta.",
     "details": {
       "code": "Código: {{code}}"
-    }
+    },
+    "paidTitle": "Você pagou {{amount}} {{symbol}}",
+    "receivedTitle": "Você recebeu {{amount}} {{symbol}}",
+    "toWho": "Para {{who}} · {{status}}",
+    "codeHelp": "Confira se é igual ao celular da outra pessoa."
   },
   "settlement": {
     "labelTitle": "Creditar de forma pública",

@@ -278,7 +278,11 @@
     "expiredNote": "Este pago ya no se puede acreditar. Quien pagó puede recuperarlo.",
     "details": {
       "code": "Código: {{code}}"
-    }
+    },
+    "paidTitle": "Pagaste {{amount}} {{symbol}}",
+    "receivedTitle": "Recibiste {{amount}} {{symbol}}",
+    "toWho": "Para {{who}} · {{status}}",
+    "codeHelp": "Revisa que coincida con el celular de la otra persona."
   },
   "settlement": {
     "labelTitle": "Acreditar de forma pública",
