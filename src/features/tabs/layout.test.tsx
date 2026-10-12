@@ -36,6 +36,6 @@ describe('the tabs', () => {
       const label = trigger.findAll((node) => typeof node.props.children === 'string')[0]
       return label.props.children
     })
-    expect(labels).toEqual(['Home', 'Pay', 'Receive', 'Activity', 'Settings'])
+    expect(labels).toEqual(['Home', 'Pay', 'Get paid', 'Activity', 'Settings'])
   })
 })

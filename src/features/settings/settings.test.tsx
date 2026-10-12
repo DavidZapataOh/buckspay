@@ -62,7 +62,7 @@ describe('Settings', () => {
     const disconnect = vi.fn(async () => {})
     const device = { address: wallet, wallet, key: deviceKey.publicKey }
     const root = await render({ step: 'ready', wallet, deviceKey, device, busy: false, disconnect })
-    expect(row(root, 'network')).toEqual(['Network', 'Devnet · test network'])
+    expect(row(root, 'network')).toEqual(['Network', 'Test network (Devnet)'])
     expect(root.findAllByProps({ accessibilityLabel: `Registered to: ${wallet}` })).toHaveLength(1)
     expect(row(root, 'security-level')).toEqual(['Key storage', 'Software only'])
     expect(texts(root)).toContain(i18n.t('identity:softwareKeyWarning'))

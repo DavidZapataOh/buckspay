@@ -2,7 +2,7 @@ import { createSolanaDevnet, createSolanaLocalnet, type SolanaCluster } from '@w
 import type { Cluster } from '../../keys'
 
 /** The one network a build talks to, the cluster its device key signs for, and how the app names it. */
-export type BuildNetwork = { cluster: Cluster; label: string; network: SolanaCluster }
+export type BuildNetwork = { cluster: Cluster; labelKey: 'devnet' | 'localnet'; network: SolanaCluster }
 
 /**
  * The network of a build, fixed when its bundle is made: devnet, or for end-to-end test builds a
@@ -11,11 +11,11 @@ export type BuildNetwork = { cluster: Cluster; label: string; network: SolanaClu
 export function getBuildNetwork(name = 'devnet'): BuildNetwork {
   switch (name) {
     case 'devnet':
-      return { cluster: 'devnet', label: 'Devnet · test network', network: createSolanaDevnet() }
+      return { cluster: 'devnet', labelKey: 'devnet', network: createSolanaDevnet() }
     case 'localnet':
       return {
         cluster: 'devnet',
-        label: 'Local validator · test network',
+        labelKey: 'localnet',
         network: createSolanaLocalnet({ url: 'http://localhost:8899' }),
       }
     default:

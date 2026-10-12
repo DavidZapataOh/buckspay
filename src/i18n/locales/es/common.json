@@ -41,5 +41,10 @@
     "frontCamera": "Usar la cámara frontal",
     "lightOff": "Apagar la luz",
     "lightOn": "Encender la luz"
+  },
+  "usdcHelp": "USDC son dólares digitales.",
+  "network": {
+    "devnet": "Red de prueba (Devnet)",
+    "localnet": "Red de prueba (local)"
   }
 }

@@ -69,7 +69,7 @@ export function Settings({
     <Screen testID="settings">
       <AppText variant="headline">{t('settings:title')}</AppText>
       <LanguageSetting />
-      <ListRow testID="network" title={t('settings:network')} value={BUILD_NETWORK.label} />
+      <ListRow testID="network" title={t('settings:network')} value={t(`common:network.${BUILD_NETWORK.labelKey}`)} />
       {wallet ? (
         <AddressRow testID="wallet" address={wallet} label={t('common:connectedWallet')} />
       ) : (

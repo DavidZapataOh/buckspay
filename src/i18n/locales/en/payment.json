@@ -137,7 +137,7 @@
     "Mismatch": "Something went wrong with this payment. It wasn't sent."
   },
   "receive": {
-    "title": "Receive",
+    "title": "Get paid",
     "amount": "Amount",
     "memo": "Note (optional)",
     "memoCount": "{{count}} / 48",

@@ -10,7 +10,7 @@
   "tabs": {
     "home": "Home",
     "pay": "Pay",
-    "receive": "Receive",
+    "receive": "Get paid",
     "activity": "Activity",
     "settings": "Settings"
   },
@@ -29,7 +29,7 @@
   "notConnected": "Not connected",
   "notRegistered": "Not registered",
   "home": {
-    "addFunds": "Add funds",
+    "addFunds": "Add money",
     "locksAndWithdrawals": "Reserves and withdrawals"
   },
   "qr": {
@@ -41,5 +41,10 @@
     "frontCamera": "Use the front camera",
     "lightOff": "Turn the light off",
     "lightOn": "Turn the light on"
+  },
+  "usdcHelp": "USDC is digital dollars.",
+  "network": {
+    "devnet": "Test network (Devnet)",
+    "localnet": "Test network (local)"
   }
 }

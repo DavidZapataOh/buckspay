@@ -3,7 +3,7 @@ import { getBuildNetwork } from './build-network'
 
 describe('build network', () => {
   it('is devnet unless the build names another one', () => {
-    const devnet = { cluster: 'devnet', label: 'Devnet · test network', network: { id: 'solana:devnet' } }
+    const devnet = { cluster: 'devnet', labelKey: 'devnet', network: { id: 'solana:devnet' } }
     expect(getBuildNetwork()).toMatchObject(devnet)
     expect(getBuildNetwork('devnet')).toMatchObject(devnet)
   })
@@ -11,7 +11,7 @@ describe('build network', () => {
   it('maps test builds on a local validator to the devnet cluster explicitly', () => {
     expect(getBuildNetwork('localnet')).toMatchObject({
       cluster: 'devnet',
-      label: 'Local validator · test network',
+      labelKey: 'localnet',
       network: { id: 'solana:localnet', url: 'http://localhost:8899' },
     })
   })

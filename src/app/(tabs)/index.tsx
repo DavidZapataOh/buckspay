@@ -6,8 +6,11 @@ import { AddressRow } from '../../components/address-row'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import { Screen } from '../../components/screen'
+import { HomeSummary } from '../../features/home/home-summary'
 import { homeStatus } from '../../features/identity/identity-copy'
 import { useDeviceIdentity } from '../../features/identity/use-device-identity'
+import { usePayFlow } from '../../features/pay/use-pay-flow'
+import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { RotationAlert } from '../../features/lock/rotation-alert'
 import { BUILD_NETWORK } from '../../features/network/build-network'
 import { SettlementLabel } from '../../features/settlement/settlement-label'
@@ -19,51 +22,56 @@ export default function Home() {
 
   const identity = useDeviceIdentity()
   const settlement = useSettlementRunner()
+  const flow = usePayFlow()
   const { busy, device, next } = identity
   const status = homeStatus(identity)
+  const ready = status.testID === 'device-ready'
   const [primary] = useThemeColors('primary')
 
   return (
     <Screen testID="home">
-      <View testID={status.testID} className="rounded-3xl bg-surface p-5 gap-3">
-        <AppText variant="headline">{status.title}</AppText>
-        {status.testID === 'home-loading' ? (
-          <ActivityIndicator accessibilityLabel={t('common:checkingPhone')} color={primary} className="self-start" />
-        ) : null}
-        {status.body ? (
-          <AppText variant="body" tone="muted">
-            {status.body}
-          </AppText>
-        ) : null}
-        {device ? <AddressRow address={device.wallet} label={t('common:registeredTo')} /> : null}
-        {status.testID === 'device-ready' ? (
-          <View className="gap-3">
-            <Button
-              testID="add-funds"
-              variant="filled"
-              label={t('common:home.addFunds')}
-              onPress={() => router.push('/add-funds')}
-            />
-            <Button
-              testID="locks"
-              variant="tonal"
-              label={t('common:home.locksAndWithdrawals')}
-              onPress={() => router.push('/withdraw')}
-            />
-          </View>
-        ) : null}
-        {status.action ? (
-          <Button
-            testID="setup-payments"
-            variant="filled"
-            label={status.action}
-            onPress={() => router.push('/onboarding')}
+      {ready ? (
+        <>
+          <HomeSummary
+            allowance={flow.offline.allowance()}
+            symbol={BUILD_TOKEN.symbol}
+            decimals={BUILD_TOKEN.decimals}
+            onPay={() => router.navigate('/pay')}
+            onReceive={() => router.navigate('/receive')}
+            onAddMoney={() => router.push('/add-funds')}
           />
-        ) : null}
-        {status.retry ? (
-          <Button testID="home-retry" variant="filled" label={status.retry} busy={busy} onPress={() => void next()} />
-        ) : null}
-      </View>
+          <Button
+            testID="locks"
+            variant="text"
+            label={t('common:home.locksAndWithdrawals')}
+            onPress={() => router.push('/withdraw')}
+          />
+        </>
+      ) : (
+        <View testID={status.testID} className="rounded-3xl bg-surface p-5 gap-3">
+          <AppText variant="headline">{status.title}</AppText>
+          {status.testID === 'home-loading' ? (
+            <ActivityIndicator accessibilityLabel={t('common:checkingPhone')} color={primary} className="self-start" />
+          ) : null}
+          {status.body ? (
+            <AppText variant="body" tone="muted">
+              {status.body}
+            </AppText>
+          ) : null}
+          {device ? <AddressRow address={device.wallet} label={t('common:registeredTo')} /> : null}
+          {status.action ? (
+            <Button
+              testID="setup-payments"
+              variant="filled"
+              label={status.action}
+              onPress={() => router.push('/onboarding')}
+            />
+          ) : null}
+          {status.retry ? (
+            <Button testID="home-retry" variant="filled" label={status.retry} busy={busy} onPress={() => void next()} />
+          ) : null}
+        </View>
+      )}
       {settlement.labelPending ? (
         <SettlementLabel
           count={settlement.unsettled?.count ?? 0}
@@ -71,14 +79,14 @@ export default function Home() {
           onContinue={() => void settlement.acknowledge()}
         />
       ) : null}
-      {status.testID === 'device-ready' ? <RotationAlert /> : null}
+      {ready ? <RotationAlert /> : null}
       <View
         testID="network-chip"
         accessible
         className="self-start min-h-8 px-3 rounded-full border border-outline justify-center"
       >
         <AppText variant="label" tone="muted">
-          {BUILD_NETWORK.label}
+          {t(`common:network.${BUILD_NETWORK.labelKey}`)}
         </AppText>
       </View>
     </Screen>
