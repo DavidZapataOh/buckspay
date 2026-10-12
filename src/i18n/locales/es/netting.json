@@ -132,9 +132,9 @@
   },
   "payFee": "Pagar la comisión, cerca de 0.001 SOL",
   "remainder": {
-    "title": "Lo que falta por pagar",
+    "title": "Lo que queda",
     "intro": "Pagar el resto es un pago normal de Buckspay. La deuda baja definitivamente cuando el pago se acredita.",
-    "pay": "Pagar {{amount}} ahora",
+    "pay": "Pagar {{amount}}",
     "later": "Después",
     "sending": "Enviando…",
     "released": "Pagado, acreditándose",

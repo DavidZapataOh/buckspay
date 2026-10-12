@@ -129,9 +129,9 @@
   },
   "payFee": "Pay the fee, about 0.001 SOL",
   "remainder": {
-    "title": "What is left to pay",
+    "title": "What is left",
     "intro": "Paying the rest is a normal Buckspay payment. The debt goes down for good once the payment is credited.",
-    "pay": "Pay {{amount}} now",
+    "pay": "Pay {{amount}}",
     "later": "Later",
     "sending": "Sending…",
     "released": "Paid, being credited",

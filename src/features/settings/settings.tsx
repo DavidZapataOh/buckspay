@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { Switch, View } from 'react-native'
 import { AddressRow } from '../../components/address-row'
 import { AppText } from '../../components/app-text'
+import { Card } from '../../components/card'
 import { Button } from '../../components/button'
 import { ListRow } from '../../components/list-row'
 import { Screen } from '../../components/screen'
@@ -58,6 +59,7 @@ export function Settings({
 
   const { step, busy, error, wallet, device, deviceKey, disconnect } = useDeviceIdentity()
   const [forgetting, setForgetting] = useState(false)
+  const [advanced, setAdvanced] = useState(false)
   const checking = step === 'loading' && !error
 
   async function forget() {
@@ -68,110 +70,123 @@ export function Settings({
 
   return (
     <Screen testID="settings">
-      <AppText variant="headline">{t('settings:title')}</AppText>
-      <LanguageSetting />
-      <FeedbackSetting />
-      <AppText variant="title" accessibilityRole="header" className="mt-4">
-        {t('settings:sections.wallet')}
-      </AppText>
-      {wallet ? (
-        <AddressRow testID="wallet" address={wallet} label={t('common:connectedWallet')} />
-      ) : (
-        <ListRow
-          testID="wallet"
-          title={t('common:connectedWallet')}
-          value={checking ? t('common:checking') : t('common:notConnected')}
-        />
-      )}
-      {device ? (
-        <AddressRow testID="registered-to" address={device.wallet} label={t('common:registeredTo')} />
-      ) : (
-        <ListRow
-          testID="registered-to"
-          title={t('common:registeredTo')}
-          value={checking ? t('common:checking') : t('common:notRegistered')}
-        />
-      )}
-      <StatusNote tone="danger" message={error} />
-      {wallet ? (
-        <Button
-          testID="disconnect"
-          variant="tonal"
-          label={t('settings:forgetWallet')}
-          busy={forgetting}
-          disabled={busy}
-          onPress={() => void forget()}
-        />
-      ) : null}
-      {payments ? (
-        <>
-          <AppText variant="title" accessibilityRole="header" className="mt-4">
-            {t('payment:settings.limits')}
-          </AppText>
+      <Card title={t('settings:sections.preferences')}>
+        <LanguageSetting />
+        <FeedbackSetting />
+      </Card>
+      <Card title={t('settings:sections.wallet')}>
+        {wallet ? (
+          <AddressRow testID="wallet" address={wallet} label={t('common:connectedWallet')} />
+        ) : (
           <ListRow
-            testID="limit-per-payment"
-            title={t('payment:settings.perPayment')}
-            value={payments.limits.perPayment}
+            testID="wallet"
+            title={t('common:connectedWallet')}
+            value={checking ? t('common:checking') : t('common:notConnected')}
           />
+        )}
+        {device ? (
+          <AddressRow testID="registered-to" address={device.wallet} label={t('common:registeredTo')} />
+        ) : (
           <ListRow
-            testID="limit-biometric"
-            title={t('payment:settings.biometricFrom')}
-            value={payments.limits.biometricFrom}
+            testID="registered-to"
+            title={t('common:registeredTo')}
+            value={checking ? t('common:checking') : t('common:notRegistered')}
           />
-          <ListRow
-            testID="limit-biometric-daily"
-            title={t('payment:settings.biometricDaily')}
-            value={payments.limits.biometricDaily}
-          />
-          <ListRow testID="limit-window" title={t('payment:settings.window')} value={payments.limits.window} />
-          <ListRow
-            testID="uninstall"
-            title={t('payment:settings.uninstall')}
-            value={t('payment:settings.uninstallBody', { count: payments.unsettled })}
-          />
+        )}
+        <StatusNote tone="danger" message={error} />
+        {wallet ? (
           <Button
-            testID="reset-identity"
+            testID="disconnect"
             variant="tonal"
-            label={t('payment:settings.reset')}
+            label={t('settings:forgetWallet')}
+            busy={forgetting}
             disabled={busy}
-            onPress={payments.onReset}
+            onPress={() => void forget()}
           />
+        ) : null}
+      </Card>
+      <Button
+        testID="settings-advanced"
+        variant="text"
+        label={advanced ? t('settings:hideAdvanced') : t('settings:sections.advanced')}
+        onPress={() => setAdvanced(!advanced)}
+      />
+      {advanced ? (
+        <>
+          {payments ? (
+            <Card title={t('payment:settings.limits')}>
+              <ListRow
+                testID="limit-per-payment"
+                title={t('payment:settings.perPayment')}
+                value={payments.limits.perPayment}
+              />
+              <ListRow
+                testID="limit-biometric"
+                title={t('payment:settings.biometricFrom')}
+                value={payments.limits.biometricFrom}
+              />
+              <ListRow
+                testID="limit-biometric-daily"
+                title={t('payment:settings.biometricDaily')}
+                value={payments.limits.biometricDaily}
+              />
+              <ListRow testID="limit-window" title={t('payment:settings.window')} value={payments.limits.window} />
+              <ListRow
+                testID="uninstall"
+                title={t('payment:settings.uninstall')}
+                value={t('payment:settings.uninstallBody', { count: payments.unsettled })}
+              />
+              <Button
+                testID="reset-identity"
+                variant="tonal"
+                label={t('payment:settings.reset')}
+                disabled={busy}
+                onPress={payments.onReset}
+              />
+            </Card>
+          ) : null}
+          {tipping ? <TipRow {...tipping} /> : null}
+          {mesh ? <MeshSettings {...mesh} /> : null}
+          <Card title={t('settings:sections.advanced')}>
+            <ListRow
+              testID="network"
+              title={t('settings:network')}
+              value={t(`common:network.${BUILD_NETWORK.labelKey}`)}
+            />
+            <ListRow
+              testID="security-level"
+              title={t('settings:keyProtection')}
+              value={
+                checking
+                  ? t('common:checking')
+                  : deviceKey
+                    ? keyProtection(deviceKey.securityLevel)
+                    : t('settings:noKey')
+              }
+            />
+            {deviceKey?.securityLevel === 'software' ? (
+              <StatusNote tone="danger" message={t('identity:softwareKeyWarning')} />
+            ) : null}
+            {payments ? (
+              <Button testID="events" variant="tonal" label={t('event:settings')} onPress={payments.onEvents} />
+            ) : null}
+            {payments ? <NearbyCheckSettings {...payments.nearbyCheck} /> : null}
+            {privateData ? <PrivateDataRow {...privateData} /> : null}
+          </Card>
+          <Card title={t('settings:technicalDetails')}>
+            {device ? <AddressRow address={device.address} label={t('settings:deviceAccount')} /> : null}
+
+            {deviceKey ? (
+              <ListRow
+                title={t('settings:keyAttestation')}
+                value={t('settings:certificates', { count: deviceKey.attestationChain.length })}
+              />
+            ) : null}
+            <AddressRow address={BUCKSPAY_PROGRAM_ADDRESS} label={t('settings:program')} />
+            <ListRow title={t('settings:version')} value={Constants.expoConfig?.version ?? t('common:unknown')} />
+          </Card>
         </>
       ) : null}
-      {tipping ? <TipRow {...tipping} /> : null}
-      {mesh ? <MeshSettings {...mesh} /> : null}
-      <AppText variant="title" accessibilityRole="header" className="mt-4">
-        {t('settings:sections.advanced')}
-      </AppText>
-      <ListRow testID="network" title={t('settings:network')} value={t(`common:network.${BUILD_NETWORK.labelKey}`)} />
-      <ListRow
-        testID="security-level"
-        title={t('settings:keyProtection')}
-        value={
-          checking ? t('common:checking') : deviceKey ? keyProtection(deviceKey.securityLevel) : t('settings:noKey')
-        }
-      />
-      {deviceKey?.securityLevel === 'software' ? (
-        <StatusNote tone="danger" message={t('identity:softwareKeyWarning')} />
-      ) : null}
-      {payments ? (
-        <Button testID="events" variant="tonal" label={t('event:settings')} onPress={payments.onEvents} />
-      ) : null}
-      {payments ? <NearbyCheckSettings {...payments.nearbyCheck} /> : null}
-      {privateData ? <PrivateDataRow {...privateData} /> : null}
-      <AppText variant="title" accessibilityRole="header" className="mt-4">
-        {t('settings:technicalDetails')}
-      </AppText>
-      {device ? <AddressRow address={device.address} label={t('settings:deviceAccount')} /> : null}
-
-      {deviceKey ? (
-        <ListRow
-          title={t('settings:keyAttestation')}
-          value={t('settings:certificates', { count: deviceKey.attestationChain.length })}
-        />
-      ) : null}
-      <AddressRow address={BUCKSPAY_PROGRAM_ADDRESS} label={t('settings:program')} />
-      <ListRow title={t('settings:version')} value={Constants.expoConfig?.version ?? t('common:unknown')} />
     </Screen>
   )
 }

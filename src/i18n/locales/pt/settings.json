@@ -17,11 +17,13 @@
   },
   "sections": {
     "wallet": "Carteira",
-    "advanced": "Avançado"
+    "advanced": "Avançado",
+    "preferences": "Preferências"
   },
   "certificates_many": "Cadeia de {{count}} certificados",
   "feedback": {
     "sound": "Som",
     "haptics": "Vibração"
-  }
+  },
+  "hideAdvanced": "Ocultar avançado"
 }

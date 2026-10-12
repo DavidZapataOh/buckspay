@@ -132,9 +132,9 @@
   },
   "payFee": "Pagar a taxa, cerca de 0.001 SOL",
   "remainder": {
-    "title": "O que falta pagar",
+    "title": "O que resta",
     "intro": "Pagar o resto é um pagamento normal do Buckspay. A dívida diminui de vez quando o pagamento é creditado.",
-    "pay": "Pagar {{amount}} agora",
+    "pay": "Pagar {{amount}}",
     "later": "Depois",
     "sending": "Enviando…",
     "released": "Pago, sendo creditado",

@@ -17,10 +17,12 @@
   },
   "sections": {
     "wallet": "Wallet",
-    "advanced": "Advanced"
+    "advanced": "Advanced",
+    "preferences": "Preferences"
   },
   "feedback": {
     "sound": "Sound",
     "haptics": "Vibration"
-  }
+  },
+  "hideAdvanced": "Hide advanced"
 }

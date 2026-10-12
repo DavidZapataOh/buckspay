@@ -39,7 +39,10 @@ async function render(
   payments?: ComponentProps<typeof Settings>['payments'],
 ) {
   identity.current = { ...actions, ...state }
-  return (await act(async () => create(<Settings payments={payments} />))).root
+  const { root } = await act(async () => create(<Settings payments={payments} />))
+  const advanced = root.findAll((node) => node.props.testID === 'settings-advanced' && node.props.accessibilityRole)[0]
+  await act(async () => advanced.props.onPress())
+  return root
 }
 
 const row = (root: ReactTestInstance, testID: string) =>
@@ -155,7 +158,12 @@ describe('Settings', () => {
     })
     const mount = async (props: ComponentProps<typeof Settings>) => {
       identity.current = { ...actions, step: 'loading', busy: true }
-      return (await act(async () => create(<Settings {...props} />))).root
+      const { root } = await act(async () => create(<Settings {...props} />))
+      const advanced = root.findAll(
+        (node) => node.props.testID === 'settings-advanced' && node.props.accessibilityRole,
+      )[0]
+      await act(async () => advanced.props.onPress())
+      return root
     }
     const tipSwitch = (root: ReactTestInstance) =>
       root.findByProps({ accessibilityLabel: 'Tip people who carry my payments', testID: 'tip-switch' })
@@ -223,7 +231,7 @@ describe('Settings', () => {
       )
     const unique = walk.filter((item, index) => walk.indexOf(item) === index)
     expect(unique).toEqual([
-      'Settings',
+      'Preferences',
       'Language',
       'Wallet',
       'wallet',

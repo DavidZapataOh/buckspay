@@ -1,7 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { Switch, View } from 'react-native'
+import { Amount } from '../../components/amount'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
+import { Chip } from '../../components/chip'
+import { Info } from '../../components/info'
 import { currentLanguage, NAMESPACES } from '../../i18n'
 import { formatMoney } from '../../i18n/format'
 import { formatDate } from '../debts/format'
@@ -40,12 +43,26 @@ export function RemainderSection({
   const holdsPayment = rows.some((row) => row.role === 'creditor' && row.state === 'released')
   return (
     <View className="gap-3">
-      <AppText variant="title">{t('netting:remainder.title')}</AppText>
-      <AppText variant="body" tone="muted">
-        {t('netting:remainder.intro')}
-      </AppText>
+      <View className="flex-row items-center justify-between">
+        <AppText variant="title">{t('netting:remainder.title')}</AppText>
+        <Info
+          title={t('netting:remainder.title')}
+          lines={[
+            t('netting:remainder.intro'),
+            ...(holdsPayment && settleBy !== undefined
+              ? [t('netting:remainder.settleBy', { date: formatDate(settleBy) })]
+              : []),
+          ]}
+        />
+      </View>
       {rows.map((row, index) => (
-        <View key={row.tab} className="gap-2 py-2">
+        <View key={row.tab} className="gap-3 rounded-3xl border border-outline bg-surface p-5">
+          <Amount
+            size="row"
+            value={formatMoney(row.amount, decimals, currentLanguage())}
+            symbol={symbol}
+            tone={row.role === 'creditor' ? 'success' : 'strong'}
+          />
           {row.state === 'due' && row.role === 'debtor' ? (
             <>
               <Button
@@ -62,44 +79,30 @@ export function RemainderSection({
               />
             </>
           ) : null}
-          {row.state === 'due' && row.role === 'creditor' ? (
-            <AppText variant="body">{money(row.amount)}</AppText>
-          ) : null}
-          {row.state === 'sending' ? <AppText variant="body">{t('netting:remainder.sending')}</AppText> : null}
-          {row.state === 'released' ? <AppText variant="body">{t('netting:remainder.released')}</AppText> : null}
-          {row.state === 'settled' ? (
-            <AppText variant="body" tone="success">
-              {t('netting:remainder.settled')}
-            </AppText>
-          ) : null}
+          {row.state === 'sending' ? <Chip center kind="waiting" label={t('netting:remainder.sending')} /> : null}
+          {row.state === 'released' ? <Chip center kind="waiting" label={t('netting:remainder.released')} /> : null}
+          {row.state === 'settled' ? <Chip center kind="done" label={t('netting:remainder.settled')} /> : null}
           {row.state === 'void' ? (
             <>
-              <AppText variant="body" tone="danger">
-                {t('netting:remainder.failed', { amount: money(row.amount) })}
-              </AppText>
+              <Chip center kind="problem" label={t('netting:remainder.failed', { amount: money(row.amount) })} />
               {row.role === 'creditor' ? (
-                <>
-                  <AppText variant="label" tone="muted">
-                    {t('netting:remainder.claimNote')}
-                  </AppText>
+                <View className="flex-row items-center justify-center gap-1">
                   <Button
                     testID={`remainder-claim-${index}`}
                     variant="tonal"
                     label={t('netting:remainder.claim')}
                     onPress={() => onClaimOptions?.(row.tab)}
                   />
-                </>
+                  <Info title={t('netting:remainder.claim')} lines={[t('netting:remainder.claimNote')]} />
+                </View>
               ) : null}
             </>
           ) : null}
-          {row.state === 'undecided' ? <AppText variant="body">{t('netting:remainder.undecided')}</AppText> : null}
-          {row.state === 'unknown' ? <AppText variant="body">{t('netting:remainder.unknown')}</AppText> : null}
+          {row.state === 'undecided' ? <Chip center kind="waiting" label={t('netting:remainder.undecided')} /> : null}
+          {row.state === 'unknown' ? <Chip center kind="waiting" label={t('netting:remainder.unknown')} /> : null}
         </View>
       ))}
-      {holdsPayment && settleBy !== undefined ? (
-        <AppText variant="body">{t('netting:remainder.settleBy', { date: formatDate(settleBy) })}</AppText>
-      ) : null}
-      <View className="min-h-12 flex-row items-center justify-between">
+      <View className="min-h-12 flex-row items-center justify-between gap-2">
         <View className="flex-1">
           <AppText variant="body">{t('netting:remainder.together')}</AppText>
         </View>
@@ -110,12 +113,10 @@ export function RemainderSection({
           value={settleTogether}
           onValueChange={(on: boolean) => onSettleTogether?.(on)}
         />
+        <Info title={t('netting:remainder.together')} lines={[t('netting:remainder.togetherNote')]} />
       </View>
-      <AppText variant="label" tone="muted">
-        {t('netting:remainder.togetherNote')}
-      </AppText>
       {simplify ? (
-        <View className="gap-2">
+        <View className="gap-2 rounded-3xl border border-outline bg-surface p-5">
           <AppText variant="title">{t('netting:remainder.fewer')}</AppText>
           <AppText variant="body">
             {t('netting:remainder.simplify', { path: simplify.path, from: simplify.from, to: simplify.to })}

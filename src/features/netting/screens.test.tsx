@@ -213,7 +213,7 @@ describe('remainder section', () => {
       <RemainderSection rows={rows} symbol="USDC" decimals={6} settleTogether={false} {...fixtures.noopHandlers} />,
     )
     const shown = texts(root).join('\n')
-    expect(shown).toMatch(/Pay 5\.00 USDC now/)
+    expect(shown).toMatch(/Pay 5\.00 USDC/)
     expect(shown).toMatch(/Paid, being credited/)
     expect(shown).toMatch(/Credited/)
     expect(shown).toMatch(/This payment failed\. The debt is back to 2\.00 USDC\./)
