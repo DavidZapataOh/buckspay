@@ -54,5 +54,6 @@
     "readReserves": "Couldn’t read your reserves. Check your connection and try again.",
     "openStore": "Couldn’t open the payments store. Close the app and open it again.",
     "readStore": "Couldn’t read the payments store. Close the app and open it again."
-  }
+  },
+  "cancel": "Cancel"
 }

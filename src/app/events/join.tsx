@@ -44,7 +44,7 @@ export default function JoinEvent() {
         notice={notInvite ? t('event:notInvite') : undefined}
         onText={session.push}
         onCancel={() => router.back()}
-        cancelLabel="Cancel"
+        cancelLabel={t('common:cancel')}
       />
     )
   }

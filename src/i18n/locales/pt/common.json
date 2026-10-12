@@ -54,5 +54,6 @@
     "readReserves": "Não foi possível ler suas reservas. Confira sua conexão e tente de novo.",
     "openStore": "Não foi possível abrir o registro de pagamentos. Feche o app e abra de novo.",
     "readStore": "Não foi possível ler o registro de pagamentos. Feche o app e abra de novo."
-  }
+  },
+  "cancel": "Cancelar"
 }

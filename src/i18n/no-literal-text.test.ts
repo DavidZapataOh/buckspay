@@ -20,6 +20,8 @@ const TEXT_ATTRIBUTES = new Set([
   'headerTitle',
 ])
 
+const TEXT_ATTRIBUTE_NAME = /(Label|Title|Text|Hint|Message|Notice)$/
+
 const files = (dir: string, extensions = ['.tsx']): string[] =>
   readdirSync(dir).flatMap((name) => {
     const path = join(dir, name)
@@ -40,7 +42,7 @@ const literalsIn = (path: string) => {
     }
     if (
       ts.isJsxAttribute(node) &&
-      TEXT_ATTRIBUTES.has(node.name.getText()) &&
+      (TEXT_ATTRIBUTES.has(node.name.getText()) || TEXT_ATTRIBUTE_NAME.test(node.name.getText())) &&
       node.initializer &&
       ts.isStringLiteral(node.initializer)
     ) {
