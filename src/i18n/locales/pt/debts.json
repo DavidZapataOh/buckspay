@@ -68,5 +68,6 @@
   },
   "receive": "Receber uma dívida",
   "showCode": "Seu amigo escaneia este código para enviar uma dívida a você.",
-  "friend": "Amigo {{code}}"
+  "friend": "Amigo {{code}}",
+  "settlingReceived": "{{peer}} pagou {{amount}} a você, creditando"
 }

@@ -100,7 +100,9 @@ export function RemainderSection({
         <AppText variant="body">{t('netting:remainder.settleBy', { date: formatDate(settleBy) })}</AppText>
       ) : null}
       <View className="min-h-12 flex-row items-center justify-between">
-        <AppText variant="body">{t('netting:remainder.together')}</AppText>
+        <View className="flex-1">
+          <AppText variant="body">{t('netting:remainder.together')}</AppText>
+        </View>
         <Switch
           testID="netting-settle-together"
           accessibilityRole="switch"

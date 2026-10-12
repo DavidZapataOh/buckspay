@@ -13,6 +13,9 @@ describe('netting screens at large font scale', () => {
     expect(text).not.toMatch(/(?<![-\w])(h|w)-\d+|height:\s*\d|style=\{\{[^}]*height/)
     expect(text).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(/)
   })
+  it.each(files.filter((f) => source(f).includes('<Switch')))('%s gives_the_label_of_a_switch_room_to_wrap', (file) => {
+    expect(source(file)).toMatch(/<View className="flex-1">[\s\S]*?<\/View>\s*<Switch/)
+  })
   it.each(files)('%s uses_only_the_01_05_components_and_native_layout_primitives', (file) => {
     const imports = [...source(file).matchAll(/from '([^']+)'/g)].map((m) => m[1])
     for (const spec of imports.filter((s) => s.startsWith('.')))

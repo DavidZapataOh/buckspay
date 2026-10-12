@@ -62,7 +62,12 @@ export function TabScreen({
       {summary.settling ? (
         <View>
           <AppText variant="body">
-            {t('debts:settling', { amount: money(summary.settlingAmount, decimals, symbol) })}
+            {summary.settlingReceived
+              ? t('debts:settlingReceived', {
+                  peer: summary.peerLabel,
+                  amount: money(summary.settlingAmount, decimals, symbol),
+                })
+              : t('debts:settling', { amount: money(summary.settlingAmount, decimals, symbol) })}
           </AppText>
           <AppText variant="label" tone="muted">
             {t('debts:settlingDetail')}

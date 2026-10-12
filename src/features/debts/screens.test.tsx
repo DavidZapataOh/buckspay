@@ -134,7 +134,7 @@ describe('debt screens', () => {
       />,
     )
     const all = shown(r)
-    expect(all).toContain('Paid 5.00 USDC, being credited')
+    expect(all).toContain(`${peerLabel(ben.key)} paid 5.00 USDC, being credited`)
     expect(all).toContain(i18n.t('debts:settlingDetail'))
     expect(all).toContain('2.00 USDC cancelled out, on')
     expect(all).toContain(`Record code ${recordCode([latest, repay])}`)
@@ -212,6 +212,42 @@ describe('debt screens', () => {
     const r = await mount(<DebtsScreen tabs={[]} {...money} onOpen={vi.fn()} onNew={vi.fn()} onReceive={onReceive} />)
     await press(r.root, 'Receive a debt')
     expect(onReceive).toHaveBeenCalledTimes(1)
+  })
+
+  it('says who paid when a payment is being credited', async () => {
+    const paid = await mount(
+      <DebtsScreen
+        tabs={[summary({ settling: true, settlingAmount: 60_000n, settlingReceived: false })]}
+        {...money}
+        onOpen={vi.fn()}
+        onNew={vi.fn()}
+        onReceive={vi.fn()}
+      />,
+    )
+    expect(shown(paid)).toContain('Paid 0.06 USDC, being credited')
+    const received = await mount(
+      <DebtsScreen
+        tabs={[summary({ settling: true, settlingAmount: 60_000n, settlingReceived: true })]}
+        {...money}
+        onOpen={vi.fn()}
+        onNew={vi.fn()}
+        onReceive={vi.fn()}
+      />,
+    )
+    expect(shown(received)).toContain(`${peerLabel(ben.key)} paid 0.06 USDC, being credited`)
+  })
+
+  it('knows a payment that is being credited was made to this phone when the payee is this phone', () => {
+    const repay = (payee: Uint8Array) => ({
+      tab: TAB,
+      seq: 4,
+      reference: new Uint8Array(32).fill(9),
+      payee,
+      reduction: 25_000_000n,
+      status: 'settling' as const,
+    })
+    expect(summarize(ana.key, row, states, null, [], [repay(ana.key)]).settlingReceived).toBe(true)
+    expect(summarize(ana.key, row, states, null, [], [repay(ben.key)]).settlingReceived).toBe(false)
   })
 
   it('every button has its label and the copy has no banned words', async () => {

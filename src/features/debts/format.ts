@@ -34,6 +34,8 @@ export type TabSummary = {
   settling: boolean
   /** How much the debt will go down once the payments still settling are done. */
   settlingAmount: bigint
+  /** The payments still settling were made to this phone, not by it. */
+  settlingReceived: boolean
   /** A repayment or a netting is not decided yet: "clear" is not offered. */
   pending: boolean
 }
@@ -65,6 +67,7 @@ export function summarize(
     orphaned: latest !== undefined && !equalBytes(latest.debtor, me) && !equalBytes(latest.creditor, me),
     settling: settlingAmount !== 0n,
     settlingAmount,
+    settlingReceived: repays.some((r) => undecided.has(r.status) && equalBytes(r.payee, me)),
     pending: row.lockedBy !== null || repays.some((r) => undecided.has(r.status)),
   }
 }

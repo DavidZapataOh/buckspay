@@ -60,7 +60,12 @@ export function DebtsScreen({
             ) : null}
             {tab.settling ? (
               <AppText variant="label" tone="muted">
-                {t('debts:settling', { amount: money(tab.settlingAmount, decimals, symbol) })}
+                {tab.settlingReceived
+                  ? t('debts:settlingReceived', {
+                      peer: tab.peerLabel,
+                      amount: money(tab.settlingAmount, decimals, symbol),
+                    })
+                  : t('debts:settling', { amount: money(tab.settlingAmount, decimals, symbol) })}
               </AppText>
             ) : null}
             {tab.orphaned ? (
