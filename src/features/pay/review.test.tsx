@@ -117,11 +117,11 @@ describe('PayReview', () => {
       'pay-cancel',
     ])
     const shown = texts(renderer.root).join('\n')
-    expect(shown).toContain('Pay 5.00 USDC')
+    expect(texts(renderer.root)).toEqual(expect.arrayContaining(['Pay', '5.00', 'USDC']))
     expect(shown).toMatch(/Phone [A-Z2-9]{4}-[A-Z2-9]{4}/)
     expect(shown).toContain('New phone')
-    expect(shown).toContain('Compare this code')
-    expect(shown).toContain('93.00 USDC left after this payment')
+    expect(shown).toContain('Same code on both phones?')
+    expect(shown).toContain('93.00 USDC left')
     expect(shown).toContain("You can't cancel it afterwards.")
     expect(shown).toContain('it stays in your reserve')
     expect(shown).toContain('stays on hold until your reserve ends')
@@ -142,9 +142,9 @@ describe('PayReview', () => {
     expect(asked.review.biometric).toBe(true)
     const shown = texts((await mount(asked)).root).join('\n')
     expect(shown).toContain('Confirm and pay 25.00 USDC')
-    expect(shown).toContain("You'll be asked for your fingerprint or screen lock.")
+    expect(shown).toContain('Fingerprint or screen lock')
     const plain = texts((await mount(plan().plan)).root).join('\n')
-    expect(plain).not.toContain('fingerprint')
+    expect(plain).not.toMatch(/fingerprint/i)
   })
 
   it('renders the memo as quoted plain text with its warning and never as a control', async () => {
@@ -181,7 +181,7 @@ describe('PayReview of a note passed on', () => {
   it('says it pays from money received, shows the change and whose bond answers, and promises nothing', async () => {
     const renderer = await mount(respendPlan({ kind: 'spend2', change: 3_000_000n }))
     const shown = texts(renderer.root).join('\n')
-    expect(shown).toContain('Paying from money you received')
+    expect(shown).toContain('Money you received')
     expect(shown).toMatch(/3\.00 USDC comes back to you/)
     expect(shown).toContain('If you spend the same money twice, you lose your security deposit.')
     expect(shown).not.toMatch(/protected|insured|guarantee|allowance|bond/i)
@@ -198,7 +198,7 @@ describe('PayReview of a note passed on', () => {
 
   it('shows no change line for a payment of the whole note', async () => {
     const shown = texts((await mount(respendPlan({ kind: 'spend1', change: 0n }))).root).join('\n')
-    expect(shown).toContain('Paying from money you received')
+    expect(shown).toContain('Money you received')
     expect(shown).not.toContain('comes back to you')
   })
 })

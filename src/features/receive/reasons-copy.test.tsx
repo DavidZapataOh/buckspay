@@ -44,8 +44,8 @@ describe('what the receiver says', () => {
     for (const reason of refusals) {
       const root = await render(<RejectedResult reason={reason} limits={limits} onRetry={() => {}} onDone={() => {}} />)
       const shown = texts(root).join('\n')
-      expect(shown).toContain('Not received.')
-      expect(shown.length).toBeGreaterThan('Not received.'.length + 10)
+      expect(shown).toContain('Not received')
+      expect(shown.length).toBeGreaterThan('Not received'.length + 10)
       expect(shown).not.toContain('777')
       expect(shown).not.toContain('{')
     }
@@ -72,8 +72,10 @@ describe('what the receiver says', () => {
     const shown = texts(
       await render(<AcceptedResult outcome={accepted()} symbol="USDC" decimals={6} onDone={() => {}} />),
     ).join('\n')
-    expect(shown).toContain('Received 3.00 USDC')
-    expect(shown).toContain('You asked for 5.00 USDC; 3.00 USDC arrived.')
+    expect(
+      texts(await render(<AcceptedResult outcome={accepted()} symbol="USDC" decimals={6} onDone={() => {}} />)),
+    ).toEqual(expect.arrayContaining(['Received', '3.00', 'USDC']))
+    expect(shown).toContain('Asked 5.00 · got 3.00 USDC')
     expect(shown).toContain('their security deposit is destroyed')
     expect(shown).not.toContain('777')
     const same = texts(
@@ -86,14 +88,14 @@ describe('what the receiver says', () => {
         />,
       ),
     ).join('\n')
-    expect(same).not.toContain('You asked for')
+    expect(same).not.toContain('Asked')
   })
 
   it('says a note kept for passing on can be passed on, and settles later', async () => {
     const shown = texts(
       await render(<AcceptedResult outcome={accepted({ keep: true })} symbol="USDC" decimals={6} onDone={() => {}} />),
     ).join('\n')
-    expect(shown).toContain('You can use it in your next payment')
+    expect(shown).toContain('Use it again')
     expect(shown).not.toContain("It's yours now. It will be credited")
   })
 
@@ -103,6 +105,6 @@ describe('what the receiver says', () => {
         <AcceptedResult outcome={accepted({ duplicate: true })} symbol="USDC" decimals={6} onDone={() => {}} />,
       ),
     ).join('\n')
-    expect(shown).toContain('Already received. Nothing was added twice.')
+    expect(shown).toContain('Already received')
   })
 })

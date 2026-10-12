@@ -15,9 +15,9 @@ describe('copy', () => {
   })
 
   it('names the medium on the request screen and never asks to scan when there is nothing to scan', () => {
-    expect(i18n.t('payment:receive.requestTitle.qr')).toBe('Ask the payer to scan this code')
-    expect(i18n.t('payment:receive.requestTitle.nfc')).toBe('Hold the phones together')
-    expect(i18n.t('payment:receive.requestTitle.nearby')).toBe('Keep the phones close and wait for the payer')
+    expect(i18n.t('payment:receive.requestTitle.qr')).toBe('Scan this')
+    expect(i18n.t('payment:receive.requestTitle.nfc')).toBe('Touch phones')
+    expect(i18n.t('payment:receive.requestTitle.nearby')).toBe('Keep phones close')
     for (const medium of ['nfc', 'nearby'] as const) {
       expect(i18n.t(`payment:receive.requestTitle.${medium}`).toLowerCase()).not.toMatch(/scan|camera|code/)
     }

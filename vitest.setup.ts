@@ -6,5 +6,6 @@ vi.mock('@react-native-async-storage/async-storage', () => import('./src/test-su
 vi.mock('expo-localization', () => ({ getLocales: () => [{ languageTag: 'en-US' }] }))
 // Motion, drawing and sound have no native side in Vitest: the same components, drawn by name and at rest.
 vi.mock('react-native-reanimated', () => import('./src/test-support/reanimated'))
+vi.mock('expo-symbols', () => ({ unstable_getMaterialSymbolSourceAsync: async () => ({ uri: 'icon.png' }) }))
 vi.mock('react-native-svg', () => import('./src/test-support/svg'))
 vi.mock('./src/feedback/device', () => ({ deviceOutputs: { vibrate: () => {}, play: () => {} } }))

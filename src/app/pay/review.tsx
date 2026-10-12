@@ -23,6 +23,7 @@ export default function PayReviewScreen() {
     return (
       <Screen
         testID="pay-review-screen"
+        steps={{ total: 3, current: 1 }}
         footer={
           <PayReviewActions
             plan={state.plan}

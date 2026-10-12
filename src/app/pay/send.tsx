@@ -4,9 +4,14 @@ import { useTranslation } from 'react-i18next'
 import { router } from 'expo-router'
 import { useEffect } from 'react'
 import { AccessibilityInfo, View } from 'react-native'
-import { AppText } from '../../components/app-text'
+import { Amount } from '../../components/amount'
 import { Button } from '../../components/button'
+import { Chip } from '../../components/chip'
+import { Hero } from '../../components/hero'
+import { Info } from '../../components/info'
 import { Screen } from '../../components/screen'
+import { Stage } from '../../components/stage'
+import { feedback } from '../../feedback'
 import { decodeBundle } from '../../payment/messages'
 import type { SentPayment } from '../../payment/pay'
 import { nativeErrorCode } from '../../keys'
@@ -15,13 +20,13 @@ import { BUILD_TOKEN } from '../../features/pay/tokens'
 import { usePayFlow } from '../../features/pay/use-pay-flow'
 import { payErrorKey } from '../../features/payment/copy'
 import { reasonText } from '../../features/payment/reason-text'
-import { ResultMark } from '../../features/payment/result-mark'
 import { QrPresenter } from '../../features/qr/qr-presenter'
 import { ScanScreen } from '../../features/qr/scan-screen'
 import { WaitingScreen } from '../../features/transport/waiting'
 import { NearbyCheck } from '../../features/witness/nearby-check'
 
 const money = (units: bigint) => formatMoney(units, BUILD_TOKEN.decimals, currentLanguage())
+const STEPS = { total: 3, current: 2 }
 
 function issueOf(payment: SentPayment) {
   try {
@@ -43,10 +48,11 @@ export default function PaySend() {
 
   useEffect(() => {
     if (state.name === 'confirmed') {
+      feedback.cue('success')
       AccessibilityInfo.announceForAccessibility(
         i18n.t('payment:send.confirmedSpoken', { amount: money(state.payment.amount), symbol: BUILD_TOKEN.symbol }),
       )
-    }
+    } else if (state.name === 'rejected' || state.name === 'failed') feedback.cue('problem')
   }, [state])
 
   const unconfirmed = state.name === 'presenting' && state.unconfirmed === true
@@ -66,6 +72,7 @@ export default function PaySend() {
         <WaitingScreen
           medium={flow.how.chosen}
           title={t('payment:send.waiting')}
+          steps={STEPS}
           onCancel={flow.cancelReceipt}
           cancelLabel={t('payment:review.cancel')}
         />
@@ -89,8 +96,8 @@ export default function PaySend() {
 
   if (state.name === 'presenting') {
     return (
-      <Screen testID="pay-presenting">
-        <AppText variant="headline">{t('payment:send.title')}</AppText>
+      <Screen testID="pay-presenting" steps={STEPS}>
+        <Amount value={money(state.payment.amount)} symbol={BUILD_TOKEN.symbol} />
         {flow.texts ? (
           <QrPresenter
             texts={flow.texts}
@@ -100,16 +107,24 @@ export default function PaySend() {
             })}
           />
         ) : null}
-        <AppText testID="pay-status" variant="body" accessibilityLiveRegion="polite">
-          {state.unconfirmed
-            ? t('payment:send.unconfirmed')
-            : state.otherReceipt
-              ? t('payment:send.otherPayment')
-              : t('payment:send.waiting')}
-        </AppText>
-        <AppText variant="body" tone="muted">
-          {t('payment:send.keepUp')}
-        </AppText>
+        <View testID="pay-status" className="items-center gap-2" accessibilityLiveRegion="polite">
+          <Chip
+            kind="waiting"
+            label={
+              state.unconfirmed
+                ? t('payment:send.unconfirmedShort')
+                : state.otherReceipt
+                  ? t('payment:send.otherPayment')
+                  : t('payment:send.waiting')
+            }
+          />
+        </View>
+        <View className="items-center">
+          <Info
+            title={t('payment:send.title')}
+            lines={state.unconfirmed ? [t('payment:send.unconfirmed')] : [t('payment:send.keepUp')]}
+          />
+        </View>
         {nearby}
         <View className="gap-3">
           {state.unconfirmed ? (
@@ -144,11 +159,10 @@ export default function PaySend() {
 
   if (state.name === 'confirmed') {
     return (
-      <Screen testID="pay-result-confirmed">
-        <ResultMark ok />
-        <AppText variant="headline" tone="success">
-          {t('payment:send.confirmed', { amount: money(state.payment.amount), symbol: BUILD_TOKEN.symbol })}
-        </AppText>
+      <Screen testID="pay-result-confirmed" steps={STEPS}>
+        <Stage hero={<Hero kind="done" decorative />} title={t('payment:send.paid')} tone="success">
+          <Amount value={money(state.payment.amount)} symbol={BUILD_TOKEN.symbol} />
+        </Stage>
         {nearby}
         <Button testID="pay-done" variant="filled" label={t('payment:send.done')} onPress={flow.finish} />
       </Screen>
@@ -164,19 +178,19 @@ export default function PaySend() {
       symbol: BUILD_TOKEN.symbol,
       decimals: BUILD_TOKEN.decimals,
     })
+    const held = t('payment:send.rejectedNext', {
+      amount: money(state.payment.amount),
+      symbol: BUILD_TOKEN.symbol,
+      date: lock ? formatDate(lock.lockUntil, currentLanguage()) : '',
+    })
     return (
-      <Screen testID="pay-result-rejected">
-        <ResultMark ok={false} />
-        <AppText variant="headline" tone="danger">
-          {t('payment:send.rejected', { reason: why.replace(/\.$/, '') })}
-        </AppText>
-        <AppText variant="body">
-          {t('payment:send.rejectedNext', {
-            amount: money(state.payment.amount),
-            symbol: BUILD_TOKEN.symbol,
-            date: lock ? formatDate(lock.lockUntil, currentLanguage()) : '',
-          })}
-        </AppText>
+      <Screen testID="pay-result-rejected" steps={STEPS}>
+        <Stage hero={<Hero kind="problem" decorative />} title={t('payment:send.rejectedTitle')} line={why}>
+          <View className="flex-row items-center gap-1">
+            <Chip kind="info" label={t('payment:send.stillYours')} />
+            <Info title={t('payment:send.rejectedTitle')} lines={[held]} />
+          </View>
+        </Stage>
         <View className="gap-3">
           <Button testID="pay-again" variant="filled" label={t('payment:send.again')} onPress={flow.showAgain} />
           <Button testID="pay-done" variant="text" label={t('payment:send.done')} onPress={flow.finish} />
@@ -189,14 +203,14 @@ export default function PaySend() {
     const key = payErrorKey(state.error, nativeErrorCode(state.error.cause))
     const resumable = key === 'Locked' || key === 'SignFailed' || key === 'SendFailed'
     return (
-      <Screen testID="pay-failed">
-        <ResultMark ok={false} />
-        <AppText variant="headline" tone="danger" accessibilityLiveRegion="polite">
-          {t(`payment:payError.${key}`, {
+      <Screen testID="pay-failed" steps={STEPS}>
+        <Stage
+          hero={<Hero kind="problem" decorative />}
+          title={t(`payment:payError.${key}`, {
             amount: money(PAY_LIMITS.biometricFrom),
             symbol: BUILD_TOKEN.symbol,
           })}
-        </AppText>
+        />
         <View className="gap-3">
           {resumable ? (
             <Button
