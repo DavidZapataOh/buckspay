@@ -41,6 +41,7 @@ import {
 import { decodeMessage, encodeMessage, type Proposal } from '../messages'
 import { NETTING_KEEP_SECS } from '../record'
 import { listSessions, Status, sweepSessions, pursueRecord } from '../session-store'
+import type { SessionPort } from '../session-port'
 import { NOW, openTabBetween, type Person, person } from './people'
 import { toBytes32 } from '../../rewards/secrets-poseidon'
 
@@ -333,6 +334,7 @@ async function makeRig(n: number, specs: TabSpec[], options: RigOptions = {}, sh
   const phoneNow = (i: number) => () => clock.now
   const skewed = (i: number) => () => clock.now + (options.skew?.[i] ?? 0)
 
+  const links = new Map<number, SessionPort>()
   const depsFor = (i: number): SessionDeps => ({
     db: people[i].db,
     now: phoneNow(i),
@@ -344,6 +346,7 @@ async function makeRig(n: number, specs: TabSpec[], options: RigOptions = {}, sh
     signIou: (body) => people[i].signIou(body),
     verifyProof: options.verify ?? bootVerify,
     consent: async (view) => (options.consent ? options.consent(i, view, clock) : true),
+    onLink: (port) => void links.set(i, port),
     onEvent: (event) => {
       events.push(event)
       if (i === participants[0] && event.type === 'joined') {
@@ -358,6 +361,7 @@ async function makeRig(n: number, specs: TabSpec[], options: RigOptions = {}, sh
     clock,
     chain: chain as ChainFake,
     people,
+    links,
     invite,
     events,
     net: {

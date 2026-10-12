@@ -35,6 +35,7 @@ vi.mock('./remainder-rows', () => ({
   loadRemainderRows: vi.fn(async () => rows),
 }))
 vi.mock('./remainder', () => ({ collectRemainder: vi.fn(async () => undefined) }))
+vi.mock('./use-remainder-deps', () => ({ useRemainderDeps: () => undefined }))
 vi.mock('./prove', () => ({ proveNetting: vi.fn(), verifyNettingProof: vi.fn() }))
 
 declare global {

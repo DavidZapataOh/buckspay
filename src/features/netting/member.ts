@@ -25,6 +25,7 @@ import type { GroupWire } from '../../transport/nearby/group'
 import { type Invite, JOINING, SessionChannel } from './channel'
 import { AbortReason, type Proposal, type SessionMessage, type SignedRosterEntry } from './messages'
 import { Inbox, sealMessage } from './session-io'
+import { type SessionPort, sessionPort } from './session-port'
 import {
   abandonSession,
   adoptFinal,
@@ -359,6 +360,8 @@ export type SessionDeps = {
   timeouts: SessionTimeouts
   /** When set, an agreed session is sent to the gateway as soon as it exists. */
   record?: RecordPorts
+  /** Given the link of a session that ended with something left to pay; the caller closes it. */
+  onLink?: (port: SessionPort) => void
 }
 
 export type Reviewed =
@@ -476,7 +479,9 @@ export async function runMember(
   const pendingSizes = (await approved()).map((r) => decodeStatement(r.statement!).participants)
   const inbox = new Inbox(wire, channel, () => (known ? [known] : pendingSizes))
   const finish = (outcome: SessionOutcome): SessionOutcome => {
-    inbox.close()
+    if (deps.onLink && (outcome.status === 'nothing' || outcome.status === 'agreed'))
+      deps.onLink(sessionPort({ wire, channel, inbox, me: channel.me }))
+    else inbox.close()
     deps.onEvent({ type: 'ended', outcome })
     return outcome
   }

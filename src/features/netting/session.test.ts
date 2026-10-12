@@ -1,3 +1,4 @@
+import { MessageKind } from '../../transport/types'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { describe, expect, it } from 'vitest'
 import { cancelCycles } from './cycles'
@@ -86,6 +87,44 @@ describe('a full session', () => {
       ],
       [[1, key(1)]],
     ])
+  })
+
+  const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 30))
+
+  it('after_nothing_to_net_the_phones_can_still_talk_through_the_host', async () => {
+    const r = await rig(3, [
+      { a: 0, b: 1, amount: 4n * U, debtor: 'a' },
+      { a: 1, b: 2, amount: 4n * U, debtor: 'a' },
+    ])
+    await r.run()
+    const heard = (to: number) => {
+      const got: [number, number, string][] = []
+      r.links.get(to)!.onRelay((from, kind, payload) => got.push([from, kind, bytesToHex(payload)]))
+      return got
+    }
+    const [atHost, atOne, atTwo] = [heard(0), heard(1), heard(2)]
+    const [host, one, two] = [r.links.get(0)!, r.links.get(1)!, r.links.get(2)!]
+    await one.send(2, MessageKind.Payment, Uint8Array.of(7))
+    await two.send(0, MessageKind.Request, Uint8Array.of(8))
+    await host.send(1, MessageKind.Receipt, Uint8Array.of(9))
+    await tick()
+    expect(atTwo).toEqual([[1, MessageKind.Payment, '07']])
+    expect(atHost).toEqual([[2, MessageKind.Request, '08']])
+    expect(atOne).toEqual([[0, MessageKind.Receipt, '09']])
+  })
+
+  it('a_member_cannot_relay_to_itself_or_to_someone_who_is_not_there', async () => {
+    const r = await rig(3, [
+      { a: 0, b: 1, amount: 4n * U, debtor: 'a' },
+      { a: 1, b: 2, amount: 4n * U, debtor: 'a' },
+    ])
+    await r.run()
+    const got: number[] = []
+    for (const i of [0, 1, 2]) r.links.get(i)!.onRelay((from) => got.push(from))
+    await r.links.get(1)!.send(1, MessageKind.Payment, Uint8Array.of(1))
+    await r.links.get(1)!.send(5, MessageKind.Payment, Uint8Array.of(1))
+    await tick()
+    expect(got).toEqual([])
   })
 
   it('there_is_no_states_or_counterparts_traffic_and_those_types_are_refused', async () => {

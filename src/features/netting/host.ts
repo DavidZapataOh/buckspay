@@ -33,6 +33,7 @@ import {
   checkFinal,
 } from './member'
 import { Inbox, sealMessage } from './session-io'
+import { sessionPort } from './session-port'
 import {
   abandonSession,
   adoptFinal,
@@ -70,7 +71,9 @@ export async function runHost(deps: HostDeps, invite: Invite, signal: AbortSigna
   let n = 0
   const inbox = new Inbox(wire, channel, () => (n ? [n] : []))
   const done = (outcome: SessionOutcome): SessionOutcome => {
-    inbox.close()
+    if (deps.onLink && (outcome.status === 'nothing' || outcome.status === 'agreed'))
+      deps.onLink(sessionPort({ wire, channel, inbox, me: HOST }))
+    else inbox.close()
     deps.onEvent({ type: 'ended', outcome })
     return outcome
   }

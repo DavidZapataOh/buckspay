@@ -18,6 +18,8 @@ export default function NettingHost() {
       <SessionScreen
         view={session.view}
         rows={session.remainder}
+        onPay={session.onPay}
+        onLater={session.onLater}
         symbol={BUILD_TOKEN.symbol}
         decimals={BUILD_TOKEN.decimals}
       />
