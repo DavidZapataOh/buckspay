@@ -37,7 +37,6 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.5",
-    "@formatjs/intl-pluralrules": "^6.3.15",
     "@hpke/chacha20poly1305": "1.8.0",
     "@hpke/core": "1.9.0",
     "@hpke/dhkem-x25519": "1.8.0",
@@ -68,6 +67,7 @@
     "expo-symbols": "~57.0.3",
     "expo-system-ui": "~57.0.1",
     "i18next": "^26.4.3",
+    "make-plural": "^8.1.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-i18next": "^17.0.16",
