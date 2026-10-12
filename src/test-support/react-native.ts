@@ -2,6 +2,7 @@
 // components the app uses, rendered by name as React Native's own Jest setup does, and the APIs it calls.
 export const ActivityIndicator = 'ActivityIndicator'
 export const Image = 'Image'
+export const Modal = 'Modal'
 export const Pressable = 'Pressable'
 export const ScrollView = 'ScrollView'
 export const Text = 'Text'

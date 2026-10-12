@@ -39,6 +39,16 @@ export const pairs: [string, string, number][] = [
   ['danger', 'surface', 4.5],
   ['success', 'background', 4.5],
   ['success', 'surface', 4.5],
+  ['strong', 'surface', 4.5],
+  ['strong', 'background', 4.5],
+  ['on-primary', 'primary-pressed', 4.5],
+  ['on-secondary-container', 'secondary-container-pressed', 4.5],
+  ['on-primary', 'danger-pressed', 4.5],
+  ['success', 'success-container', 4.5],
+  ['danger', 'danger-container', 4.5],
+  ['warning', 'warning-container', 4.5],
+  ['warning', 'background', 4.5],
+  ['warning', 'surface', 4.5],
 ]
 
 export const textTones: Record<string, string> = {

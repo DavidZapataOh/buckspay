@@ -19,5 +19,9 @@
     "wallet": "Billetera",
     "advanced": "Avanzado"
   },
-  "certificates_many": "Cadena de {{count}} certificados"
+  "certificates_many": "Cadena de {{count}} certificados",
+  "feedback": {
+    "sound": "Sonido",
+    "haptics": "Vibración"
+  }
 }

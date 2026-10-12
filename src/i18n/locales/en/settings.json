@@ -18,5 +18,9 @@
   "sections": {
     "wallet": "Wallet",
     "advanced": "Advanced"
+  },
+  "feedback": {
+    "sound": "Sound",
+    "haptics": "Vibration"
   }
 }

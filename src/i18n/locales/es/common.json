@@ -58,5 +58,7 @@
     "openStore": "No se pudo abrir el registro de pagos. Cierra la app y ábrela de nuevo.",
     "readStore": "No se pudo leer el registro de pagos. Cierra la app y ábrela de nuevo."
   },
-  "cancel": "Cancelar"
+  "cancel": "Cancelar",
+  "step": "Paso {{current}} de {{total}}",
+  "moreInfo": "Más información"
 }

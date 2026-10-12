@@ -19,5 +19,9 @@
     "wallet": "Carteira",
     "advanced": "Avançado"
   },
-  "certificates_many": "Cadeia de {{count}} certificados"
+  "certificates_many": "Cadeia de {{count}} certificados",
+  "feedback": {
+    "sound": "Som",
+    "haptics": "Vibração"
+  }
 }

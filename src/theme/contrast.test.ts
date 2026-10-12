@@ -11,8 +11,18 @@ const names = [
   'on-primary',
   'secondary-container',
   'on-secondary-container',
+  'strong',
+  'primary-pressed',
+  'secondary-container-pressed',
   'danger',
+  'danger-pressed',
+  'danger-container',
   'success',
+  'success-container',
+  'warning',
+  'warning-container',
+  'disabled',
+  'on-disabled',
 ]
 
 describe.each(['light', 'dark'] as const)('%s theme', (variant) => {
@@ -24,6 +34,46 @@ describe.each(['light', 'dark'] as const)('%s theme', (variant) => {
 
   it.each(pairs)('%s on %s meets %d:1', (fg, bg, minimum) => {
     expect(contrast(colors[fg], colors[bg])).toBeGreaterThanOrEqual(minimum)
+  })
+})
+
+const SURFACE_GRAPHICS: [string, string, number][] = [
+  ['primary', 'background', 3],
+  ['primary', 'surface', 3],
+  ['success', 'success-container', 3],
+  ['danger', 'danger-container', 3],
+  ['warning', 'warning-container', 3],
+  ['outline', 'background', 1.1],
+]
+
+describe.each(['light', 'dark'] as const)('%s theme: neutral balance', (variant) => {
+  const colors = theme(variant)
+
+  it('draws the foreground (cards) apart from the background without a loud fill', () => {
+    expect(colors.surface).not.toBe(colors.background)
+    expect(contrast(colors.surface, colors.background)).toBeLessThan(1.3)
+  })
+
+  it('never uses pure black for text, and pure white only for the strong text of dark mode', () => {
+    expect(colors.foreground).not.toBe('#000000')
+    expect(colors.muted).not.toBe('#000000')
+    if (variant === 'light') expect(colors.foreground).not.toBe('#ffffff')
+    expect(colors.foreground).not.toBe('#ffffff')
+  })
+
+  it.each(SURFACE_GRAPHICS)('draws %s on %s at %d:1 for icons and borders', (fg, bg, minimum) => {
+    expect(contrast(colors[fg], colors[bg])).toBeGreaterThanOrEqual(minimum)
+  })
+
+  it('shows a disabled control by desaturating it, not only by fading it', () => {
+    const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+    const spread = (hex: string) => Math.max(...channels(hex)) - Math.min(...channels(hex))
+    expect(spread(colors.disabled)).toBeLessThan(spread(colors.primary))
+    expect(spread(colors['on-disabled'])).toBeLessThan(spread(colors.primary))
+  })
+
+  it('presses darker on light and keeps pressing visible on dark', () => {
+    expect(contrast(colors['primary-pressed'], colors.background)).not.toBe(contrast(colors.primary, colors.background))
   })
 })
 

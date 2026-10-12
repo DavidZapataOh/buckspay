@@ -4,7 +4,8 @@
     "strict": true,
     "paths": {
       "@project/anchor": ["./anchor/src"]
-    }
+    },
+    "allowImportingTsExtensions": true
   },
   "exclude": ["anchor", "node_modules"]
 }

@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { AddressRow } from './address-row'
 import { AppText } from './app-text'
 import { Button } from './button'
+import { feedback } from '../feedback'
 import { ListRow } from './list-row'
 import { Screen } from './screen'
 import { StatusNote } from './status-note'
@@ -20,6 +21,7 @@ vi.mock('react-native-safe-area-context', () => ({
 }))
 vi.mock('expo-symbols', () => ({ unstable_getMaterialSymbolSourceAsync: vi.fn(async () => ({ uri: 'icon.png' })) }))
 vi.mock('expo-clipboard', () => ({ setStringAsync: vi.fn() }))
+vi.mock('../feedback', () => ({ feedback: { cue: vi.fn() } }))
 vi.mock('expo-linking', () => ({ openURL: vi.fn() }))
 vi.mock('../features/network/use-network', () => ({
   useNetwork: () => ({ getExplorerUrl: (path: string) => `https://explorer.solana.com/${path}?cluster=devnet` }),
@@ -87,6 +89,31 @@ describe('Button', () => {
       disabled: true,
     })
     expect(root.findByType('ActivityIndicator' as never).props.accessibilityLabel).toBe('Working')
+  })
+})
+
+describe('Button states', () => {
+  it('darkens while pressed and ticks when pressed', async () => {
+    const root = await render(<Button variant="filled" label="Pay" onPress={() => {}} />)
+    const [button] = buttons(root)
+    expect(button.props.className).toContain('active:bg-primary-pressed')
+    button.props.onPress()
+    expect(feedback.cue).toHaveBeenCalledWith('tap')
+  })
+
+  it('is desaturated, not only faded, when disabled, and does not tick', async () => {
+    vi.mocked(feedback.cue).mockClear()
+    const root = await render(<Button variant="filled" label="Pay" disabled onPress={() => {}} />)
+    const [button] = buttons(root)
+    expect(button.props.className).toContain('bg-disabled')
+    expect(button.props.className).not.toContain('opacity')
+    expect(root.findByType('Text' as never).props.className).toContain('text-on-disabled')
+    expect(button.props.disabled).toBe(true)
+  })
+
+  it('keeps a disabled text button without a fill', async () => {
+    const root = await render(<Button variant="text" label="Skip" disabled onPress={() => {}} />)
+    expect(buttons(root)[0].props.className).not.toContain('bg-')
   })
 })
 

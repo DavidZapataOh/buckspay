@@ -18,6 +18,7 @@ import { PointModeProvider } from '../features/event/use-point-mode'
 import { ReceiveFlowProvider } from '../features/receive/use-receive-flow'
 import { SettlementProvider } from '../features/settlement/use-settlement-runner'
 import { createAuthorizationCache } from '../features/wallet/authorization-cache'
+import { useFeedbackBootstrap } from '../feedback/use-feedback'
 import { i18n } from '../i18n'
 import { useLanguageBootstrap } from '../i18n/use-language-bootstrap'
 import { configureDeviceKey } from '../keys'
@@ -40,6 +41,7 @@ void SplashScreen.preventAutoHideAsync()
 
 export default function Layout() {
   const languageReady = useLanguageBootstrap()
+  useFeedbackBootstrap()
   useEffect(() => {
     if (languageReady) SplashScreen.hide()
   }, [languageReady])

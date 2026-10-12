@@ -11,6 +11,7 @@ import { Button } from '../../components/button'
 import { ListRow } from '../../components/list-row'
 import { Screen } from '../../components/screen'
 import { StatusNote } from '../../components/status-note'
+import { FeedbackSetting } from './feedback-setting'
 import { LanguageSetting } from './language-setting'
 import { MeshSettings, type MeshSettingsProps } from '../mesh/mesh-settings'
 import { keyProtection } from '../identity/identity-copy'
@@ -69,6 +70,7 @@ export function Settings({
     <Screen testID="settings">
       <AppText variant="headline">{t('settings:title')}</AppText>
       <LanguageSetting />
+      <FeedbackSetting />
       <AppText variant="title" accessibilityRole="header" className="mt-4">
         {t('settings:sections.wallet')}
       </AppText>
