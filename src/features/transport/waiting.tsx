@@ -4,7 +4,6 @@ import { View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import { Screen } from '../../components/screen'
-import { QrPresenter } from '../qr/qr-presenter'
 import type { TransportId } from '../../transport/types'
 
 /** What replaces the camera when the other phone talks over Tap or Nearby: nothing to scan, only to wait. */
@@ -13,7 +12,6 @@ export function WaitingScreen({
   title,
   notice,
   detail,
-  code,
   onCancel,
   cancelLabel,
 }: {
@@ -21,8 +19,6 @@ export function WaitingScreen({
   title: string
   notice?: string
   detail?: string
-  /** A code the other phone scans to find this one, shown while it waits. */
-  code?: string
   onCancel: () => void
   cancelLabel: string
 }) {
@@ -34,7 +30,6 @@ export function WaitingScreen({
         <AppText variant="headline" accessibilityLiveRegion="polite">
           {title}
         </AppText>
-        {code ? <QrPresenter texts={[code]} accessibilityLabel={title} /> : null}
         <AppText variant="body">{t(`transport:waiting.${medium}`)}</AppText>
         {detail ? (
           <AppText variant="body" tone="muted">

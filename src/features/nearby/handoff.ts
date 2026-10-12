@@ -19,6 +19,14 @@ export function openPairing(role: PairingRole): Promise<Transport> {
   })
 }
 
+let friendCode: string | undefined
+
+/** A code the receiving pairing screen shows next to its own, so the other phone can scan it first. */
+export const showFriendCode = (code?: string) => {
+  friendCode = code
+}
+export const friendCodeShown = () => friendCode
+
 export function completePairing(link: NearbyLink) {
   waiting?.resolve(createNearbyTransport(link))
   waiting = null

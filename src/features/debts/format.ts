@@ -95,11 +95,18 @@ export const formatDate = (seconds: number): string => formatLongDate(seconds, c
 
 const FRIEND_PREFIX = 'buckspay://debts?friend='
 
+/** How the phones talk once the friend has scanned the code: the receiver decides and says so in the code. */
+export type FriendMedium = 'qr' | 'nearby'
+
 /** The code a phone shows to be offered a first debt: its device key, so the friend knows whom to sign with. */
-export const friendCode = (key: Uint8Array): string => `${FRIEND_PREFIX}${bytesToHex(key)}`
+export const friendCode = (key: Uint8Array, via: FriendMedium = 'qr'): string =>
+  `${FRIEND_PREFIX}${bytesToHex(key)}${via === 'nearby' ? '&via=nearby' : ''}`
+
+/** The device key and the way to talk in a friend code, or `undefined` for any other text. */
+export function parseFriendLink(text: string): { key: Uint8Array; via: FriendMedium } | undefined {
+  const match = /^buckspay:\/\/debts\?friend=((?:02|03)[0-9a-f]{64})(&via=nearby)?$/.exec(text.trim())
+  return match ? { key: hexToBytes(match[1]), via: match[2] ? 'nearby' : 'qr' } : undefined
+}
 
 /** The device key in a friend code, or `undefined` for any other text. */
-export function parseFriendCode(text: string): Uint8Array | undefined {
-  const match = /^buckspay:\/\/debts\?friend=((?:02|03)[0-9a-f]{64})$/.exec(text.trim())
-  return match ? hexToBytes(match[1]) : undefined
-}
+export const parseFriendCode = (text: string): Uint8Array | undefined => parseFriendLink(text)?.key

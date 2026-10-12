@@ -41,7 +41,7 @@ export default function Accept() {
     <ExchangeView
       link={link}
       title={t('debts:readyToReceive')}
-      idleCode={friendCode(debts.me)}
+      idleCode={friendCode(debts.me, link.chosen === 'nearby' ? 'nearby' : 'qr')}
       run={(transport, signal) =>
         answerTabOffer(
           debts,

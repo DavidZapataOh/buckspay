@@ -12,6 +12,8 @@ vi.mock('uniwind', () => ({
 vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }))
+const showFriendCode = vi.fn()
+vi.mock('../nearby/handoff', () => ({ showFriendCode: (code?: string) => showFriendCode(code) }))
 vi.mock('../qr/scan-screen', () => ({ ScanScreen: () => null }))
 vi.mock('../qr/qr-presenter', () => ({
   QrPresenter: ({ texts: codes }: { texts: string[] }) => <Text>{`code:${codes[0]}`}</Text>,
@@ -38,16 +40,14 @@ const view = (chosen: 'qr' | 'nearby', idleCode?: string, l: DebtLink = link(cho
 )
 
 describe('the debt exchange while it waits', () => {
-  it('shows the friend code over Nearby too, because the other phone needs it to find this one', async () => {
-    const r = await mount(view('nearby', 'buckspay://debts?friend=02aa'))
-    const shown = texts(r.root)
-    expect(shown).toContain('code:buckspay://debts?friend=02aa')
-    expect(shown).toContain('Your friend scans this code to send you a debt.')
+  it('hands the friend code to the Nearby pairing, which is the screen that covers this one', async () => {
+    await mount(view('nearby', 'buckspay://debts?friend=02aa'))
+    expect(showFriendCode).toHaveBeenCalledWith('buckspay://debts?friend=02aa')
   })
 
-  it('shows no code when there is none to show', async () => {
-    const r = await mount(view('nearby'))
-    expect(texts(r.root).join('\n')).not.toContain('code:')
+  it('shows the friend code on its own screen when the phones talk by code', async () => {
+    const r = await mount(view('qr', 'buckspay://debts?friend=02aa'))
+    expect(texts(r.root)).toContain('code:buckspay://debts?friend=02aa')
   })
 
   it('connects only once the medium is decided, and over that medium', async () => {

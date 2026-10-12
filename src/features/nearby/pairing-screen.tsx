@@ -8,8 +8,9 @@ import { Button } from '../../components/button'
 import { Screen } from '../../components/screen'
 import { StatusNote } from '../../components/status-note'
 import { useSecondsLeft } from '../receive/use-seconds-left'
+import { QrPresenter } from '../qr/qr-presenter'
 import { failureText, spokenDigits } from './copy'
-import { abandonPairing, completePairing, type PairingRole } from './handoff'
+import { abandonPairing, completePairing, friendCodeShown, type PairingRole } from './handoff'
 import { usePairing } from './use-pairing'
 
 const SEARCH_GRACE_MS = 10_000
@@ -62,6 +63,14 @@ export function PairingScreen({ role }: { role: PairingRole }) {
           <AppText variant="body" tone="muted">
             {t('nearby:hostHint')}
           </AppText>
+          {friendCodeShown() ? (
+            <>
+              <QrPresenter texts={[friendCodeShown()!]} accessibilityLabel={t('debts:showCode')} />
+              <AppText variant="body" tone="muted">
+                {t('debts:showCode')}
+              </AppText>
+            </>
+          ) : null}
         </>
       ) : null}
       {status.name === 'running' && !confirming && role === 'payer' ? (

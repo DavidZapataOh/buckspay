@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 import { failureText } from '../../features/debts/errors'
 import { ExchangeView } from '../../features/debts/exchange-view'
 import { proposeTabChange, resendPending } from '../../features/debts/flow'
-import { parseFriendCode, peerLabel } from '../../features/debts/format'
+import { parseFriendLink, peerLabel, type FriendMedium } from '../../features/debts/format'
 import { NewDebtScreen } from '../../features/debts/new-debt-screen'
 import { pendingProposal, tabById, takeNextSeq } from '../../features/debts/store'
 import type { TabIntent } from '../../features/debts/tab'
@@ -38,7 +38,8 @@ export default function NewDebt() {
   const { t } = useTranslation(NAMESPACES)
 
   const debts = useDebts()
-  const link = useDebtLink('payer')
+  const [via, setVia] = useState<FriendMedium>()
+  const link = useDebtLink('payer', via)
   const params = useLocalSearchParams<{ tab?: string; action?: Action }>()
   const [loaded, setLoaded] = useState<{ tab: Uint8Array; peer: Uint8Array } | null>()
   const [chosen, setStage] = useState<Stage>()
@@ -59,7 +60,11 @@ export default function NewDebt() {
       <ScanScreen
         hint={t('payment:scan.hint')}
         hintTestID="debts-friend-hint"
-        onText={(text) => setScanned(parseFriendCode(text))}
+        onText={(text) => {
+          const friend = parseFriendLink(text)
+          setScanned(friend?.key)
+          setVia(friend?.via)
+        }}
         onCancel={() => router.back()}
         cancelLabel={t('payment:review.cancel')}
       />

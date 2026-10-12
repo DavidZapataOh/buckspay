@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { NAMESPACES } from '../../i18n'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Screen } from '../../components/screen'
+import { showFriendCode } from '../nearby/handoff'
 import { AppText } from '../../components/app-text'
 import { Button } from '../../components/button'
 import type { Transport } from '../../transport/types'
@@ -49,6 +50,7 @@ export function ExchangeView<T>({
     if (!decided) return
     const controller = new AbortController()
     let opened: Transport | undefined
+    showFriendCode(idleCode)
     latest.current.link
       .connect()
       .then((transport) => {
@@ -61,22 +63,18 @@ export function ExchangeView<T>({
       )
     return () => {
       controller.abort()
+      showFriendCode(undefined)
       void opened?.close()
     }
+    // The code is only read when the exchange starts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decided])
 
   if (!decided) return null
   if (overlay) return <>{overlay}</>
   if (link.chosen !== 'qr') {
     return (
-      <WaitingScreen
-        medium={link.chosen}
-        title={title}
-        code={idleCode}
-        detail={idleCode ? t('debts:showCode') : undefined}
-        onCancel={onCancel}
-        cancelLabel={t('payment:review.cancel')}
-      />
+      <WaitingScreen medium={link.chosen} title={title} onCancel={onCancel} cancelLabel={t('payment:review.cancel')} />
     )
   }
   if (scanning) {

@@ -4,6 +4,7 @@ import { useDeviceIdentity } from '../identity/use-device-identity'
 import { BUILD_MINT_BYTES } from '../pay/tokens'
 import { nowSeconds, usePayments } from '../payment/payments-provider'
 import { useQrSession } from '../payment/use-qr-session'
+import { mediumOf } from '../transport/medium'
 import { nearbyEntry, qrEntry } from '../transport/registry'
 import { useTransportChoice, useTransports } from '../transport/use-transports'
 import type { Transport } from '../../transport/types'
@@ -52,18 +53,18 @@ export async function loadSummaries(db: NoteDb, me: Uint8Array): Promise<TabSumm
 export type DebtLink = ReturnType<typeof useDebtLink>
 
 /** How two phones talk about a debt: the code on the screen, or Nearby. `connect` opens the chosen medium. */
-export function useDebtLink(role: 'payer' | 'receiver') {
+export function useDebtLink(role: 'payer' | 'receiver', asked?: 'qr' | 'nearby') {
   const session = useQrSession()
   const entries = useMemo(() => [qrEntry({ transport: session.transport }), nearbyEntry], [session.transport])
   const { offered, checked, ready, refresh } = useTransports(entries)
   const { chosen, choose, loaded } = useTransportChoice(role, ready)
-  const medium = chosen ?? entries[0]
+  const medium = mediumOf(entries, chosen, asked)
   return {
     session,
     offered,
     chosen: medium.id,
     /** True once the available media and the remembered choice are known, so `connect` opens the right one. */
-    decided: checked && loaded,
+    decided: checked && (asked !== undefined || loaded),
     choose,
     refresh,
     connect: (): Promise<Transport> => medium.start(role),
