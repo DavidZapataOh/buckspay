@@ -1,0 +1,135 @@
+{
+  "entries": {
+    "debts": "Dívidas",
+    "netting": "Cancelar dívidas com amigos"
+  },
+  "index": {
+    "title": "Cancelar dívidas com amigos",
+    "intro": "Uma dívida é um registro entre você e um amigo, confirmado nos dois celulares.",
+    "what": "Cancelar tira as dívidas que andam em círculo: o saldo de ninguém muda.",
+    "host": "Iniciar uma sessão",
+    "join": "Entrar em uma sessão",
+    "recent": "Sessões recentes",
+    "none": "Ainda não há sessões."
+  },
+  "privacy": {
+    "group": "Todos na sessão veem quem está nela. O celular que conduz a sessão vê quem deve a quem.",
+    "relay": "O celular que repassa um pagamento vê de qual reserva ele sai.",
+    "fee": "Pagar a taxa de registro, ou registrar você mesmo, mostra publicamente que sua carteira participou do cancelamento de dívidas.",
+    "hidden": "Nunca se torna público quem deve a quem. O celular que conduz a sessão vê as dívidas entre as pessoas que participam.",
+    "chain": "Publicamente, só aparece quantas pessoas participaram e o total cancelado."
+  },
+  "host": {
+    "title": "Iniciar uma sessão",
+    "askToScan": "Peça aos seus amigos para escanear este código.",
+    "joined_one": "{{count}} entrou",
+    "joined_other": "{{count}} entraram",
+    "start": "Começar a cancelar",
+    "cancel": "Cancelar",
+    "collecting": "Reunindo as dívidas das pessoas que estão aqui…",
+    "oneAtATime": "Conectar um por vez",
+    "failures": {
+      "RadioOff": "Ative o Bluetooth e o Wi-Fi para seus amigos encontrarem este celular.",
+      "Permission": "Permita dispositivos próximos em Ajustes para seus amigos encontrarem este celular.",
+      "Unsupported": "Este celular não pode iniciar uma sessão.",
+      "Busy": "A conexão está ocupada com outra sessão. Feche-a e tente de novo.",
+      "Timeout": "Ninguém se conectou a tempo. Fiquem perto e tentem de novo.",
+      "Rejected": "Um amigo não conseguiu se conectar. Fiquem perto e tentem de novo.",
+      "Error": "A conexão falhou. Chegue mais perto e tente de novo."
+    },
+    "joined_many": "{{count}} entraram"
+  },
+  "join": {
+    "title": "Entrar em uma sessão",
+    "scanHint": "Escaneie o código do celular do seu amigo.",
+    "connecting": "Entrando…",
+    "notFound": "Não encontramos o celular do seu amigo. Fiquem perto e tentem de novo.",
+    "cancel": "Cancelar"
+  },
+  "consent": {
+    "title": "Confira suas dívidas",
+    "before": "Antes",
+    "after": "Depois",
+    "owesMe": "deve a você",
+    "iOwe": "você deve",
+    "due": "Vence em {{date}}",
+    "onDemand": "Quando pedir",
+    "net": "Seu saldo não muda: {{net}}",
+    "expires": "Este resultado vence em {{time}}.",
+    "sign": "Confirmar",
+    "decline": "Recusar"
+  },
+  "states": {
+    "lobby": {
+      "headline": "Peça aos seus amigos para escanear este código.",
+      "body_one": "{{count}} entrou",
+      "body_other": "{{count}} entraram",
+      "body_many": "{{count}} entraram"
+    },
+    "collecting": {
+      "headline": "Reunindo as dívidas das pessoas que estão aqui…"
+    },
+    "connecting": {
+      "headline": "Entrando…"
+    },
+    "consent": {
+      "headline": "Confira suas dívidas",
+      "body": "Este resultado vence em {{time}}."
+    },
+    "waiting": {
+      "headline": "Confirmado",
+      "body": "Você confirmou. Aguardando os outros. Se o resultado não for registrado até {{expires}}, suas dívidas continuam como estavam."
+    },
+    "agreed": {
+      "headline": "Combinado",
+      "body": "Combinado. Fica pronto quando for registrado (antes de {{expires}}). Se não for registrado até {{expires}}, seus pagamentos continuam valendo e as dívidas do círculo voltam."
+    },
+    "recorded": {
+      "headline": "Registrado",
+      "body": "Registrado publicamente. As dívidas canceladas já foram aplicadas."
+    },
+    "void": {
+      "headline": "Não registrado a tempo",
+      "body": "Não foi registrado a tempo. Suas dívidas continuam como estavam e os pagamentos que você fez continuam valendo."
+    },
+    "undecided": {
+      "headline": "Ainda não sabemos",
+      "body": "Não conseguimos mais saber se isto foi registrado. Suas dívidas continuam como estavam até sabermos; as outras mudanças continuam funcionando."
+    },
+    "abandoned": {
+      "headline": "Sessão encerrada",
+      "body": "A sessão acabou antes de você confirmar. Nada mudou."
+    },
+    "nothing": {
+      "headline": "Nada a cancelar",
+      "body": "Não havia nada a cancelar entre estas dívidas."
+    }
+  },
+  "recording": "Registrando…",
+  "proof": {
+    "missing": "A prova ainda não está pronta. O celular que iniciou a sessão continua tentando; registrar precisa dela.",
+    "invalid": "A prova que veio com o resultado não passou na checagem. O resultado continua combinado; pode não ser possível registrá-lo publicamente.",
+    "absent": "O resultado veio sem prova. Continua combinado; pode não ser possível registrá-lo publicamente."
+  },
+  "payFee": "Pagar a taxa, ~0,001 SOL",
+  "remainder": {
+    "title": "O que falta pagar",
+    "intro": "Pagar o resto é um pagamento normal do Buckspay. A dívida diminui de vez quando o pagamento é creditado.",
+    "pay": "Pagar {{amount}} agora",
+    "later": "Depois",
+    "sending": "Enviando…",
+    "released": "Pago, sendo creditado",
+    "settled": "Creditado",
+    "failed": "Este pagamento falhou. A dívida voltou a {{amount}}.",
+    "claim": "Ver o que você pode fazer",
+    "claimNote": "Relatar a perda destrói o depósito de segurança da outra pessoa. Não paga você.",
+    "undecided": "Ainda não sabemos se este pagamento foi creditado. Ele ainda não conta.",
+    "unknown": "Não conseguimos acompanhar este pagamento. Ele ainda não conta.",
+    "settleBy": "Use este pagamento, ou deixe que seja creditado, antes de {{date}} para a dívida diminuir.",
+    "together": "Creditar juntos",
+    "togetherNote": "Creditar juntos mostra publicamente que estes pagamentos foram feitos juntos.",
+    "fewer": "Menos pagamentos",
+    "simplify": "Trocar {{path}} por um único pagamento de {{from}} para {{to}}? Todos no caminho precisam concordar.",
+    "approve": "Aprovar"
+  }
+}

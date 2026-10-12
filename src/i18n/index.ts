@@ -50,5 +50,5 @@ export async function setLanguage(choice: Language | null): Promise<Language> {
 
 /** The text under a key chosen at run time, or undefined when this language has none for it. */
 export function translateIfKnown(key: string, options?: Record<string, unknown>): string | undefined {
-  return i18n.exists(key) ? String(i18n.t(key as never, options as never)) : undefined
+  return i18n.exists(key, options as never) ? String(i18n.t(key as never, options as never)) : undefined
 }

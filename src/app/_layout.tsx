@@ -11,6 +11,7 @@ import { DeviceIdentityProvider, useDeviceIdentity } from '../features/identity/
 import { hasSeenPermissions } from '../features/mesh/first-open'
 import { BUILD_NETWORK } from '../features/network/build-network'
 import { NetworkProvider } from '../features/network/network-provider'
+import { NettingSweep } from '../features/netting/sweep-component'
 import { PayFlowProvider } from '../features/pay/use-pay-flow'
 import { PaymentsProvider } from '../features/payment/payments-provider'
 import { PointModeProvider } from '../features/event/use-point-mode'
@@ -110,6 +111,7 @@ function Routes() {
         </Stack.Protected>
         <Stack.Screen name="reset-identity" />
       </Stack>
+      <NettingSweep />
     </>
   )
 }

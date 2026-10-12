@@ -169,6 +169,30 @@ impl RpcSender for LostAnswers {
     }
 }
 
+/// Forwards every request to the validator, holding each send back for `delay` first.
+pub struct SlowSends {
+    pub inner: HttpSender,
+    pub delay: std::time::Duration,
+    pub sends: AtomicU32,
+}
+
+#[async_trait]
+impl RpcSender for SlowSends {
+    async fn send(&self, request: RpcRequest, params: Value) -> RpcResult<Value> {
+        if request == RpcRequest::SendTransaction {
+            self.sends.fetch_add(1, Ordering::SeqCst);
+            tokio::time::sleep(self.delay).await;
+        }
+        self.inner.send(request, params).await
+    }
+    fn get_transport_stats(&self) -> RpcTransportStats {
+        self.inner.get_transport_stats()
+    }
+    fn url(&self) -> String {
+        self.inner.url()
+    }
+}
+
 /// The first time the gateway makes request `at` (a simulation or a send), lands `first` (a direct settlement of
 /// one of its notes, paid by someone else) before forwarding it; a send is then forwarded without preflight, so it
 /// lands and fails on chain.
@@ -304,6 +328,9 @@ impl Sponsor {
         front_of(self)
     }
     pub fn lost_front(&self) -> Arc<LostAnswers> {
+        front_of(self)
+    }
+    pub fn slow_front(&self) -> Arc<SlowSends> {
         front_of(self)
     }
 

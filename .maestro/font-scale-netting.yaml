@@ -1,0 +1,31 @@
+# Captures the netting screens at the device's current font scale and theme; run with `-e THEME=light` or `-e THEME=dark`.
+# Set the scale first: adb shell settings put system font_scale 2.0 (and 1.0 afterwards).
+appId: xyz.buckspay.app
+---
+- openLink: buckspay://debts/netting
+- extendedWaitUntil:
+    visible:
+      id: netting-index
+    timeout: 20000
+- takeScreenshot: netting-index-${THEME}
+- scrollUntilVisible:
+    element: Recent sessions
+- takeScreenshot: netting-index-end-${THEME}
+- tapOn:
+    id: netting-host
+- extendedWaitUntil:
+    visible:
+      id: netting-qr
+    timeout: 20000
+- takeScreenshot: netting-lobby-${THEME}
+- scrollUntilVisible:
+    element: Cancel
+- takeScreenshot: netting-lobby-end-${THEME}
+- back
+- tapOn:
+    id: netting-join
+- extendedWaitUntil:
+    visible:
+      id: netting-scan-hint
+    timeout: 10000
+- takeScreenshot: netting-join-${THEME}

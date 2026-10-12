@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import { Pressable, View } from 'react-native'
 import { AppText } from '../../components/app-text'
 import { Screen } from '../../components/screen'
-
+import { NettingEntries } from '../netting/entries'
 import type { ActivityRow } from '../notes/activity'
 import { activityId, rowParts, sentence } from './format'
 
@@ -42,6 +42,7 @@ export function ActivityList({
   return (
     <Screen testID="activity">
       <AppText variant="headline">{t('payment:activity.title')}</AppText>
+      <NettingEntries />
       {rewards ? (
         <Pressable
           testID="rewards-entry"

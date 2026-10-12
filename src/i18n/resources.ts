@@ -13,6 +13,7 @@ import enIdentity from './locales/en/identity.json'
 import enLock from './locales/en/lock.json'
 import enSettlement from './locales/en/settlement.json'
 import enSettings from './locales/en/settings.json'
+import enNetting from './locales/en/netting.json'
 import esCommon from './locales/es/common.json'
 import esPayment from './locales/es/payment.json'
 import esDebts from './locales/es/debts.json'
@@ -28,6 +29,7 @@ import esIdentity from './locales/es/identity.json'
 import esLock from './locales/es/lock.json'
 import esSettlement from './locales/es/settlement.json'
 import esSettings from './locales/es/settings.json'
+import esNetting from './locales/es/netting.json'
 import ptCommon from './locales/pt/common.json'
 import ptPayment from './locales/pt/payment.json'
 import ptDebts from './locales/pt/debts.json'
@@ -43,6 +45,7 @@ import ptIdentity from './locales/pt/identity.json'
 import ptLock from './locales/pt/lock.json'
 import ptSettlement from './locales/pt/settlement.json'
 import ptSettings from './locales/pt/settings.json'
+import ptNetting from './locales/pt/netting.json'
 
 export const resources = {
   en: {
@@ -61,6 +64,7 @@ export const resources = {
     lock: enLock,
     settlement: enSettlement,
     settings: enSettings,
+    netting: enNetting,
   },
   es: {
     common: esCommon,
@@ -78,6 +82,7 @@ export const resources = {
     lock: esLock,
     settlement: esSettlement,
     settings: esSettings,
+    netting: esNetting,
   },
   pt: {
     common: ptCommon,
@@ -95,6 +100,7 @@ export const resources = {
     lock: ptLock,
     settlement: ptSettlement,
     settings: ptSettings,
+    netting: ptNetting,
   },
 } as const
 

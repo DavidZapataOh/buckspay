@@ -1,0 +1,133 @@
+{
+  "entries": {
+    "debts": "Debts",
+    "netting": "Cancel debts with friends"
+  },
+  "index": {
+    "title": "Cancel debts with friends",
+    "intro": "A debt is a record between you and a friend, confirmed on both phones.",
+    "what": "Cancelling removes debts that go in a circle: nobody's balance changes.",
+    "host": "Start a session",
+    "join": "Join a session",
+    "recent": "Recent sessions",
+    "none": "No sessions yet."
+  },
+  "privacy": {
+    "group": "Everyone in the session sees who is in it. The phone that runs the session sees who owes whom.",
+    "relay": "The phone that passes a payment on sees which reserve it is paid from.",
+    "fee": "Paying the recording fee, or recording it yourself, shows publicly that your wallet took part in cancelling debts.",
+    "hidden": "Who owes whom is never made public. The phone that runs the session sees the debts among the people in it.",
+    "chain": "Publicly, only how many people took part and the total cancelled are shown."
+  },
+  "host": {
+    "title": "Start a session",
+    "askToScan": "Ask your friends to scan this code.",
+    "joined_one": "{{count}} joined",
+    "joined_other": "{{count}} joined",
+    "start": "Start cancelling",
+    "cancel": "Cancel",
+    "collecting": "Collecting debts from the people here…",
+    "oneAtATime": "Connect one at a time",
+    "failures": {
+      "RadioOff": "Turn on Bluetooth and Wi-Fi so friends can find this phone.",
+      "Permission": "Allow nearby devices in Settings so friends can find this phone.",
+      "Unsupported": "This phone can't start a session.",
+      "Busy": "The connection is busy with another session. Close it and try again.",
+      "Timeout": "Nobody connected in time. Stay close and try again.",
+      "Rejected": "A friend couldn't connect. Stay close and try again.",
+      "Error": "The connection failed. Move closer and try again."
+    }
+  },
+  "join": {
+    "title": "Join a session",
+    "scanHint": "Scan the code on your friend's phone.",
+    "connecting": "Joining…",
+    "notFound": "Couldn't find your friend's phone. Stay close and try again.",
+    "cancel": "Cancel"
+  },
+  "consent": {
+    "title": "Check your debts",
+    "before": "Before",
+    "after": "After",
+    "owesMe": "owes you",
+    "iOwe": "you owe",
+    "due": "Due {{date}}",
+    "onDemand": "On demand",
+    "net": "Your balance doesn't change: {{net}}",
+    "expires": "This result expires {{time}}.",
+    "sign": "Confirm",
+    "decline": "Decline"
+  },
+  "states": {
+    "lobby": {
+      "headline": "Ask your friends to scan this code.",
+      "body_one": "{{count}} joined",
+      "body_other": "{{count}} joined"
+    },
+    "collecting": {
+      "headline": "Collecting debts from the people here…"
+    },
+    "connecting": {
+      "headline": "Joining…"
+    },
+    "consent": {
+      "headline": "Check your debts",
+      "body": "This result expires {{time}}."
+    },
+    "waiting": {
+      "headline": "Confirmed",
+      "body": "You confirmed. Waiting for the others. If the result isn't recorded by {{expires}}, your debts stay as they were."
+    },
+    "agreed": {
+      "headline": "Agreed",
+      "body": "Agreed. It's done once recorded (before {{expires}}). If it isn't recorded by {{expires}}, your payments still count and the circle's debts come back."
+    },
+    "recorded": {
+      "headline": "Recorded",
+      "body": "Recorded publicly. The cancelled debts are applied."
+    },
+    "void": {
+      "headline": "Not recorded in time",
+      "body": "It wasn't recorded in time. Your debts stay as they were, and any payments you made still count."
+    },
+    "undecided": {
+      "headline": "We can't tell yet",
+      "body": "We can no longer tell whether this was recorded. Your debts stay as they were until we can; other changes still work."
+    },
+    "abandoned": {
+      "headline": "Session ended",
+      "body": "The session ended before you confirmed. Nothing changed."
+    },
+    "nothing": {
+      "headline": "Nothing to cancel",
+      "body": "There was nothing to cancel among these debts."
+    }
+  },
+  "recording": "Recording…",
+  "proof": {
+    "missing": "The proof isn't ready. The phone that started the session keeps trying; recording needs it.",
+    "invalid": "The proof that came with the result didn't check out. The result is still agreed; recording it publicly may not be possible.",
+    "absent": "The result came without a proof. It is still agreed; recording it publicly may not be possible."
+  },
+  "payFee": "Pay the fee, about 0.001 SOL",
+  "remainder": {
+    "title": "What is left to pay",
+    "intro": "Paying the rest is a normal Buckspay payment. The debt goes down for good once the payment is credited.",
+    "pay": "Pay {{amount}} now",
+    "later": "Later",
+    "sending": "Sending…",
+    "released": "Paid, being credited",
+    "settled": "Credited",
+    "failed": "This payment failed. The debt is back to {{amount}}.",
+    "claim": "See what you can do",
+    "claimNote": "Reporting the loss destroys the other person's security deposit. It does not pay you.",
+    "undecided": "We can't tell yet whether this payment was credited. It doesn't count yet.",
+    "unknown": "We couldn't follow this payment. It doesn't count yet.",
+    "settleBy": "Use this payment, or let it be credited, before {{date}} for the debt to go down.",
+    "together": "Credit together",
+    "togetherNote": "Crediting together shows publicly that these payments were made together.",
+    "fewer": "Fewer payments",
+    "simplify": "Replace {{path}} with one payment {{from}} → {{to}}? Everyone on the path has to agree.",
+    "approve": "Approve"
+  }
+}

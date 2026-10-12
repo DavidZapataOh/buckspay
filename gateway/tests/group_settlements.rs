@@ -264,6 +264,7 @@ async fn two_concurrent_group_requests_send_each_note_once() {
     let sponsor = Sponsor::on_rpc(through(front), caps()).await;
     let ns = notes(&sponsor, 3).await;
     let all: Vec<&Note> = ns.iter().map(|n| &n.0).collect();
+    let before = sponsor.lost_front().sends.load(Ordering::SeqCst);
     let (a, b) = tokio::join!(group(&sponsor, &all), group(&sponsor, &all));
     let sent: Vec<u64> = [indexes(&a.1).concat(), indexes(&b.1).concat()].concat();
     for i in 0..3u64 {
@@ -275,7 +276,36 @@ async fn two_concurrent_group_requests_send_each_note_once() {
             b.1
         );
     }
+    assert_eq!(
+        sponsor.lost_front().sends.load(Ordering::SeqCst) - before,
+        (indexes(&a.1).len() + indexes(&b.1).len()) as u32,
+        "a request sent a note the other one was sending"
+    );
     assert_eq!(sponsor.gateway.settlements.failed_fees(), 0);
+}
+
+#[tokio::test]
+async fn a_request_that_arrives_while_another_is_sending_leaves_its_notes_alone() {
+    let front = SlowSends {
+        inner: http(),
+        delay: std::time::Duration::from_millis(2_500),
+        sends: AtomicU32::new(0),
+    };
+    let sponsor = Sponsor::on_rpc(through(front), caps()).await;
+    let ns = notes(&sponsor, 2).await;
+    let all: Vec<&Note> = ns.iter().map(|n| &n.0).collect();
+    let before = sponsor.slow_front().sends.load(Ordering::SeqCst);
+    let (a, b) = tokio::join!(group(&sponsor, &all), async {
+        tokio::time::sleep(std::time::Duration::from_millis(1_200)).await;
+        group(&sponsor, &all).await
+    });
+    assert_eq!(indexes(&a.1).concat(), vec![0, 1], "{}", a.1);
+    assert!(indexes(&b.1).is_empty(), "{}", b.1);
+    assert_eq!(
+        sponsor.slow_front().sends.load(Ordering::SeqCst) - before,
+        1,
+        "the second request sent notes the first one was sending"
+    );
 }
 
 #[tokio::test]

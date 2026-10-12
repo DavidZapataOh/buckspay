@@ -5,6 +5,8 @@ import type { ActivityRow } from '../notes/activity'
 import { ActivityList } from './activity'
 import { activityId, parseActivityId, sentence } from './format'
 
+const { push } = vi.hoisted(() => ({ push: vi.fn() }))
+vi.mock('expo-router', () => ({ router: { push } }))
 vi.mock('react-native', () => import('../../test-support/react-native'))
 vi.mock('uniwind', () => ({
   useCSSVariable: (name: string | string[]) => (Array.isArray(name) ? name.map(() => '#000000') : '#000000'),
@@ -96,7 +98,10 @@ describe('ActivityList', () => {
       create(<ActivityList rows={[row({})]} symbol="USDC" decimals={6} now={NOW} onOpen={onOpen} />),
     )
     const press = renderer.root.findAll(
-      (node) => node.props.accessibilityRole === 'button' && typeof node.type === 'string',
+      (node) =>
+        node.props.accessibilityRole === 'button' &&
+        typeof node.type === 'string' &&
+        !String(node.props.testID).endsWith('-entry'),
     )[0]
     await act(async () => press.props.onPress())
     expect(onOpen).toHaveBeenCalledWith(activityId(row({})))
@@ -164,5 +169,28 @@ describe('activity ids', () => {
     expect(entry.props.accessibilityRole).toBe('button')
     await act(async () => entry.props.onPress())
     expect(onOpen).toHaveBeenCalledOnce()
+  })
+})
+
+describe('netting entries', () => {
+  it('shows_the_debts_and_net_debts_entries_under_the_title_and_opens_them', async () => {
+    const renderer = await mount(<ActivityList rows={[]} symbol="USDC" decimals={6} now={NOW} onOpen={() => {}} />)
+    const find = (id: string) => renderer.root.findAll((n) => n.props.testID === id && typeof n.type === 'string')[0]
+    const [debts, netting] = [find('debts-entry'), find('netting-entry')]
+    expect(debts.props.accessibilityLabel).toBe('Debts')
+    expect(netting.props.accessibilityLabel).toBe('Cancel debts with friends')
+    expect(String(debts.props.className)).toMatch(/min-h-14/)
+    await act(async () => {
+      debts.props.onPress()
+      netting.props.onPress()
+    })
+    expect(push.mock.calls.map((c) => c[0])).toEqual(['/debts', '/debts/netting'])
+  })
+
+  it('keeps_the_existing_rows_after_the_two_entries', async () => {
+    const renderer = await mount(
+      <ActivityList rows={[row({})]} symbol="USDC" decimals={6} now={NOW} onOpen={() => {}} />,
+    )
+    expect(texts(renderer.root).some((line) => line.startsWith('Paid 5.00 USDC'))).toBe(true)
   })
 })
